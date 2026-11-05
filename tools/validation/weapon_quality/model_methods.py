@@ -9,6 +9,7 @@ import unittest
 MODULES = (
     'test_breakup', 'test_breakup_caps', 'test_glb_publication', 'test_producer_publication',
     'test_liquid', 'test_liquid_vessels', 'test_liquid_vessel_inputs', 'test_liquid_vessel_packing',
+    'test_liquid_partial_support',
     'test_liquid_pack_equivalence', 'test_liquid_owner_processes', 'test_piece_passivity',
     'test_piece_publication', 'test_runtime_piece_epoch',
     'test_generation_input_epoch', 'test_method_backends',

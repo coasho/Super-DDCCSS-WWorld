@@ -1,398 +1,314 @@
-# Per-model guidance theory and physical applicability
+# Per-model measured guidance method and applicability
 
-This source-bound package contains 24 distinct model projections. It preserves actual native geometry, mass/CG/inertia, receiver capability, actuator limits and engine inputs. It does not admit current numerical/native encounter acceptance, hardware calibration or superiority over DCS. Historical executed comparisons remain in the JSON under their original source/card epochs.
+This package documents the actual shared `fsim.guidance.measured_pn.v2` software method for all 24 selected AAM configurations. It does not invent 24 independent guidance laws or claim calibrated hardware performance. The correction candidate has not been executed natively. Existing `passed`, numerical/native acceptance and calibration flags remain unadmitted.
 
-## Governing method
+## Exact shared law
 
-`a_PN=N*V_scale*(LOS_dot projected perpendicular own velocity); gravity compensation added before total maxG clipping`
+- `h=unit(v_own_estimated), u=unit(up), g0=9.80665m/s2; P_h(a)=a-h*(h dot a). unit(0)=0 in the native numerical contract.`
+- `For a tracking admitted measurement: l=track.direction, d=track.directionRate. If measurementTimeS is present, l=unit(l+d*(frame.timeS-track.sampleTimeS)); derivative d is not re-estimated by guidance.`
+- `c=norm(v_own_estimated) when rangeRateMs is absent; otherwise c=max(0,-rangeRateMs), including zero/opening clamp with no own-speed fallback.`
+- `Tracking steering is zero when rateAvailable=false, otherwise a_s=N*c*((l cross d) cross h)=N*c*(d*(l dot h)-l*(d dot h)). This is not generally N*c*P_h(d).`
+- `With a positive measured c and measured range, timeToGo=range/c; absent/nonpositive measured closing leaves timeToGo unavailable, even when the bearing branch uses own speed.`
+- `Permitted midcourse: p_est=e.position+e.velocity*(frame.timeS-e.sampleTimeS), r=p_est-own_position, R=norm(r), l_r=unit(r), v_rel=e.velocity-own_velocity, c_r=-v_rel dot l_r.`
+- `For inertialMidcourse=true, no tracked measurement, R>0 and c_r>0: a_s=N*c_r*(((l_r cross v_rel)/R) cross h); timeToGo=R/c_r. Otherwise midcourse PN is zero.`
+- `Only when the reported phase is Midcourse and inertialMidcourse=true: a_s+=sin(clamp(loftRad,0,0.7))*loftAccelerationG*g0*(u-h*(u dot h)); a Lost terminal latch suppresses loft, not permitted inertial estimate fallback.`
+- `z=P_h(a_s)+g0*u; G=maxG*g0; command=z when norm(z)<=G, otherwise command=G*z/norm(z). Gravity is included before the total-vector bound.`
+- `terminal_next=terminal_previous OR (engineering.version==3 AND tracking); phase=Homing if tracking, else Lost if terminal_next or retained track localId, else Midcourse if estimate present, else Seeking. Invalid calls return default Unguided and do not update the latch; resetGuidanceStateV1 clears it.`
+- `supported=result.supported AND (seeker==semi_active_radar OR launcherUpdates); terminal measurements never use hidden target position/velocity. A launcher estimate is a separate permitted input, not a terminal range-rate substitute.`
 
-`V_scale=positive measured closing when available; otherwise own speed. Range/closing availability is a sensor capability, not inferred target truth`
+The scalar Lagrange identity is the independent mathematical reference. Replacing the nested cross with a simple projection of LOS rate is valid only under additional geometric alignment conditions. The documented total limit includes gravity; it is a demand bound, not measured flight capability.
 
-`F_required=m*a; LOSrate_saturation≈g0*sqrt(maxG^2-1)/(N*V_scale) for orthogonal gravity and steering`
+## State, inputs, domains and assumptions
 
-## State, I/O and execution
+- result.valid=true, finite own position/velocity/up, nonnegative finite own age, finite maxG>0 and finite navigationGain>2 are required. V3 own absolute frame time must be finite and nonnegative.
+- For V3 tracking: a track, nonzero localId, finite nonnegative original track sampleTime<=frame.time, finite nonzero direction, finite directionRate even when rate unavailable, finite admitted optional range>=minimumRange and finite optional rangeRate are required.
+- Normal PN interpretation assumes nonzero forward own velocity and admitted unit bearing/tangent rate; unit(0)=0 and unnormalised no-measurementTime inputs are numerical interface branches, not physical flight validity claims.
+- The validity checks do not impose a new freshness window. Receiver delivery, scan completion, association, noise, covariance, rate availability and own-navigation synchronization remain upstream native responsibilities.
+- The prediction branch is enabled by measurementTimeS presence and uses track.sampleTimeS; it does not use measurementTimeS value or deliveredTimeS as a replacement original epoch.
+- Only the enabled inertialMidcourse branch validates its estimate as finite with 0<=sampleTime<=frame.time. Estimate presence determines phase even when inertialMidcourse=false, but that disabled branch does not validate/use the estimate for steering or loft.
+- R=0 or nonclosing inertial estimate produces no PN; eligible Midcourse loft can remain. Loss of tracking is not a commanded zero-acceleration state because gravity and possibly permitted inertial fallback remain.
+- G limits the demand, not realized aerodynamic/actuator authority. Plant mass/inertia, finite fins/TVC and directional autopilot realization are separate downstream mechanisms and are not proofs of delayed guidance stability.
+- Shared N and game receiver/model inputs remain engineering assumptions with the original nonzero/unquantified uncertainty records. This is neither OEM identification, hardware calibration nor a claim of 24 distinct guidance laws.
 
-Input: admitted measured LOS/rate and optional measured range/range-rate with their original sample epochs, own estimated pose/velocity, permitted launcher support and own age. Output: SI ECEF acceleration demand, phase/support/track status. Terminal-acquisition latch is reset through the versioned guidance reset interface. Prediction uses original measurement time once; no referee target state enters terminal PN.
+The only persistent state in this provider is the terminal-acquisition latch. Track samples, receiver quality, covariance, original/receive times, own-navigation state and permitted launcher estimates remain input/producer responsibilities. Absolute sample time is not replaced with the output publication time. `timeToActiveS` is copied when available; it is not a new guidance prediction.
 
-## Assumptions and validity
+## Sensitivity and failure branches
 
-- Finite receiver cadence/processing/scan aperture and gimbal dynamics precede guidance; tracked LOS and LOS rate are correlated estimates
-- Noise, missed exposure and target maneuver affect LOS_dot. Shared N is an engineering assumption, not identified variant guidance law
-- Gravity/loft/saturation coupling and capability-dependent V_scale invalidate one common closing-speed benchmark for all24
+- For unsaturated tracking at a fixed admitted l,d,h and capability scale c: da_s/dN=c*((l cross d) cross h), da_s/dc=N*((l cross d) cross h). rateAvailable=false makes both steering sensitivities zero.
+- c=max(0,-rangeRate): derivative is -1 for strictly negative radial velocity and zero for strictly positive radial velocity; the zero boundary is nonsmooth and must be tested as its own branch.
+- For z outside the total bound, command Jacobian versus z is G/norm(z)*(I-z*z^T/norm(z)^2); inside it is I. Pure radial rescaling in a saturated direction can leave command unchanged, so parameter perturbation is not automatically nonzero response.
+- Epoch projection l(tau)=unit(l0+d*tau) has derivative (I-l*l^T)*d/norm(l0+d*tau). With tangent d at tau=0, the derivative of (l cross d) can vanish; do not invent first-order delay sensitivity or substitute Ts/2+processing for an actual capture epoch.
+- Midcourse loft is zero for the actual zero-loft cards and after a terminal Lost latch. Changing launcherUpdates alone does not create inertialMidcourse or a measured terminal range/range-rate.
 
-The declared analysis point is 500m/s at 6000m, zero incidence/sideslip, standard tropospheric air and launch/half/depleted propellant states. It is an offline projection of actual serialized equations. Positive local poles would be a defect indicator; negative local poles do not establish finite delayed nonlinear encounter stability. The source parameter basis and uncertainty are preserved; the +/-10% sweeps are sensitivity, not fitted confidence intervals.
+The JSON gives -10%, nominal and +10% algebraic responses for each model using its own archived LOS/rate, capability scale and configuration. It labels whether a nonzero command response actually occurs. These perturbations change no maintained card, gain, sensor, source, scene or trajectory. Original parameter uncertainty and basis records remain unchanged.
 
-## Primary references
+## Per-model operating projections
 
-- [Palumbo, Blauwkamp and Lloyd, Basic Principles of Homing Guidance, JHU APL Technical Digest 29(1), 2010](https://secwww.jhuapl.edu/techdigest/content/techdigest/pdf/V29-N01/29-01-Palumbo_Principles_Rev2018.pdf): PN LOS reconstruction, sensor availability and finite lateral-acceleration realization; not OEM missile gains
+The archive is `build/architecture-reviews/sim-m03-current-20261104/full24-current-models/<model>/`. Its captures precede subsequent receiver/own-frame repairs, have `admission_eligible=false` and an empty producer source epoch. These are explicitly historical illustrations. Analysis-source/card hashes record what this authoring read; they do not establish those archived producers.
 
-## Actual model deltas
+Counts and ranges below use actual archived tracking publication samples. Published navigation velocity, original track epoch and control demand have different epochs; no exact native guidance command residual is asserted from them. The algebraic example fixes local up to +z and combines archived LOS/rate with published navigation velocity. It is a disclosed mathematical projection, not the actual ECEF decision or a new trajectory. The prior 500m/s mass/authority/pole and heuristic Ts/2+processing examples are retained only in `historical_theory_projection`, explicitly superseded.
 
-| Model | Native mass kg | Jyy kg m2 | Mechanism | Pitch local max real pole 1/s |
-|---|---:|---:|---|---:|
-| aim-120c | 161.5 | 180.688 | fsim.guidance.measured_pn.v2 | -4.1654 |
-| aim-120d | 161.5 | 180.689 | fsim.guidance.measured_pn.v2 | -4.16195 |
-| aim-7m | 225 | 248.99 | fsim.guidance.measured_pn.v2 | -3.33602 |
-| aim-9m | 85.5 | 58.8201 | fsim.guidance.measured_pn.v2 | -1.6915 |
-| aim-9x | 84 | 63.9021 | fsim.guidance.measured_pn.v2 | -2.13191 |
-| asraam | 88 | 61.8117 | fsim.guidance.measured_pn.v2 | -2.49357 |
-| iris-t | 87.4 | 62.9245 | fsim.guidance.measured_pn.v2 | -1.79029 |
-| magic-2 | 90 | 56.8461 | fsim.guidance.measured_pn.v2 | -1.8692 |
-| meteor | 190 | 217.246 | fsim.guidance.measured_pn.v2 | -4.21734 |
-| mica-em | 112 | 89.8958 | fsim.guidance.measured_pn.v2 | -2.23237 |
-| mica-ir | 112 | 89.8958 | fsim.guidance.measured_pn.v2 | -2.3158 |
-| pl-10 | 89 | 66.9008 | fsim.guidance.measured_pn.v2 | -2.5 |
-| pl-12 | 180 | 232.194 | fsim.guidance.measured_pn.v2 | -3.27688 |
-| pl-15 | 210 | 280.632 | fsim.guidance.measured_pn.v2 | -4.77315 |
-| pl-8 | 115 | 83.5867 | fsim.guidance.measured_pn.v2 | -1.66724 |
-| r-27er | 350 | 667.91 | fsim.guidance.measured_pn.v2 | -3.79635 |
-| r-27et | 348 | 585.959 | fsim.guidance.measured_pn.v2 | -3.19681 |
-| r-27r | 253 | 351.753 | fsim.guidance.measured_pn.v2 | -5.51097 |
-| r-27t | 253 | 304.325 | fsim.guidance.measured_pn.v2 | -4.31654 |
-| r-37m | 510 | 702.132 | fsim.guidance.measured_pn.v2 | -6.00102 |
-| r-60m | 45 | 17.0837 | fsim.guidance.measured_pn.v2 | -2.91192 |
-| r-73 | 105 | 75.2869 | fsim.guidance.measured_pn.v2 | -5.19525 |
-| r-77m | 190 | 218.423 | fsim.guidance.measured_pn.v2 | -3.04367 |
-| super-530d | 270 | 325.63 | fsim.guidance.measured_pn.v2 | -3.97841 |
+| Model | Receiver | maxG | Inertial / updates | Loft deg | Tracked / rate / radial | Published nav speed m/s | Measured closing m/s |
+|---|---|---:|---|---:|---|---|---|
+| aim-120c | rf_signal.v1 | 35 | 1 / 1 | 20 | 73 / 69 / 73 | 471.265..690.234 | 712.694..938.278 |
+| aim-120d | rf_signal.v1 | 35 | 1 / 1 | 20 | 72 / 70 / 72 | 526.6..696.971 | 766.297..943.936 |
+| aim-7m | rf_signal.v1 | 35 | 0 / 0 | 20 | 153 / 152 / 0 | 257.545..607.094 | unavailable |
+| aim-9m | thermal_conscan_reticle.v1 | 40 | 0 / 0 | 0 | 9 / 3 / 0 | 462.289..697.229 | unavailable |
+| aim-9x | thermal_image.v1 | 40 | 0 / 0 | 0 | 149 / 148 / 0 | 259.099..970.167 | unavailable |
+| asraam | thermal_image.v1 | 40 | 1 / 0 | 0 | 125 / 124 / 0 | 270.752..1026.51 | unavailable |
+| iris-t | thermal_image.v1 | 40 | 0 / 0 | 0 | 147 / 146 / 0 | 259.586..1003.87 | unavailable |
+| magic-2 | thermal_conscan_reticle.v1 | 40 | 0 / 0 | 0 | 15 / 11 / 0 | 449.481..837.52 | unavailable |
+| meteor | rf_signal.v1 | 35 | 1 / 1 | 20 | 80 / 76 / 80 | 431.251..565.888 | 673.526..815.528 |
+| mica-em | rf_signal.v1 | 35 | 1 / 1 | 20 | 61 / 57 / 61 | 532.237..818.352 | 773.364..1068.89 |
+| mica-ir | thermal_dual_image.v1 | 40 | 1 / 1 | 0 | 151 / 150 / 0 | 259.274..818.19 | unavailable |
+| pl-10 | thermal_image.v1 | 40 | 1 / 0 | 0 | 149 / 148 / 0 | 259.281..973.668 | unavailable |
+| pl-12 | rf_signal.v1 | 35 | 1 / 1 | 20 | 99 / 94 / 99 | 259.656..729.665 | 501.625..978.656 |
+| pl-15 | rf_signal.v1 | 35 | 1 / 1 | 20 | 108 / 103 / 108 | 258.193..756.807 | 501.264..1007.6 |
+| pl-8 | thermal_conscan_reticle.v1 | 40 | 0 / 0 | 0 | 9 / 5 / 0 | 541.379..796.66 | unavailable |
+| r-27er | rf_signal.v1 | 35 | 1 / 1 | 20 | 155 / 154 / 0 | 256.709..604.727 | unavailable |
+| r-27et | thermal_conscan_reticle.v1 | 40 | 0 / 0 | 0 | 41 / 35 / 0 | 256.762..598.782 | unavailable |
+| r-27r | rf_signal.v1 | 35 | 1 / 1 | 20 | 160 / 159 / 0 | 254.469..634.103 | unavailable |
+| r-27t | thermal_conscan_reticle.v1 | 40 | 0 / 0 | 0 | 18 / 13 / 0 | 254.481..598.926 | unavailable |
+| r-37m | rf_signal.v1 | 35 | 1 / 1 | 20 | 155 / 154 / 155 | 255.004..652.94 | 500.877..898.313 |
+| r-60m | thermal_conscan_reticle.v1 | 40 | 0 / 0 | 0 | 6 / 3 / 0 | 806.69..810.502 | unavailable |
+| r-73 | thermal_conscan_reticle.v1 | 40 | 0 / 0 | 0 | 23 / 14 / 0 | 469.214..808.487 | unavailable |
+| r-77m | rf_signal.v1 | 35 | 1 / 1 | 20 | 99 / 95 / 99 | 259.135..814.074 | 501.491..1064.77 |
+| super-530d | rf_signal.v1 | 35 | 0 / 0 | 20 | 151 / 150 / 0 | 260.333..623.395 | unavailable |
 
 ### aim-120c
 
-Parameter projection SHA-256: `fbf3c62b35fd77a9df5a230dc4132a924207042189a267a4034eaa6325131c9f`. Plant SHA-256: `550d9dc2489bc5356abea09b35f859ca9a9ab76a61e48a32e6f49af1763591d8`.
-
-- radar measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass161.499989kg requires8478.74944N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=20deg, maxG=35, updates=1; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 47.25 / 52.5 / 57.75 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 7630.8745 / 8478.74944 / 9326.62439 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.019 / 0.02 / 0.021 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=rf_signal.v1; measurement_family=radar; seeker=active_radar.
+- Unchanged N=3.5, total maxG=35, loft=20deg, loftAccelerationG=2, inertialMidcourse=True, launcherUpdates=True.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 73 tracked packets with radial availability and 69 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `13.399999999999963s`, publication `13.466666666666629s`; disclosed capability-scale projection `780.064217m/s`. Original guidance parameter SHA `fbf3c62b35fd77a9df5a230dc4132a924207042189a267a4034eaa6325131c9f` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### aim-120d
 
-Parameter projection SHA-256: `177b6ca4c80f31ad9ed7fd902e4c28cf2ee19ec4103225cc2c6f22f65a6c079c`. Plant SHA-256: `3ce42309096c29790d6d45eb6098b3e35b31b36b8eca4790cf187f95d636c7a5`.
-
-- radar measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass161.499998kg requires8478.74992N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=20deg, maxG=35, updates=1; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 47.25 / 52.5 / 57.75 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 7630.87493 / 8478.74992 / 9326.62491 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.019 / 0.02 / 0.021 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=rf_signal.v1; measurement_family=radar; seeker=active_radar.
+- Unchanged N=3.5, total maxG=35, loft=20deg, loftAccelerationG=2, inertialMidcourse=True, launcherUpdates=True.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 72 tracked packets with radial availability and 70 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `13.333333333333297s`, publication `13.399999999999963s`; disclosed capability-scale projection `771.394211m/s`. Original guidance parameter SHA `177b6ca4c80f31ad9ed7fd902e4c28cf2ee19ec4103225cc2c6f22f65a6c079c` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### aim-7m
 
-Parameter projection SHA-256: `55b90d42b0babe8ddb5227a2e9168b0a542647df9fbc89bd277cbf96a55b46ab`. Plant SHA-256: `75c07167eba4f3be6fa48df961b72c09c07119ed94b9da73244da936e1b6f160`.
-
-- bearing measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass225kg requires7875N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=20deg, maxG=35, updates=0; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 31.5 / 35 / 38.5 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 7087.5 / 7875 / 8662.5 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.019 / 0.02 / 0.021 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=rf_signal.v1; measurement_family=bearing; seeker=semi_active_radar.
+- Unchanged N=3.5, total maxG=35, loft=20deg, loftAccelerationG=2, inertialMidcourse=False, launcherUpdates=False.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 0 tracked packets with radial availability and 152 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `11.899999999999968s`, publication `11.966666666666635s`; disclosed capability-scale projection `261.154039m/s`. Original guidance parameter SHA `55b90d42b0babe8ddb5227a2e9168b0a542647df9fbc89bd277cbf96a55b46ab` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### aim-9m
 
-Parameter projection SHA-256: `51a1799852ff2f44a56736ea61f9252115338b35fc0a856b8d4c010a7de6ab1b`. Plant SHA-256: `2519f562e95ec92b6c69bd6a6f6267b28d269c61164fd0bfe777e13d6bd08f84`.
-
-- bearing measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass85.499989kg requires2992.49962N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=0deg, maxG=40, updates=0; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 31.5 / 35 / 38.5 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 2693.24965 / 2992.49962 / 3291.74958 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.0227699112 / 0.0237699112 / 0.0247699112 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=thermal_conscan_reticle.v1; measurement_family=bearing; seeker=infrared.
+- Unchanged N=3.5, total maxG=40, loft=0deg, loftAccelerationG=2, inertialMidcourse=False, launcherUpdates=False.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 0 tracked packets with radial availability and 3 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `13.160759944418359s`, publication `13.233333333333297s`; disclosed capability-scale projection `489.097632m/s`. Original guidance parameter SHA `51a1799852ff2f44a56736ea61f9252115338b35fc0a856b8d4c010a7de6ab1b` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### aim-9x
 
-Parameter projection SHA-256: `b233c0b68de448c6bcdc8423472f9035f2abe959396f71a546b3995ba5da7dbb`. Plant SHA-256: `aca7c078fce2c1bef2c78273b0497a00dd90b1edd5514be72fe8108e95625688`.
-
-- bearing measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass84.0000044kg requires2940.00016N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=0deg, maxG=40, updates=0; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 31.5 / 35 / 38.5 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 2646.00014 / 2940.00016 / 3234.00017 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.019 / 0.02 / 0.021 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=thermal_image.v1; measurement_family=bearing; seeker=imaging_infrared.
+- Unchanged N=3.5, total maxG=40, loft=0deg, loftAccelerationG=2, inertialMidcourse=False, launcherUpdates=False.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 0 tracked packets with radial availability and 148 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `11.466666666666637s`, publication `11.533333333333303s`; disclosed capability-scale projection `267.674549m/s`. Original guidance parameter SHA `b233c0b68de448c6bcdc8423472f9035f2abe959396f71a546b3995ba5da7dbb` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### asraam
 
-Parameter projection SHA-256: `1e3cd5eef54af36643370af822f17b3bf94cfdd97ba7815340d6d9263b26db18`. Plant SHA-256: `a7c76134c340f7e36c0000fd1f2ecde32f6ae4c2a40b1a111caec03ba163c699`.
-
-- bearing measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass87.9999951kg requires3079.99983N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=0deg, maxG=40, updates=0; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 31.5 / 35 / 38.5 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 2771.99985 / 3079.99983 / 3387.99981 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.019 / 0.02 / 0.021 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=thermal_image.v1; measurement_family=bearing; seeker=imaging_infrared.
+- Unchanged N=3.5, total maxG=40, loft=0deg, loftAccelerationG=2, inertialMidcourse=True, launcherUpdates=False.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 0 tracked packets with radial availability and 124 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `11.466666666666637s`, publication `11.533333333333303s`; disclosed capability-scale projection `289.63223m/s`. Original guidance parameter SHA `1e3cd5eef54af36643370af822f17b3bf94cfdd97ba7815340d6d9263b26db18` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### iris-t
 
-Parameter projection SHA-256: `04143ce3d884319bfcdb524f49fb80902cf10d63ba05f38f2f6705c2d289ea52`. Plant SHA-256: `a0f0853283b555c6db8fd9c94bc50b20dec29ca3727611a2200413381022aa04`.
-
-- bearing measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass87.4000149kg requires3059.00052N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=0deg, maxG=40, updates=0; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 31.5 / 35 / 38.5 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 2753.10047 / 3059.00052 / 3364.90057 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.019 / 0.02 / 0.021 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=thermal_image.v1; measurement_family=bearing; seeker=imaging_infrared.
+- Unchanged N=3.5, total maxG=40, loft=0deg, loftAccelerationG=2, inertialMidcourse=False, launcherUpdates=False.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 0 tracked packets with radial availability and 146 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `11.466666666666637s`, publication `11.533333333333303s`; disclosed capability-scale projection `268.585944m/s`. Original guidance parameter SHA `04143ce3d884319bfcdb524f49fb80902cf10d63ba05f38f2f6705c2d289ea52` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### magic-2
 
-Parameter projection SHA-256: `e633631307113c387fd43eb1e99431e9eebd8bb1e93020a7c2f4ccf6e1c94353`. Plant SHA-256: `dd3d2519d2b59d3d3a5b3e6cff82ac9aeaf665ba84999682cb5ab154af5f9bab`.
-
-- bearing measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass90.00002kg requires3150.0007N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=0deg, maxG=40, updates=0; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 31.5 / 35 / 38.5 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 2835.00063 / 3150.0007 / 3465.00077 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.0227699112 / 0.0237699112 / 0.0247699112 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=thermal_conscan_reticle.v1; measurement_family=bearing; seeker=infrared.
+- Unchanged N=3.5, total maxG=40, loft=0deg, loftAccelerationG=2, inertialMidcourse=False, launcherUpdates=False.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 0 tracked packets with radial availability and 11 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `13.062742253626361s`, publication `13.133333333333297s`; disclosed capability-scale projection `771.239341m/s`. Original guidance parameter SHA `e633631307113c387fd43eb1e99431e9eebd8bb1e93020a7c2f4ccf6e1c94353` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### meteor
 
-Parameter projection SHA-256: `f37223aba2e7d5e557904e27b725c621e1e2ff7ae329997ac8c68fc21de86fe9`. Plant SHA-256: `02c922fa807029d53ce55ec354be2a763fbddf3f4fa87a5fcc5d5beadedb6718`.
-
-- radar measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass190.000019kg requires9975.00101N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=20deg, maxG=35, updates=1; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 47.25 / 52.5 / 57.75 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 8977.5009 / 9975.00101 / 10972.5011 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.019 / 0.02 / 0.021 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=rf_signal.v1; measurement_family=radar; seeker=active_radar.
+- Unchanged N=3.5, total maxG=35, loft=20deg, loftAccelerationG=2, inertialMidcourse=True, launcherUpdates=True.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 80 tracked packets with radial availability and 76 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `13.166666666666631s`, publication `13.233333333333297s`; disclosed capability-scale projection `737.221144m/s`. Original guidance parameter SHA `f37223aba2e7d5e557904e27b725c621e1e2ff7ae329997ac8c68fc21de86fe9` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### mica-em
 
-Parameter projection SHA-256: `ff390680932078d2c2e655243cc2562e79870f5d00579013f25ec9707a46f824`. Plant SHA-256: `9e36c380bc4070d60a315639b68a48054afd2ab642d2f6fc84b1bea65a61640b`.
-
-- radar measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass112.000007kg requires5880.00039N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=20deg, maxG=35, updates=1; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 47.25 / 52.5 / 57.75 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 5292.00035 / 5880.00039 / 6468.00043 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.019 / 0.02 / 0.021 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=rf_signal.v1; measurement_family=radar; seeker=active_radar.
+- Unchanged N=3.5, total maxG=35, loft=20deg, loftAccelerationG=2, inertialMidcourse=True, launcherUpdates=True.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 61 tracked packets with radial availability and 57 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `13.499999999999963s`, publication `13.566666666666629s`; disclosed capability-scale projection `787.660905m/s`. Original guidance parameter SHA `ff390680932078d2c2e655243cc2562e79870f5d00579013f25ec9707a46f824` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### mica-ir
 
-Parameter projection SHA-256: `e6046050f4917cc0ffcbe6099a2f8242bfe22ee3740c723ccce6fdfe1f1a5fbd`. Plant SHA-256: `1821db51276f0afb37cb0da2295ceeaeb6d62d9729deef6f5bf7203e80f38c23`.
-
-- bearing measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass112.000007kg requires3920.00026N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=0deg, maxG=40, updates=1; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 31.5 / 35 / 38.5 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 3528.00023 / 3920.00026 / 4312.00029 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.019 / 0.02 / 0.021 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=thermal_dual_image.v1; measurement_family=bearing; seeker=imaging_infrared.
+- Unchanged N=3.5, total maxG=40, loft=0deg, loftAccelerationG=2, inertialMidcourse=True, launcherUpdates=True.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 0 tracked packets with radial availability and 150 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `11.466666666666637s`, publication `11.533333333333303s`; disclosed capability-scale projection `268.006628m/s`. Original guidance parameter SHA `e6046050f4917cc0ffcbe6099a2f8242bfe22ee3740c723ccce6fdfe1f1a5fbd` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### pl-10
 
-Parameter projection SHA-256: `e0c48a844510701246c677da88f5a7dd8d825dacb1d642b63c9e6fddab99b140`. Plant SHA-256: `c410ed7e34ed47054a887ac352349a28962c0b92f0b332e3d7d77699af084a90`.
-
-- bearing measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass89.0000166kg requires3115.00058N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=0deg, maxG=40, updates=0; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 31.5 / 35 / 38.5 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 2803.50052 / 3115.00058 / 3426.50064 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.019 / 0.02 / 0.021 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=thermal_image.v1; measurement_family=bearing; seeker=imaging_infrared.
+- Unchanged N=3.5, total maxG=40, loft=0deg, loftAccelerationG=2, inertialMidcourse=True, launcherUpdates=False.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 0 tracked packets with radial availability and 148 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `11.466666666666637s`, publication `11.533333333333303s`; disclosed capability-scale projection `268.029621m/s`. Original guidance parameter SHA `e0c48a844510701246c677da88f5a7dd8d825dacb1d642b63c9e6fddab99b140` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### pl-12
 
-Parameter projection SHA-256: `b15d02bd6b1258fee5eb7580d847ff675a6cb7b1d85e9886066aabe9683060bf`. Plant SHA-256: `e4c01fcbe3bbf27a19795c5f6bdc93158f6dbc2b8322da6510c9bcb94848e569`.
-
-- radar measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass180.000022kg requires9450.00114N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=20deg, maxG=35, updates=1; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 47.25 / 52.5 / 57.75 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 8505.00103 / 9450.00114 / 10395.0013 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.019 / 0.02 / 0.021 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=rf_signal.v1; measurement_family=radar; seeker=active_radar.
+- Unchanged N=3.5, total maxG=35, loft=20deg, loftAccelerationG=2, inertialMidcourse=True, launcherUpdates=True.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 99 tracked packets with radial availability and 94 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `12.533333333333299s`, publication `12.599999999999966s`; disclosed capability-scale projection `659.787173m/s`. Original guidance parameter SHA `b15d02bd6b1258fee5eb7580d847ff675a6cb7b1d85e9886066aabe9683060bf` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### pl-15
 
-Parameter projection SHA-256: `be4dde56eef7d0cb371c6e7ec7ca76186dc3901f4c238e8a4ff32ad8a1589c81`. Plant SHA-256: `2195e1957c015ca4015c4c11a0c12fd2d91ff2623d15a9b3970d92b3ca3c594b`.
-
-- radar measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass210.000004kg requires11025.0002N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=20deg, maxG=35, updates=1; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 47.25 / 52.5 / 57.75 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 9922.5002 / 11025.0002 / 12127.5002 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.019 / 0.02 / 0.021 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=rf_signal.v1; measurement_family=radar; seeker=active_radar.
+- Unchanged N=3.5, total maxG=35, loft=20deg, loftAccelerationG=2, inertialMidcourse=True, launcherUpdates=True.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 108 tracked packets with radial availability and 103 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `11.633333333333303s`, publication `11.699999999999969s`; disclosed capability-scale projection `528.883613m/s`. Original guidance parameter SHA `be4dde56eef7d0cb371c6e7ec7ca76186dc3901f4c238e8a4ff32ad8a1589c81` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### pl-8
 
-Parameter projection SHA-256: `730c253252738ad187ab2278ca67c3b74049732c10e450569638c33fd30869e2`. Plant SHA-256: `bdbca3627ca78563b6f9672487ecb0e54f14e21b1fbdf4c1408893d4295dbd38`.
-
-- bearing measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass115.000022kg requires4025.00077N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=0deg, maxG=40, updates=0; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 31.5 / 35 / 38.5 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 3622.50069 / 4025.00077 / 4427.50085 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.0227699112 / 0.0237699112 / 0.0247699112 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=thermal_conscan_reticle.v1; measurement_family=bearing; seeker=infrared.
+- Unchanged N=3.5, total maxG=40, loft=0deg, loftAccelerationG=2, inertialMidcourse=False, launcherUpdates=False.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 0 tracked packets with radial availability and 5 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `13.160759944418359s`, publication `13.233333333333297s`; disclosed capability-scale projection `578.626854m/s`. Original guidance parameter SHA `730c253252738ad187ab2278ca67c3b74049732c10e450569638c33fd30869e2` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### r-27er
 
-Parameter projection SHA-256: `6be11b0dea5733a35b4ab97d15262bdd528191df256641186ad43fc946713842`. Plant SHA-256: `470f960a5e26febb47bc625e498f7883693bf270c7ebb78db6458d4ef1f45520`.
-
-- bearing measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass350.000001kg requires12250N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=20deg, maxG=35, updates=1; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 31.5 / 35 / 38.5 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 11025 / 12250 / 13475 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.019 / 0.02 / 0.021 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=rf_signal.v1; measurement_family=bearing; seeker=semi_active_radar.
+- Unchanged N=3.5, total maxG=35, loft=20deg, loftAccelerationG=2, inertialMidcourse=True, launcherUpdates=True.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 0 tracked packets with radial availability and 154 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `11.899999999999968s`, publication `11.966666666666635s`; disclosed capability-scale projection `259.954697m/s`. Original guidance parameter SHA `6be11b0dea5733a35b4ab97d15262bdd528191df256641186ad43fc946713842` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### r-27et
 
-Parameter projection SHA-256: `e9c8c8f4d860f8867f3709ea7b77e4741f4a0a75e106cf2ab1b8fefce10bcec8`. Plant SHA-256: `3449c4f07b6a23fca3c7d0da91b02b59c5eaa29a27e383c767733b21f25f418d`.
-
-- bearing measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass348.000022kg requires12180.0008N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=0deg, maxG=40, updates=0; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 31.5 / 35 / 38.5 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 10962.0007 / 12180.0008 / 13398.0008 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.0227699112 / 0.0237699112 / 0.0247699112 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=thermal_conscan_reticle.v1; measurement_family=bearing; seeker=infrared.
+- Unchanged N=3.5, total maxG=40, loft=0deg, loftAccelerationG=2, inertialMidcourse=False, launcherUpdates=False.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 0 tracked packets with radial availability and 35 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `11.524618490428796s`, publication `11.599999999999969s`; disclosed capability-scale projection `269.849712m/s`. Original guidance parameter SHA `e9c8c8f4d860f8867f3709ea7b77e4741f4a0a75e106cf2ab1b8fefce10bcec8` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### r-27r
 
-Parameter projection SHA-256: `ff2dcc9cdfe95d038c1405424c9d99a416da1152896e48c161d722e241bb717f`. Plant SHA-256: `b427f8d0361a2ac66cc060c7e4ab20e55160d3cff00855690ab948555ac448cd`.
-
-- bearing measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass252.999989kg requires8854.99963N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=20deg, maxG=35, updates=1; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 31.5 / 35 / 38.5 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 7969.49967 / 8854.99963 / 9740.49959 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.019 / 0.02 / 0.021 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=rf_signal.v1; measurement_family=bearing; seeker=semi_active_radar.
+- Unchanged N=3.5, total maxG=35, loft=20deg, loftAccelerationG=2, inertialMidcourse=True, launcherUpdates=True.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 0 tracked packets with radial availability and 159 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `11.899999999999968s`, publication `11.966666666666635s`; disclosed capability-scale projection `256.73336m/s`. Original guidance parameter SHA `ff2dcc9cdfe95d038c1405424c9d99a416da1152896e48c161d722e241bb717f` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### r-27t
 
-Parameter projection SHA-256: `7b49b26e3c8dd9e7d7b054068c324e9380f8c5680a59470e7e66be9e8dda7b68`. Plant SHA-256: `d91746d1a779f3862acec146456475e274563d57b21d9b6d51e2e34f901c0492`.
-
-- bearing measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass252.999989kg requires8854.99963N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=0deg, maxG=40, updates=0; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 31.5 / 35 / 38.5 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 7969.49967 / 8854.99963 / 9740.49959 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.0227699112 / 0.0237699112 / 0.0247699112 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=thermal_conscan_reticle.v1; measurement_family=bearing; seeker=infrared.
+- Unchanged N=3.5, total maxG=40, loft=0deg, loftAccelerationG=2, inertialMidcourse=False, launcherUpdates=False.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 0 tracked packets with radial availability and 13 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `11.524618490428796s`, publication `11.599999999999969s`; disclosed capability-scale projection `263.569982m/s`. Original guidance parameter SHA `7b49b26e3c8dd9e7d7b054068c324e9380f8c5680a59470e7e66be9e8dda7b68` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### r-37m
 
-Parameter projection SHA-256: `145f53478e16f267cb51a98cd71b09ac433109f48d0db80913f5df30e647a33c`. Plant SHA-256: `a480640a3ada7b9437ff4b78418ea98d9813f51856f97f707908b8870dee154c`.
-
-- radar measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass509.999997kg requires26774.9998N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=20deg, maxG=35, updates=1; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 47.25 / 52.5 / 57.75 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 24097.4998 / 26774.9998 / 29452.4998 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.019 / 0.02 / 0.021 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=rf_signal.v1; measurement_family=radar; seeker=active_radar.
+- Unchanged N=3.5, total maxG=35, loft=20deg, loftAccelerationG=2, inertialMidcourse=True, launcherUpdates=True.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 155 tracked packets with radial availability and 154 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `11.433333333333303s`, publication `11.49999999999997s`; disclosed capability-scale projection `503.442289m/s`. Original guidance parameter SHA `145f53478e16f267cb51a98cd71b09ac433109f48d0db80913f5df30e647a33c` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### r-60m
 
-Parameter projection SHA-256: `9028b995f1940e9a78f50a39447701d5b09bd9c3af7ad98820b7a41733154535`. Plant SHA-256: `5773bc316905806dd04d1b4b85aa6199e1704e63f7f86d8904befe9e21f7077c`.
-
-- bearing measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass44.9999918kg requires1574.99971N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=0deg, maxG=40, updates=0; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 31.5 / 35 / 38.5 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 1417.49974 / 1574.99971 / 1732.49969 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.0227699112 / 0.0237699112 / 0.0247699112 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=thermal_conscan_reticle.v1; measurement_family=bearing; seeker=infrared.
+- Unchanged N=3.5, total maxG=40, loft=0deg, loftAccelerationG=2, inertialMidcourse=False, launcherUpdates=False.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 0 tracked packets with radial availability and 3 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `14.62348548392977s`, publication `14.699999999999958s`; disclosed capability-scale projection `808.593635m/s`. Original guidance parameter SHA `9028b995f1940e9a78f50a39447701d5b09bd9c3af7ad98820b7a41733154535` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### r-73
 
-Parameter projection SHA-256: `fc17ca9aa7da39726476521b9c96c11516225361ffb9beb25b82d1145fc23d8f`. Plant SHA-256: `1f683d7303285ceed50d276ca09e904b59b51c13d9047f6f34c3bf862c278933`.
-
-- bearing measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass105.000016kg requires3675.00055N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=0deg, maxG=40, updates=0; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 31.5 / 35 / 38.5 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 3307.5005 / 3675.00055 / 4042.50061 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.0227699112 / 0.0237699112 / 0.0247699112 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=thermal_conscan_reticle.v1; measurement_family=bearing; seeker=infrared.
+- Unchanged N=3.5, total maxG=40, loft=0deg, loftAccelerationG=2, inertialMidcourse=False, launcherUpdates=False.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 0 tracked packets with radial availability and 14 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `13.092901543100822s`, publication `13.166666666666631s`; disclosed capability-scale projection `487.644286m/s`. Original guidance parameter SHA `fc17ca9aa7da39726476521b9c96c11516225361ffb9beb25b82d1145fc23d8f` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### r-77m
 
-Parameter projection SHA-256: `a51a5dd91dacc55092705648a090910a7cfacb75adbef4beab297bb59e504ea7`. Plant SHA-256: `9d0e52c06857d82e55fe03c5cbb147ae31fff731f66ec41fc4e997e2ca03dac2`.
-
-- radar measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass189.999983kg requires9974.99909N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=20deg, maxG=35, updates=1; exact per-role basis/uncertainty retained
-
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
-
-- navigation_gain: 47.25 / 52.5 / 57.75 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 8977.49918 / 9974.99909 / 10972.499 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.019 / 0.02 / 0.021 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+- Actual selected receiver=rf_signal.v1; measurement_family=radar; seeker=active_radar.
+- Unchanged N=3.5, total maxG=35, loft=20deg, loftAccelerationG=2, inertialMidcourse=True, launcherUpdates=True.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 99 tracked packets with radial availability and 95 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `11.666666666666636s`, publication `11.733333333333302s`; disclosed capability-scale projection `536.276042m/s`. Original guidance parameter SHA `a51a5dd91dacc55092705648a090910a7cfacb75adbef4beab297bb59e504ea7` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
 ### super-530d
 
-Parameter projection SHA-256: `beef5eab461a26e157cb837a0b62920596e4290d3d48d6029c254dd9d9702c59`. Plant SHA-256: `48195a0aa0d0193d56a976539a58882005de1a231fdb14b0e891160af2af9120`.
+- Actual selected receiver=rf_signal.v1; measurement_family=bearing; seeker=semi_active_radar.
+- Unchanged N=3.5, total maxG=35, loft=20deg, loftAccelerationG=2, inertialMidcourse=False, launcherUpdates=False.
+- Native scale uses the admitted optional radial measurement, not model name. This archive contains 0 tracked packets with radial availability and 150 rate-available packets.
+- The archived per-model speed/radial/availability population below determines a distinct operating projection; it does not imply a distinct differential guidance law.
+- Original track epoch `11.899999999999968s`, publication `11.966666666666635s`; disclosed capability-scale projection `265.174707m/s`. Original guidance parameter SHA `beef5eab461a26e157cb837a0b62920596e4290d3d48d6029c254dd9d9702c59` remains its recorded epoch.
+- Applicable state/branch/domain and input uncertainty are the exact shared rules above plus this row's actual capability flags. A rate-less optical sample has no PN steering; an admitted radial measurement clamps opening speed instead of substituting own speed. See the row for its numerical domain, per-model sensitivity outputs and archived file/binary identity.
 
-- bearing measurement binding with actual Ts=0.02s and processing=0.01s; no universal synthetic closing observation
-- Actual launch mass270.000001kg requires9450.00003N for the declared PN example; physical trim authority and receiver delay are separate limits
-- Loft=20deg, maxG=35, updates=0; exact per-role basis/uncertainty retained
+## Native analytical comparison and reproduction
 
-Nonzero sensitivity (exact full fields/units/limits are in the matching JSON row):
+The additive helper in `test_component_reference_native.cpp` runs within each of the existing 24 model rows and serializes `guidance_branches`: original synthetic inputs, latch precondition, expected/actual acceleration, phase, availability and arithmetic tolerance. The ordinary `component_reference_native` wrapper retains its exact two selected Catch cases. The focused `[component-guidance-reference]` case calls the same helper on all 24 unchanged loaded profiles. Planned branch comparisons total 328 (15 for each of 8 ARH configurations and 13 for each of 16 bearing configurations); these are branch comparisons, not a claimed Catch test/assertion count.
 
-- navigation_gain: 31.5 / 35 / 38.5 m/s2 at -10% / nominal / +10%. Fixed same LOS rate/scale, unsaturated; sensitivity is not OEM uncertainty.
-- available_scale_speed: 8505.00003 / 9450.00003 / 10395 N at -10% / nominal / +10%. Fixed launch mass and same LOS rate.
-- processing_delay: 0.019 / 0.02 / 0.021 s at -10% / nominal / +10%. Heuristic mean lag, not actual capture epoch.
+Comparisons cover oblique terminal Lagrange identity, no-rate with nonzero stored derivative, own-speed fallback, actual-ARH measured zero/opening clamp, original-epoch prediction, gravity-inclusive total clipping, seeking/loss/reset, rejected future sample not setting the latch, permitted/disabled midcourse, Lost-latch loft suppression and opening midcourse. The epoch-prediction direct-interface negative control deliberately sets the presence-only result marker to0.9s while retaining the authoritative track sample at0.75s, so predicting from the wrong epoch fails. This is a method contract control, not a claimed real receiver packet. Expected accelerations use scalar dot products rather than native cross helpers. The bound is `128*epsilon*max(1,maxG*g0,abs(expected_component))`, justified only for the disclosed finite arithmetic inputs; it changes no physical acceptance tolerance.
 
-## Reproduction and proof separation
+After root applies/reviews the candidate and holds the native slot, use the existing UCRT64 launcher and environment. The ordinary registered source-bound run is:
 
-Run `D:/ENV/python/3.13/python.exe -B D:/ENV/tmp/m03-write-per-model-six-theory-20261103.py` with the recorded DENV environment. It reads explicit 24 catalogue/card/TOML/native XML paths and engine references, rechecks source hashes, and writes only the 13 assigned document files. Then run `D:/ENV/python/3.13/python.exe -B D:/ENV/tmp/m03-check-per-model-six-theory-20261103.py`. The adjacent `per-model-six-components.json` contains all 144 rows and full actual plant derivations. The generation script retains historical comparisons without wrapping them again.
+```powershell
+$env:TMP="D:/ENV/tmp"; $env:TEMP="D:/ENV/tmp"; $env:TORCH_EXTENSIONS_DIR="D:/ENV/tmp"
+D:/ENV/python/3.13/python.exe -B tools/validation/weapon_quality/component_reference_run.py --kind kinematics --executable build/ucrt64-release/tests/fsim_component_reference_native_test.exe --output build/ucrt64-release/validation/component_reference_runs/kinematics
+```
 
-The JSON deliberately sets current `passed`, numerical comparison and native acceptance false. A source-derived sensitivity or synthetic method benchmark cannot replace current model-native captures. No scenario, gain, threshold, provider, geometry or runtime code was changed for this projection.
+This creates its fresh pre-execution epoch and existing `kinematics.json`, now containing the additive branch records. For an additional focused diagnostic, set `FSIM_COMPONENT_REFERENCE_EPOCH` to that actual freshly created run's `input-epoch.json` (use the exact path recorded by its execution receipt), then invoke the same executable with `[component-guidance-reference] --reporter junit --out <new-report.xml>` and capture unfiltered stdout. The focused diagnostic does not replace the ordinary wrapper, full-chain, installed or Viewer gates. Its recorded epoch must still match current inputs; an old path cannot admit a new run.
+
+No native compile, execution, gate admission or matrix promotion was performed while authoring this candidate. Source-only changes and archive projections do not establish a passed method. Root must run the native comparison, inspect positive case/assertion counts and raw records, and rerun actual model-native encounters as required.
+
+## Primary theory reference
+
+- [Palumbo, Blauwkamp and Lloyd, Basic Principles of Homing Guidance, JHU APL Technical Digest 29(1), 2010](https://secwww.jhuapl.edu/techdigest/content/techdigest/pdf/V29-N01/29-01-Palumbo_Principles_Rev2018.pdf), introduction and PN/LOS reconstruction discussion: conceptual near-collision guidance, sensed LOS reconstruction and finite acceleration realization. This supports generic assumptions, not the simulator's model-specific gain or OEM performance.
+- Exact branch/state behavior is defined by the maintained `MeasuredPnGuidanceV2.cpp`, its versioned reset interface and admitted `SeekerExecutionV2` value contract. The source-bound JSON separates current analysis bytes from archived producer identities.

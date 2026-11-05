@@ -43,6 +43,7 @@
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
+#include <limits>
 #include <utility>
 
 namespace fsim::sim {
@@ -528,14 +529,58 @@ bool JsbsimModel::removeMass(double kg, const double at[3]) {
 }
 
 void JsbsimModel::runMassBalance() {
-    // (as FGFDMExec::LoadInputs feeds it before its step's run; its gas cells' - none here - as the last step fed them)
+    // Freeze native tank inputs once. Native order/units and the canonical
+    // GetPointmassInertia calculation are retained; no parallel-axis tensor
+    // translation or extra full mass-balance Run is used to converge the CG.
+    // Access the pinned native protected conversion without copying a unit
+    // constant or constructing/casting a native base object.
+    struct NativeMassUnits : private JSBSim::FGJSBBase {
+        static double poundsToSlugs() noexcept { return lbtoslug; }
+    };
+    struct TankInput {
+        double pounds;
+        JSBSim::FGColumnVector3 positionIn;
+        double intrinsic[3];
+    };
     auto mb = fdm_->GetMassBalance();
     auto prop = fdm_->GetPropulsion();
-    mb->in.TanksWeight = prop->GetTanksWeight();
-    mb->in.TanksMoment = prop->GetTanksMoment();
-    mb->in.TankInertia = prop->CalculateTankInertias();
+    const auto count = prop->GetNumTanks();
+    if (count > std::numeric_limits<unsigned>::max())
+        throw std::runtime_error("native tank count exceeds indexed native API");
+    std::vector<TankInput> tanks;
+    tanks.reserve(count);
+    double weight = 0.0;
+    JSBSim::FGColumnVector3 moment(0.0, 0.0, 0.0);
+    for (unsigned index = 0; index < count; ++index) {
+        const auto tank = prop->GetTank(index);
+        tanks.push_back({tank->GetContents(), tank->GetXYZ(),
+                         {tank->GetIxx(), tank->GetIyy(), tank->GetIzz()}});
+        const auto& input = tanks.back();
+        weight += input.pounds;
+        moment += input.positionIn * input.pounds;
+    }
+    const auto refresh = +[](JSBSim::FGMassBalance& balance, const void* context) noexcept {
+        const auto& inputs = *static_cast<const std::vector<TankInput>*>(context);
+        JSBSim::FGMatrix33 inertia;
+        inertia.InitMatrix();
+        for (const auto& input : inputs) {
+            inertia += balance.GetPointmassInertia(NativeMassUnits::poundsToSlugs() * input.pounds,
+                                                   input.positionIn);
+            inertia(1, 1) += input.intrinsic[0];
+            inertia(2, 2) += input.intrinsic[1];
+            inertia(3, 3) += input.intrinsic[2];
+        }
+        balance.in.TankInertia = inertia;
+    };
+    mb->in.TanksWeight = weight;
+    mb->in.TanksMoment = moment;
+    // Preserve the original pre-function input phase as well. The same frozen
+    // rows are then recomposed at the newly published CG inside the one run.
+    refresh(*mb, &tanks);
     mb->in.WOW = fdm_->GetGroundReactions()->GetWOW();
-    mb->Run(false);
+    // Gas inputs and mated-child semantics remain native pass-through; this
+    // repair closes tank-reference coherence, not those separate model domains.
+    mb->RunWithInputRefreshV1(false, refresh, &tanks);
 }
 
 JsbsimModel::Rigid JsbsimModel::rigid() const {
@@ -758,12 +803,17 @@ bool JsbsimModel::endMassChange(const double partInertia[6], const double impuls
     const JSBSim::FGColumnVector3 shift(-(cg(1) - changeCgIn_[0]) * kFtPerIn, (cg(2) - changeCgIn_[1]) * kFtPerIn,
                                         -(cg(3) - changeCgIn_[2]) * kFtPerIn);
     auto propagate = fdm_->GetPropagate();
-    if (!fdm_->GetHoldDown() && !fdm_->GetGroundReactions()->GetWOW()) propagate->NudgeBodyLocation(-1.0 * shift);
+    // An exact zero displacement must not invalidate native location caches.
+    const bool translated=shift(1)!=0.0||shift(2)!=0.0||shift(3)!=0.0;
+    if (translated && !fdm_->GetHoldDown() && !fdm_->GetGroundReactions()->GetWOW()) propagate->NudgeBodyLocation(-1.0 * shift);
     // the rest moving as that point of it did, and the reaction on it
     JSBSim::FGColumnVector3 dv = propagate->GetPQR() * shift;
     if (impulseBodyNs && mb->GetMass() > 0.0)
         for (unsigned k = 1; k <= 3; ++k) dv(k) += impulseBodyNs[k - 1] * kLbfSPerNs / mb->GetMass();
-    for (unsigned k = 1; k <= 3; ++k) propagate->SetUVW(k, propagate->GetUVW(static_cast<int>(k)) + dv(k));
+    // SetUVW reconstructs authoritative inertial velocity even for +0.
+    // Preserve its integrated bits unless this axis actually changes.
+    for (unsigned k = 1; k <= 3; ++k)
+        if (dv(k)!=0.0) propagate->SetUVW(k, propagate->GetUVW(static_cast<int>(k)) + dv(k));
     return true;
 }
 
@@ -1302,7 +1352,9 @@ void JsbsimModel::state(VehicleState& out) const {
 
     const auto& euler = prop->GetEuler();
     const auto& uvw = prop->GetUVW();
-    const auto& ned = prop->GetVel();
+    // SetUVW updates authoritative body velocity before the next native step.
+    // Derive the same-epoch NED snapshot without using its deferred GetVel cache.
+    const auto ned = prop->GetTb2l() * uvw;
     const auto& pqr = prop->GetPQR();
     const auto& uvwDot = accel->GetUVWdot();
     for (unsigned i = 1; i <= 3; ++i) {

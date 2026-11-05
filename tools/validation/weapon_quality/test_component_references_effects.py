@@ -1,5 +1,6 @@
 """Independent controls for primary-equation comparisons and failed admission."""
 import copy
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -74,7 +75,131 @@ class ReferenceMethods(unittest.TestCase):
         self.assertAlmostEqual((ref.detector_charge(dict(m, aperture_m2=.02))-1)/(ref.detector_charge(m)-1), 2.)
 
 
+    def test_scalar_dark_limit_and_exact_first_order_pole(self):
+        m = self.scalar_fixture()
+        m['radiance_w_m2_sr'] = 0.
+        dark = m['width']*m['height']*m['dark_electrons_s']*m['integration_s']
+        self.assertEqual(ref.reticle_charge(m,0),dark)
+        self.assertEqual(ref.reticle_charge(m,1),dark)
+        self.assertEqual(len(ref.compare_reticle(self.scalar_observation(m))),3*m['samples_per_scan'])
+
+    @staticmethod
+    def scalar_fixture():
+        return dict(law='uniform_reticle_charge',receiver_model='thermal_conscan_reticle.v1',
+            reticle_pattern='stationary_radial_spokes.v1',reticle_design='blur_response_limited.v1',
+            width=8,height=8,periods=3,samples_per_scan=32,spatial_samples=2,exposure_samples=2,
+            pixel_pitch_rad=.001,scan_radius_rad=.002,stop_radius_rad=.004,frequency_hz=100.,
+            integration_s=1e-5,response_s=1e-4,aperture_m2=.001,transmission=.7,
+            quantum_efficiency=.6,wavelength_m=4e-6,dark_electrons_s=1.,radiance_w_m2_sr=1.,
+            exposure_start_s=0.,initial_expected_electrons=0.,initial_detector_time_s=0.)
+
+    @staticmethod
+    def scalar_observation(m):
+        m = copy.deepcopy(m);n = m['samples_per_scan'];samples = []
+        # Control of comparison admission, not an independent native witness.
+        # Dark-only ZOH solution is constantInput*(1-exp(-sampleTime/tau)).
+        for j in range(n):
+            sample = dict(index=j,phase_rad=2*math.pi*(j+.5)/n,
+                          incident_electrons=ref.reticle_charge(m,j))
+            assert m['radiance_w_m2_sr'] == 0
+            time = (j+.5)/(n*m['frequency_hz'])
+            sample['expected_electrons'] = sample['incident_electrons']*(-math.expm1(-time/m['response_s']))
+            samples.append(sample)
+        return dict(m,samples=samples)
+
+    def test_scalar_photon_budget_aperture_qe_and_dark_separation(self):
+        m = self.scalar_fixture()
+        dark = ref.reticle_charge(dict(m,radiance_w_m2_sr=0),0)
+        charge = ref.reticle_charge(m,0)
+        self.assertGreater(charge,dark)
+        self.assertAlmostEqual((ref.reticle_charge(dict(m,aperture_m2=2*m['aperture_m2']),0)-dark)/(charge-dark),2.)
+        self.assertAlmostEqual((ref.reticle_charge(dict(m,quantum_efficiency=.3),0)-dark)/(charge-dark),.5)
+        self.assertLess(ref.reticle_charge(dict(m,stop_radius_rad=.003),0),charge)
+
+    def test_scalar_missing_phase_alias_epoch_and_wrong_pole_refused(self):
+        m = self.scalar_observation(dict(self.scalar_fixture(),radiance_w_m2_sr=0.))
+        for change in ('phase','alias','epoch','pole','nonfinite','nonintegral','budget'):
+            bad = copy.deepcopy(m)
+            if change == 'phase':bad['samples'].pop()
+            if change == 'alias':bad['receiver_model']='thermal_quadrant.v1'
+            if change == 'epoch':bad['exposure_start_s']=.1
+            if change == 'pole':bad['samples'][0]['expected_electrons']*=2
+            if change == 'nonfinite':bad['integration_s']=math.nan
+            if change == 'nonintegral':bad['samples'][1]['index']=1.5
+            if change == 'budget':bad['width']=4096
+            with self.assertRaises(ValueError):ref.compare_reticle(bad)
+
+    def test_scalar_theory_uses_actual_mechanism_and_primary_without_changing_retained_theory(self):
+        mechanism = 'fsim.seeker.nonimaging_ir.v3'
+        scalar = ref.family_theory('seeker',mechanism,'thermal_conscan_reticle.v1')
+        self.assertIn(ref.PRIMARY['reticle'],scalar['primary_sources'])
+        self.assertIn('M(q)',scalar['equations']);self.assertIn('alpha_j',scalar['equations'])
+        self.assertNotIn('quadrant charge versus imaging segmentation',scalar['delta'])
+        for receiver in ('rf_signal.v1','thermal_quadrant.v1','thermal_image.v1','thermal_dual_image.v1'):
+            self.assertEqual(ref.family_theory('seeker',mechanism,receiver),ref.family_theory('seeker',mechanism))
+
+    def test_exact_seven_selected_scalar_identities_and_model_binding(self):
+        cells = [c for c in ref.inventory() if c['component']=='seeker' and
+                 c['bindings']['receiver_model']=='thermal_conscan_reticle.v1']
+        self.assertEqual({c['model'] for c in cells},
+                         {'aim-9m','magic-2','pl-8','r-27et','r-27t','r-60m','r-73'})
+        roles = dict(width='receiver_image_width',height='receiver_image_height',
+            periods='receiver_reticle_periods',samples_per_scan='receiver_reticle_samples_per_scan',
+            spatial_samples='receiver_reticle_spatial_samples',exposure_samples='receiver_exposure_samples',
+            scan_radius_rad='receiver_reticle_scan_radius_rad',stop_radius_rad='receiver_reticle_stop_radius_rad',
+            frequency_hz='receiver_reticle_frequency_hz',pixel_pitch_rad='receiver_pixel_pitch_rad',
+            aperture_m2='receiver_aperture_area_m2',transmission='receiver_optical_transmission',
+            integration_s='receiver_integration_s',response_s='receiver_pixel_response_s',
+            quantum_efficiency='receiver_quantum_efficiency',wavelength_m='receiver_effective_wavelength_m',
+            dark_electrons_s='receiver_dark_current_electrons_s')
+        # Prove exact authored binding individually, then reject a detector
+        # parameter change without executing a replacement simulation.
+        for cell in cells:
+            with self.subTest(model=cell['model']):
+                p = {k:v['value'] for k,v in cell['parameters'].items()}
+                m = dict(self.scalar_fixture(),**{k:p[v] for k,v in roles.items()})
+                m['scalar_implementation'] = cell['implementation_id']
+                planck = [dict(law='planck_band_radiance',low_um=p['ir_band_low_um'],
+                    high_um=p['ir_band_high_um'],temperature_k=t,emissivity=.8)
+                    for t in (300.,600.,1000.,2000.)]
+                self.assertEqual(ref.validate_inputs(cell,dict(seeker=planck+[m])),[])
+                m['aperture_m2'] *= 1.01
+                with self.assertRaisesRegex(ValueError,'aperture_m2'):
+                    ref.validate_inputs(cell,dict(seeker=planck+[m]))
+
+
 class AdmissionControls(unittest.TestCase):
+
+    def test_explicit_parser_body_digest_changes_invalidate_the_producer_epoch(self):
+        # Inventory deliberately contributes nothing: both linked parser bodies
+        # must be seeded by this collector itself, not guessed from a header.
+        with patch.object(ref,'inventory',return_value=[]):
+            baseline=ref.source_epoch(ref.ROOT)
+            sources={r['path']:r['sha256'] for r in baseline['sources']}
+            original_sha=ref.sha
+            for relative in ('src/simulation/mission_systems/Cards.cpp',
+                             'src/simulation/mission_systems/components/Profile.cpp'):
+                with self.subTest(body=relative):
+                    body=(ref.ROOT/relative).resolve()
+                    self.assertIn(relative,sources)
+                    self.assertEqual(sources[relative],original_sha(body))
+                    changed_hash=hashlib.sha256(body.read_bytes()+b'\n// parser body dependency control\n').hexdigest()
+                    def changed_sha(path):
+                        return changed_hash if Path(path).resolve()==body else original_sha(path)
+                    with patch.object(ref,'sha',side_effect=changed_sha):
+                        changed=ref.source_epoch(ref.ROOT)
+                    changed_sources={r['path']:r['sha256'] for r in changed['sources']}
+                    self.assertEqual(set(sources),set(changed_sources))
+                    self.assertEqual({p for p in sources if sources[p]!=changed_sources[p]},{relative})
+                    with tempfile.TemporaryDirectory() as directory:
+                        root=Path(directory);epoch=root/'original-epoch.json'
+                        epoch.write_text(json.dumps(baseline),encoding='utf-8')
+                        with patch.object(ref,'source_epoch',return_value=changed):
+                            with self.assertRaisesRegex(ValueError,'stale or incomplete'):
+                                ref.generate(root/'absent-native.json',root/'absent-report.xml',epoch,root,
+                                             run_receipt=root/'absent-receipt.json')
+
+
     def test_nonfinite_negative_tolerance_and_numeric_mismatch_refused(self):
         for values in ((math.nan, 1, 1), (1, 1, -1), (1, 2, 0), (math.inf, 1, 1)):
             with self.assertRaises(ValueError):ref.residual('control', *values)
@@ -180,9 +305,14 @@ class AdmissionControls(unittest.TestCase):
             cell = next(c for c in cells if c['model'] == model and c['component'] == 'warhead')
             projection = ref.project_warhead(cell)
             def reconcile(w):
-                base = ref.cylinder_reference(w['gurney_ms'], w['case_kg'], w['charge_kg'])
-                w['actual'] = base
-                speed = min(base, 1400.) if w['rod'] and w['model_version'] == 0 else base
+                if w['model_version'] in (3,4):
+                    speed = w['source_speed_ms']
+                    w.update(gurney_ms=None, actual=None, gurney_availability='not_applicable',
+                             speed_driver='declared_kinematic_source', source_speed_availability='available')
+                else:
+                    base = ref.cylinder_reference(w['gurney_ms'], w['case_kg'], w['charge_kg'])
+                    w['actual'] = base
+                    speed = min(base, 1400.) if w['rod'] and w['model_version'] == 0 else base
                 w['source_speed_ms'] = speed
                 e = w['emission'];n = w['fragment_count'];connected = e['expanding'] > 0
                 e.update(count=n, mass_kg=w['case_kg'], segments=n if w['rod'] else 0,
@@ -196,7 +326,7 @@ class AdmissionControls(unittest.TestCase):
                 return w
             w = dict(projection)
             outer, inner, length = (projection[k] for k in ('outer_radius_m', 'inner_radius_m', 'length_m'))
-            connected = cell['mechanism_id'] == 'native.warhead.connected_ring.v1'
+            connected = cell['mechanism_id'] in ('native.warhead.connected_ring.v1', 'native.warhead.authored_ring.v4')
             w['emission'] = dict(outer_radius_m=outer, inner_radius_m=inner, length_m=length,
                 minimum_radius_m=outer if connected else (outer+inner)/2, maximum_radius_m=outer,
                 maximum_axial_m=0 if connected else length/2, expanding=projection['fragment_count'] if connected else 0,
@@ -205,10 +335,11 @@ class AdmissionControls(unittest.TestCase):
             ref.compare_warhead(w);ref.validate_inputs(cell, dict(warhead=w))
             for field, value in (('case_kg', w['case_kg']*.9), ('fragment_count', w['fragment_count']+1),
                 ('model_version', 0 if w['model_version'] else 2), ('fragment_source', 99), ('rod', not w['rod'])):
-                bad = copy.deepcopy(w);bad[field] = value;bad = reconcile(bad)
+                bad = copy.deepcopy(w);bad[field] = value
+                if field != 'model_version':bad = reconcile(bad)
                 # The original conservation-only comparator accepts this
                 # self-consistent bad binding. Card-only projection must not.
-                ref.compare_warhead(bad)
+                if field != 'model_version':ref.compare_warhead(bad)
                 with self.subTest(model=model, field=field), self.assertRaises(ValueError):
                     ref.validate_inputs(cell, dict(warhead=bad))
             bad = copy.deepcopy(w);bad['emission']['outer_radius_m'] *= 1.01;bad = reconcile(bad)
@@ -281,6 +412,60 @@ class AdmissionControls(unittest.TestCase):
                 staged_runtime=[ref.bind(exe, root), ref.bind(dll, root)], runtime=[ref.bind(exe, root)])
             receipt.write_text(json.dumps(dict(schema='fsim.sim-m03.component-reference-native-run.v1', passed=True, executions=[execution])))
             with self.assertRaises(ValueError):ref.validate_run(receipt, native, report, epoch, capture, root)
+
+
+class DirectSourceConsumer(unittest.TestCase):
+    def sample(self, version):
+        n=8;speed=750.;mass=.8;ring=version==4
+        e=dict(count=n,mass_kg=mass,energy_j=.5*mass*speed**2*((2+math.cos(2*math.pi/n))/3 if ring else 1),
+            segments=n if ring else 0,expanding=n if ring else 0,minimum_speed_ms=speed,maximum_speed_ms=speed,
+            minimum_radius_m=.05,maximum_radius_m=.05,maximum_axial_m=0.,outer_radius_m=.05,inner_radius_m=.04,length_m=.2,
+            ring_gap_m=0.,momentum_norm_ns=0.,expansion_per_s=speed/.05,
+            breakup_s=(n*.2/(2*math.pi)-.05)/speed,
+            minimum_material_length_m=n*.2*math.sin(math.pi/n)/math.pi,
+            maximum_material_length_m=n*.2*math.sin(math.pi/n)/math.pi)
+        return dict(model_version=version,gurney_ms=None,actual=None,gurney_availability='not_applicable',
+            speed_driver='declared_kinematic_source',source_speed_availability='available',source_speed_ms=speed,
+            case_kg=mass,charge_kg=.2,fragment_count=n,rod=ring,emission=e)
+
+    def test_direct_mass_energy_and_ring_laws(self):
+        for version in (3,4):
+            w=self.sample(version);self.assertGreater(len(ref.compare_warhead(w)),8)
+            for field in ('gurney_ms','actual'):
+                bad=copy.deepcopy(w);del bad[field]
+                with self.subTest(version=version,missing=field),self.assertRaises(ValueError):ref.compare_warhead(bad)
+            # Expected kinetic energy comes from independent affine-velocity
+            # integral; changing observed energy cannot be hidden by N/A Gurney.
+            bad=copy.deepcopy(w);bad['emission']['energy_j']*=1.01
+            with self.assertRaises(ValueError):ref.compare_warhead(bad)
+            for key,value in (('gurney_ms',0.),('actual',0.),('gurney_availability','available'),
+                              ('source_speed_availability','not_applicable'),('source_speed_ms',0.)):
+                bad=copy.deepcopy(w);bad[key]=value
+                with self.subTest(version=version,key=key),self.assertRaises(ValueError):ref.compare_warhead(bad)
+
+    def test_direct_card_binding_rejects_self_consistent_wrong_speed(self):
+        w=self.sample(3)
+        roles=dict(warhead_kg=1.,explosive_kg=.2,warhead_model_version=3,warhead_case_kg=.8,
+            warhead_fragment_count=8,warhead_fragment_area_m2=.001,warhead_tnt_equivalent_kg=.2,
+            warhead_case_outer_radius_m=.05,warhead_case_inner_radius_m=.04,warhead_case_length_m=.2,
+            warhead_source_speed_ms=750.,warhead_fragment_cd=1.3,
+            warhead_station_x_m=1.2,warhead_station_y_m=0.,warhead_station_z_m=0.)
+        cell=dict(mechanism_id='native.warhead.authored_field.v3',component='warhead',
+            card_path='synthetic-fixed-card.json',card_sha256='fixed',parameters={k:dict(value=v) for k,v in roles.items()})
+        w.update(fragment_source=2,fragment_kg=.1,fragment_area_m2=.001,tnt_kg=.2,fragment_cd=1.3,station_structural_m=[1.2,0.,0.])
+        with patch.object(ref,'read',return_value=dict(warhead_kind='fragmentation')),patch.object(ref,'sha',return_value='fixed'):
+            ref.validate_inputs(cell,dict(warhead=w))
+            for field in ('gurney_ms','actual'):
+                bad=copy.deepcopy(w);del bad[field]
+                with self.subTest(missing=field),self.assertRaises(ValueError):ref.validate_inputs(cell,dict(warhead=bad))
+            for version in (3.5,4.5,float('inf'),float('nan')):
+                bad=copy.deepcopy(cell);bad['parameters']['warhead_model_version']['value']=version
+                with self.subTest(version=version),self.assertRaises(ValueError):ref.validate_inputs(bad,dict(warhead=w))
+            bad=copy.deepcopy(cell);bad['parameters']['warhead_source_speed_ms']['value']=float('inf')
+            with self.assertRaises(ValueError):ref.project_warhead(bad)
+            w['source_speed_ms']=800.;w['emission'].update(minimum_speed_ms=800.,maximum_speed_ms=800.,energy_j=.5*.8*800.**2)
+            ref.compare_warhead(w)
+            with self.assertRaises(ValueError):ref.validate_inputs(cell,dict(warhead=w))
 
 
 if __name__ == '__main__':unittest.main()

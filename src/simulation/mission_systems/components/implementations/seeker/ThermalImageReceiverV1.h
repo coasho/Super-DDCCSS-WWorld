@@ -6,6 +6,12 @@
 
 namespace fsim::ms::components {
 
+/// Synchronous optional optical-work counters, never simulation authority.
+struct ThermalOpaqueMemoWorkV2 {
+    std::size_t queries=0,hits=0,capacityMisses=0,maxNodes=0;
+    std::size_t rootsBuilt=0,yHits=0,yEvaluations=0,probabilityHits=0,probabilityEvaluations=0;
+};
+
 /// Noiseless optical quadrature before any detector response, electron draw or
 /// image/quadrant processing. This is a simulation integration grid, not an
 /// additional imaging detector. Consumers must apply their physical aperture
@@ -64,6 +70,8 @@ private:
     friend class ThermalReticleReceiverV1;
     static std::optional<ThermalIncidentFieldV1> incidentFieldImplV1(
         const ThermalSceneFrameV1&,weapon::V3,const ThermalImageConfigV1&,const std::vector<double>*);
+    static std::optional<ThermalIncidentFieldV1> incidentFieldProfileV2(
+        const ThermalSceneFrameV1&,weapon::V3,const ThermalImageConfigV1&,const std::vector<double>*,ThermalOpaqueMemoWorkV2*);
     std::optional<std::size_t> apertureAttribution(double,double,double,double) const;
     ThermalImageConfigV1 config_;
     std::vector<double> pixelResponse_;

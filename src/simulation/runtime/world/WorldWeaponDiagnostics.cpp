@@ -93,10 +93,12 @@ void World::publishWeaponDiagnosticsV1() {
     for(const auto& item:weaponEffectsDiagnosticsV1_)
         addRoster(item.first.first,item.first.second,item.second.name,item.second.store,true);
     if(selected&&!selected->weaponEnded)fillWeaponDiagnosticsV1(*selected,*out);
-    else if(selected) {
+    else if(out->entity) {
+        // Both a terminal entry and a retained source with no entry are
+        // historical. Neither can authorize access to a live component/FDM.
         // A terminal receiver may still retain both actual last exposures.
         // Display selection must not resample it or rebuild a missing image.
-        if(const auto* dual=dynamic_cast<const ms::components::ThermalDualBandSeekerExecutionV1*>(selected->seekerProvider.get());dual&&dual->thermalDualBandV1())
+        if(const auto* dual=selected?dynamic_cast<const ms::components::ThermalDualBandSeekerExecutionV1*>(selected->seekerProvider.get()):nullptr;dual&&dual->thermalDualBandV1())
             fillWeaponSensorDiagnosticsV1(*selected,*out);
         out->selectionStatus=Status::Removed;
         ipc::WeaponDiagnosticStampV1* ended[]={&out->thermal.stamp,&out->rf.stamp,&out->navigation.stamp,&out->control.stamp,&out->propulsion.stamp,&out->guidance.stamp,&out->guidance.measurementStamp,&out->link.stamp};

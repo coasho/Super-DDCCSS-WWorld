@@ -2,6 +2,7 @@
 #include "simulation/runtime/world/World.h"
 #include "simulation/mission_systems/components/registration/BuiltInProvidersV1.h"
 #include "simulation/mission_systems/components/support/MeasuredSeekerV2.h"
+#include "simulation/mission_systems/components/support/GuidanceOwnFrameV2.h"
 #include "simulation/mission_systems/components/implementations/seeker/EngineeringSeekerV3.h"
 #include "simulation/mission_systems/components/support/ReceiverConfigurationV1.h"
 #include "simulation/flight/NativeThermalSourceV1.h"
@@ -552,9 +553,10 @@ void World::prepareEngagements() {
             } else if(!physicalDeclared)result=sensor->sample(frame);
             e->seekerResultV2=result;
             if(auto* controller=dynamic_cast<ms::components::MeasuredGuidanceV2*>(e->guidance.get())) {
-                auto guidanceFrame=frame;
-                if(thermalReceiver||radioReceiver){guidanceFrame.position=navigation.position;guidanceFrame.velocity=navigation.velocity;
-                    guidanceFrame.boresight=navigation.bodyToEcef[0];guidanceFrame.bodyAxes=navigation.bodyToEcef;}
+                const auto ownNavigation=weaponLinksV1_.find(e->info.id);
+                const bool strapdownSelected=ownNavigation!=weaponLinksV1_.end()&&ownNavigation->second.strapdownNavigation;
+                const auto guidanceFrame=ms::components::measuredGuidanceOwnFrameV2(
+                    frame,navigation,thermalReceiver||radioReceiver,strapdownSelected);
                 output=controller->updateMeasured(guidanceFrame,result);
             }
             // Truth attribution is outside the sensor and guidance contracts.

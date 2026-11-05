@@ -1113,6 +1113,132 @@
       "uncertainty": 4.0,
       "basis": "assumed",
       "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "warhead_model_version": {
+      "value": 3,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Explicit GAME source role retained from the isolated native source-method snapshot or blind envelope prior; no encounter inputs. Exact declared GAME definition/discretization/axis idealization; zero metadata uncertainty does not assert known hardware. Nominal source mass/speed/area/count/angular/Cd/blast retained. See docs/research/sim-m03/authored-game-source-v3.md; source-only reference56ef3590 and actual-loft certificate7dfb9a8f. No OEM geometry, device construction or held-out calibration claim."
+    },
+    "warhead_case_kg": {
+      "value": 10.85875,
+      "unit": "kg",
+      "uncertainty": 1.6302082262210797,
+      "basis": "assumed",
+      "note": "Explicit GAME source role retained from the isolated native source-method snapshot or blind envelope prior; no encounter inputs. Assigned marginal GAME discrepancy scale uses the largest existing source-anchor relative uncertainty; not a propagated/independent hardware covariance and never sampled by native physics. Nominal source mass/speed/area/count/angular/Cd/blast retained. See docs/research/sim-m03/authored-game-source-v3.md; source-only reference56ef3590 and actual-loft certificate7dfb9a8f. No OEM geometry, device construction or held-out calibration claim."
+    },
+    "warhead_structure_kg": {
+      "value": 1.9162499999999998,
+      "unit": "kg",
+      "uncertainty": 0.28768380462724935,
+      "basis": "assumed",
+      "note": "Explicit GAME source role retained from the isolated native source-method snapshot or blind envelope prior; no encounter inputs. Assigned marginal GAME discrepancy scale uses the largest existing source-anchor relative uncertainty; not a propagated/independent hardware covariance and never sampled by native physics. Nominal source mass/speed/area/count/angular/Cd/blast retained. See docs/research/sim-m03/authored-game-source-v3.md; source-only reference56ef3590 and actual-loft certificate7dfb9a8f. No OEM geometry, device construction or held-out calibration claim."
+    },
+    "warhead_tnt_equivalent_kg": {
+      "value": 9.408761085729642,
+      "unit": "kg",
+      "uncertainty": 1.4125235151840903,
+      "basis": "assumed",
+      "note": "Explicit GAME source role retained from the isolated native source-method snapshot or blind envelope prior; no encounter inputs. Assigned marginal GAME discrepancy scale uses the largest existing source-anchor relative uncertainty; not a propagated/independent hardware covariance and never sampled by native physics. Nominal source mass/speed/area/count/angular/Cd/blast retained. See docs/research/sim-m03/authored-game-source-v3.md; source-only reference56ef3590 and actual-loft certificate7dfb9a8f. No OEM geometry, device construction or held-out calibration claim."
+    },
+    "warhead_case_outer_radius_m": {
+      "value": 0.09000000000000001,
+      "unit": "m",
+      "uncertainty": 0.013511568123393318,
+      "basis": "assumed",
+      "note": "Explicit GAME source role retained from the isolated native source-method snapshot or blind envelope prior; no encounter inputs. Assigned marginal GAME discrepancy scale uses the largest existing source-anchor relative uncertainty; not a propagated/independent hardware covariance and never sampled by native physics. Nominal source mass/speed/area/count/angular/Cd/blast retained. See docs/research/sim-m03/authored-game-source-v3.md; source-only reference56ef3590 and actual-loft certificate7dfb9a8f. No OEM geometry, device construction or held-out calibration claim."
+    },
+    "warhead_case_inner_radius_m": {
+      "value": 0.0820125398242034,
+      "unit": "m",
+      "uncertainty": 0.012312422431191461,
+      "basis": "assumed",
+      "note": "Explicit GAME source role retained from the isolated native source-method snapshot or blind envelope prior; no encounter inputs. Assigned marginal GAME discrepancy scale uses the largest existing source-anchor relative uncertainty; not a propagated/independent hardware covariance and never sampled by native physics. Nominal source mass/speed/area/count/angular/Cd/blast retained. See docs/research/sim-m03/authored-game-source-v3.md; source-only reference56ef3590 and actual-loft certificate7dfb9a8f. No OEM geometry, device construction or held-out calibration claim."
+    },
+    "warhead_case_length_m": {
+      "value": 0.3062521132204724,
+      "unit": "m",
+      "uncertainty": 0.0459771810079064,
+      "basis": "assumed",
+      "note": "Explicit GAME source role retained from the isolated native source-method snapshot or blind envelope prior; no encounter inputs. Assigned marginal GAME discrepancy scale uses the largest existing source-anchor relative uncertainty; not a propagated/independent hardware covariance and never sampled by native physics. Nominal source mass/speed/area/count/angular/Cd/blast retained. See docs/research/sim-m03/authored-game-source-v3.md; source-only reference56ef3590 and actual-loft certificate7dfb9a8f. No OEM geometry, device construction or held-out calibration claim."
+    },
+    "warhead_fragment_count": {
+      "value": 71,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Explicit GAME source role retained from the isolated native source-method snapshot or blind envelope prior; no encounter inputs. Exact declared GAME definition/discretization/axis idealization; zero metadata uncertainty does not assert known hardware. Nominal source mass/speed/area/count/angular/Cd/blast retained. See docs/research/sim-m03/authored-game-source-v3.md; source-only reference56ef3590 and actual-loft certificate7dfb9a8f. No OEM geometry, device construction or held-out calibration claim."
+    },
+    "warhead_fragment_area_m2": {
+      "value": 0.002478076318132047,
+      "unit": "m^2",
+      "uncertainty": 0.0003720299665267649,
+      "basis": "assumed",
+      "note": "Explicit GAME source role retained from the isolated native source-method snapshot or blind envelope prior; no encounter inputs. Assigned marginal GAME discrepancy scale uses the largest existing source-anchor relative uncertainty; not a propagated/independent hardware covariance and never sampled by native physics. Nominal source mass/speed/area/count/angular/Cd/blast retained. See docs/research/sim-m03/authored-game-source-v3.md; source-only reference56ef3590 and actual-loft certificate7dfb9a8f. No OEM geometry, device construction or held-out calibration claim."
+    },
+    "warhead_source_speed_ms": {
+      "value": 1400,
+      "unit": "m/s",
+      "uncertainty": 210.17994858611826,
+      "basis": "assumed",
+      "note": "Explicit GAME source role retained from the isolated native source-method snapshot or blind envelope prior; no encounter inputs. Assigned marginal GAME discrepancy scale uses the largest existing source-anchor relative uncertainty; not a propagated/independent hardware covariance and never sampled by native physics. Nominal source mass/speed/area/count/angular/Cd/blast retained. See docs/research/sim-m03/authored-game-source-v3.md; source-only reference56ef3590 and actual-loft certificate7dfb9a8f. No OEM geometry, device construction or held-out calibration claim."
+    },
+    "warhead_fragment_cd": {
+      "value": 1.3,
+      "unit": "1",
+      "uncertainty": 0.19516709511568126,
+      "basis": "assumed",
+      "note": "Explicit GAME source role retained from the isolated native source-method snapshot or blind envelope prior; no encounter inputs. Assigned marginal GAME discrepancy scale uses the largest existing source-anchor relative uncertainty; not a propagated/independent hardware covariance and never sampled by native physics. Nominal source mass/speed/area/count/angular/Cd/blast retained. See docs/research/sim-m03/authored-game-source-v3.md; source-only reference56ef3590 and actual-loft certificate7dfb9a8f. No OEM geometry, device construction or held-out calibration claim."
+    },
+    "warhead_station_x_m": {
+      "value": 1.1497134324137932,
+      "unit": "m",
+      "uncertainty": 0.3667773648439629,
+      "basis": "assumed",
+      "note": "Explicit GAME source role retained from the isolated native source-method snapshot or blind envelope prior; no encounter inputs. Source-location prior SD from exact source-only support; not an OEM station confidence interval. Nominal source mass/speed/area/count/angular/Cd/blast retained. See docs/research/sim-m03/authored-game-source-v3.md; source-only reference56ef3590 and actual-loft certificate7dfb9a8f. No OEM geometry, device construction or held-out calibration claim."
+    },
+    "warhead_station_y_m": {
+      "value": 0.0,
+      "unit": "m",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Explicit GAME source role retained from the isolated native source-method snapshot or blind envelope prior; no encounter inputs. Exact declared GAME definition/discretization/axis idealization; zero metadata uncertainty does not assert known hardware. Nominal source mass/speed/area/count/angular/Cd/blast retained. See docs/research/sim-m03/authored-game-source-v3.md; source-only reference56ef3590 and actual-loft certificate7dfb9a8f. No OEM geometry, device construction or held-out calibration claim."
+    },
+    "warhead_station_z_m": {
+      "value": 0.0,
+      "unit": "m",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Explicit GAME source role retained from the isolated native source-method snapshot or blind envelope prior; no encounter inputs. Exact declared GAME definition/discretization/axis idealization; zero metadata uncertainty does not assert known hardware. Nominal source mass/speed/area/count/angular/Cd/blast retained. See docs/research/sim-m03/authored-game-source-v3.md; source-only reference56ef3590 and actual-loft certificate7dfb9a8f. No OEM geometry, device construction or held-out calibration claim."
+    },
+    "warhead_zone_count": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Explicit GAME source role retained from the isolated native source-method snapshot or blind envelope prior; no encounter inputs. Exact declared GAME definition/discretization/axis idealization; zero metadata uncertainty does not assert known hardware. Nominal source mass/speed/area/count/angular/Cd/blast retained. See docs/research/sim-m03/authored-game-source-v3.md; source-only reference56ef3590 and actual-loft certificate7dfb9a8f. No OEM geometry, device construction or held-out calibration claim."
+    },
+    "warhead_zone_0_from_deg": {
+      "value": 85.0,
+      "unit": "deg",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Explicit GAME source role retained from the isolated native source-method snapshot or blind envelope prior; no encounter inputs. Exact declared GAME definition/discretization/axis idealization; zero metadata uncertainty does not assert known hardware. Nominal source mass/speed/area/count/angular/Cd/blast retained. See docs/research/sim-m03/authored-game-source-v3.md; source-only reference56ef3590 and actual-loft certificate7dfb9a8f. No OEM geometry, device construction or held-out calibration claim."
+    },
+    "warhead_zone_0_to_deg": {
+      "value": 95.0,
+      "unit": "deg",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Explicit GAME source role retained from the isolated native source-method snapshot or blind envelope prior; no encounter inputs. Exact declared GAME definition/discretization/axis idealization; zero metadata uncertainty does not assert known hardware. Nominal source mass/speed/area/count/angular/Cd/blast retained. See docs/research/sim-m03/authored-game-source-v3.md; source-only reference56ef3590 and actual-loft certificate7dfb9a8f. No OEM geometry, device construction or held-out calibration claim."
+    },
+    "warhead_zone_0_weight": {
+      "value": 1.0,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Explicit GAME source role retained from the isolated native source-method snapshot or blind envelope prior; no encounter inputs. Exact declared GAME definition/discretization/axis idealization; zero metadata uncertainty does not assert known hardware. Nominal source mass/speed/area/count/angular/Cd/blast retained. See docs/research/sim-m03/authored-game-source-v3.md; source-only reference56ef3590 and actual-loft certificate7dfb9a8f. No OEM geometry, device construction or held-out calibration claim."
     }
   },
   "sources": {
@@ -1473,20 +1599,39 @@
         "implementation_id": "equipment.r-77m.warhead",
         "configuration_version": 1,
         "parameter_refs": {
+          "warhead_model_version": "warhead_model_version",
           "warhead_kg": "warhead_kg",
           "explosive_kg": "explosive_kg",
-          "gurney_kms": "gurney_kms",
-          "diameter_m": "diameter_m"
+          "warhead_case_kg": "warhead_case_kg",
+          "warhead_structure_kg": "warhead_structure_kg",
+          "warhead_tnt_equivalent_kg": "warhead_tnt_equivalent_kg",
+          "diameter_m": "diameter_m",
+          "length_m": "length_m",
+          "warhead_case_outer_radius_m": "warhead_case_outer_radius_m",
+          "warhead_case_inner_radius_m": "warhead_case_inner_radius_m",
+          "warhead_case_length_m": "warhead_case_length_m",
+          "warhead_fragment_count": "warhead_fragment_count",
+          "warhead_fragment_area_m2": "warhead_fragment_area_m2",
+          "warhead_source_speed_ms": "warhead_source_speed_ms",
+          "warhead_fragment_cd": "warhead_fragment_cd",
+          "warhead_station_x_m": "warhead_station_x_m",
+          "warhead_station_y_m": "warhead_station_y_m",
+          "warhead_station_z_m": "warhead_station_z_m",
+          "warhead_zone_count": "warhead_zone_count",
+          "warhead_zone_0_from_deg": "warhead_zone_0_from_deg",
+          "warhead_zone_0_to_deg": "warhead_zone_0_to_deg",
+          "warhead_zone_0_weight": "warhead_zone_0_weight"
         },
         "bindings": {
-          "burst_reference": "captured_weapon_cg",
+          "burst_reference": "captured_authored_station_from_nose",
           "blast": "kingery_bulmash.swisdak_1994.free_air.v1",
           "penetration": "thor.aluminium_2024_t3.v1",
-          "assessment": "native.fragment_blast.v1"
+          "assessment": "native.fragment_blast.v1",
+          "angular_profile": "authored.solid_angle_mixture.v1"
         },
         "basis": "assumed",
-        "note": "Existing simulator implementation; no equipment calibration.",
-        "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
+        "note": "Explicit individually authored GAME finite-source roles and source-only material-frame location prior. Intrinsic emission/material/angular/blast inputs retained; no hit/outcome fitting. Shared parameterized source law, not an individually calibrated hardware breakup model.",
+        "validity": "Reduced-order GAME field; exact source-only geometry certificate and nonzero stated location prior. Native per-model execution, hardware accuracy and held-out calibration require separate evidence."
       },
       "propulsion": {
         "availability": "available",
@@ -1542,6 +1687,6 @@
     }
   },
   "simulation_model": {
-    "calibration": "R-77M is uncalibrated. R-77M uses the bounded operating-point allocator and conventional-fin geometry with a declared three-segment generated-solid-motor schedule. Its 190 kg mass, 3.71 m length and 22.5 kg warhead are assumptions; neither R-77-1 dimensions nor a dual-pulse narrative supplies M calibration. Retained card anchors: mass 190.0 kg (assumed; source unassigned; uncertainty 25.0), length 3.71 m (assumed; source unassigned; uncertainty 0.25), diameter 0.2 m (published; source wp-r77; uncertainty 0.01), warhead 22.5 kg (assumed; source unassigned; uncertainty 2.0), explosive 9.725 kg (published; source wt-datamine; uncertainty 1.46). Current receiver rf_signal.v1; control fsim.control.operating_point_bounded.v1; propulsion fsim.propulsion.jsbsim_generated_solid_rocket; fuze native.fuze.swept_path.v1; warhead native.warhead.zoned_case.v1. FOI identity discussion and secondary/game references do not measure M fin curves, actuator states, actual motor scheduling or the discrete rod source. Correct one-step allocation is distinct from full-chain behavior and equipment accuracy. Source classes and uncertainty records remain unchanged; assumed, derived and game-reference values are not promoted to equipment measurements. Per-model theory, parameter deltas and numerical method routes are in docs/research/sim-m03/component-methods/per-model-effects-components.json and per-model-six-components.json; the separate docs/research/sim-m03/calibration-ledger.json identifies the remaining equipment comparisons. Arithmetic or native scenario verification does not establish held-out accuracy. No admitted same-model independent baseline-to-new held-out calibration receipt is claimed; engineering completion continues through its own gates."
+    "calibration": "R-77M is uncalibrated. R-77M uses the bounded operating-point allocator and conventional-fin geometry with a declared three-segment generated-solid-motor schedule. Its 190 kg mass, 3.71 m length and 22.5 kg warhead are assumptions; neither R-77-1 dimensions nor a dual-pulse narrative supplies M calibration. Retained card anchors: mass 190.0 kg (assumed; source unassigned; uncertainty 25.0), length 3.71 m (assumed; source unassigned; uncertainty 0.25), diameter 0.2 m (published; source wp-r77; uncertainty 0.01), warhead 22.5 kg (assumed; source unassigned; uncertainty 2.0), explosive 9.725 kg (published; source wt-datamine; uncertainty 1.46). Current receiver rf_signal.v1; control fsim.control.operating_point_bounded.v1; propulsion fsim.propulsion.jsbsim_generated_solid_rocket; fuze native.fuze.swept_path.v1; warhead native.warhead.authored_field.v3. FOI identity discussion and secondary/game references do not measure M fin curves, actuator states, actual motor scheduling or the discrete rod source. Correct one-step allocation is distinct from full-chain behavior and equipment accuracy. Source classes and uncertainty records remain unchanged; assumed, derived and game-reference values are not promoted to equipment measurements. Per-model theory, parameter deltas and numerical method routes are in docs/research/sim-m03/component-methods/per-model-effects-components.json and per-model-six-components.json; the separate docs/research/sim-m03/calibration-ledger.json identifies the remaining equipment comparisons. Arithmetic or native scenario verification does not establish held-out accuracy. No admitted same-model independent baseline-to-new held-out calibration receipt is claimed; engineering completion continues through its own gates."
   }
 }

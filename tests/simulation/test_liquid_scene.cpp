@@ -788,3 +788,69 @@ TEST_CASE("liquid opt-in preserves old assessment and suppresses dry orphan fuel
     auto orphan=liquidInputs(0);orphan.recipients[0].cells.clear();const auto dry=liquidRun(frame,field,environment,orphan);
     REQUIRE(dry.valid);CHECK(componentHit(dry,0)==nullptr);near(dry.remainingMassKg,1,1e-14);CHECK(dry.absorbedMassKg==0);
 }
+
+TEST_CASE("a rotating finite rod crosses an internal wet capacity seam without consuming the scene budget", "[damage][liquid-scene][liquid-rod-seam-progress]") {
+    // Reduced immutable state from the failing traversal, in its already local
+    // burst frame. No aircraft, weapon source, source RNG or lethality is used.
+    auto frame=liquidFrame();const V3 low{-1.0137499999999993,-.29503333568572998,.026932033570557734};
+    const V3 high{-.70562499999999928,.29379737377166748,.28543629696365441};
+    const double seam=-.00061798095703125;
+    frame.components[0].centre=(low+high)*.5;frame.components[0].half=(high-low)*.5;
+    auto input=liquidInputs();auto& recipient=input.recipients[0];
+    recipient.tanks[0].densityKgM3=800;recipient.tanks[0].dragCoefficient=1;
+    recipient.tanks[0].actualContentsKg=800*(high.x-low.x)*(high.y-low.y)*(high.z-low.z);
+    recipient.cells={{1,0,0,0,{low,high}}};
+    auto field=liquidPoint({1.2601658750975833,.63052481765958479,-.34145553115157118},
+                           {325.0587094451709,5.2937075528351505,-94.087526140926798});
+    auto& rod=field.projectiles[0];field.caseKg=rod.massKg=.33442622950819667;
+    rod.areaM2=.003606496311644452;rod.segment=true;rod.sourceOrdinalV1=52;
+    rod.end={1.2455256041325244,.62984731278446571,-.38393416898147831};
+    rod.endVelocity={323.66685876468847,4.1995106909865392,-93.684135059197516};
+    rod.materialLengthM=.29558239863614044;
+    auto target=liquidTarget({1.4086674237703025,-.25048734244312026,-.24691364197493929},
+                             {.2635195851325989,-249.79737074409059,.049159396439790726});
+    target.bodyToEcef={V3{.025635695485000887,-.9994536502692015,.0208617372375553},
+        V3{-.6424472719822125,-.0004828767877538276,.7663297394415938},
+        V3{-.7659009817460827,-.03304796201850185,-.6421086499704005}};
+    target.angularVelocityEcef={-.00029592238869941386,.00021782702962441184,.00024162701573090037};
+    auto environment=liquidEnvironment(1e-5);environment.airDensity=.6613458640716746;
+    environment.gravityEcef={-7.512321308732277,-.00868383681082015,-6.303597176838411};
+    const auto whole=liquidRun(frame,field,environment,input,target);noBladderPuncture(whole);
+    REQUIRE(whole.continuation.projectiles.size()==1);
+    // A capacity partition is the same wet medium: both cells have the same
+    // native tank, component, density, coefficient and free-surface plane.
+    recipient.cells={{1,0,0,0,{low,{high.x,seam,high.z}}},{2,0,0,0,{{low.x,seam,low.z},high}}};
+    const auto split=liquidRun(frame,field,environment,input,target);noBladderPuncture(split);
+    REQUIRE(split.continuation.projectiles.size()==1);
+    const auto& a=whole.continuation.projectiles[0];const auto& b=split.continuation.projectiles[0];
+    const double positionBudget=4*(input.controls.absolutePositionToleranceM+input.controls.relativeTolerance*length(a.at-rod.at));
+    const double velocityBudget=4*(input.controls.absoluteVelocityToleranceMs+input.controls.relativeTolerance*length(a.velocity));
+    near(length(a.at-b.at),0,positionBudget);near(length(a.end-b.end),0,positionBudget);
+    near(length(a.velocity-b.velocity),0,velocityBudget);near(length(a.endVelocity-b.endVelocity),0,velocityBudget);
+    REQUIRE(componentHit(whole,0));REQUIRE(componentHit(split,0));CHECK(requiredComponent(split,0).energyJ>0);
+    near(length(whole.transferredMomentumEcef-split.transferredMomentumEcef),0,2*rod.massKg*velocityBudget);
+}
+
+TEST_CASE("RK4 preserves a representable constant rod displacement when individual weighted increments are sub ULP", "[damage][liquid-scene][liquid-rk4-displacement]") {
+    const double duration=1.3e-18,speed=320;
+    const auto frame=liquidFrame();auto field=liquidPoint({1.25,-.5,0},{speed,0,0});
+    auto& rod=field.projectiles[0];rod.segment=true;rod.end={1.25,.5,0};rod.endVelocity=rod.velocity;
+    const double expected=rod.at.x+speed*duration;
+    REQUIRE(expected>rod.at.x);
+    // A positive-density medium comoving with the entire rod has exactly zero
+    // relative drag. No gravity acts. The independently exact solution is
+    // constant velocity and x(t)=x(0)+v*t for both material endpoints.
+    // h/12 and h/6 position contributions in the two-half-step RK4 estimate
+    // each round away at x=1.25; their aggregate displacement is representable.
+    const auto target=liquidTarget({1,0,0},{speed,0,0});
+    for(const unsigned cells:{1u,4u}) {
+        INFO("same-medium capacity cells="<<cells);
+        const auto result=liquidRun(frame,field,liquidEnvironment(duration),liquidInputs(1,cells),target);
+        noBladderPuncture(result);REQUIRE(result.continuation.projectiles.size()==1);
+        const auto& end=result.continuation.projectiles[0];
+        CHECK(end.at.x==expected);CHECK(end.end.x==expected);
+        CHECK(end.velocity.x==speed);CHECK(end.endVelocity.x==speed);
+        CHECK(length(result.transferredMomentumEcef)==0);CHECK(length(result.airMomentumEcef)==0);
+        near(result.remainingMassKg,1,1e-14);CHECK(result.absorbedMassKg==0);
+    }
+}

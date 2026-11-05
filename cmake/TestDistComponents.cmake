@@ -77,7 +77,7 @@ foreach(_file models/FGLGear.cpp models/FGAccelerations.cpp models/FGPropulsion.
         models/propulsion/FGRotor.cpp models/propulsion/FGRocket.h models/propulsion/FGRocket.cpp
         models/propulsion/FGThruster.cpp models/propulsion/FGElectric.cpp models/propulsion/FGPropeller.cpp
         models/propulsion/FGTransmission.h models/flight_control/FGActuator.cpp models/FGAerodynamics.cpp
-        models/FGMassBalance.cpp models/FGAuxiliary.cpp)
+        models/FGMassBalance.cpp models/FGMassBalance.h FGFDMExec.cpp models/FGAuxiliary.cpp)
     file(WRITE "${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/${_file}" "// fixture\n")
 endforeach()
 include(cmake/Install.cmake)
@@ -98,7 +98,8 @@ endif()
 checked(configure-enabled ${_configure} -DFIXTURE_EXAMPLES=ON)
 # Directly building dist must compile the example: no prebuild masks dependency omissions.
 checked(dist-enabled "${CMAKE_COMMAND}" --build "${_build}" --target dist --config Release)
-foreach(_patched FGPropulsion.cpp FGRocket.h FGRocket.cpp FGThruster.cpp)
+foreach(_patched FGPropulsion.cpp FGRocket.h FGRocket.cpp FGThruster.cpp
+                 FGMassBalance.cpp FGMassBalance.h FGFDMExec.cpp)
     if(NOT EXISTS "${_build}/dist/sdk/share/doc/flightsim/jsbsim-changes/${_patched}")
         message(FATAL_ERROR "SDK package omitted its built JSBSim patch source: ${_patched}")
     endif()

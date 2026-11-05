@@ -1,13 +1,6 @@
 # Warhead source, material effects and primary numerical references
 
-Current-status update, 2026-11-03: the JSON now documents each current model
-individually in theory, parameter and fidelity matrices. Its current `passed`
-flag is false until a fresh actual native comparison under these source/card
-hashes succeeds. Earlier72-row/836-constraint and older818-assertion results
-are historical only and remain nested as `historical_evidence`. They do not
-verify the new reticle receiver or the current scene-policy epoch. The separate
-[72-cell parameterized table](per-model-effects-components.json) retains exact
-source records and does not grant native/public/visual or calibration status.
+Recorded method evidence update: the actual24 native source capture and independent Python comparison now exist under the exact axis-methods/effects producer epoch described below. Original documentation row/admission flags remain unchanged pending root integration; they are not a claim that this new method run was absent. Method execution does not establish encounter/public/visual or hardware calibration. Original historical evidence retains its own epoch.
 
 
 The 24 AAM selectors resolve to three actual source mechanisms: zoned case,
@@ -445,3 +438,58 @@ Gurney constant are zero only inside that capped branch; the boundary is
 nonsmooth. The cap does not remove uncertainty in fragment mass, count, geometry,
 coverage or penetration. R-77M, like R-60M and R-73, selects discrete rods under
 zoned_case.v1; only the four R-27 selections instantiate connected rings.
+
+
+## Authored-input/source closure and recorded method epoch
+
+Each previously unresolved current-row source role now points to its exact `assets/stores/<model>.json` parameter and descriptor-reference JSON pointer, together with `parseProfileV1`, adapter precedence and construction symbols. This resolves software authoring provenance; it supplies no external variant measurement. Original values, basis, notes, uncertainty (including explicitly unquantified values), source identifiers and all existing admission flags remain unchanged. Historical unresolved records are retained as historical evidence.
+
+`axis-methods/effects/warhead.json` records the already executed actual24 native/independent-Python method results. The producer input epoch is `d4923c75e70bdbcf6347195439414db143d637219c468ff4f137402142eb8f76`; its native run is `build/ucrt64-release/validation/component_reference_runs/effects/run-0a9f9332b2b14ef996c774f17653cc44`. Each corrected row copies the exact per-model method residuals and raw file/binary/module bindings into `executed_method_evidence`. Exact producer family/raw bytes are additionally retained under this candidate evidence directory's `producer-snapshot/`, with original-to-retained hash mappings, so later axis regeneration cannot silently change the referenced result. Those bindings retain their source epoch; authoring hashes are labelled separately. No new native execution or broad source-binding refresh occurs here. The recorded epoch contains parser headers but omits the directly used `Cards.cpp` and `Profile.cpp` implementation bodies. Their authoring traces are explicitly `missing_from_recorded_epoch`; current hashes do not retrospectively repair that source-binding gap. No arithmetic failure is inferred from this provenance limitation.
+
+The scene-specific conditional equations and domains are:
+
+- Nonconnected emitter consumes axial=L*(U1-1/2), phi=2*pi*U2, radius=sqrt(ri^2+U3*(ro^2-ri^2)). For POINT elements only, source offset=axial*nose+radius*radial(phi): uniform cylindrical material volume, not uniform radius.
+- Select a zone with its normalized mixture share and draw cos(theta) uniformly between cos(to) and cos(from). Ejection uses the SAME phi as source position; their azimuths are correlated. V0 point and discrete-rod zones differ; overlapping authored bands are mixture contributions.
+- Scene emitted mass per element=M/N. Point velocity=burstVelocity+spin cross offset+sourceSpeed*direction. DISCRETE ROD endpoints overwrite the point proposal: at=burstAt+radius*radial(phi)-nose*L/2 and end=burstAt+radius*radial(phi)+nose*L/2. Their midpoint has no random axial offset; the earlier axial RNG draw remains consumed. Endpoint velocities use their own spin lever arms. Discrete rods carry no connected expansion state.
+- Connected rings use shared adjacent polygon positions and velocities, expansionPerS=v/ro, Rmax=N*L/(2*pi), breakupAge=(Rmax-ro)/v, materialLength=2*Rmax*sin(pi/N). N is an equivalent resolution, not measured weld count.
+- Legacy synchronous ZonedCaseWarheadV1::assess delegates to damage::assess with its retained point-source/nominal-fragment conventions except connected-ring selection. World production emitScene uses the finite immutable scene population above. Do not transfer one entrypoint geometry/mass convention to the other.
+- Selected card requires finite W>C>0, G>0 and positive diameter. V0 uses s=.15, diameterRatio=.9, case/charge/structure densities7850/1700/2780kg/m3, fragmentCd1.3 and a rod-speed cap1400m/s as explicit software assumptions.
+- V2 requires matching explicit source/model version, positive finite densities/Cd/TNT input,0<=s<1,0<diameterRatio<=1, positive annular inner-radius squared and an authored source envelope inside body length/diameter.
+- Equivalent nominal mass/area/length must be finite and positive. Construction rounds positive count; the scene emitter requires1<=N<=1000000. Connected rings additionally require rod kind,N>=3 and N*L/(2*pi)>outer radius.
+- Zones require finite0<=from<=to<=180degrees, nonnegative shares and positive finite total. Burst position/velocity/axis/spin must be finite and axis nonzero. Emitter RNG commits only after successful complete emission.
+- Rounding, rod cap and inner-radius floor create piecewise domains. Smooth sensitivities below apply only within the indicated branch; the finite +/-1% examples report count/branch changes explicitly.
+
+Source speed uses authored total/charge linkage, not independent case mass: with `M=(1-s)*(W-C)` and `H=M+C/2`, `dln(v)/dln(W)=-(1-s)*W/(2H)` and `dln(v)/dln(C)=(1-s)*W/(2H)` before the cap. The original independent-M/C partial derivatives remain valid under their expressly different frozen-input assumption. Under an active rod cap, speed is insensitive locally while case mass, energy, area/geometry and blast proxy may still change.
+
+The following fixed-integer-count elasticities are offline existing-card calculations, not altered cards or measured trajectories. Each JSON row also contains all outputs of disclosed +/-1% authored W/C/D/G perturbations, including explicit count/cap changes and nonzero-response keys. A zero capped-speed response is reported honestly.
+
+| Model | Elements | Speed m/s | dln v/dln W | dln v/dln C | dln source energy/dln W |
+|---|---:|---:|---:|---:|---:|
+| aim-120c | 1688 | 1828.90539 | -0.586591215 | 0.586591215 | 0.385664024 |
+| aim-120d | 2023 | 1828.90539 | -0.586591215 | 0.586591215 | 0.385664024 |
+| aim-7m | 1721 | 1446.97298 | -0.569263306 | 0.569263306 | 0.28089708 |
+| aim-9m | 3045 | 1964.49821 | -0.592643253 | 0.592643253 | 0.426679305 |
+| aim-9x | 3085 | 1973.19801 | -0.593465612 | 0.593465612 | 0.432445938 |
+| asraam | 1340 | 1860.21902 | -0.589581744 | 0.589581744 | 0.405622566 |
+| iris-t | 3419 | 1861.10539 | -0.589667133 | 0.589667133 | 0.4062012 |
+| magic-2 | 4240 | 1993.66449 | -0.620759057 | 0.620759057 | 0.654004274 |
+| meteor | 1306 | 1860.71436 | -0.589629458 | 0.589629458 | 0.405945839 |
+| mica-em | 1160 | 1675.9353 | -0.57271196 | 0.57271196 | 0.300359213 |
+| mica-ir | 1160 | 1675.9353 | -0.57271196 | 0.57271196 | 0.300359213 |
+| pl-10 | 1647 | 1860.48921 | -0.589607769 | 0.589607769 | 0.405798871 |
+| pl-12 | 2821 | 2124.43111 | -0.616835994 | 0.616835994 | 0.618179863 |
+| pl-15 | 1647 | 1859.88876 | -0.589549938 | 0.589549938 | 0.405407166 |
+| pl-8 | 3046 | 1946.65705 | -0.615131579 | 0.615131579 | 0.603070175 |
+| r-27er | 61 | 1400 | 0 | 0 | 1.625 |
+| r-27et | 61 | 1400 | 0 | 0 | 1.625 |
+| r-27r | 61 | 1400 | 0 | 0 | 1.625 |
+| r-27t | 61 | 1400 | 0 | 0 | 1.625 |
+| r-37m | 670 | 1860.21902 | -0.589581744 | 0.589581744 | 0.405622566 |
+| r-60m | 62 | 1400 | 0 | 0 | 1.62790698 |
+| r-73 | 79 | 1400 | 0 | 0 | 1.88235294 |
+| r-77m | 71 | 1400 | 0 | 0 | 1.76125245 |
+| super-530d | 494 | 1614.09247 | -0.562541363 | 0.562541363 | 0.244780287 |
+
+All24 nominal calculations agree with the retained native count/speed/source-energy observations in the named method run.96 independently evaluated symmetric-log-difference checks compare the authored-input analytic speed derivatives with a fixed1e-5 fractional difference step; that arithmetic comparison is explicitly not a native perturbation or equipment acceptance test. Integer-count transitions use finite outputs rather than a derivative of rounding.
+
+Reproduction of these offline candidate calculations: run `D:/ENV/python/3.13/python.exe -B build/architecture-reviews/sim-m03-current-20261104/effects-theory-source-correction-candidate/prepare-candidate.py` from the project root while the preserved before/actual evidence bytes remain present. It writes only this evidence directory, refuses changed role/binding/native identities, and records analytic checks in `analytic-checks.json`. The maintained native/Python producer commands remain in the existing method runner/collector; this candidate does not rerun or rename their gates.

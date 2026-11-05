@@ -231,3 +231,10 @@ The 2026-11-02 focused execution records three passing Release entries and two
 passing Headless entries. Original failing tests, current JUnit reports,
 independent display review and a source/product hash manifest are under
 `build/architecture-reviews/sim-m03-resume-20261102/thermal-band-*`.
+
+A retained diagnostic selection whose source Entry no longer exists marks every
+previously Available runtime component stamp Removed, just as a selected terminal
+Entry does. Its original generation, source frame, sample epoch, finite-fin values
+and limits remain historical values; Available never authorizes dereferencing an
+already removed native FDM. The native frameSkip1/4 removal fixture preserves and
+checks those values. This does not modify a weapon end state or effects outcome.

@@ -277,7 +277,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.aim-120d.warhead",
-          "mechanism_id": "native.warhead.zoned_case.v1",
+          "mechanism_id": "native.warhead.authored_field.v3",
           "name": "AIM-120D warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -366,7 +366,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.aim-7m.warhead",
-          "mechanism_id": "native.warhead.zoned_case.v1",
+          "mechanism_id": "native.warhead.authored_field.v3",
           "name": "AIM-7M warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -456,7 +456,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.aim-9m.warhead",
-          "mechanism_id": "native.warhead.zoned_case.v1",
+          "mechanism_id": "native.warhead.authored_field.v3",
           "name": "AIM-9M warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -548,7 +548,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.aim-9x-block-i.warhead",
-          "mechanism_id": "native.warhead.zoned_case.v1",
+          "mechanism_id": "native.warhead.authored_field.v3",
           "name": "AIM-9X Block I warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -909,7 +909,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.asraam.warhead",
-          "mechanism_id": "native.warhead.zoned_case.v1",
+          "mechanism_id": "native.warhead.authored_field.v3",
           "name": "AIM-132 ASRAAM warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -1416,7 +1416,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.iris-t.warhead",
-          "mechanism_id": "native.warhead.zoned_case.v1",
+          "mechanism_id": "native.warhead.authored_field.v3",
           "name": "IRIS-T warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -1618,7 +1618,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.magic-2.warhead",
-          "mechanism_id": "native.warhead.zoned_case.v1",
+          "mechanism_id": "native.warhead.authored_field.v3",
           "name": "R.550 Magic 2 warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -1708,7 +1708,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.meteor.warhead",
-          "mechanism_id": "native.warhead.zoned_case.v1",
+          "mechanism_id": "native.warhead.authored_field.v3",
           "name": "Meteor warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -1799,7 +1799,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.mica-em.warhead",
-          "mechanism_id": "native.warhead.zoned_case.v1",
+          "mechanism_id": "native.warhead.authored_field.v3",
           "name": "MICA EM warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -1891,7 +1891,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.mica-ir.warhead",
-          "mechanism_id": "native.warhead.zoned_case.v1",
+          "mechanism_id": "native.warhead.authored_field.v3",
           "name": "MICA IR warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -2046,7 +2046,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.pl-10.warhead",
-          "mechanism_id": "native.warhead.zoned_case.v1",
+          "mechanism_id": "native.warhead.authored_field.v3",
           "name": "PL-10 warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -2136,7 +2136,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.pl-12.warhead",
-          "mechanism_id": "native.warhead.zoned_case.v1",
+          "mechanism_id": "native.warhead.authored_field.v3",
           "name": "PL-12 warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -2226,7 +2226,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.pl-15.warhead",
-          "mechanism_id": "native.warhead.zoned_case.v1",
+          "mechanism_id": "native.warhead.authored_field.v3",
           "name": "PL-15 warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -2315,7 +2315,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.pl-8.warhead",
-          "mechanism_id": "native.warhead.zoned_case.v1",
+          "mechanism_id": "native.warhead.authored_field.v3",
           "name": "PL-8 warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -2629,7 +2629,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.r-27er.warhead",
-          "mechanism_id": "native.warhead.connected_ring.v1",
+          "mechanism_id": "native.warhead.authored_ring.v4",
           "name": "R-27ER warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -2719,7 +2719,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.r-27et.warhead",
-          "mechanism_id": "native.warhead.connected_ring.v1",
+          "mechanism_id": "native.warhead.authored_ring.v4",
           "name": "R-27ET warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -2809,7 +2809,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.r-27r.warhead",
-          "mechanism_id": "native.warhead.connected_ring.v1",
+          "mechanism_id": "native.warhead.authored_ring.v4",
           "name": "R-27R warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -2899,7 +2899,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.r-27t.warhead",
-          "mechanism_id": "native.warhead.connected_ring.v1",
+          "mechanism_id": "native.warhead.authored_ring.v4",
           "name": "R-27T warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -2987,7 +2987,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.r-37m.warhead",
-          "mechanism_id": "native.warhead.zoned_case.v1",
+          "mechanism_id": "native.warhead.authored_field.v3",
           "name": "R-37M warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -3076,7 +3076,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.r-60m.warhead",
-          "mechanism_id": "native.warhead.zoned_case.v1",
+          "mechanism_id": "native.warhead.authored_field.v3",
           "name": "R-60M warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -3168,7 +3168,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.r-73.warhead",
-          "mechanism_id": "native.warhead.zoned_case.v1",
+          "mechanism_id": "native.warhead.authored_field.v3",
           "name": "R-73 warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -3257,7 +3257,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.r-77m.warhead",
-          "mechanism_id": "native.warhead.zoned_case.v1",
+          "mechanism_id": "native.warhead.authored_field.v3",
           "name": "R-77M warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -3569,7 +3569,7 @@
         "warhead": {
           "availability": "available",
           "selector": "equipment.super-530d.warhead",
-          "mechanism_id": "native.warhead.zoned_case.v1",
+          "mechanism_id": "native.warhead.authored_field.v3",
           "name": "Super 530D warhead model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."

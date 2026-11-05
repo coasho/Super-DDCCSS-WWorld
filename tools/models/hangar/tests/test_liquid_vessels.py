@@ -179,4 +179,56 @@ class VesselTests(unittest.TestCase):
                     vessels.create(aircraft, np.zeros(3), self.policy()[1], (declaration(), path))
 
 
+class ExactDyadicBandTests(unittest.TestCase):
+    @staticmethod
+    def roof(scale=1., rational=False):
+        points=np.array([[0,0,0],[1,0,0],[1,1,0],[0,1,0],
+                         [0,0,1],[1,0,1],[1,1,1],[0,1,1]],dtype=float)
+        triangles=np.array([[0,4,7],[0,7,3],[1,2,6],[1,6,5],
+                            [0,1,5],[0,5,4],[3,7,6],[3,6,2],
+                            [0,3,2],[0,2,1],[4,5,6],[4,6,7]],dtype=np.uint64)
+        if rational:
+            points[:,2]+=points[:,0]+points[:,1]
+            points[:,:2]*=3
+        else: points[:,2]+=.25*points[:,0]+.125*points[:,1]
+        return SimpleNamespace(vert_properties=points*scale,tri_verts=triangles)
+
+    def test_band_matches_independent_dyadic_roof_at_extreme_finite_scales(self):
+        from fractions import Fraction
+        for scale in (1.,2.**-1000,2.**900):
+            with self.subTest(scale=scale):
+                lo=np.array([.25,.25,-1])*scale;hi=np.array([.75,.75,2])*scale
+                result=vessels._inscribed_vertical_band(self.roof(scale),lo,hi)
+                self.assertEqual(result['lower'],(9/32)*scale)
+                self.assertEqual(result['upper'],(35/32)*scale)
+                self.assertFalse(result['vertical_conflict'])
+                self.assertEqual(result['sensitivity'],(Fraction(1,8)*Fraction.from_float(scale),
+                                                        Fraction(1,16)*Fraction.from_float(scale)))
+
+    def test_band_rounds_independent_rational_roof_only_inward(self):
+        from fractions import Fraction
+        import math
+        lo=np.array([.5,.125,-1]);hi=np.array([1.,.25,3])
+        result=vessels._inscribed_vertical_band(self.roof(rational=True),lo,hi)
+        # z=x/3+y/3 and z=1+x/3+y/3 over this XY rectangle.
+        lower,upper=Fraction(5,12),Fraction(29,24)
+        a,b=float(lower),float(upper)
+        if Fraction.from_float(a)<lower:a=math.nextafter(a,math.inf)
+        if Fraction.from_float(b)>upper:b=math.nextafter(b,-math.inf)
+        self.assertEqual(result['lower'],a);self.assertEqual(result['upper'],b)
+        self.assertGreaterEqual(Fraction.from_float(a),lower)
+        self.assertLessEqual(Fraction.from_float(b),upper)
+        self.assertEqual(result['sensitivity'],(Fraction(1,6),Fraction(1,24)))
+
+    def test_band_keeps_degenerate_refusal_and_original_deadline_exception(self):
+        lo=np.zeros(3);hi=np.ones(3)
+        mesh=SimpleNamespace(vert_properties=np.zeros((3,3)),tri_verts=np.array([[0,1,2]],dtype=np.uint64))
+        self.assertIsNone(vessels._inscribed_vertical_band(mesh,lo,hi))
+        refused=RuntimeError('original bounded deadline sentinel')
+        def check():raise refused
+        with self.assertRaises(RuntimeError) as caught:
+            vessels._inscribed_vertical_band(self.roof(),lo,hi,check)
+        self.assertIs(caught.exception,refused)
+
+
 if __name__ == '__main__': unittest.main(verbosity=2)

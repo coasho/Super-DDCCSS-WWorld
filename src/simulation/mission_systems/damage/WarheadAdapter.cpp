@@ -1,4 +1,5 @@
 #include "WarheadAdapter.h"
+#include "AuthoredFieldPolicyV3.h"
 #include "simulation/mission_systems/components/support/EquipmentSelectionV1.h"
 #include "simulation/mission_systems/components/registration/EffectFactoriesV1.h"
 
@@ -52,6 +53,22 @@ std::unique_ptr<WarheadAdapter> makeWarheadAdapter(
     error.clear();
     try {
         declaration(card,d);
+        if(d.implementationId=="native.warhead.authored_field.v3"||d.implementationId=="native.warhead.authored_ring.v4") {
+            const bool ring=d.implementationId=="native.warhead.authored_ring.v4";
+            auto model=ring?readAuthoredRingPolicyV4(card,error):readAuthoredFieldPolicyV3(card,error);
+            if(!model)return {};
+            const auto units=authoredSourceRoleUnitsV3(*model);
+            if(d.parameters.size()!=units.size())throw std::runtime_error("authored source requires its exact role set");
+            for(const auto& [role,unit]:units) {
+                double value=0;if(!components::parameterV1(d,role,unit,value,error))return {};
+            }
+            if(d.bindings.size()!=5)throw std::runtime_error("authored source requires its exact binding set");
+            binding(d,"burst_reference","captured_authored_station_from_nose");
+            binding(d,"blast","kingery_bulmash.swisdak_1994.free_air.v1");
+            binding(d,"penetration","thor.aluminium_2024_t3.v1");binding(d,"assessment","native.fragment_blast.v1");
+            binding(d,ring?"topology":"angular_profile",ring?"native.connected_ring.material_limited.v1":"authored.solid_angle_mixture.v1");
+            return makeNativeWarheadAdapterV1(d.implementationId,std::move(*model));
+        }
         const bool connected=d.implementationId=="native.warhead.connected_ring.v1";
         const bool legacy=connected || d.implementationId=="native.warhead.legacy.v1" || d.implementationId=="native.warhead.zoned_case.v1";
         const bool finiteZoned=d.implementationId=="native.warhead.finite_zoned_case.v2";

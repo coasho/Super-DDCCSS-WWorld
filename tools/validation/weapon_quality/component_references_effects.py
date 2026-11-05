@@ -8,6 +8,7 @@ numeric residuals. Equation verification does not establish OEM calibration.
 import argparse
 from decimal import Decimal, localcontext
 from fractions import Fraction
+from functools import lru_cache
 import hashlib
 import json
 import math
@@ -30,6 +31,10 @@ TOLERANCES = dict(planck_relative=1e-6, charge_relative=1e-9,
                   geometry_relative=128*sys.float_info.epsilon,
                   energy_relative=1e-10)
 PRIMARY = {
+    'reticle': dict(title='Naval Air Warfare Center Weapons Division, Electronic Warfare and Radar Systems Engineering Handbook, NAWCWD TP8347 (2013)',
+        url='https://ed-thelen.org/pics/Radar-NAWCWD-TP-8347.pdf',
+        locator='Printed7-1.33-37, figures27-34, reticle spatial filtering and AM/FM angle encoding',
+        scope='Generic scalar reticle architecture only. Finite stop, stationary spokes, quadrature and equivalent-area detector are the existing declared game engineering model, not OEM hardware calibration. Photon conversion uses exact-SI h,c; the independent reference does not infer a target from uniform radiance.'),
     'planck': dict(title='NIST SP250-43, Radiance Temperature Calibrations (1998)',
         url='https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication250-43.pdf',
         locator='Section 2, equation (4), printed page 6 (PDF page16)',
@@ -116,6 +121,10 @@ def source_epoch(root=ROOT):
         'tools/validation/weapon_quality/component_reference_run.py',
         'tools/validation/weapon_quality/component_matrix.py',
         'tools/validation/weapon_quality/acceptance.py',
+        # These linked parser bodies are not quoted includes. Header-only
+        # traversal cannot bind their implementation changes automatically.
+        'src/simulation/mission_systems/Cards.cpp',
+        'src/simulation/mission_systems/components/Profile.cpp',
         'src/simulation/mission_systems/weapon/Composition.cpp',
         'src/simulation/mission_systems/weapon/MotionHistory.h',
         'src/simulation/mission_systems/weapon/Fuze.h',
@@ -123,6 +132,8 @@ def source_epoch(root=ROOT):
         'src/simulation/mission_systems/components/implementations/seeker/ThermalImageReceiverV1.cpp',
         'src/simulation/mission_systems/components/implementations/seeker/RadioReceiverV1.cpp',
         'src/simulation/mission_systems/components/support/ReceiverConfigurationV1.cpp',
+        'src/simulation/mission_systems/components/support/ReceiverConfigurationV3.cpp',
+        'src/simulation/mission_systems/components/implementations/seeker/ThermalReticleReceiverV1.cpp',
         'src/simulation/mission_systems/components/support/WarheadSnapshotV1.h',
         'include/fsim/Rng.h', 'src/simulation/mission_systems/rf/Antenna.cpp'}
     # Explicit include closure of these already-scoped implementation inputs.
@@ -202,6 +213,103 @@ def detector_charge(m):
     return response*photons*m['quantum_efficiency']+m['dark_electrons_s']*m['integration_s']
 
 
+
+@lru_cache(maxsize=128)
+def reticle_etendue(width, height, pitch, periods, count, spatial, exposures,
+                   radius, stop, frequency, integration, index):
+    """Uniform-radiance etendue of the disclosed finite spoke-mask model.
+
+    Exact rectangle solid angle times independent midpoint mask quadrature.
+    No native mask/template/fit output is consumed. Cache keys contain every
+    optical input; the bounded cache shares geometry, never model amplitude.
+    """
+    def primitive(x, y):
+        return math.atan2(x*y, math.sqrt(1+x*x+y*y))
+    rotations = [(radius*math.cos(phase), radius*math.sin(phase)) for phase in
+        (2*math.pi*((index+.5)/count+frequency*integration*((k+.5)/exposures-.5))
+         for k in range(exposures))]
+    offsets = [((i+.5)/spatial-.5)*pitch for i in range(spatial)]
+    terms = []
+    for row in range(height):
+        y = (row+.5-.5*height)*pitch
+        y0, y1 = math.tan(y-pitch/2), math.tan(y+pitch/2)
+        for column in range(width):
+            x = (column+.5-.5*width)*pitch
+            x0, x1 = math.tan(x-pitch/2), math.tan(x+pitch/2)
+            omega = primitive(x1,y1)-primitive(x0,y1)-primitive(x1,y0)+primitive(x0,y0)
+            opened = 0
+            for rx, ry in rotations:
+                for dy in offsets:
+                    qy = y+dy+ry
+                    for dx in offsets:
+                        qx = x+dx+rx
+                        opened += (qx*qx+qy*qy <= stop*stop and
+                                   math.cos(periods*math.atan2(qy,qx)) >= 0)
+            terms.append(omega*opened/(exposures*spatial*spatial))
+    return math.fsum(terms)
+
+
+def reticle_charge(m, index):
+    integers = ('width','height','periods','samples_per_scan','spatial_samples','exposure_samples')
+    for key in integers:
+        value = finite(m[key], key)
+        require(value == int(value) and 0 < value <= 4096, 'Invalid reticle integer '+key)
+    for key in ('pixel_pitch_rad','scan_radius_rad','stop_radius_rad','frequency_hz',
+                'integration_s','response_s','wavelength_m','aperture_m2'):
+        require(finite(m[key], key) > 0, 'Invalid reticle positive input '+key)
+    for key in ('transmission','quantum_efficiency'):
+        require(0 <= finite(m[key], key) <= 1, 'Invalid reticle efficiency '+key)
+    for key in ('dark_electrons_s','radiance_w_m2_sr'):
+        require(finite(m[key], key) >= 0, 'Invalid reticle radiance/dark input '+key)
+    count = int(m['samples_per_scan'])
+    require(type(index) is int and 0 <= index < count, 'Invalid reticle phase index')
+    # Admission bounds the work before cached geometric loops using the
+    # retained receiver's numerical domain, not a new detector threshold.
+    width, height, periods, _, spatial, exposures = [int(m[k]) for k in integers]
+    require(width <= 128 and height <= 128 and 2 <= spatial <= 8 and exposures <= 16 and
+            3 <= periods <= 64 and 8*periods <= count <= 512 and
+            count*exposures*width*height <= 4194304 and
+            m['integration_s']*m['frequency_hz']*count <= 1 and m['frequency_hz'] <= 2000 and
+            m['scan_radius_rad'] < m['stop_radius_rad'] <= .5*min(width,height)*m['pixel_pitch_rad'],
+            'Reticle reference work bound exceeded')
+    omega = reticle_etendue(width,height,m['pixel_pitch_rad'],periods,count,spatial,exposures,
+        m['scan_radius_rad'],m['stop_radius_rad'],m['frequency_hz'],m['integration_s'],index)
+    energy = m['radiance_w_m2_sr']*omega*m['aperture_m2']*m['transmission']*m['integration_s']
+    return (energy*m['quantum_efficiency']*m['wavelength_m']/(6.62607015e-34*299792458.) +
+            width*height*m['dark_electrons_s']*m['integration_s'])
+
+
+def compare_reticle(m):
+    require(m.get('receiver_model') == 'thermal_conscan_reticle.v1', 'Foreign scalar mechanism')
+    require(m.get('exposure_start_s') == 0 and m.get('initial_expected_electrons') == 0 and
+            m.get('initial_detector_time_s') == 0, 'Scalar pole reference requires startup epoch')
+    require(m.get('reticle_pattern') == 'stationary_radial_spokes.v1' and
+            m.get('reticle_design') == 'blur_response_limited.v1', 'Foreign scalar optical design')
+    count = int(finite(m['samples_per_scan'], 'samples_per_scan'))
+    require(24 <= count <= 512, 'Invalid complete scalar sample population')
+    expected_indices = list(range(count))
+    samples = m['samples']
+    require(len(samples) == count and
+            [v['index'] for v in samples] == expected_indices, 'Missing/foreign scalar phases')
+    result = []
+    previous = 0.
+    for sample in samples:
+        raw_index = finite(sample['index'], 'phase index')
+        require(raw_index == int(raw_index), 'Nonintegral scalar phase')
+        index = int(raw_index)
+        charge = reticle_charge(m,index)
+        result += [scaled('reticle_phase['+str(index)+']', sample['phase_rad'],
+                          2*math.pi*(index+.5)/count, TOLERANCES['geometry_relative']),
+                   scaled('reticle_incident['+str(index)+']', sample['incident_electrons'],
+                          charge, TOLERANCES['charge_relative'])]
+        elapsed = (.5 if index == 0 else 1)/(m['frequency_hz']*count)
+        alpha = -math.expm1(-elapsed/m['response_s'])
+        previous = (1-alpha)*previous+alpha*charge
+        result.append(scaled('reticle_response['+str(index)+']', sample['expected_electrons'],
+                             previous, TOLERANCES['charge_relative']))
+    return result
+
+
 def segment_reference(before, after):
     # Fraction retains the EXACT supplied binary64 endpoints; no copied native
     # floating-point projection or artificial geometric epsilon.
@@ -242,17 +350,22 @@ def compare_seeker(observation):
             relative = TOLERANCES['planck_relative']
         elif law == 'radar_energy':
             expected = radar_energy(m);relative = TOLERANCES['radar_relative']
+        elif law == 'uniform_reticle_charge':
+            result.extend(compare_reticle(m));continue
         elif law == 'uniform_detector_charge':
             expected = detector_charge(m);relative = TOLERANCES['charge_relative']
         else:
             raise ValueError('Unknown seeker numerical law')
         result.append(scaled(f'{law}[{index}]', m['actual'], expected, relative))
-    require(laws == {'radar_energy'} or laws == {'planck_band_radiance', 'uniform_detector_charge'},
+    require(laws == {'radar_energy'} or laws == {'planck_band_radiance', 'uniform_detector_charge'} or
+            laws == {'planck_band_radiance', 'uniform_reticle_charge'},
             'Incomplete physical receiver comparison')
     if 'radar_energy' in laws:
         require(len(observation) == 2 and {m['semi_active'] for m in observation} == {True, False},
                 'Both actual RF path geometries required')
     else:
+        if 'uniform_reticle_charge' in laws:
+            require(sum(m['law'] == 'uniform_reticle_charge' for m in observation) == 1, 'Duplicate scalar charge cohort')
         planck = [m for m in observation if m['law'] == 'planck_band_radiance']
         require(len(planck) in (4, 8) and {m['temperature_k'] for m in planck} == {300., 600., 1000., 2000.},
                 'Every declared thermal band and temperature case required')
@@ -275,10 +388,22 @@ def compare_fuze(row):
 
 
 def compare_warhead(w):
-    base = cylinder_reference(w['gurney_ms'], w['case_kg'], w['charge_kg'])
-    speed = min(base, 1400.) if w['rod'] and w['model_version'] == 0 else base
-    result = [scaled('gurney_cylinder_ms', w['actual'], base, TOLERANCES['gurney_relative']),
-              scaled('source_speed_ms', w['source_speed_ms'], speed, TOLERANCES['gurney_relative'])]
+    if w['model_version'] in (3, 4):
+        require('gurney_ms' in w and 'actual' in w and
+                w.get('gurney_availability') == 'not_applicable' and
+                w.get('gurney_ms') is None and w.get('actual') is None,
+                'Direct source must not publish an available or numeric Gurney driver')
+        require(w.get('speed_driver') == 'declared_kinematic_source' and
+                w.get('source_speed_availability') == 'available', 'Missing direct source driver')
+        speed = w['source_speed_ms']
+        require(type(speed) in (int, float) and math.isfinite(speed) and speed > 0,
+                'Invalid declared source speed')
+        result = []  # Card-only input binding independently checks this driver.
+    else:
+        base = cylinder_reference(w['gurney_ms'], w['case_kg'], w['charge_kg'])
+        speed = min(base, 1400.) if w['rod'] and w['model_version'] == 0 else base
+        result = [scaled('gurney_cylinder_ms', w['actual'], base, TOLERANCES['gurney_relative']),
+                  scaled('source_speed_ms', w['source_speed_ms'], speed, TOLERANCES['gurney_relative'])]
     e = w['emission'];n = w['fragment_count']
     require(type(n) is int and n > 0, 'Positive integral source population')
     connected = e['expanding'] > 0
@@ -425,8 +550,33 @@ def project_warhead(cell, root=ROOT):
         context.prec = 55
         pi = Decimal('3.14159265358979323846264338327950288419716939937510582')
         total, charge = p['warhead_kg'], p['explosive_kg']
-        version = int(p.get('warhead_model_version', 0))
-        require(version in (0, 1, 2), 'Unknown authored source version')
+        raw_version = p.get('warhead_model_version', Decimal(0))
+        require(raw_version.is_finite() and raw_version == raw_version.to_integral_value(),
+                'Authored source version must be finite and integral')
+        version = int(raw_version)
+        require(version in (0, 1, 2, 3, 4), 'Unknown authored source version')
+        if version in (3, 4):
+            require(cell['mechanism_id'] == ('native.warhead.authored_field.v3' if version == 3 else
+                    'native.warhead.authored_ring.v4'), 'Foreign direct source mechanism')
+            rod = card['warhead_kind'] == 'rod'
+            require(version != 4 or rod, 'Connected source requires rod kind')
+            direct_roles = ('warhead_kg', 'explosive_kg', 'warhead_case_kg', 'warhead_fragment_count',
+                'warhead_fragment_area_m2', 'warhead_tnt_equivalent_kg', 'warhead_case_outer_radius_m',
+                'warhead_case_inner_radius_m', 'warhead_case_length_m', 'warhead_source_speed_ms',
+                'warhead_fragment_cd', 'warhead_station_x_m', 'warhead_station_y_m', 'warhead_station_z_m')
+            require(all(p[k].is_finite() for k in direct_roles), 'Nonfinite direct source role')
+            count = p['warhead_fragment_count']
+            require(count == int(count) and 0 < count <= 1000000, 'Invalid declared count')
+            return dict(case_kg=float(p['warhead_case_kg']), gurney_ms=None,
+                charge_kg=float(charge), model_version=version, fragment_source=2,
+                rod=rod, fragment_count=int(count), fragment_kg=float(p['warhead_case_kg']/count),
+                fragment_area_m2=float(p['warhead_fragment_area_m2']),
+                tnt_kg=float(p['warhead_tnt_equivalent_kg']),
+                outer_radius_m=float(p['warhead_case_outer_radius_m']),
+                inner_radius_m=float(p['warhead_case_inner_radius_m']),
+                length_m=float(p['warhead_case_length_m']), source_speed_ms=float(p['warhead_source_speed_ms']),
+                fragment_cd=float(p['warhead_fragment_cd']),
+                station_structural_m=[float(p['warhead_station_'+axis+'_m']) for axis in ('x','y','z')])
         finite_source = version != 0
         rod = card['warhead_kind'] == 'rod'
         structure = p['warhead_structure_fraction'] if finite_source else Decimal('.15')
@@ -506,6 +656,30 @@ def validate_inputs(cell, row, root=ROOT):
             require(len(planck) == len(expected) and {(m['low_um'], m['high_um'], m['temperature_k']) for m in planck} == expected,
                     'Missing/foreign/duplicate authored band comparison')
             for m in planck:equal(m['emissivity'], .8, 'emissivity')
+            if cell['bindings']['receiver_model'] == 'thermal_conscan_reticle.v1':
+                detector = [m for m in observations if m['law'] == 'uniform_reticle_charge']
+                require(len(observations) == len(planck)+1 and len(detector) == 1,
+                        'Missing/foreign selected scalar detector law')
+                m = detector[0]
+                require(m.get('receiver_model') == cell['bindings']['receiver_model'] and
+                        m.get('scalar_implementation') == cell['implementation_id'], 'Scalar receiver alias')
+                for key, role in dict(width='receiver_image_width',height='receiver_image_height',
+                    periods='receiver_reticle_periods',samples_per_scan='receiver_reticle_samples_per_scan',
+                    spatial_samples='receiver_reticle_spatial_samples',exposure_samples='receiver_exposure_samples',
+                    scan_radius_rad='receiver_reticle_scan_radius_rad',stop_radius_rad='receiver_reticle_stop_radius_rad',
+                    frequency_hz='receiver_reticle_frequency_hz',pixel_pitch_rad='receiver_pixel_pitch_rad',
+                    aperture_m2='receiver_aperture_area_m2',transmission='receiver_optical_transmission',
+                    integration_s='receiver_integration_s',response_s='receiver_pixel_response_s',
+                    quantum_efficiency='receiver_quantum_efficiency',wavelength_m='receiver_effective_wavelength_m',
+                    dark_electrons_s='receiver_dark_current_electrons_s').items():
+                    equal(m[key],p[role],key)
+                equal(m['radiance_w_m2_sr'],1.,'constant scalar radiance')
+                equal(m['exposure_start_s'],0.,'scalar startup epoch')
+                equal(m['initial_expected_electrons'],0.,'scalar initial expected charge')
+                equal(m['initial_detector_time_s'],0.,'scalar initial detector clock')
+                require(m.get('reticle_pattern') == cell['bindings']['reticle_pattern'] and
+                        m.get('reticle_design') == cell['bindings']['reticle_design'], 'Scalar optical identity differs')
+                return []
             detector = [m for m in observations if m['law'] == 'uniform_detector_charge']
             require(len(detector) == 1 and type(detector[0]['imaging']) is bool, 'Missing detector cohort comparison')
             m = detector[0]
@@ -532,10 +706,22 @@ def validate_inputs(cell, row, root=ROOT):
         equal(row['fuze_endpoint']['radius_m'], p['radius_m'], 'endpoint radius')
     else:
         w = row['warhead']
-        equal(w['gurney_ms'], p['gurney_kms']*1000., 'explosive Gurney input')
+        direct = cell['mechanism_id'] in ('native.warhead.authored_field.v3', 'native.warhead.authored_ring.v4')
+        if direct:
+            require('gurney_ms' in w and 'actual' in w and
+                w.get('gurney_availability') == 'not_applicable' and
+                    w.get('gurney_ms') is None and w.get('actual') is None, 'Foreign Gurney availability')
+            equal(w['source_speed_ms'], p['warhead_source_speed_ms'], 'declared kinematic speed')
+            equal(w['fragment_cd'], p['warhead_fragment_cd'], 'declared Cd')
+            require(type(w['station_structural_m']) is list and len(w['station_structural_m']) == 3,
+                    'Missing authored source frame')
+            for i, axis in enumerate(('x','y','z')):
+                equal(w['station_structural_m'][i], p['warhead_station_'+axis+'_m'], 'source station '+axis)
+        else:
+            equal(w['gurney_ms'], p['gurney_kms']*1000., 'explosive Gurney input')
         equal(w['charge_kg'], p['explosive_kg'], 'charge mass')
         require(w['case_kg'] > 0 and type(w['rod']) is bool, 'Invalid native warhead model')
-        connected = cell['mechanism_id'] == 'native.warhead.connected_ring.v1'
+        connected = cell['mechanism_id'] in ('native.warhead.connected_ring.v1', 'native.warhead.authored_ring.v4')
         require((w['emission']['expanding'] > 0) == connected, 'Foreign rod topology')
         expected = project_warhead(cell, root)
         result = []
@@ -553,7 +739,17 @@ def validate_inputs(cell, row, root=ROOT):
     return []
 
 
-def family_theory(family, mechanism):
+def family_theory(family, mechanism, receiver_model=None):
+    if family == 'warhead' and mechanism in ('native.warhead.authored_field.v3', 'native.warhead.authored_ring.v4'):
+        return dict(equations='Declared v=warhead_source_speed_ms; sum(m)=M_case; point E=sum(m*v^2/2); affine rod E=sum(m/6*(v0.v0+v0.v1+v1.v1)); connected ring E=M_case*v^2*(2+cos(2*pi/N))/6. Gurney driver is not applicable, not measured zero.',
+            limits='Explicit GAME source roles and blind source-frame prior, not OEM construction/calibration. Material/frame/area/Cd/blast ownership remain independent. Connected initial centerline does not certify finite material volume. Native method outputs must be freshly captured under the complete source epoch.',
+            delta=mechanism+': each authored card supplies independent source mass, speed, count, finite support and station; V3 retains its point/discrete-rod mixture while V4 retains connected material-limited unfolding/breakup. No encounter-selected inputs or new fuze law.',
+            primary_sources=[PRIMARY['si']])
+    if family == 'seeker' and receiver_model == 'thermal_conscan_reticle.v1':
+        return dict(equations='L_band=emissivity*integral_band[2*h*c^2/(lambda^5*expm1(h*c/(lambda*k*T)))]dlambda; q=u+r*(cos(phi),sin(phi)); M(q)=1[dot(q,q)<=R^2]*1[cos(n*atan2(q.y,q.x))>=0]; Omega_cell=integral_cell dOmega; eta_j=sum_cell,time,subcell(Omega_cell*M)/(exposure_samples*spatial_samples^2); mu_j=L*eta_j*A*optical_transmission*integration*QE*lambda_eff/(h*c)+width*height*dark_current*integration; alpha_j=1-exp(-elapsed_j/response_time); Q_j=(1-alpha_j)*Q_previous+alpha_j*mu_j.',
+            limits='One scalar readout from the declared finite stationary-spoke mask and nutating field, not independently read image cells. Cell solid angle is analytic; spatial/time transmission is the unchanged finite midpoint quadrature. Source-free uniform radiance verifies photon means and zero-initial-state causal ZOH response at every phase, not compact-source fitting, angular observability, trajectory performance, OEM hardware reconstruction or continuous-integral convergence. Equivalent-area dark charge, finite mask/stop, effective wavelength and finite sample/exposure policy retain authored uncertainty.',
+            delta=mechanism+': exact selected thermal_conscan_reticle.v1 with stationary_radial_spokes.v1 and blur_response_limited.v1; actual per-model optical area/detector parameters and every authored scalar phase, distinct from retained quadrant/image/dual/RF methods. Expected photon charge is observed before random shot/read noise and ADC clipping; no target bearing or scene attribution is used as reference.',
+            primary_sources=[PRIMARY[k] for k in ('planck','si','reticle')])
     if family == 'seeker':
         return dict(equations='L=epsilon integral[2hc^2/(lambda^5(expm1(hc/lambda/k/T)))]dlambda; Q=L*Omega*A*t*tau*QE*lambda_eff/(hc); SNR=Pr*t/(k*T*F).',
             limits='Finite grey bands/rectangular projected patches, Gaussian PSF, effective photon wavelength, explicit detector/RF timing and assumed geometry. These method comparisons do not validate ECCM, Pd/Pfa or OEM acquisition envelope.',
@@ -600,7 +796,7 @@ def generate(native_path, report_path, epoch_path, output, root=ROOT, run_receip
             peers = sorted(c['model'] for c in selected if c['mechanism_id'] == mechanism)
             card = read(root/cell['card_path'])
             rows.append(dict(**{k: cell[k] for k in ('model', 'component', 'implementation_id', 'mechanism_id', 'card_sha256', 'parameter_sha256')},
-                passed=True, theory=family_theory(family, mechanism),
+                passed=True, theory=family_theory(family, mechanism, cell['bindings'].get('receiver_model')),
                 method=dict(case='Actual selected-provider native capture versus independent primary equations',
                     tests=len(values[(model, family)]), assertions=len(values[(model, family)]),
                     residuals=values[(model, family)]),

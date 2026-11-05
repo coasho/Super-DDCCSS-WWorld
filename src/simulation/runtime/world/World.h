@@ -84,6 +84,7 @@ class World;
 struct LiquidMaterialDiagnosticV1;
 struct LiquidMaterialDiagnosticStateV1;
 struct WorldDamageContinuationV1;
+struct WorldDamageApplicationV1;
 struct LiquidMaterialDatasetV1;
 struct WeaponLinkAccessV1 { std::mutex mutex;World* world=nullptr; };
 
@@ -1077,6 +1078,12 @@ private:
         double pressurePa, const std::vector<ms::damage::VehicleDamage::PointImpulse>& contact,
         std::optional<std::uint32_t> sourceStreamSlot,std::uint64_t sourceGeneration,
         bool materialOriginMoment=false,bool liquidAware=false);
+    // Internal-only aggregate policy; original callers retain the exact null policy.
+    std::vector<ipc::EngagementEvent> applyDamagePreparedV1(Entry& victim, const Detonation& cause,
+        const ms::damage::Impact& impact, const sim::VehicleState& encounter, const double* cg,
+        double pressurePa, const std::vector<ms::damage::VehicleDamage::PointImpulse>& contact,
+        std::optional<std::uint32_t> sourceStreamSlot,std::uint64_t sourceGeneration,
+        bool materialOriginMoment,bool liquidAware,const WorldDamageApplicationV1* prepared);
     void recordEngagement(const std::string& kind, const Entry& entity, std::uint32_t target = 0,
                           const std::string& reason = "", bool destroyed = false);
     std::vector<ms::EngagementEvent> combatEvents_;

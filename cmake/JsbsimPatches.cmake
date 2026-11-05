@@ -307,6 +307,32 @@ set(_new [=[  avFus_ca = fus_angvel_body2ca(in.AeroPQR);
 _fsim_jsbsim_edit(_text _old _new FGRotor.cpp "start")
 _fsim_jsbsim_write(models/propulsion/FGRotor.cpp _text Propulsion)
 
+# Export the existing nonvirtual engine feed-index getter from the Windows DLL.
+# FGEngine itself stays unexported: no class layout, vtable or method body changes.
+# Generate the header beside the already patched FGEngine.cpp so its quoted
+# include selects this declaration instead of the vendored header.
+_fsim_jsbsim_read(models/propulsion/FGEngine.h _text)
+set(_old [=[#include "math/FGModelFunctions.h"
+]=])
+set(_new [=[#include "JSBSim_API.h" // flightsim patch: getter visibility below
+#include "math/FGModelFunctions.h"
+]=])
+_fsim_jsbsim_edit(_text _old _new FGEngine.h "engine getter API include")
+set(_old [=[  unsigned int GetSourceTank(unsigned int i) const;
+]=])
+set(_new [=[  // flightsim patch: export the existing native feed-index getter only.
+  JSBSIM_API unsigned int GetSourceTank(unsigned int i) const;
+]=])
+_fsim_jsbsim_edit(_text _old _new FGEngine.h "engine source tank getter export")
+_fsim_jsbsim_write(models/propulsion/FGEngine.h _text "")
+
+# On an existing Ninja build the previous depfile names the vendored header.
+# This explicit edge also rebuilds FGEngine.cpp on the first shadow-header
+# introduction, before its newly scanned include dependency is available.
+set_property(SOURCE "${_fsim_jsbsim_patched}/models/propulsion/FGEngine.cpp"
+    TARGET_DIRECTORY Propulsion APPEND PROPERTY OBJECT_DEPENDS
+    "${_fsim_jsbsim_patched}/models/propulsion/FGEngine.h")
+
 foreach(_includer FGEngine.cpp FGTurboProp.cpp)
     _fsim_jsbsim_read(models/propulsion/${_includer} _text)
     if(_includer STREQUAL "FGEngine.cpp")
@@ -1325,7 +1351,68 @@ set(_new [=[  if (!FGModel::InitModel()) return false;
   vXYZcg.InitMatrix();
 ]=])
 _fsim_jsbsim_edit(_text _old _new FGMassBalance.cpp "reset")
+set(_old [=[bool FGMassBalance::Run(bool Holding)
+{
+]=])
+set(_new [=[bool FGMassBalance::Run(bool Holding)
+{
+  // flightsim patch: null refresh retains the original native operation order.
+  return RunWithInputRefreshV1(Holding, nullptr, nullptr);
+}
+
+bool FGMassBalance::RunWithInputRefreshV1(bool Holding,
+    void (*refresh)(FGMassBalance&, const void*), const void* context)
+{
+]=])
+_fsim_jsbsim_edit(_text _old _new FGMassBalance.cpp "synchronous single-run input refresh")
+set(_old [=[  // Track frame-by-frame delta CG, and move the EOM-tracked location
+]=])
+set(_new [=[  // flightsim patch (cmake/JsbsimPatches.cmake): a synchronous caller may
+  // rebase its frozen inertia inputs to the CG just computed above. This is
+  // one run: no extra pre/post functions, scheduling, CG update or ground nudge.
+  if (refresh) refresh(*this, context);
+
+  // Track frame-by-frame delta CG, and move the EOM-tracked location
+]=])
+_fsim_jsbsim_edit(_text _old _new FGMassBalance.cpp "refresh inertia inputs at computed CG")
 _fsim_jsbsim_write(models/FGMassBalance.cpp _text Models)
+
+# Add a nonvirtual method only: existing instance layout and virtual slots
+# remain unchanged. Qualify FGModel.h so the shadow header works for consumers.
+_fsim_jsbsim_read(models/FGMassBalance.h _text)
+set(_old [=[  bool Run(bool Holding) override;
+]=])
+set(_new [=[  bool Run(bool Holding) override;
+
+  /// flightsim patch: one ordinary run with an optional synchronous input
+  /// refresh after CG calculation and before inertia composition. Null keeps
+  /// ordinary Run arithmetic. The callback must not advance/re-enter the model,
+  /// change mass/CG inputs, or retain its borrowed context; it may only refresh
+  /// inertia inputs about GetXYZcg(). No new virtual or instance member.
+  bool RunWithInputRefreshV1(bool Holding,
+      void (*refresh)(FGMassBalance&, const void*), const void* context);
+]=])
+_fsim_jsbsim_edit(_text _old _new FGMassBalance.h "synchronous nonvirtual mass-input refresh")
+set(_old [=[#include "FGModel.h"
+]=])
+set(_new [=[#include "models/FGModel.h"
+]=])
+_fsim_jsbsim_edit(_text _old _new FGMassBalance.h "root-qualified shadow header include")
+_fsim_jsbsim_write(models/FGMassBalance.h _text "")
+
+# FGFDMExec.cpp's quoted models/FGMassBalance.h otherwise searches its vendor
+# source directory before any include path. Relocate that unchanged source so
+# every newly compiled JSBSim/adapter consumer sees the same additive header.
+_fsim_jsbsim_read(FGFDMExec.cpp _text)
+_fsim_jsbsim_write(FGFDMExec.cpp _text libJSBSim)
+foreach(_target libJSBSim Atmosphere FlightControl GeographicLib Init InputOutput
+                IOStreams Magvar Math Misc Models Properties Propulsion Xml)
+    if(TARGET ${_target})
+        target_include_directories(${_target} BEFORE PRIVATE ${_fsim_jsbsim_patched})
+    endif()
+endforeach()
+target_include_directories(libJSBSim BEFORE INTERFACE
+    $<BUILD_INTERFACE:${_fsim_jsbsim_patched}>)
 
 # ---------------------------------------------------------------------------
 # models/FGAuxiliary.cpp: the angle of attack's rate in a flow from the side.

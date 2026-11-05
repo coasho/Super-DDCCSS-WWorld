@@ -27,6 +27,13 @@ bool gone(StoreStatus s) noexcept {
     return s == StoreStatus::Releasing || s == StoreStatus::Released || s == StoreStatus::Jettisoned || s == StoreStatus::Lost;
 }
 
+// A queued release reserves inventory immediately, but its material remains on
+// the station until World confirms the actual child. Command availability and
+// physical mass/aerodynamics therefore have distinct state predicates.
+bool physicallyCarried(StoreStatus s) noexcept {
+    return s == StoreStatus::Releasing || !gone(s);
+}
+
 bool flyable(const StoreCard& card) noexcept { return !card.model.empty(); }
 
 /// How a store leaves its station: a missile under its own power off a rail where the station has one, anything else
@@ -67,7 +74,7 @@ void Host::rebuildStoreInfo() {
 double Host::storesMassKg() const noexcept {
     double kg = 0.0;
     for (const auto& s : stores_)
-        if (!gone(s.status)) kg += massOf(s);
+        if (physicallyCarried(s.status)) kg += massOf(s);
     return kg;
 }
 
@@ -471,7 +478,8 @@ void Host::endStrike(ActivityId id) {
         if (slot.activity == id) slot.activity = 0;
         if (!gone(slot.status)) slot.status = StoreStatus::Loaded;
     }
-    // a release already queued this step still leaves (its store has gone from its station)
+    // A queued release is already committed and survives ordinary cancellation;
+    // its material remains physically carried until World confirms departure.
     StrikeStatus last;
     last.activity = it->id;
     last.phase = StrikePhase::Done;
@@ -505,15 +513,32 @@ double Host::loseStation(int station, double simTime) {
         lostStations_.push_back(station); // (its carriage gone with it)
         ++storeRevision_;
     }
-    for (auto& s : stores_)
-        if (s.station && s.station->number == station && !gone(s.status)) {
-            kg += massOf(s);
-            s.status = StoreStatus::Lost;
-            // a strike or jettison that held it fails: it cannot release what has gone
-            if (s.activity && strike(s.activity)) end(s.activity, control::ActivityState::Failed, Reason::PayloadFailed, simTime);
-            s.activity = 0;
-            ++storeRevision_;
-        }
+    // Inventory reservation is not physical departure. Collect stable store
+    // indices/activity IDs before ending any strike: endStrike erases strikes
+    // and intentionally preserves queued releases at OTHER surviving stations.
+    std::vector<std::size_t> lost;
+    std::vector<ActivityId> failed;
+    for (std::size_t index = 0; index < stores_.size(); ++index) {
+        const auto& slot = stores_[index];
+        if (!slot.station || slot.station->number != station || !physicallyCarried(slot.status)) continue;
+        lost.push_back(index);
+        if (slot.activity && strike(slot.activity) && std::find(failed.begin(), failed.end(), slot.activity) == failed.end())
+            failed.push_back(slot.activity);
+    }
+    for (const auto index : lost) {
+        auto& slot = stores_[index];
+        kg += massOf(slot);
+        slot.status = StoreStatus::Lost;
+        slot.activity = 0;
+        ++storeRevision_;
+    }
+    // Remove only requests naming the material that moved to this piece.
+    // Activity-wide refusal would wrongly withdraw surviving queued siblings.
+    releases_.erase(std::remove_if(releases_.begin(), releases_.end(), [&](const Release& release) {
+        return std::find(lost.begin(), lost.end(), static_cast<std::size_t>(release.store)) != lost.end();
+    }), releases_.end());
+    for (const auto activity : failed)
+        end(activity, control::ActivityState::Failed, Reason::PayloadFailed, simTime);
     if (kg > 0.0) rebuildStoreInfo();
     return kg;
 }
@@ -521,7 +546,7 @@ double Host::loseStation(int station, double simTime) {
 double Host::stationMassKg(std::uint16_t payload, int station) const noexcept {
     double kg = 0.0;
     for (const auto& s : stores_)
-        if (s.payload == payload && s.station->number == station && !gone(s.status)) kg += massOf(s);
+        if (s.payload == payload && s.station->number == station && physicallyCarried(s.status)) kg += massOf(s);
     return kg;
 }
 
@@ -541,7 +566,7 @@ void Host::carriageDrag(std::vector<DragPoint>& out) const {
             else racks.push_back(&c.station->rack);
         }
         for (const auto& s : stores_)
-            if (s.payload == c.payload && s.station == c.station && !gone(s.status)) {
+            if (s.payload == c.payload && s.station == c.station && physicallyCarried(s.status)) {
                 p.areaM2 += c.mount == Mount::Pylon ? kLugsCdsM2 : 0.0;
             }
         if (p.areaM2 > 0.0) out.push_back(p);
@@ -551,7 +576,7 @@ void Host::carriageDrag(std::vector<DragPoint>& out) const {
 void Host::carriedAirframesV1(std::vector<CarriedAirframeV1>& out) const {
     out.clear();
     for (const auto& store : stores_) {
-        if (gone(store.status) || !store.station->bay.empty() ||
+        if (!physicallyCarried(store.status) || !store.station->bay.empty() ||
             std::find(lostStations_.begin(),lostStations_.end(),store.station->number)!=lostStations_.end()) continue;
         CarriedAirframeV1 point;point.card=store.card.get();
         for(unsigned k=0;k<3;++k)point.positionM[k]=store.station->positionM[k];
@@ -565,7 +590,7 @@ double Host::massOf(const StoreSlot& s) noexcept { return s.card->value("mass_kg
 double Host::externalFuelKg() const noexcept {
     double kg = 0.0;
     for (const auto& s : stores_)
-        if (!gone(s.status)) kg += s.fuelKg;
+        if (physicallyCarried(s.status)) kg += s.fuelKg;
     return kg;
 }
 
@@ -576,11 +601,11 @@ double Host::drawExternalFuel(double kg) {
     for (int pass = 0; pass < 4 && kg - drawn > 1e-9; ++pass) {
         int holding = 0;
         for (const auto& s : stores_)
-            if (!gone(s.status) && s.fuelKg > 0.0) ++holding;
+            if (physicallyCarried(s.status) && s.fuelKg > 0.0) ++holding;
         if (!holding) break;
         const double share = (kg - drawn) / holding;
         for (auto& s : stores_)
-            if (!gone(s.status) && s.fuelKg > 0.0) {
+            if (physicallyCarried(s.status) && s.fuelKg > 0.0) {
                 const double take = std::min(share, s.fuelKg);
                 s.fuelKg -= take, drawn += take;
             }

@@ -31,6 +31,38 @@ the encounter position; it is not a new public substep timestamp. One terminal
 outcome per weapon, inert jettison behavior and existing refusal/permission paths
 remain part of the engagement contract.
 
+## Captured initial stationary points and retained boundaries
+
+The explicit version1 stationary/corner convention differs from the retained
+version0 constrained-interval minimum described above. It admits an actual
+analytic stationary point at either inclusive captured endpoint, subject to
+the same inclusive arming and exclusive expiry rules. An approaching or
+receding minimum merely clamped to that endpoint remains insufficient.
+
+A standalone `sweptPathFuze` now preserves an exact initial stationary point
+already admitted by `sweptFuze`. For the synthetic captured relative path
+`r(u)=(u,0.5,0)`, squared separation is `u^2+0.25` and its derivative is `2u`.
+The stationary point is exactly `u=0`, with separation0.5, rather than a
+stationary point outside the interval clamped to its boundary. This numerical
+contract introduces no equipment parameter, sensor capability or trajectory.
+
+`FuzeTurnStateV1` owns the shared endpoint whenever its same-target, same-age
+and exact-position history is contiguous. An internal initial-point inclusion
+policy leaves the public path signature unchanged: the history-aware call
+checks that shared point from both captured sides and suppresses it if the
+preceding interval already reported it. Suppressing this one point does not
+stop the current path's search for a later legitimate stationary point or
+corner. A receding-to-tangent shared boundary is not promoted into a two-sided
+closest approach. No timestamp is nudged to implement these decisions.
+
+The bounded regression additions cover direct/path/first-release consistency,
+an already reported stationary endpoint, a later turn after that endpoint,
+a clamped receding negative control and a contiguous receding-to-tangent
+negative control. Original arming, expiry, target/history discontinuity,
+fixed-delay and retained version0 assertions remain unchanged. Current native
+normal-preset execution is required separately; standalone defect reproduction
+does not establish integrated or complete-program acceptance.
+
 ## Fragment impulse accounting
 
 `damage::assess` already slows fragments in air and uses their resulting speed

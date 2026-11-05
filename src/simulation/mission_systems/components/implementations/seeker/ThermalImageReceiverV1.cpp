@@ -7,6 +7,15 @@
 #include <limits>
 #include <numeric>
 #include <tuple>
+#include <cfenv>
+#include <cfloat>
+#include <cstdint>
+#include <cstring>
+#include <unordered_map>
+#include <bitset>
+#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
+#include <xmmintrin.h>
+#endif
 
 namespace fsim::ms::components {
 using namespace measured;
@@ -33,6 +42,59 @@ double solidAngle(double x0,double x1,double y0,double y1) {
 // Gaussian, THEN integrate the detector interval. No source position is
 // quantized to a detector centre, and FOV losses are never renormalized away.
 struct Rectangle {double left,right,bottom,top;};
+// One visible-region lifetime, never a receiver/global cache. Every stored
+// value is the original native arithmetic at an exact binary64 x key.
+class HorizonQuadratureMemoV2 {
+public:
+    struct Pattern {
+        std::array<double,4> edges{};std::array<double,3> lights{};
+        unsigned size=0;bool rootsReady=false;
+    };
+    struct Node:Pattern {
+        std::array<double,128> yValues{},probabilities{};
+        std::bitset<128> yKnown,probabilityKnown;
+    };
+private:
+    Rectangle region_;ThermalOpaqueMemoWorkV2* work_;
+    unsigned width_,height_;std::size_t capacity_;
+    bool enabled_=false,initialized_=false;
+    std::unordered_map<std::uint64_t,Node> nodes_;
+    static std::uint64_t key(double x) noexcept {
+        static_assert(sizeof(x)==sizeof(std::uint64_t),"binary64 key required");
+        std::uint64_t value;std::memcpy(&value,&x,sizeof(value));return value;
+    }
+public:
+    HorizonQuadratureMemoV2(unsigned width,unsigned height,Rectangle region,ThermalOpaqueMemoWorkV2* work):
+        region_(region),work_(work),width_(width),height_(height),capacity_(std::max(24u,width+height)) {
+        enabled_=std::numeric_limits<double>::is_iec559&&FLT_EVAL_METHOD==0&&std::fegetround()==FE_TONEAREST;
+#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
+        enabled_=enabled_&&(_mm_getcsr()&0x6000u)==0;
+#endif
+    }
+    ThermalOpaqueMemoWorkV2* diagnostic() const noexcept {return work_;}
+    Node* find(double x,unsigned column,unsigned row) {
+        if(work_)++work_->queries;
+        if(!enabled_||column>=width_||row>=height_)return nullptr;
+        if(!initialized_) {
+            initialized_=true;nodes_.reserve(capacity_);
+            // Reserve the exact original 8-segment initial nodes before any
+            // single pixel's adaptive descent can fill the performance cache.
+            for(unsigned i=0;i<8;++i) {
+                const double low=region_.left+(region_.right-region_.left)*i/8;
+                const double high=region_.left+(region_.right-region_.left)*(i+1)/8,middle=.5*(low+high);
+                for(const double value:{low,middle,high})nodes_.try_emplace(key(value));
+            }
+        }
+        const auto value=key(x);const auto found=nodes_.find(value);
+        if(found!=nodes_.end()){if(work_){++work_->hits;work_->maxNodes=std::max(work_->maxNodes,nodes_.size());}return &found->second;}
+        // Capacity only limits memoization. An uncached node executes the
+        // complete old calculation with the same integral/accuracy budget.
+        if(nodes_.size()>=capacity_){if(work_)++work_->capacityMisses;return nullptr;}
+        auto* node=&nodes_.try_emplace(value).first->second;
+        if(work_)work_->maxNodes=std::max(work_->maxNodes,nodes_.size());
+        return node;
+    }
+};
 double gaussianRectangle(double low,double high,double pixelLow,double pixelHigh,double sigma) {
     const auto primitive=[](double z) {
         return z*.5*std::erfc(-z/std::sqrt(2.))+std::exp(-.5*z*z)/std::sqrt(2*pi);
@@ -47,7 +109,8 @@ double gaussianRectangle(double low,double high,double pixelLow,double pixelHigh
 // integral is analytic; adaptive Simpson integrates its smooth x dependence.
 // Uniform-sky/ground rectangles use an exact interval bound and no quadrature.
 double backgroundIntegral(const ThermalSceneFrameV1& scene,const Plane& plane,Rectangle r,
-    double px0,double px1,double py0,double py1,double sigma) {
+    double px0,double px1,double py0,double py1,double sigma,
+    HorizonQuadratureMemoV2* memo=nullptr,unsigned memoColumn=0,unsigned memoRow=0) {
     const double ix=gaussianRectangle(r.left,r.right,px0,px1,sigma);
     const double iy=gaussianRectangle(r.bottom,r.top,py0,py1,sigma);
     if(ix==0||iy==0)return 0;
@@ -62,25 +125,59 @@ double backgroundIntegral(const ThermalSceneFrameV1& scene,const Plane& plane,Re
     const double minimum=std::min({n0/d0,n0/d1,n1/d0,n1/d1}),maximum=std::max({n0/d0,n0/d1,n1/d0,n1/d1});
     if(minimum>=scene.groundHorizonCosine)return scene.skyRadianceWm2Sr*ix*iy;
     if(maximum<scene.groundHorizonCosine)return scene.groundRadianceWm2Sr*ix*iy;
+    bool nearest=std::fegetround()==FE_TONEAREST;
+#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
+    nearest=nearest&&(_mm_getcsr()&0x6000u)==0;
+#endif
+    const bool boundedUnit=nearest&&scene.skyRadianceWm2Sr>=0&&scene.skyRadianceWm2Sr<=1&&
+        scene.groundRadianceWm2Sr>=0&&scene.groundRadianceWm2Sr<=1;
     const auto function=[&](double x) {
-        const double tx=std::tan(x),n=a+b*tx,h=scene.groundHorizonCosine;
-        std::vector<double> edges{r.bottom,r.top};
-        const auto root=[&](double t){const double y=std::atan(t);if(y>r.bottom&&y<r.top)edges.push_back(y);};
-        const double aa=c*c-h*h,bb=2*n*c,cc=n*n-h*h*(1+tx*tx);
-        if(std::abs(aa)<1e-14) {if(std::abs(bb)>1e-14)root(-cc/bb);}
+        auto* cached=memo?memo->find(x,memoColumn,memoRow):nullptr;
+        auto* counted=memo?memo->diagnostic():nullptr;
+        const auto probabilityAt=[&]() {
+            if(cached&&cached->probabilityKnown[memoColumn]){if(counted)++counted->probabilityHits;return cached->probabilities[memoColumn];}
+            if(counted)++counted->probabilityEvaluations;
+            const double value=.5*(std::erf((px1-x)/(std::sqrt(2.)*sigma))-std::erf((px0-x)/(std::sqrt(2.)*sigma)));
+            if(cached){cached->probabilityKnown.set(memoColumn);cached->probabilities[memoColumn]=value;}
+            return value;
+        };
+        const double knownProbability=boundedUnit?probabilityAt():0.;
+        if(boundedUnit&&knownProbability==0)return knownProbability;
+        double yIntegral=0;
+        if(cached&&cached->yKnown[memoRow]){if(counted)++counted->yHits;yIntegral=cached->yValues[memoRow];}
         else {
-            const double discriminant=bb*bb-4*aa*cc;
-            if(discriminant>=0) {root((-bb-std::sqrt(discriminant))/(2*aa));root((-bb+std::sqrt(discriminant))/(2*aa));}
+            if(counted)++counted->yEvaluations;
+            // The vector/root/sort and midpoint classifications are retained
+            // exactly, including duplicate roots and zero-length intervals.
+            // They depend on this x/scene/region, never the detector pixel.
+            HorizonQuadratureMemoV2::Pattern local;
+            auto* pattern=cached?static_cast<HorizonQuadratureMemoV2::Pattern*>(cached):&local;
+            if(!pattern->rootsReady) {
+                if(counted)++counted->rootsBuilt;
+                const double tx=std::tan(x),n=a+b*tx,h=scene.groundHorizonCosine;
+                std::vector<double> edges{r.bottom,r.top};
+                const auto root=[&](double t){const double y=std::atan(t);if(y>r.bottom&&y<r.top)edges.push_back(y);};
+                const double aa=c*c-h*h,bb=2*n*c,cc=n*n-h*h*(1+tx*tx);
+                if(std::abs(aa)<1e-14) {if(std::abs(bb)>1e-14)root(-cc/bb);}
+                else {
+                    const double discriminant=bb*bb-4*aa*cc;
+                    if(discriminant>=0) {root((-bb-std::sqrt(discriminant))/(2*aa));root((-bb+std::sqrt(discriminant))/(2*aa));}
+                }
+                std::sort(edges.begin(),edges.end());pattern->size=static_cast<unsigned>(edges.size());
+                std::copy(edges.begin(),edges.end(),pattern->edges.begin());
+                for(unsigned i=1;i<pattern->size;++i) {
+                    const double y=.5*(pattern->edges[i-1]+pattern->edges[i]);
+                    pattern->lights[i-1]=dot(plane.ray(x,y),scene.up)>=h?scene.skyRadianceWm2Sr:scene.groundRadianceWm2Sr;
+                }
+                pattern->rootsReady=true;
+            }
+            // Gaussian y intervals depend on the row, not the column. Keep
+            // every original multiplication/addition in its original order.
+            for(unsigned i=1;i<pattern->size;++i)
+                yIntegral+=pattern->lights[i-1]*gaussianRectangle(pattern->edges[i-1],pattern->edges[i],py0,py1,sigma);
+            if(cached){cached->yKnown.set(memoRow);cached->yValues[memoRow]=yIntegral;}
         }
-        // Squaring also yields the opposite cone; midpoint classification
-        // selects the native signed horizon without inventing another surface.
-        std::sort(edges.begin(),edges.end());double yIntegral=0;
-        for(std::size_t i=1;i<edges.size();++i) {
-            const double y=.5*(edges[i-1]+edges[i]);
-            const double lightAtRay=dot(plane.ray(x,y),scene.up)>=h?scene.skyRadianceWm2Sr:scene.groundRadianceWm2Sr;
-            yIntegral+=lightAtRay*gaussianRectangle(edges[i-1],edges[i],py0,py1,sigma);
-        }
-        const double probability=.5*(std::erf((px1-x)/(std::sqrt(2.)*sigma))-std::erf((px0-x)/(std::sqrt(2.)*sigma)));
+        const double probability=boundedUnit?knownProbability:probabilityAt();
         return probability*yIntegral;
     };
     const auto adaptive=[&](auto&& self,double low,double high,double fl,double fm,double fh,double estimate,double tolerance,unsigned depth)->double {
@@ -236,6 +333,10 @@ std::optional<ThermalIncidentFieldV1> ThermalImageReceiverV1::incidentFieldV1(
 }
 std::optional<ThermalIncidentFieldV1> ThermalImageReceiverV1::incidentFieldImplV1(
     const ThermalSceneFrameV1& scene,V pointing,const ThermalImageConfigV1& c,const std::vector<double>* background) {
+    return incidentFieldProfileV2(scene,pointing,c,background,nullptr);
+}
+std::optional<ThermalIncidentFieldV1> ThermalImageReceiverV1::incidentFieldProfileV2(
+    const ThermalSceneFrameV1& scene,V pointing,const ThermalImageConfigV1& c,const std::vector<double>* background,ThermalOpaqueMemoWorkV2* work) {
     if(!validConfig(c)||!validScene(scene,c)||!finite(pointing)||!positive(norm(pointing)))return std::nullopt;
     const auto plane=planeFor(pointing,unit(scene.up));
     const double halfWidth=.5*c.width,halfHeight=.5*c.height;
@@ -312,6 +413,7 @@ std::optional<ThermalIncidentFieldV1> ThermalImageReceiverV1::incidentFieldImplV
         }
         for(const auto& run:visible) {
             const auto& part=run.region;const auto index=run.source;const auto& patch=scene.patches[index];
+            HorizonQuadratureMemoV2 integralMemo(c.width,c.height,part,work);
             const double lightAtSensor=patch.transmission*patch.radianceWm2Sr+(1-patch.transmission)*patch.pathRadianceWm2Sr;
             const int firstX=std::max(0,static_cast<int>(std::floor((part.left-margin)/pitch+halfWidth)));
             const int lastX=std::min(static_cast<int>(c.width)-1,static_cast<int>(std::floor((part.right+margin)/pitch+halfWidth)));
@@ -323,7 +425,7 @@ std::optional<ThermalIncidentFieldV1> ThermalImageReceiverV1::incidentFieldImplV
             for(int y=firstY;y<=lastY;++y)for(int x=firstX;x<=lastX;++x) {
                 const double x0=(x-halfWidth)*pitch,y0=(y-halfHeight)*pitch;
                 const double contrast=(lightAtSensor*wx[static_cast<unsigned>(x)]*wy[static_cast<unsigned>(y)]-
-                    backgroundIntegral(scene,plane,part,x0,x0+pitch,y0,y0+pitch,c.psfSigmaRad))/(pitch*pitch*c.exposureSamples);
+                    backgroundIntegral(scene,plane,part,x0,x0+pitch,y0,y0+pitch,c.psfSigmaRad,&integralMemo,static_cast<unsigned>(x),static_cast<unsigned>(y)))/(pitch*pitch*c.exposureSamples);
                 sourceContrast[index][static_cast<std::size_t>(y)*c.width+static_cast<unsigned>(x)]+=contrast;
             }
         }

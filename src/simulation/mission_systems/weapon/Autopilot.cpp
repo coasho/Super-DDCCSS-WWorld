@@ -60,7 +60,11 @@ FinCommands cascade(const AutopilotInput& in,const FinControlConfigV1& config,co
         if (!std::isfinite(in.demandBody[k]) || !std::isfinite(in.gravityBody[k]) ||
             !std::isfinite(in.ratesRadS[k]) || !std::isfinite(in.inertiaKgM2[k]) || in.inertiaKgM2[k] <= 0 ||
             !std::isfinite(in.limitsRad[k]) || in.limitsRad[k] < 0 || (k != 0 && in.limitsRad[k] == 0)) return {};
-    for (const auto* a : {&in.pitch, &in.yaw}) {
+    // The versioned measured-axial law solves directional trim below. Its
+    // determinant also contains actual forward force, so a powered nozzle can
+    // retain authority when the aerodynamic-only trim slope vanishes. The
+    // directional solver still rejects its own singular/nonfinite system.
+    if (!directionalAxial(in,config)) for (const auto* a : {&in.pitch, &in.yaw}) {
         const double effective = forceSlope(*a);
         if (!std::isfinite(effective) || std::abs(effective) < 1e-6 * std::max(std::abs(a->forceAngle), 1.)) return {};
     }

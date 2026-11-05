@@ -405,3 +405,328 @@ TEST_CASE("warhead v2 finite origins angular sectors and rigid velocities use ex
     }
     for(const auto seen:visited)CHECK(seen);
 }
+
+// Explicit GAME source-role compatibility; synthetic inputs, no equipment fit.
+#include "simulation/mission_systems/components/registration/BuiltInProvidersV1.h"
+#include <algorithm>
+#include <functional>
+#include <stdexcept>
+
+namespace {
+constexpr const char* authoredFieldId="native.warhead.authored_field.v3";
+constexpr const char* authoredRingId="native.warhead.authored_ring.v4";
+
+fsim::ms::StoreCard explicitGameCard(bool ring=false,bool discreteRod=false) {
+    auto card=legacyCard();card.warheadKind=(ring||discreteRod)?"rod":"fragmentation";
+    const auto previous=dmg::warheadOf(card);
+    if(!previous)throw std::runtime_error("synthetic legacy source construction failed");
+    const auto& w=*previous;
+    const auto put=[&](const std::string& key,double value,const char* unit) {
+        fsim::ms::Parameter p;p.value=value;p.unit=unit;p.basis=fsim::ms::Basis::Assumed;
+        p.note="Retained synthetic GAME source input; no hardware calibration.";card.parameters[key]=p;
+    };
+    put("warhead_model_version",ring?4:3,"1");
+    put("warhead_case_kg",w.caseKg,"kg");
+    put("warhead_structure_kg",w.totalKg-w.explosiveKg-w.caseKg,"kg");
+    put("warhead_tnt_equivalent_kg",w.tntKg,"kg");
+    put("warhead_case_outer_radius_m",w.diameterM/2,"m");
+    put("warhead_case_inner_radius_m",std::max(0.,w.diameterM/2-w.caseThicknessM),"m");
+    put("warhead_case_length_m",w.lengthM,"m");put("warhead_fragment_count",w.fragments,"1");
+    put("warhead_fragment_area_m2",w.fragmentAreaM2,"m^2");put("warhead_source_speed_ms",w.speedMs,"m/s");
+    put("warhead_fragment_cd",w.fragmentCd,"1");put("length_m",2.,"m");
+    put("warhead_station_x_m",1.,"m");put("warhead_station_y_m",0.,"m");put("warhead_station_z_m",0.,"m");
+    if(!ring) {
+        put("warhead_zone_count",static_cast<double>(w.zones.size()),"1");
+        for(std::size_t i=0;i<w.zones.size();++i) {
+            const auto prefix="warhead_zone_"+std::to_string(i);
+            put(prefix+"_from_deg",w.zones[i].fromDeg,"deg");put(prefix+"_to_deg",w.zones[i].toDeg,"deg");
+            put(prefix+"_weight",w.zones[i].share,"1");
+        }
+    }
+    for(auto& [key,p]:card.parameters) { (void)key;if(p.note.empty())p.note="Synthetic GAME fixture assumption; not measured hardware."; }
+    return card;
+}
+
+fsim::ms::components::DescriptorV1 explicitGameDescriptor(const fsim::ms::StoreCard& card,bool ring=false) {
+    fsim::ms::components::DescriptorV1 d;d.kind="warhead";d.implementationId=ring?authoredRingId:authoredFieldId;
+    d.availability=fsim::ms::components::AvailabilityV1::Available;d.configurationVersion=1;
+    d.basis=fsim::ms::Basis::Assumed;d.note="Explicit synthetic GAME input roles.";
+    d.validity="Software source-role test only; no equipment accuracy claim.";
+    for(const auto& [key,p]:card.parameters)if(key!="gurney_kms") {d.parameterRefs[key]=key;d.parameters[key]=p;}
+    d.bindings={{"burst_reference","captured_authored_station_from_nose"},{"blast","kingery_bulmash.swisdak_1994.free_air.v1"},
+        {"penetration","thor.aluminium_2024_t3.v1"},{"assessment","native.fragment_blast.v1"}};
+    d.bindings[ring?"topology":"angular_profile"]=ring?"native.connected_ring.material_limited.v1":"authored.solid_angle_mixture.v1";
+    return d;
+}
+
+std::unique_ptr<dmg::WarheadAdapter> explicitGameProvider(const fsim::ms::StoreCard& card,bool ring,std::string& error) {
+    const auto registry=fsim::ms::components::builtInProvidersV1();
+    const auto d=explicitGameDescriptor(card,ring);fsim::ms::components::ProfileV1 profile;
+    const fsim::ms::components::ProviderContextV1 context{card,profile,{},std::nullopt};
+    return registry.warhead.create(d,context,error);
+}
+
+void identicalGameFields(const dmg::FragmentFieldV1& a,const dmg::FragmentFieldV1& b) {
+    REQUIRE(a.valid);REQUIRE(b.valid);REQUIRE(a.projectiles.size()==b.projectiles.size());
+    CHECK(a.caseKg==b.caseKg);
+    for(std::size_t i=0;i<a.projectiles.size();++i) {
+        const auto& p=a.projectiles[i];const auto& q=b.projectiles[i];
+        CHECK(p.at.x==q.at.x);CHECK(p.at.y==q.at.y);CHECK(p.at.z==q.at.z);
+        CHECK(p.end.x==q.end.x);CHECK(p.end.y==q.end.y);CHECK(p.end.z==q.end.z);
+        CHECK(p.velocity.x==q.velocity.x);CHECK(p.velocity.y==q.velocity.y);CHECK(p.velocity.z==q.velocity.z);
+        CHECK(p.endVelocity.x==q.endVelocity.x);CHECK(p.endVelocity.y==q.endVelocity.y);CHECK(p.endVelocity.z==q.endVelocity.z);
+        CHECK(p.massKg==q.massKg);CHECK(p.areaM2==q.areaM2);CHECK(p.cd==q.cd);CHECK(p.segment==q.segment);
+        CHECK(p.expansionPerS==q.expansionPerS);CHECK(p.breakupAgeS==q.breakupAgeS);CHECK(p.materialLengthM==q.materialLengthM);
+    }
+}
+} // namespace
+
+TEST_CASE("explicit GAME field and ring policies are real registered native providers", "[warhead-model][authored-source][authored-source-red]") {
+    for(const bool ring:{false,true}) DYNAMIC_SECTION((ring?"connected ring V4":"annular field V3")) {
+        INFO(ring);const auto card=explicitGameCard(ring);std::string error;
+        const auto provider=explicitGameProvider(card,ring,error);INFO(error);REQUIRE(provider);
+        CHECK(provider->implementationId()==(ring?authoredRingId:authoredFieldId));
+        CHECK(provider->model().modelVersion==(ring?4u:3u));REQUIRE(provider->model().stationStructuralM);
+        CHECK(provider->model().stationStructuralM->x==1.);
+        const auto* execution=dynamic_cast<const dmg::WarheadSceneExecutionV2*>(provider.get());REQUIRE(execution);
+        dmg::Burst burst;burst.axis={1,0,0};fsim::Rng rng(51);const auto field=execution->emitScene(burst,rng);
+        REQUIRE(field.valid);REQUIRE_FALSE(field.projectiles.empty());CHECK(field.projectiles.front().segment==ring);
+        if(ring) {CHECK(field.projectiles.front().expansionPerS>0);CHECK(field.projectiles.front().breakupAgeS>0);}
+    }
+}
+
+TEST_CASE("explicit GAME roles preserve every old field element and RNG at identical data", "[warhead-model][authored-source][authored-source-compatibility]") {
+    for(const int topology:{0,1,2}) {
+        const bool ring=topology==2;auto oldCard=legacyCard();oldCard.warheadKind=topology?"rod":"fragmentation";
+        const auto old=dmg::warheadOf(oldCard);REQUIRE(old);
+        const auto card=explicitGameCard(ring,topology==1);std::string error;
+        const auto provider=explicitGameProvider(card,ring,error);INFO(error);REQUIRE(provider);
+        const auto* execution=dynamic_cast<const dmg::WarheadSceneExecutionV2*>(provider.get());REQUIRE(execution);
+        dmg::Burst burst;burst.at={1,2,3};burst.axis={1,2,3};burst.velocity={9,-4,3};burst.angularVelocityEcef={2,-1,3};
+        fsim::Rng first(117),second(117);
+        const auto before=dmg::emitFragmentFieldV1(*old,burst,first,ring),after=execution->emitScene(burst,second);
+        identicalGameFields(before,after);CHECK(first.state()==second.state());CHECK(before.tntKg==after.tntKg);
+        auto changed=card;changed.parameters["warhead_tnt_equivalent_kg"].value=0;
+        auto noBlast=explicitGameProvider(changed,ring,error);REQUIRE(noBlast);
+        const auto* noBlastExecution=dynamic_cast<const dmg::WarheadSceneExecutionV2*>(noBlast.get());REQUIRE(noBlastExecution);
+        fsim::Rng third(117);const auto unrelated=noBlastExecution->emitScene(burst,third);
+        identicalGameFields(after,unrelated);CHECK(third.state()==second.state());CHECK(unrelated.tntKg==0);
+        changed=card;changed.parameters["gurney_kms"].value=99;
+        auto noDriver=explicitGameProvider(changed,ring,error);REQUIRE(noDriver);
+        CHECK(noDriver->model().speedMs==provider->model().speedMs);CHECK(noDriver->model().tntKg==provider->model().tntKg);
+    }
+}
+
+TEST_CASE("explicit GAME policy rejects incomplete mixed or out of domain roles atomically", "[warhead-model][authored-source][authored-source-boundary]") {
+    for(const bool ring:{false,true}) {
+        const auto good=explicitGameCard(ring);std::string error;REQUIRE(explicitGameProvider(good,ring,error));
+        for(const auto& entry:explicitGameDescriptor(good,ring).parameters) {
+            auto missing=good;missing.parameters.erase(entry.first);INFO(entry.first);CHECK_FALSE(explicitGameProvider(missing,ring,error));
+            auto unit=good;unit.parameters[entry.first].unit="wrong";CHECK_FALSE(explicitGameProvider(unit,ring,error));
+            auto nan=good;nan.parameters[entry.first].value=std::numeric_limits<double>::quiet_NaN();CHECK_FALSE(explicitGameProvider(nan,ring,error));
+        }
+        for(const auto& [key,value]:std::vector<std::pair<std::string,double>>{{"warhead_fragment_count",0},{"warhead_fragment_count",1.5},
+            {"warhead_fragment_count",1000001},{"warhead_case_kg",-1},{"warhead_structure_kg",-1},
+            {"warhead_source_speed_ms",0},{"warhead_fragment_area_m2",0},{"warhead_fragment_cd",0},
+            {"warhead_tnt_equivalent_kg",-1},{"warhead_case_outer_radius_m",1},{"warhead_station_x_m",-1}}) {
+            auto bad=good;bad.parameters[key].value=value;INFO(key);CHECK_FALSE(explicitGameProvider(bad,ring,error));
+        }
+        auto extra=good;extra.parameters["warhead_unowned_field"]=good.parameters.at("warhead_case_kg");CHECK_FALSE(explicitGameProvider(extra,ring,error));
+        auto mismatch=good;mismatch.parameters["warhead_model_version"].value=ring?3:4;CHECK_FALSE(explicitGameProvider(mismatch,ring,error));
+        auto wrongBinding=explicitGameDescriptor(good,ring);wrongBinding.bindings["burst_reference"]="captured_weapon_cg";
+        CHECK_FALSE(dmg::makeWarheadAdapter(good,wrongBinding,error));
+        if(!ring) {
+            for(const auto& [key,value]:std::vector<std::pair<std::string,double>>{{"warhead_zone_count",0},{"warhead_zone_count",33},
+                {"warhead_zone_0_from_deg",181},{"warhead_zone_0_to_deg",0},{"warhead_zone_0_weight",-1}}) {
+                auto bad=good;bad.parameters[key].value=value;CHECK_FALSE(explicitGameProvider(bad,false,error));
+            }
+        } else {
+            auto unused=good;unused.parameters["warhead_zone_count"]=good.parameters.at("warhead_fragment_count");CHECK_FALSE(explicitGameProvider(unused,true,error));
+        }
+    }
+}
+
+TEST_CASE("new GAME policy direct refusal never consumes the caller source RNG", "[warhead-model][authored-source][authored-source-boundary]") {
+    for(const bool ring:{false,true}) {
+        const auto card=explicitGameCard(ring);std::string error;const auto provider=explicitGameProvider(card,ring,error);REQUIRE(provider);
+        dmg::Burst bad;bad.axis={0,0,0};fsim::Rng rng(93);const auto before=rng.state();
+        const auto result=provider->assess(bad,dmg::AttachedGeometryView(dmg::Airframe{}),target(),rng);
+        CHECK(result.fragmentsThrown==0);CHECK(rng.state()==before);
+        bad.axis={1,0,0};auto refusedTarget=target();refusedTarget.airDensity=std::numeric_limits<double>::quiet_NaN();
+        const auto sceneRefused=provider->assess(bad,dmg::AttachedGeometryView(dmg::Airframe{}),refusedTarget,rng);
+        CHECK(sceneRefused.fragmentsThrown==0);CHECK(rng.state()==before);
+    }
+}
+
+namespace {
+fsim::ms::StoreCard numericMixtureCard(const std::array<double,3>& weights) {
+    auto card=explicitGameCard();
+    for(auto it=card.parameters.begin();it!=card.parameters.end();) {
+        if(it->first.rfind("warhead_zone_",0)==0)it=card.parameters.erase(it);else ++it;
+    }
+    auto scalar=card.parameters.at("warhead_fragment_count");scalar.value=3;card.parameters["warhead_zone_count"]=scalar;
+    scalar.value=16;card.parameters["warhead_fragment_count"]=scalar;
+    const std::array<std::array<double,2>,3> bands{{{{10,20}},{{80,90}},{{160,170}}}};
+    for(std::size_t i=0;i<weights.size();++i) {
+        const auto prefix="warhead_zone_"+std::to_string(i);scalar.unit="deg";
+        scalar.value=bands[i][0];card.parameters[prefix+"_from_deg"]=scalar;
+        scalar.value=bands[i][1];card.parameters[prefix+"_to_deg"]=scalar;
+        scalar.unit="1";scalar.value=weights[i];card.parameters[prefix+"_weight"]=scalar;
+    }
+    return card;
+}
+}
+
+TEST_CASE("authored mixture scaling preserves all particles RNG and zero-weight exclusion", "[warhead-model][authored-source][authored-source-numeric]") {
+    const double tiny=std::numeric_limits<double>::denorm_min();
+    const std::array<std::array<double,3>,4> weights{{{{1,1,0}},{{tiny,tiny,0}},{{std::scalbn(1.,1023),std::scalbn(1.,1023),0}},
+        {{std::numeric_limits<double>::max(),std::numeric_limits<double>::max(),0}}}};
+    std::array<std::unique_ptr<dmg::WarheadAdapter>,4> providers;
+    for(std::size_t i=0;i<weights.size();++i) {std::string error;providers[i]=explicitGameProvider(numericMixtureCard(weights[i]),false,error);INFO(error);REQUIRE(providers[i]);}
+    dmg::Burst burst;burst.axis={1,0,0};std::array<unsigned,2> seen{};
+    for(std::uint64_t seed=0;seed<64;++seed) {
+        fsim::Rng expected(seed),referenceRng(seed);
+        const auto* reference=dynamic_cast<const dmg::WarheadSceneExecutionV2*>(providers[0].get());REQUIRE(reference);
+        const auto field=reference->emitScene(burst,referenceRng);REQUIRE(field.valid);
+        for(const auto& particle:field.projectiles) {
+            (void)expected.uniform();(void)expected.uniform();(void)expected.uniform();
+            const bool second=expected.uniform()>=.5;++seen[second?1u:0u];
+            const double low=std::cos((second?90.:20.)*pi/180),high=std::cos((second?80.:10.)*pi/180);
+            const double cosine=low+(high-low)*expected.uniform();
+            // Independent equal-mixture inverse CDF uses u<1/2, never native
+            // cumulative sums or a selected target/hit. Trailing zero cannot win.
+            CHECK(particle.velocity.x==cosine*providers[0]->model().speedMs);
+        }
+        CHECK(expected.state()==referenceRng.state());
+        for(std::size_t i=1;i<providers.size();++i) {
+            const auto* execution=dynamic_cast<const dmg::WarheadSceneExecutionV2*>(providers[i].get());REQUIRE(execution);
+            fsim::Rng actual(seed);const auto scaled=execution->emitScene(burst,actual);
+            identicalGameFields(field,scaled);CHECK(actual.state()==referenceRng.state());
+        }
+    }
+    CHECK(seen[0]>0);CHECK(seen[1]>0);
+}
+
+TEST_CASE("authored policy refuses unrepresentable element mass and ring intrinsic state", "[warhead-model][authored-source][authored-source-numeric]") {
+    SECTION("positive case mass cannot become zero per element") {
+        auto card=explicitGameCard();card.parameters["warhead_case_kg"].value=std::numeric_limits<double>::denorm_min();
+        card.parameters["warhead_fragment_count"].value=1000000;
+        card.parameters["warhead_structure_kg"].value=card.parameters.at("warhead_kg").value-card.parameters.at("explosive_kg").value-card.parameters.at("warhead_case_kg").value;
+        std::string error;CHECK_FALSE(explicitGameProvider(card,false,error));CHECK(error.find("derived arithmetic")!=std::string::npos);
+    }
+    SECTION("finite ring source scalars cannot publish infinite expansion") {
+        auto card=explicitGameCard(true);card.parameters["warhead_case_outer_radius_m"].value=std::numeric_limits<double>::min();
+        card.parameters["warhead_case_inner_radius_m"].value=0;
+        std::string error;CHECK_FALSE(explicitGameProvider(card,true,error));CHECK(error.find("ring derived")!=std::string::npos);
+    }
+    SECTION("actual captured pose cannot publish collapsed ring material") {
+        std::string error;const auto provider=explicitGameProvider(explicitGameCard(true),true,error);REQUIRE(provider);
+        const auto* execution=dynamic_cast<const dmg::WarheadSceneExecutionV2*>(provider.get());REQUIRE(execution);
+        dmg::Burst burst;burst.axis={1,0,0};burst.at={1e100,1e100,1e100};fsim::Rng rng(19);const auto before=rng.state();
+        const auto field=execution->emitScene(burst,rng);CHECK_FALSE(field.valid);CHECK(rng.state()==before);
+    }
+}
+
+TEST_CASE("authored positive mixture weights must remain numerically resolved", "[warhead-model][authored-source][authored-source-numeric]") {
+    for(const auto& weights:std::array<std::array<double,3>,3>{{{{std::numeric_limits<double>::max(),std::numeric_limits<double>::denorm_min(),0}},
+         {{1,std::numeric_limits<double>::min(),0}},{{std::numeric_limits<double>::min(),1,0}}}}) {
+        std::string error;CHECK_FALSE(explicitGameProvider(numericMixtureCard(weights),false,error));
+        CHECK(error.find("mixture")!=std::string::npos);
+    }
+}
+
+// Apply with the separately reviewed19-card authoring, never with production alone.
+#include <cwctype>
+TEST_CASE("Every authored19 source card reaches its actual equipment factory and population", "[authored-source-models][sim-m03]") {
+    const std::array<const char*,19> models{{"aim-120d","aim-7m","aim-9m","aim-9x","asraam","iris-t","magic-2","meteor",
+        "mica-em","mica-ir","pl-10","pl-12","pl-15","pl-8","r-37m","r-60m","r-73","r-77m","super-530d"}};
+    const auto library=std::filesystem::path(FSIM_TEST_AIRCRAFT_DIR).parent_path()/"assets"/"stores";
+    for(const auto& part:library) {
+        auto name=part.wstring();std::transform(name.begin(),name.end(),name.begin(),[](wchar_t c){return static_cast<wchar_t>(std::towlower(c));});
+        REQUIRE(name!=L".codex");
+    }
+    const auto registry=fsim::ms::components::builtInProvidersV1();
+    for(const char* name:models) DYNAMIC_SECTION(name) {
+        INFO(name);std::vector<std::string> errors;const auto path=library/(std::string(name)+".json");
+        const auto card=fsim::ms::readStoreCard(path,errors);REQUIRE(errors.empty());REQUIRE(card);
+        REQUIRE(card->id==name);CHECK(card->value("warhead_model_version",0)==3);
+        fsim::ms::components::ProfileV1 profile;std::string error;
+        REQUIRE(fsim::ms::components::readProfileV1(path,*card,profile,error));
+        const auto* descriptor=profile.find("warhead");REQUIRE(descriptor);
+        CHECK(descriptor->implementationId.rfind("equipment.",0)==0);
+        CHECK(descriptor->parameterRefs.count("gurney_kms")==0);
+        const fsim::ms::components::ProviderContextV1 context{*card,profile,{},std::nullopt};
+        const auto provider=registry.warhead.create(*descriptor,context,error);INFO(error);REQUIRE(provider);
+        CHECK(provider->implementationId()==authoredFieldId);const auto& model=provider->model();CHECK(model.modelVersion==3);
+        REQUIRE(model.stationStructuralM);CHECK(model.stationStructuralM->x==card->value("warhead_station_x_m",-1));
+        CHECK(model.fragments==static_cast<int>(card->value("warhead_fragment_count",-1)));
+        CHECK(model.caseKg==card->value("warhead_case_kg",-1));CHECK(model.speedMs==card->value("warhead_source_speed_ms",-1));
+        const auto* scene=dynamic_cast<const dmg::WarheadSceneExecutionV2*>(provider.get());REQUIRE(scene);
+        dmg::Burst burst;burst.axis={1,0,0};fsim::Rng rng(317);const auto before=rng.state();
+        const auto field=scene->emitScene(burst,rng);REQUIRE(field.valid);CHECK(rng.state()!=before);
+        REQUIRE(field.projectiles.size()==static_cast<std::size_t>(model.fragments));
+        for(const auto& p:field.projectiles) {
+            CHECK(p.massKg==model.caseKg/model.fragments);CHECK(p.massKg>0);
+            CHECK(p.areaM2==model.fragmentAreaM2);CHECK(p.cd==model.fragmentCd);
+            CHECK(p.segment==(card->warheadKind=="rod"));CHECK(p.expansionPerS==0);
+        }
+    }
+}
+
+
+// Apply only with the separately reviewed four connected-source cards.
+TEST_CASE("Every authored ring card retains its connected native population and affine moments", "[authored-ring-models][sim-m03]") {
+    struct Expected {const char* name;double station,outer,length,area;};
+    const std::array<Expected,4> models{{
+        {"r-27er",2.7620237078306715,.117,.2957131060842457,.003606496311644452},
+        {"r-27et",2.476909743434796,.117,.2957131060842457,.003606496311644452},
+        {"r-27r",1.7677429587802944,.10350000000000001,.3778866913288282,.004052051178232661},
+        {"r-27t",1.5553771901419082,.10350000000000001,.3778866913288282,.004052051178232661}}};
+    const auto library=std::filesystem::path(FSIM_TEST_AIRCRAFT_DIR).parent_path()/"assets"/"stores";
+    for(const auto& part:library) {
+        auto name=part.wstring();std::transform(name.begin(),name.end(),name.begin(),[](wchar_t c){return static_cast<wchar_t>(std::towlower(c));});
+        REQUIRE(name!=L".codex");
+    }
+    const auto registry=fsim::ms::components::builtInProvidersV1();
+    for(const auto& expected:models) DYNAMIC_SECTION(expected.name) {
+        std::vector<std::string> errors;const auto path=library/(std::string(expected.name)+".json");
+        const auto card=fsim::ms::readStoreCard(path,errors);REQUIRE(errors.empty());REQUIRE(card);
+        REQUIRE(card->id==expected.name);CHECK(card->warheadKind=="rod");
+        fsim::ms::components::ProfileV1 profile;std::string error;
+        REQUIRE(fsim::ms::components::readProfileV1(path,*card,profile,error));
+        const auto* descriptor=profile.find("warhead");REQUIRE(descriptor);
+        CHECK(descriptor->parameterRefs.count("gurney_kms")==0);
+        CHECK(descriptor->parameterRefs.count("warhead_zone_count")==0);
+        CHECK(descriptor->bindings.at("topology")=="native.connected_ring.material_limited.v1");
+        const fsim::ms::components::ProviderContextV1 context{*card,profile,{},std::nullopt};
+        const auto provider=registry.warhead.create(*descriptor,context,error);INFO(error);REQUIRE(provider);
+        CHECK(provider->implementationId()==authoredRingId);const auto& model=provider->model();
+        CHECK(model.modelVersion==4);CHECK(model.zones.empty());REQUIRE(model.stationStructuralM);
+        CHECK(model.stationStructuralM->x==expected.station);CHECK(model.stationStructuralM->y==0);CHECK(model.stationStructuralM->z==0);
+        CHECK(model.fragments==61);CHECK(model.caseKg==20.4);CHECK(model.speedMs==1400);
+        CHECK(model.diameterM/2==expected.outer);CHECK(model.lengthM==expected.length);CHECK(model.fragmentAreaM2==expected.area);
+        const auto* scene=dynamic_cast<const dmg::WarheadSceneExecutionV2*>(provider.get());REQUIRE(scene);
+        dmg::Burst burst;burst.axis={1,0,0};fsim::Rng rng(317);const auto before=rng.state();
+        const auto field=scene->emitScene(burst,rng);REQUIRE(field.valid);CHECK(rng.state()!=before);
+        REQUIRE(field.projectiles.size()==61);
+        long double mass=0,energy=0;dmg::V3 momentum;
+        for(std::size_t i=0;i<field.projectiles.size();++i) {
+            const auto& p=field.projectiles[i];const auto& next=field.projectiles[(i+1)%field.projectiles.size()];
+            CHECK(p.segment);CHECK(p.at.x==0);CHECK(p.end.x==0);
+            CHECK(p.end.x==next.at.x);CHECK(p.end.y==next.at.y);CHECK(p.end.z==next.at.z);
+            CHECK(p.endVelocity.x==next.velocity.x);CHECK(p.endVelocity.y==next.velocity.y);CHECK(p.endVelocity.z==next.velocity.z);
+            CHECK(p.massKg==20.4/61);CHECK(p.areaM2==expected.area);CHECK(p.cd==1.3);
+            CHECK(p.expansionPerS==1400/expected.outer);CHECK(p.breakupAgeS>0);CHECK(std::isfinite(p.materialLengthM));
+            const double material=61*expected.length*std::sin(pi/61)/pi;
+            CHECK(std::abs(p.materialLengthM-material)<=1e-11*material);
+            mass+=p.massKg;
+            energy+=static_cast<long double>(p.massKg)/6*(dmg::dot(p.velocity,p.velocity)+dmg::dot(p.velocity,p.endVelocity)+dmg::dot(p.endVelocity,p.endVelocity));
+            momentum+=(p.velocity+p.endVelocity)*(p.massKg/2);
+        }
+        // Independent exact affine-velocity integral, not Gurney inference.
+        const long double expectedEnergy=.5L*20.4L*1400*1400*(2+std::cos(2*pi/61))/3;
+        CHECK(std::abs(mass-20.4L)<=64*61*std::numeric_limits<double>::epsilon()*20.4L);
+        CHECK(std::abs(energy-expectedEnergy)<=1e-10L*expectedEnergy);
+        CHECK(dmg::length(momentum)<=128*61*std::numeric_limits<double>::epsilon()*20.4*1400);
+    }
+}

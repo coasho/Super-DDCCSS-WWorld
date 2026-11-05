@@ -93,6 +93,28 @@ def test_catalogue_fixture(folder):
 
 
 class StoresTest(unittest.TestCase):
+    def test_generated_store_mass_preserves_authored_material(self):
+        """Serialization cannot create mass when a real store leaves its station."""
+        population = cards()
+        self.assertEqual(len(population), 53)
+        for cid, card in population.items():
+            with self.subTest(model=cid):
+                generated = storemodels.files(card)
+                self.assertTrue(generated)
+                model = card['model'].split(':', 1)[1]
+                root = ET.fromstring(generated[model + '.xml'])
+                def kg(node):
+                    self.assertIsNotNone(node)
+                    unit = node.get('unit', 'LBS')
+                    self.assertIn(unit, ('LBS', 'KG'))
+                    return float(node.text) * (0.45359237 if unit == 'LBS' else 1.)
+                material = kg(root.find('mass_balance/emptywt'))
+                material += sum(kg(node) for node in root.findall('mass_balance/pointmass/weight'))
+                material += sum(kg(node) for node in root.findall('propulsion/tank/contents'))
+                authored = card['parameters']['mass_kg']['value']
+                # External tank fuel is loaded separately by World::flyReleases.
+                self.assertLessEqual(abs(material-authored), 64*math.ulp(max(1., authored)))
+
     def test_all_nonmissile_designs_reproduce_the_authored_shared_inputs(self):
         for name in storedesigns.cards():
             text,_=storedesigns.design(name)

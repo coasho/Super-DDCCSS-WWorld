@@ -524,3 +524,54 @@ which studies ignition and hydrodynamic ram as separate consequences, and the
 which measure transient cavities and pressure alongside projectile deceleration.
 Neither source supplies a measured coefficient for this roster. Those larger
 phenomena cannot be certified merely because finite drag is now executable.
+
+
+### Represented RK4 displacement accumulation (2026-11-04)
+
+A later actual R-27ER traversal exhausted the unchanged 100,000-step liquid
+budget while rod 52 approached an internal capacity seam. Its represented age
+advanced, but the material endpoints did not move. The final RK4 reduction
+added four separately weighted increments directly to each existing state
+coordinate. Every contribution could round away even when their sum was a
+representable displacement. The canonical reduction now sums the existing
+`h/6, h/3, h/3, h/6` contributions before adding once to each state component.
+Derivative stages, load accumulation, physical laws, source inputs, collision
+policy, numerical tolerances and budgets are unchanged.
+
+The independent constant-motion control uses a finite rod comoving with a
+positive-density liquid: `x = 1.25 m`, `v = 320 m/s`, and
+`dt = 1.3e-18 s`. Its exactly rounded endpoint is `1.2500000000000004 m`, two
+ULPs above the initial coordinate. Before repair, both endpoints remained
+`1.25` for both one-cell and four-cell partitions: 4 failures in 27 assertions.
+An actually executed SciPy `scipy.integrate._ivp.rk.rk_step` reference using the
+classical RK4 tableau and two half steps independently returned the two-ULP
+advance. The raw reference and arithmetic witness are
+`build/architecture-reviews/sim-m03-current-20261104/r27er-refusal/scipy-rk4-reference.json`
+and the adjacent `rk4-roundoff-witness.json`.
+
+A separate reduced control retains the observed rod state and compares a
+uniform wet box with the identical material split at the observed seam. Before
+repair, the unsplit control passed, while the split assessment refused: one
+failure in six assertions. After the accumulation repair, the complete
+`liquid_scene_methods` test passes **44 cases and 4,003 assertions**, including
+both regressions and all 42 preceding cases. The unchanged original R-27ER
+full-chain CTest also passes in **19.0838 s**: native detonation, 45 fragment
+hits, 3 component records and `6,116,133.556777739 J` of component energy.
+Evidence is `r27er-refusal/{rk4-red.log,seam-red.log,liquid-green-junit.xml,r27er-green-junit.xml}`
+and the frozen `r27er-refusal/rk4-green-r27er/summary.csv`, under that dated
+review directory. These runs used the repaired kernel with temporary
+observation-only diagnostics (Damage.cpp SHA-256
+`17fb4ddfe04a49f428c4b2b7e6b02b40d690e1d02880f1e7db2c0743d8f38cbb`).
+
+The temporary refusal/horizon diagnostics have been removed from the production
+source; only the weighted-sum correction and the two regression cases remain.
+The clean Damage.cpp SHA-256 is
+`a2b64c1c22f49719c4c865cda08d472f513a770556d61ae1d61f613b203150cb`;
+the clean-source repeat passed all 44 liquid cases and 4,003 assertions, followed
+by the unchanged R-27ER full-chain case in 19.03 seconds. Current raw outputs are
+`build/architecture-reviews/sim-m03-current-20261104/trust-current-methods.log`
+and `build/architecture-reviews/sim-m03-current-20261104/r27er-refusal/clean-three.log`.
+The same three-model execution still fails AIM-120D and R-27R's component-energy
+predicate; their emitted fields are assessed successfully and this numerical
+repair does not establish a root cause for their zero component energy. This is a
+generic numerical correction, not a new liquid or weapon fidelity claim.

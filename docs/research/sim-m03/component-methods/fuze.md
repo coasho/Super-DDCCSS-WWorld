@@ -1,13 +1,6 @@
 # Fuze method, initiation lifecycle and primary geometry reference
 
-Current-status update, 2026-11-03: the JSON now documents each current model
-individually in theory, parameter and fidelity matrices. Its current `passed`
-flag is false until a fresh actual native comparison under these source/card
-hashes succeeds. Earlier72-row/836-constraint and older818-assertion results
-are historical only and remain nested as `historical_evidence`. They do not
-verify the new reticle receiver or the current scene-policy epoch. The separate
-[72-cell parameterized table](per-model-effects-components.json) retains exact
-source records and does not grant native/public/visual or calibration status.
+Recorded method evidence update: the actual24 native source capture and independent Python comparison now exist under the exact axis-methods/effects producer epoch described below. Original documentation row/admission flags remain unchanged pending root integration; they are not a claim that this new method run was absent. Method execution does not establish encounter/public/visual or hardware calibration. Original historical evidence retains its own epoch.
 
 
 The companion [fuze.json](fuze.json) binds all24 AAMs individually to their
@@ -41,8 +34,10 @@ The actual SDK merges native captured own/target path knots and evaluates each
 piecewise-linear relative segment. It does not propagate a target into a future
 window. Fractions refer to the original captured decision window. The armed,
 live interval is `[armingS,lifeS)`; arming is inclusive and expiry exclusive.
-Malformed/nonfinite geometry, missing captured coverage and illegal model
-combinations are refused, preserving unknown diagnostics.
+Malformed/nonfinite geometry and illegal model combinations are refused.
+Coverage is version-specific: V0 retains target hold-at-last-pose semantics,
+while V1 also truncates to target-path end. World owns physical removal/contact
+cutoffs; neither branch authorizes inventing future moving geometry.
 
 Legacy V0 takes the constrained minimum on the active interval, including
 eligible endpoints. Turning V1 initiates only at an actual stationary point or
@@ -53,7 +48,7 @@ boundary pose/time, relative movement and generation/target identity. Gaps,
 target changes and noncontiguous captured paths invalidate that history; a
 history reset is not a new release or a rearming command.
 
-The delayed-initiation state is separate: Fresh -> Pending -> Sealed. Scheduling
+For V1, the delayed-initiation state is separate: Fresh -> Pending -> Sealed. Scheduling
 captures the authoritative trigger launch age, fixed target ID and declared
 delay. Due is authorized only in the containing or exactly contiguous live
 captured window. A cutoff/contact/expiry cancels pending initiation rather than
@@ -393,3 +388,55 @@ engineering parameterization, not proof of identical hardware or separate
 per-model tuning. Every model still needs its own actual capture. Different
 equipment selection IDs, source notes and metadata hashes alone do not supply
 different physical response, OEM internal construction, or calibration.
+
+
+## Authored-input/source closure and recorded method epoch
+
+Each previously unresolved current-row source role now points to its exact `assets/stores/<model>.json` parameter and descriptor-reference JSON pointer, together with `parseProfileV1`, adapter precedence and construction symbols. This resolves software authoring provenance; it supplies no external variant measurement. Original values, basis, notes, uncertainty (including explicitly unquantified values), source identifiers and all existing admission flags remain unchanged. Historical unresolved records are retained as historical evidence.
+
+`axis-methods/effects/fuze.json` records the already executed actual24 native/independent-Python method results. The producer input epoch is `d4923c75e70bdbcf6347195439414db143d637219c468ff4f137402142eb8f76`; its native run is `build/ucrt64-release/validation/component_reference_runs/effects/run-0a9f9332b2b14ef996c774f17653cc44`. Each corrected row copies the exact per-model method residuals and raw file/binary/module bindings into `executed_method_evidence`. Exact producer family/raw bytes are additionally retained under this candidate evidence directory's `producer-snapshot/`, with original-to-retained hash mappings, so later axis regeneration cannot silently change the referenced result. Those bindings retain their source epoch; authoring hashes are labelled separately. No new native execution or broad source-binding refresh occurs here. The recorded epoch contains parser headers but omits the directly used `Cards.cpp` and `Profile.cpp` implementation bodies. Their authoring traces are explicitly `missing_from_recorded_epoch`; current hashes do not retrospectively repair that source-binding gap. No arithmetic failure is inferred from this provenance limitation.
+
+The exact scalar geometric rules are:
+
+- For each merged captured relative segment r(u)=r0+u*d, d=r1-r0. If d dot d>0, u0=-(r0 dot d)/(d dot d); otherwise V0 chooses the first eligible fraction and V1 stationary overlap supplies no turn.
+- The active interval is [armingS,lifeS), further cut off by native eligibility/contact. V0 takes the globally smallest constrained miss over merged segments, keeping the earliest exact tie; this is not first entry into the radius.
+- V1 admits an analytic stationary point at an eligible initial/interior/final captured endpoint, including the final endpoint if its unconstrained stationary point is exactly represented there; a merely clamped approaching endpoint is not a turn. Initial-point deduplication/two-sided eligibility belongs to contiguous per-target history.
+- V1 additionally admits a captured corner when r dot leftMovement<=0 and r dot rightMovement>=0, with previous actual motion; all candidate launch ages must remain inside the armed/live interval.
+- Native fractions remain normalized to the original whole decision duration. Radius classification is miss<=radius; expiry is exclusive and an expiry-only tangency is excluded before any representable-live-age adjustment.
+
+Paths require first offset0 and strictly increasing finite offsets/positions. motionAt holds the final captured pose after path end. V0 bounds its sweep by eligibleEnd and own-path end, retaining target hold-at-last semantics for native stopped-target ownership; V1 additionally bounds by target-path end. These adapter semantics do not authorize inventing a future moving path; World supplies native target/contact/removal cutoffs.
+
+V0 has stateless proximity and no installed delay/turn-history law; contact consumption remains release-owned. V1 has contiguous per-target boundary history and Fresh/Pending/Sealed delay state. All23 current V0 cards explicitly select the time-armed geometric scene; no RF/laser discrimination is inferred.
+
+The following are calculated margins of the *already executed synthetic crossing bench*, not an encounter. Arming is1s for all24. The inside case has original launch age arming+0.75s; all boundary rules remain unchanged.
+
+| Model | Radius m | Life s | Inside radial margin m | Exclusive expiry margin s |
+|---|---:|---:|---:|---:|
+| aim-120c | 11.472136 | 110 | 5.73606798 | 108.25 |
+| aim-120d | 11.472136 | 110 | 5.73606798 | 108.25 |
+| aim-7m | 13.3166447 | 110 | 6.65832234 | 108.25 |
+| aim-9m | 10.0708305 | 45 | 5.03541525 | 43.25 |
+| aim-9x | 10.0594117 | 45 | 5.02970585 | 43.25 |
+| asraam | 10.1622777 | 45 | 5.08113883 | 43.25 |
+| iris-t | 10.3763886 | 45 | 5.1881943 | 43.25 |
+| magic-2 | 10.5637059 | 45 | 5.28185297 | 43.25 |
+| meteor | 10.4641016 | 110 | 5.23205081 | 108.25 |
+| mica-em | 10.4641016 | 110 | 5.23205081 | 108.25 |
+| mica-ir | 10.4641016 | 45 | 5.23205081 | 43.25 |
+| pl-10 | 10.3166248 | 45 | 5.1583124 | 43.25 |
+| pl-12 | 11.472136 | 110 | 5.73606798 | 108.25 |
+| pl-15 | 11.7434165 | 110 | 5.87170825 | 108.25 |
+| pl-8 | 10.3166248 | 45 | 5.1583124 | 43.25 |
+| r-27er | 13.244998 | 110 | 6.622499 | 108.25 |
+| r-27et | 13.244998 | 45 | 6.622499 | 43.25 |
+| r-27r | 13.244998 | 110 | 6.622499 | 108.25 |
+| r-27t | 13.244998 | 45 | 6.622499 | 43.25 |
+| r-37m | 14.7459667 | 110 | 7.37298335 | 108.25 |
+| r-60m | 8.87082869 | 45 | 4.43541435 | 43.25 |
+| r-73 | 9.7202941 | 45 | 4.86014705 | 43.25 |
+| r-77m | 11.7434165 | 110 | 5.87170825 | 108.25 |
+| super-530d | 12.4772256 | 110 | 6.23861279 | 108.25 |
+
+`dm_R/dR=1` at fixed captured geometry; classification is locally constant away from its discontinuous boundary. The JSON includes exact native input/output and arm/live margins for both crossing cases. Station uncertainty affects only the actual V1 material-point reference, not an absent V0 station role.
+
+Reproduction of these offline candidate calculations: run `D:/ENV/python/3.13/python.exe -B build/architecture-reviews/sim-m03-current-20261104/effects-theory-source-correction-candidate/prepare-candidate.py` from the project root while the preserved before/actual evidence bytes remain present. It writes only this evidence directory, refuses changed role/binding/native identities, and records analytic checks in `analytic-checks.json`. The maintained native/Python producer commands remain in the existing method runner/collector; this candidate does not rerun or rename their gates.

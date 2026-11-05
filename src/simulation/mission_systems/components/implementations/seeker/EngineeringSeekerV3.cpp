@@ -4,11 +4,88 @@
 #include <cmath>
 #include <tuple>
 #include <iterator>
+#include <charconv>
+#include <cstdio>
+#include <cstdlib>
+#include <limits>
 #include "simulation/mission_systems/radar/Detection.h"
 
 namespace fsim::ms::components {
 using namespace measured;
 namespace {
+
+// Optional referee-only observation; all storage belongs to this sample call.
+// No registry, receiver state, random draw, transport or actor API is added.
+struct MeasuredPriorJoinTraceV2 {
+    std::uint64_t seed=0;
+    std::optional<std::uint64_t> localId;
+    double newRead=0,newStart=0,newCapture=0,newEnd=0;
+    std::optional<double> oldRead,oldCapture,trackCapture,available;
+    bool rawComplete=false,rawPrecise=false,rawUnique=false,rawFit=false,currentPose=false,constructed=false;
+    std::optional<bool> trackPresent,trackIdentity,trackRate,trackPrecise,epochMatch,readInOrder;
+    std::optional<bool> memory,trackValid,previousPose,ready,pointing;
+    std::optional<ThermalReticleMeasuredPriorV2> prior;
+};
+const char* measuredPriorTraceBoolV2(std::optional<bool> value) noexcept {
+    return value?(*value?"true":"false"):"null";
+}
+bool measuredPriorTraceNumberV2(std::optional<double> value,char (&out)[48]) noexcept {
+    if(!value||!std::isfinite(*value)){out[0]='n';out[1]='u';out[2]='l';out[3]='l';out[4]=0;return true;}
+    // to_chars is locale-independent and retains the sign of an exact zero.
+    const auto result=std::to_chars(out,out+47,*value,std::chars_format::general,std::numeric_limits<double>::max_digits10);
+    if(result.ec!=std::errc{})return false;
+    *result.ptr=0;return true;
+}
+void publishMeasuredPriorJoinTraceV2(const MeasuredPriorJoinTraceV2& row) noexcept {
+    char read[48],start[48],capture[48],end[48],oldRead[48],oldCapture[48],trackCapture[48],available[48];
+    bool valid=measuredPriorTraceNumberV2(row.newRead,read)&&measuredPriorTraceNumberV2(row.newStart,start)&&
+        measuredPriorTraceNumberV2(row.newCapture,capture)&&measuredPriorTraceNumberV2(row.newEnd,end)&&
+        measuredPriorTraceNumberV2(row.oldRead,oldRead)&&measuredPriorTraceNumberV2(row.oldCapture,oldCapture)&&
+        measuredPriorTraceNumberV2(row.trackCapture,trackCapture)&&measuredPriorTraceNumberV2(row.available,available);
+    char localId[32]="null";
+    if(row.localId)std::snprintf(localId,sizeof(localId),"\"%llu\"",static_cast<unsigned long long>(*row.localId));
+    const bool priorFinite=row.prior&&finite(row.prior->direction)&&finite(row.prior->directionRate)&&
+        std::isfinite(row.prior->captureTimeS)&&std::isfinite(row.prior->availableTimeS)&&
+        std::isfinite(row.prior->widthRad)&&std::isfinite(row.prior->heightRad)&&std::isfinite(row.prior->cutoff);
+    char direction[192]="null",rate[192]="null",support[192]="null";
+    if(priorFinite) {
+        char x[48],y[48],z[48],vx[48],vy[48],vz[48],width[48],height[48],cutoff[48];
+        valid=valid&&measuredPriorTraceNumberV2(row.prior->direction.x,x)&&measuredPriorTraceNumberV2(row.prior->direction.y,y)&&
+            measuredPriorTraceNumberV2(row.prior->direction.z,z)&&measuredPriorTraceNumberV2(row.prior->directionRate.x,vx)&&
+            measuredPriorTraceNumberV2(row.prior->directionRate.y,vy)&&measuredPriorTraceNumberV2(row.prior->directionRate.z,vz)&&
+            measuredPriorTraceNumberV2(row.prior->widthRad,width)&&measuredPriorTraceNumberV2(row.prior->heightRad,height)&&
+            measuredPriorTraceNumberV2(row.prior->cutoff,cutoff);
+        if(valid) {
+            std::snprintf(direction,sizeof(direction),"[%s,%s,%s]",x,y,z);
+            std::snprintf(rate,sizeof(rate),"[%s,%s,%s]",vx,vy,vz);
+            std::snprintf(support,sizeof(support),"[%s,%s,%s]",width,height,cutoff);
+        }
+    }
+    char line[4096];
+    const int size=valid?std::snprintf(line,sizeof(line),
+        "{\"kind\":\"reticle_measured_prior_join_v2\",\"version\":2,\"proposal_only\":true,"
+        "\"receiver_seed\":\"%llu\",\"local_id\":%s,\"new_read_time_s\":%s,\"new_exposure_start_s\":%s,"
+        "\"new_capture_time_s\":%s,\"new_exposure_end_s\":%s,\"old_read_time_s\":%s,\"old_capture_time_s\":%s,"
+        "\"track_capture_time_s\":%s,\"old_available_time_s\":%s,\"raw_complete\":%s,\"raw_precise\":%s,"
+        "\"raw_unique\":%s,\"raw_fit\":%s,\"current_pose_available\":%s,\"track_present\":%s,"
+        "\"track_identity_nonzero\":%s,\"track_rate_available\":%s,\"track_precise_predecessor\":%s,"
+        "\"capture_epochs_match\":%s,\"old_read_not_future\":%s,\"within_memory\":%s,\"track_valid\":%s,"
+        "\"previous_pose_available\":%s,\"ready_before_exposure\":%s,\"previous_pointing_matches\":%s,"
+        "\"prior_constructed\":%s,\"prior_values_finite\":%s,\"prior_direction\":%s,\"prior_direction_rate\":%s,"
+        "\"prior_width_height_cutoff_guesses\":%s}\n",
+        static_cast<unsigned long long>(row.seed),localId,read,start,capture,end,oldRead,oldCapture,trackCapture,available,
+        measuredPriorTraceBoolV2(row.rawComplete),measuredPriorTraceBoolV2(row.rawPrecise),measuredPriorTraceBoolV2(row.rawUnique),
+        measuredPriorTraceBoolV2(row.rawFit),measuredPriorTraceBoolV2(row.currentPose),measuredPriorTraceBoolV2(row.trackPresent),
+        measuredPriorTraceBoolV2(row.trackIdentity),measuredPriorTraceBoolV2(row.trackRate),measuredPriorTraceBoolV2(row.trackPrecise),
+        measuredPriorTraceBoolV2(row.epochMatch),measuredPriorTraceBoolV2(row.readInOrder),measuredPriorTraceBoolV2(row.memory),
+        measuredPriorTraceBoolV2(row.trackValid),measuredPriorTraceBoolV2(row.previousPose),measuredPriorTraceBoolV2(row.ready),
+        measuredPriorTraceBoolV2(row.pointing),measuredPriorTraceBoolV2(row.constructed),
+        measuredPriorTraceBoolV2(row.prior?std::optional<bool>(priorFinite):std::nullopt),direction,rate,support):-1;
+    if(size>0&&static_cast<std::size_t>(size)<sizeof(line))std::fwrite(line,1,static_cast<std::size_t>(size),stderr);
+    else std::fprintf(stderr,"{\"kind\":\"reticle_measured_prior_join_v2\",\"receiver_seed\":\"%llu\",\"diagnostic_refused\":true}\n",
+        static_cast<unsigned long long>(row.seed));
+}
+
 constexpr double pi=3.14159265358979323846, boltzmann=1.380649e-23;
 V toward(V from,V to,double limit) {
     from=unit(from);to=unit(to);
@@ -439,7 +516,78 @@ SeekerResultV2 EngineeringSeekerV3::sampleImpl(const SeekerFrameV2& f,const Ther
                 if(window&&!reticlePose)return {};
                 auto scene=*thermalFrame;
                 if(reticlePose)scene.up=reticlePose->up;
-                const auto signal=reticle_.expose(scene,reticlePose?reticlePose->pointing:pointing_,f.receiverSeed);
+                std::optional<ThermalReticleMeasuredPriorV2> measuredPrior;
+                const auto* previous=reticle_.latest();
+                const char* joinFlag=std::getenv("FSIM_RETICLE_PRIOR_JOIN_TRACE_V2");
+                const bool traceJoin=joinFlag&&joinFlag[0]=='1'&&joinFlag[1]==0&&window&&previous&&
+                    previous->measurementTimeS<(*window)[1];
+                MeasuredPriorJoinTraceV2 joinTrace;
+                const auto observeJoinGate=[&](std::optional<bool>& observed,bool value) {
+                    if(traceJoin)observed=value;
+                    return value; // Exact original short-circuit gate result.
+                };
+
+                // A raw fit alone is not an accepted receiver track. The unique
+                // precise raw feature and filtered result must share the EXACT
+                // capture epoch; never join current tracking to another scan.
+                if(window&&reticlePose&&previous&&previous->complete&&previous->preciseBearing&&
+                   previous->features.size()==1&&previous->horizonDiagnostic.fitAvailable&&
+                   filtered_&&!filteredQuadrantUnresolved_&&filtered_->localId&&filtered_->rateAvailable&&
+                   filtered_->sampleTimeS==previous->measurementTimeS&&
+                   previous->measurementTimeS<(*window)[1]&&previous->timeS<=f.timeS&&
+                   observeJoinGate(joinTrace.memory,f.timeS-filtered_->sampleTimeS<=p.memoryS)&&
+                   observeJoinGate(joinTrace.trackValid,validTrack(*filtered_,config().minimumRangeM))) {
+                    const auto previousPose=opticalPoseAt(previous->measurementTimeS);
+                    const double available=std::max(previous->timeS,previous->exposureEndTimeS+p.processingDelayS);
+                    if(traceJoin){joinTrace.previousPose=previousPose.has_value();joinTrace.available=available;}
+                    if(previousPose&&observeJoinGate(joinTrace.ready,available<=(*window)[0])&&
+                       observeJoinGate(joinTrace.pointing,previous->pointing.x==previousPose->pointing.x&&
+                           previous->pointing.y==previousPose->pointing.y&&previous->pointing.z==previousPose->pointing.z)) {
+                        // filtered_ is already in the navigation Cartesian
+                        // frame, mapped from the matching previous capture at
+                        // admission above. Map that inertial vector ONCE into
+                        // the current capture's physical coordinate frame.
+                        // Applying old body axes again would add ego motion.
+                        const auto direction=rotateFrame(filtered_->direction,reticlePose->navigation.bodyToEcef,reticlePose->physicalAxes);
+                        // rotateFrame() normalizes a RAY; never use it for a
+                        // derivative. This linear map retains zero/magnitude.
+                        V rate{};for(unsigned axis=0;axis<3;++axis)
+                            rate=add(rate,scale(reticlePose->physicalAxes[axis],dot(filtered_->directionRate,reticlePose->navigation.bodyToEcef[axis])));
+                        const auto& shape=previous->horizonDiagnostic.shape;
+                        // Previous axis-aligned support and cutoff are finite
+                        // initial guesses only. Ego rotation can change the
+                        // current support; all five coordinates are re-fit.
+                        const auto& support=previous->features.front().extent;
+                        measuredPrior=ThermalReticleMeasuredPriorV2{previous->measurementTimeS,available,direction,rate,support.widthRad,support.heightRad,shape[4]};
+                    }
+                }
+
+                if(traceJoin) {
+                    // Copy BEFORE expose replaces cached_: previous aliases that
+                    // receiver-owned value. Unreached gate values stay null.
+                    joinTrace.seed=f.receiverSeed;joinTrace.newRead=f.timeS;joinTrace.newStart=(*window)[0];
+                    joinTrace.newCapture=(*window)[1];joinTrace.newEnd=(*window)[2];
+                    joinTrace.oldRead=previous->timeS;
+                    if(previous->complete)joinTrace.oldCapture=previous->measurementTimeS;
+                    joinTrace.rawComplete=previous->complete;joinTrace.rawPrecise=previous->preciseBearing;
+                    joinTrace.rawUnique=previous->features.size()==1;joinTrace.rawFit=previous->horizonDiagnostic.fitAvailable;
+                    joinTrace.currentPose=reticlePose.has_value();joinTrace.trackPresent=filtered_.has_value();
+                    joinTrace.readInOrder=previous->timeS<=f.timeS;
+                    if(filtered_) {
+                        joinTrace.localId=filtered_->localId;joinTrace.trackCapture=filtered_->sampleTimeS;
+                        joinTrace.trackIdentity=filtered_->localId!=0;joinTrace.trackRate=filtered_->rateAvailable;
+                        joinTrace.trackPrecise=!filteredQuadrantUnresolved_;
+                        if(previous->complete)joinTrace.epochMatch=filtered_->sampleTimeS==previous->measurementTimeS;
+                    }
+                    joinTrace.constructed=measuredPrior.has_value();joinTrace.prior=measuredPrior;
+                }
+                const auto signal=reticle_.exposeWithMeasuredPriorV2(scene,reticlePose?reticlePose->pointing:pointing_,
+                    f.receiverSeed,measuredPrior?&*measuredPrior:nullptr);
+                // A completed newer capture updates latest(), naturally
+                // preventing duplicate records for rereads of the same scan.
+                // Refused/incomplete exposures emit no join/admission claim.
+                if(traceJoin&&signal.valid&&signal.complete&&signal.measurementTimeS==joinTrace.newCapture)
+                    publishMeasuredPriorJoinTraceV2(joinTrace);
                 if(!signal.valid)return {};
                 receiverCaptureReady=signal.complete;
                 if(signal.complete) {
@@ -447,7 +595,11 @@ SeekerResultV2 EngineeringSeekerV3::sampleImpl(const SeekerFrameV2& f,const Ther
                     exposure.timeS=captureTimeS;exposure.ageS=std::max(0.,f.ageS-(f.timeS-captureTimeS));
                     exposure.position=reticlePose->navigation.position;exposure.velocity=reticlePose->navigation.velocity;
                     exposure.bodyAxes=reticlePose->navigation.bodyToEcef;exposure.boresight=reticlePose->navigation.bodyToEcef[0];
-                    features=signal.features;quadrantUnresolved=!signal.bearingResolved;
+                    // A finite coarse centering direction is not a resolved
+                    // angular sample. Only consecutive precise captures can
+                    // grant LOS-rate authority; keep coarse detections usable
+                    // for association/centering with their actual error bound.
+                    features=signal.features;quadrantUnresolved=!signal.preciseBearing;
                 }
             } else if(dualFrame) {
                 const auto image=thermalDual_.expose(*dualFrame,pointing_,f.receiverSeed);

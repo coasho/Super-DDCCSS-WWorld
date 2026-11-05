@@ -1,4 +1,7 @@
 #include "simulation/mission_systems/weapon/NavigationCaptureV2.h"
+#include "simulation/mission_systems/components/support/GuidanceOwnFrameV2.h"
+#include "simulation/mission_systems/components/implementations/guidance/MeasuredPnGuidanceV2.h"
+#include <utility>
 #include "mode_flights.h"
 #include "foundation/transport/WeaponDiagnosticsV1.h"
 #include "simulation/flight/JsbsimModel.h"
@@ -165,5 +168,102 @@ TEST_CASE("World strapdown and gyro reach each native outer control and final bo
             CHECK(diagnostic->navigation.lastImuTimeS==observed.lastImuTimeS);
             for(unsigned k=0;k<21*21;++k)CHECK(diagnostic->navigation.errorCovariance[k]==observed.errorCovariance[k]);
         }
+        // A copied finite-plant snapshot remains historical after the source
+        // disappears. It must never authorize dereferencing a removed FDM.
+        REQUIRE(diagnostic->control.stamp.status==ipc::WeaponDiagnosticStatusV1::Available);
+        const auto retainedControl=diagnostic->control;
+        REQUIRE(world.removeVehicle(weapon));CHECK_FALSE(world.alive(weapon));
+        world.publishNow();
+        REQUIRE(ipc::weaponDiagnosticWorldIdentityV1(name,pid,incarnation,frame));
+        REQUIRE(reader.read(frame,*diagnostic));
+        REQUIRE(diagnostic->entity==weapon);REQUIRE(diagnostic->generation==generation);
+        CHECK(diagnostic->selectionStatus==ipc::WeaponDiagnosticStatusV1::Removed);
+        CHECK(diagnostic->control.stamp.status==ipc::WeaponDiagnosticStatusV1::Removed);
+        CHECK(diagnostic->control.stamp.sampleTimeS==retainedControl.stamp.sampleTimeS);
+        CHECK(diagnostic->control.finCount==retainedControl.finCount);
+        for(std::uint32_t k=0;k<retainedControl.finCount;++k) {
+            CHECK(diagnostic->control.fins[k].id==retainedControl.fins[k].id);
+            CHECK(diagnostic->control.fins[k].actualRad==retainedControl.fins[k].actualRad);
+        }
     }
+}
+
+TEST_CASE("Selected strapdown guidance vertical depends on its own pose rather than physical scene up",
+          "[weapon-navigation-integration][guidance-own-frame]") {
+    using namespace fsim::ms;
+    using namespace components;
+    SeekerFrameV2 physical;physical.timeS=physical.ageS=1;physical.velocity={250,0,0};
+    physical.position={0,6378137,0};physical.up={0,1,0};physical.boresight={1,0,0};
+    physical.bodyAxes=std::array<weapon::V3,3>{{{1,0,0},{0,1,0},{0,0,1}}};
+    SeekerNavigationPoseV1 navigation;navigation.valid=true;navigation.timeS=physical.timeS;
+    navigation.position={6378137,0,0};navigation.velocity=physical.velocity;
+    navigation.bodyToEcef=*physical.bodyAxes;
+    auto otherPhysical=physical;otherPhysical.up={0,0,1};
+    const auto first=measuredGuidanceOwnFrameV2(physical,navigation,true,true);
+    const auto second=measuredGuidanceOwnFrameV2(otherPhysical,navigation,true,true);
+    weapon::Spec spec;spec.seeker="infrared";spec.seekerModel.engineering.version=3;
+    MeasuredPnGuidanceV2 a(spec),b(spec);SeekerResultV2 result;result.valid=true;
+    const auto one=a.updateMeasured(first,result),two=b.updateMeasured(second,result);
+    // Independent equatorial WGS84 vertical; this is a generic no-target
+    // gravity-compensation dependency fixture, not an encounter or tuning case.
+    CHECK(one.acceleration.x==Catch::Approx(9.80665).margin(1e-12));
+    CHECK(one.acceleration.y==Catch::Approx(0).margin(1e-12));
+    CHECK(one.acceleration.z==Catch::Approx(0).margin(1e-12));
+    CHECK(two.acceleration.x==one.acceleration.x);
+    CHECK(two.acceleration.y==one.acceleration.y);CHECK(two.acceleration.z==one.acceleration.z);
+    CHECK(physical.up.x==0);CHECK(physical.up.y==1);CHECK(physical.up.z==0);
+    CHECK(otherPhysical.up.x==0);CHECK(otherPhysical.up.y==0);CHECK(otherPhysical.up.z==1);
+}
+
+TEST_CASE("Guidance own-frame selection retains legacy up and refuses unavailable selected navigation",
+          "[weapon-navigation-integration][guidance-own-frame]") {
+    using namespace fsim::ms;
+    using namespace components;
+    SeekerFrameV2 physical;physical.timeS=physical.ageS=1;physical.up={0,1,0};
+    physical.velocity={250,0,0};physical.boresight={1,0,0};
+    SeekerNavigationPoseV1 navigation;navigation.valid=true;navigation.timeS=physical.timeS;
+    navigation.position={6378137,0,0};navigation.velocity=physical.velocity;
+    navigation.bodyToEcef={{{1,0,0},{0,1,0},{0,0,1}}};
+    for(const auto selection:{std::pair<bool,bool>{false,false},{false,true},{true,false}}) {
+        const auto legacy=measuredGuidanceOwnFrameV2(physical,navigation,selection.first,selection.second);
+        CHECK(legacy.up.x==physical.up.x);CHECK(legacy.up.y==physical.up.y);CHECK(legacy.up.z==physical.up.z);
+    }
+    weapon::Spec spec;spec.seeker="infrared";spec.seekerModel.engineering.version=3;
+    SeekerResultV2 result;result.valid=true;
+    for(unsigned invalid=0;invalid<3;++invalid) {
+        auto bad=navigation;
+        if(invalid==0)bad.valid=false;
+        if(invalid==1)bad.timeS=physical.timeS-1;
+        if(invalid==2)bad.position={};
+        const auto frame=measuredGuidanceOwnFrameV2(physical,bad,true,true);
+        CHECK_FALSE(std::isfinite(frame.up.x));CHECK_FALSE(std::isfinite(frame.up.y));CHECK_FALSE(std::isfinite(frame.up.z));
+        MeasuredPnGuidanceV2 guidance(spec);const auto refused=guidance.updateMeasured(frame,result);
+        CHECK(refused.phase==WeaponPhase::Unguided);
+    }
+}
+
+TEST_CASE("Estimated guidance vertical and body demand retain rigid longitude rotation equivariance",
+          "[weapon-navigation-integration][guidance-own-frame]") {
+    using namespace fsim::ms;
+    using namespace components;
+    const double c=std::cos(.01),s=std::sin(.01);
+    SeekerFrameV2 physical;physical.timeS=physical.ageS=1;physical.up={0,0,1};
+    physical.velocity={250,0,0};physical.boresight={1,0,0};
+    SeekerNavigationPoseV1 original;original.valid=true;original.timeS=physical.timeS;
+    original.position={6378137,0,0};original.velocity=physical.velocity;
+    original.bodyToEcef={{{1,0,0},{0,1,0},{0,0,1}}};
+    auto rotated=original;rotated.position={6378137*c,6378137*s,0};
+    rotated.velocity={250*c,250*s,0};rotated.bodyToEcef={{{c,s,0},{-s,c,0},{0,0,1}}};
+    weapon::Spec spec;spec.seeker="infrared";spec.seekerModel.engineering.version=3;
+    SeekerResultV2 result;result.valid=true;MeasuredPnGuidanceV2 a(spec),b(spec);
+    const auto one=a.updateMeasured(measuredGuidanceOwnFrameV2(physical,original,true,true),result);
+    const auto two=b.updateMeasured(measuredGuidanceOwnFrameV2(physical,rotated,true,true),result);
+    CHECK(two.acceleration.x==Catch::Approx(c*one.acceleration.x).margin(1e-12));
+    CHECK(two.acceleration.y==Catch::Approx(s*one.acceleration.x).margin(1e-12));
+    CHECK(two.acceleration.z==Catch::Approx(one.acceleration.z).margin(1e-12));
+    const double bodyX=c*two.acceleration.x+s*two.acceleration.y;
+    const double bodyY=-s*two.acceleration.x+c*two.acceleration.y;
+    CHECK(bodyX==Catch::Approx(one.acceleration.x).margin(1e-12));
+    CHECK(bodyY==Catch::Approx(one.acceleration.y).margin(1e-12));
+    CHECK(physical.up.x==0);CHECK(physical.up.y==0);CHECK(physical.up.z==1);
 }

@@ -6,6 +6,9 @@
 #include "foundation/transport/WorldMirror.h"
 #include "simulation/mission_systems/Host.h"
 #include "simulation/flight/JsbsimModel.h"
+#include "simulation/mission_systems/damage/Damage.h"
+#include <FGFDMExec.h>
+#include <models/FGPropagate.h>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -22,6 +25,74 @@
 
 using namespace fsim;
 using namespace fsim::modes;
+
+TEST_CASE("Native rigid mutations expose coherent body and NED velocity without stepping",
+          "[mass][impulse][native-state-coherence]") {
+    for (const bool massChange : {false, true}) {
+        INFO("mutation=" << (massChange ? "nonzero CG mass change" : "body impulse"));
+        session::World world(options("same-epoch-native-state"));
+        session::VehicleSpec spec;
+        spec.name = "rotated rigid-state witness";
+        spec.type = "jsbsim:mig29a";
+        spec.initial.altitudeMslM = 6000;
+        spec.initial.airspeedTrueMs = 220;
+        spec.initial.headingDeg = 123;
+        spec.initial.pitchDeg = 7;
+        spec.initial.rollDeg = -18;
+        const auto id = world.createVehicle(spec);
+        REQUIRE(id);
+        auto* native = dynamic_cast<sim::JsbsimModel*>(world.model(id));
+        REQUIRE(native);
+        sim::VehicleState before;
+        native->state(before);
+        const auto rigidBefore = native->rigid();
+        REQUIRE(rigidBefore.massKg > 1000);
+        double oldCg[3];
+        REQUIRE(native->cgFromOriginBodyM(oldCg));
+        const double impulse[3] = {17000, -9000, 13000};
+        if (massChange) {
+            const double rates[3] = {.31, -.27, .19};
+            native->setBodyRates(rates);
+            const double station[3] = {rigidBefore.cgStructural[0] + .5,
+                                       rigidBefore.cgStructural[1] - 3,
+                                       rigidBefore.cgStructural[2] - .2};
+            REQUIRE(native->beginMassChange());
+            REQUIRE(native->removeMass(250, station));
+            REQUIRE(native->endMassChange(nullptr, impulse));
+            double newCg[3];
+            REQUIRE(native->cgFromOriginBodyM(newCg));
+            CHECK(std::hypot(newCg[0] - oldCg[0], std::hypot(newCg[1] - oldCg[1], newCg[2] - oldCg[2])) > 1e-4);
+        } else {
+            REQUIRE(native->applyImpulse(impulse, nullptr));
+        }
+        sim::VehicleState after;
+        native->state(after);
+        CHECK(after.simTime == before.simTime);
+        CHECK(after.stepCount == before.stepCount);
+        CHECK(std::hypot(after.velocityBodyMs[0] - before.velocityBodyMs[0],
+                         std::hypot(after.velocityBodyMs[1] - before.velocityBodyMs[1],
+                                    after.velocityBodyMs[2] - before.velocityBodyMs[2])) > 1e-3);
+        // Independent Rz(heading) Ry(pitch) Rx(roll) expansion. No simulation
+        // step, native cached NED value or SDK NED value supplies the reference.
+        const double cp = std::cos(after.eulerRad[0]), sp = std::sin(after.eulerRad[0]);
+        const double ct = std::cos(after.eulerRad[1]), st = std::sin(after.eulerRad[1]);
+        const double cy = std::cos(after.eulerRad[2]), sy = std::sin(after.eulerRad[2]);
+        const double u = after.velocityBodyMs[0], v = after.velocityBodyMs[1], w = after.velocityBodyMs[2];
+        const double expected[3] = {ct * cy * u + (sp * st * cy - cp * sy) * v + (cp * st * cy + sp * sy) * w,
+                                    ct * sy * u + (sp * st * sy + cp * cy) * v + (cp * st * sy - sp * cy) * w,
+                                    -st * u + sp * ct * v + cp * ct * w};
+        const auto propagate = native->exec().GetPropagate();
+        const auto direct = propagate->GetTb2l() * propagate->GetUVW();
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            const double nativeDirect = direct(axis + 1) * .3048;
+            INFO("axis=" << axis << " Euler=" << expected[axis] << " native Tb2l*UVW=" << nativeDirect
+                 << " cached native GetVel=" << propagate->GetVel(static_cast<int>(axis + 1)) * .3048
+                 << " SDK NED=" << after.velocityNedMs[axis]);
+            CHECK(std::abs(nativeDirect - expected[axis]) < 1e-9);
+            CHECK(std::abs(after.velocityNedMs[axis] - expected[axis]) < 1e-9);
+        }
+    }
+}
 
 namespace {
 
@@ -580,6 +651,474 @@ TEST_CASE("F16 sequential nose tail and wing separation leaves physical positive
                 <<" Iyy="<<properties.inertiaBodyKgM2[4]<<" Izz="<<properties.inertiaBodyKgM2[8]);
             CHECK(properties.massKg>0);
             CHECK(positive(properties.inertiaBodyKgM2));
+        }
+    }
+}
+
+TEST_CASE("Queued release material leaves with a lost station without a duplicate weapon",
+          "[stores][mass][world][queued-station-loss]") {
+    // A same-activity surviving-station control proves that only the lost
+    // material's queued Release is removed, not every committed queue member.
+    for (const bool retainedQueuedStore : {false, true}) {
+        INFO("same-activity surviving queued station=" << retainedQueuedStore);
+        session::World world(options("queued-station-loss"));
+        const auto parent = wing(world, "f16c", 6000, 220);
+        auto* host = world.missionSystems(parent);
+        REQUIRE(host);
+        std::uint16_t payload = 0;
+        bool found = false;
+        for (const auto& row : host->payloads()) if (row.family == ms::Family::StoreStation) {
+            payload = row.index;
+            found = true;
+        }
+        REQUIRE(found);
+        REQUIRE(world.loadStore(parent, payload, 8, "aim-9x") == ms::Reason::None);
+        if (retainedQueuedStore) REQUIRE(world.loadStore(parent, payload, 1, "aim-9x") == ms::Reason::None);
+        std::string error;
+        const auto geometry = ms::damage::readAirframe(
+            std::filesystem::path(FSIM_TEST_AIRCRAFT_DIR) / "f16c/f16c.damage.json", error);
+        INFO(error);
+        REQUIRE(geometry);
+        const int sectionIndex = geometry->section("right wing");
+        REQUIRE(sectionIndex >= 0);
+        const auto& section = geometry->sections[static_cast<std::size_t>(sectionIndex)];
+        const auto station = std::find(section.stations.begin(), section.stations.end(), 8);
+        REQUIRE(station != section.stations.end());
+        REQUIRE(std::find(section.stations.begin(), section.stations.end(), 1) == section.stations.end());
+        const auto stationOffset = static_cast<std::size_t>(station - section.stations.begin());
+        double lostMass = 0;
+        std::uint16_t lostIndex = 0, retainedIndex = 0;
+        ms::JettisonCommand command;
+        command.payload = payload;
+        command.emergency = true;
+        for (const auto& row : host->stores()) if (std::string(row.store) == "aim-9x") {
+            REQUIRE(std::string(row.carriage) == "rail");
+            command.stores.push_back(row.index);
+            if (row.station == 8) { lostMass = row.massKg; lostIndex = row.index; }
+            else { REQUIRE(row.station == 1); retainedIndex = row.index; }
+        }
+        REQUIRE(lostMass > 0);
+        REQUIRE(command.stores.size() == (retainedQueuedStore ? 2u : 1u));
+        // Define a current-mass zero-integration baseline exactly as the
+        // existing loaded-section conservation fixture does. No warmup step.
+        auto& model = *world.model(parent);
+        REQUIRE(model.beginMassChange());
+        REQUIRE(model.endMassChange(nullptr, nullptr));
+        const double beforeMass = model.energy().massKg;
+        double sectionFuel = 0;
+        for (const auto& tank : section.tanks) {
+            REQUIRE(tank.index >= 0);
+            const auto contents = model.property("propulsion/tank[" + std::to_string(tank.index) + "]/contents-lbs");
+            REQUIRE(contents.valid());
+            sectionFuel += contents.get() * .45359237;
+        }
+        const auto submission = world.submit(parent, command);
+        REQUIRE(submission.accepted());
+        REQUIRE(world.weapons().empty());
+        const auto statusAt = [&](std::uint16_t index) {
+            const auto& stores = host->stores();
+            const auto foundStore = std::find_if(stores.begin(), stores.end(), [&](const auto& row) { return row.index == index; });
+            REQUIRE(foundStore != stores.end());
+            return foundStore->status;
+        };
+        REQUIRE(statusAt(lostIndex) == ms::StoreStatus::Releasing);
+        REQUIRE(host->stationMassKg(payload, 8) == lostMass);
+        REQUIRE(host->releasing());
+        const double epoch = world.simTime();
+        REQUIRE(world.separateSection(parent, "right wing"));
+        REQUIRE(world.simTime() == epoch);
+        REQUIRE(statusAt(lostIndex) == ms::StoreStatus::Lost);
+        REQUIRE(host->stationMassKg(payload, 8) == 0);
+        const auto* activity = host->activity(submission.activity);
+        REQUIRE(activity);
+        CHECK(activity->state == control::ActivityState::Failed);
+        CHECK(activity->reason == ms::Reason::PayloadFailed);
+        REQUIRE(host->releasing() == retainedQueuedStore);
+        if (retainedQueuedStore) {
+            REQUIRE(statusAt(retainedIndex) == ms::StoreStatus::Releasing);
+            REQUIRE(host->stationMassKg(payload, 1) == lostMass);
+        }
+        std::uint32_t piece = 0;
+        for (const auto id : world.vehicleIds()) {
+            const auto* info = world.info(id);
+            if (info->role == ms::Role::Debris && info->launcher == parent && info->type.find(":right wing:") != std::string::npos) {
+                REQUIRE(piece == 0);
+                piece = id;
+            }
+        }
+        REQUIRE(piece != 0);
+        const auto carried = world.model(piece)->property("inertia/pointmass-weight-lbs[" + std::to_string(stationOffset + 1) + "]");
+        REQUIRE(carried.valid());
+        const double epsilon = std::numeric_limits<double>::epsilon();
+        CHECK(std::abs(carried.get() * .45359237 - lostMass) <= 512 * epsilon * std::max(1., lostMass));
+        const double departedMass = section.massKg + sectionFuel + lostMass;
+        CHECK(std::abs(beforeMass - model.energy().massKg - departedMass) <= 512 * epsilon * std::max(1., beforeMass));
+        REQUIRE(world.weapons().empty()); // The real piece owns the store; no weapon child exists yet.
+        world.step();
+        const auto weapons = world.weapons();
+        REQUIRE(weapons.size() == (retainedQueuedStore ? 1u : 0u));
+        for (const auto& weapon : weapons) {
+            CHECK(weapon.launcher == parent);
+            CHECK(weapon.store == "aim-9x");
+            CHECK(weapon.station == 1);
+            CHECK(weapon.jettisoned);
+        }
+        CHECK(statusAt(lostIndex) == ms::StoreStatus::Lost);
+        CHECK(host->stationMassKg(payload, 8) == 0);
+        CHECK_FALSE(host->releasing());
+        activity = host->activity(submission.activity);
+        REQUIRE(activity);
+        CHECK(activity->state == control::ActivityState::Failed);
+        CHECK(activity->reason == ms::Reason::PayloadFailed);
+    }
+}
+
+
+// Exact identity of an empty supported native mass transaction. This is a
+// numerical-method witness, independent of World reset, damage or geometry.
+#include <models/FGMassBalance.h>
+#include <cstring>
+
+TEST_CASE("An exact-zero native mass transaction preserves rigid state bits",
+          "[mass][native-mass-zero-identity]") {
+    for (const unsigned warmupSteps : {0u, 5u}) {
+        for (const bool explicitZeroImpulse : {false, true}) {
+            INFO("native warmup steps=" << warmupSteps << " explicit zero impulse=" << explicitZeroImpulse);
+            session::World world(options("exact-zero-native-mass"));
+            session::VehicleSpec spec;
+            spec.name = "nontrivial rigid identity witness";
+            spec.type = "jsbsim:f16c";
+            spec.initial.latitudeDeg = 37.3;
+            spec.initial.longitudeDeg = -122.1;
+            spec.initial.altitudeMslM = 6000;
+            spec.initial.airspeedTrueMs = 220;
+            spec.initial.headingDeg = 123;
+            spec.initial.pitchDeg = 7;
+            spec.initial.rollDeg = -18;
+            spec.initial.bodyRatesRadS[0] = .31;
+            spec.initial.bodyRatesRadS[1] = -.27;
+            spec.initial.bodyRatesRadS[2] = .19;
+            const auto id = world.createVehicle(spec);
+            REQUIRE(id);
+            auto* native = dynamic_cast<sim::JsbsimModel*>(world.model(id));
+            REQUIRE(native);
+            sim::ControlInputs controls;
+            controls.aileron = .11;
+            controls.elevator = -.07;
+            controls.rudder = .03;
+            controls.setThrottleAll(.3);
+            for (unsigned step = 0; step < warmupSteps; ++step) native->step(controls);
+            // Synchronize native mass inputs first. In particular, a late fuel
+            // publication is not misclassified as an empty end operation.
+            REQUIRE(native->beginMassChange());
+            const auto snapshot = [&]() {
+                std::vector<std::pair<std::string, double>> values;
+                const auto propagation = native->exec().GetPropagate();
+                const auto balance = native->exec().GetMassBalance();
+                const auto& state = propagation->GetVState();
+                const auto vector = [&](const char* name, const auto& value) {
+                    for (unsigned axis = 1; axis <= 3; ++axis)
+                        values.emplace_back(std::string(name) + std::to_string(axis), value(axis));
+                };
+                vector("location", state.vLocation);
+                vector("bodyVelocity", state.vUVW);
+                vector("bodyRate", state.vPQR);
+                vector("inertialBodyRate", state.vPQRi);
+                vector("inertialVelocity", state.vInertialVelocity);
+                vector("inertialPosition", state.vInertialPosition);
+                vector("cachedNedVelocity", propagation->GetVel());
+                vector("structuralCg", balance->GetXYZcg());
+                values.emplace_back("mass", balance->GetMass());
+                for (unsigned element = 1; element <= 4; ++element) {
+                    values.emplace_back("localQuaternion" + std::to_string(element), state.qAttitudeLocal(element));
+                    values.emplace_back("inertialQuaternion" + std::to_string(element), state.qAttitudeECI(element));
+                    values.emplace_back("quaternionDerivative" + std::to_string(element), state.vQtrndot(element));
+                }
+                for (unsigned row = 1; row <= 3; ++row) for (unsigned column = 1; column <= 3; ++column) {
+                    const auto index = std::to_string(row) + std::to_string(column);
+                    values.emplace_back("inertia" + index, balance->GetJ()(row, column));
+                    values.emplace_back("bodyToLocal" + index, propagation->GetTb2l()(row, column));
+                    values.emplace_back("bodyToInertial" + index, propagation->GetTb2i()(row, column));
+                }
+                sim::VehicleState sdk;
+                native->state(sdk);
+                for (unsigned axis = 0; axis < 3; ++axis) {
+                    const auto index = std::to_string(axis);
+                    values.emplace_back("sdkPosition" + index, sdk.positionEcef[axis]);
+                    values.emplace_back("sdkBodyVelocity" + index, sdk.velocityBodyMs[axis]);
+                    values.emplace_back("sdkNedVelocity" + index, sdk.velocityNedMs[axis]);
+                    values.emplace_back("sdkBodyRate" + index, sdk.angularRateBodyRadS[axis]);
+                }
+                values.emplace_back("simulationTime", sdk.simTime);
+                values.emplace_back("stepCount", static_cast<double>(sdk.stepCount));
+                return values;
+            };
+            const auto before = snapshot();
+            const double zeroImpulse[3] = {0, 0, 0};
+            REQUIRE(native->endMassChange(nullptr, explicitZeroImpulse ? zeroImpulse : nullptr));
+            const auto after = snapshot();
+            REQUIRE(after.size() == before.size());
+            for (std::size_t index = 0; index < before.size(); ++index) {
+                INFO(before[index].first << " before=" << before[index].second << " after=" << after[index].second);
+                REQUIRE(before[index].first == after[index].first);
+                REQUIRE(std::isfinite(before[index].second));
+                REQUIRE(std::isfinite(after[index].second));
+                CHECK(std::memcmp(&before[index].second, &after[index].second, sizeof(double)) == 0);
+            }
+        }
+    }
+}
+
+
+// Independent parallel-axis reference; no mb->GetPointmassInertia or native
+// CalculateTankInertias supplies this expected tensor.
+#include <models/FGPropulsion.h>
+#include <models/propulsion/FGTank.h>
+#include <array>
+#include <limits>
+
+TEST_CASE("Synchronous native mass reconciliation uses one CG for tank and whole inertia",
+          "[mass][native-mass-tank-epoch]") {
+    session::World world(options("native-mass-tank-epoch"));
+    const auto id = wing(world, "f16c", 6000, 220);
+    auto* native = dynamic_cast<sim::JsbsimModel*>(world.model(id));
+    REQUIRE(native);
+    const auto balance = native->exec().GetMassBalance();
+    const auto propulsion = native->exec().GetPropulsion();
+    REQUIRE(propulsion->GetNumTanks() > 0);
+    REQUIRE(propulsion->GetNumTanks() <= std::numeric_limits<unsigned>::max());
+    unsigned selected = static_cast<unsigned>(propulsion->GetNumTanks());
+    for (unsigned index = 0; index < propulsion->GetNumTanks(); ++index)
+        if (propulsion->GetTank(index)->GetContents() > 0) { selected = index; break; }
+    REQUIRE(selected < propulsion->GetNumTanks());
+    const auto oldCg = balance->GetXYZcg();
+    const auto tank = propulsion->GetTank(selected);
+    // A deliberate unit-only mass input change, not fuel burn, native time
+    // advancement or a change to an aircraft file/encounter acceptance scene.
+    tank->SetContents(tank->GetContents() * .5);
+    REQUIRE(native->beginMassChange());
+    const auto newCg = balance->GetXYZcg();
+    CHECK((newCg - oldCg).Magnitude() > 0);
+    const auto independentTank = [&](const auto& cg) {
+        std::array<long double, 9> result{};
+        for (unsigned index = 0; index < propulsion->GetNumTanks(); ++index) {
+            const auto item = propulsion->GetTank(index);
+            const auto position = item->GetXYZ();
+            const long double mass = static_cast<long double>(item->GetContents()) * (1.0 / 32.174049);
+            const long double r[3] = {(static_cast<long double>(cg(1)) - position(1)) / 12,
+                                     (static_cast<long double>(position(2)) - cg(2)) / 12,
+                                     (static_cast<long double>(cg(3)) - position(3)) / 12};
+            const long double square = r[0]*r[0] + r[1]*r[1] + r[2]*r[2];
+            for (unsigned row = 0; row < 3; ++row) for (unsigned column = 0; column < 3; ++column)
+                result[3*row+column] += mass*((row == column ? square : 0)-r[row]*r[column]);
+            result[0] += item->GetIxx(); result[4] += item->GetIyy(); result[8] += item->GetIzz();
+        }
+        return result;
+    };
+    const auto oldReference = independentTank(oldCg);
+    const auto expected = independentTank(newCg);
+    const auto beforeJ = balance->GetJ();
+    const auto suppliedTank = balance->in.TankInertia;
+    const long double epsilon = std::numeric_limits<double>::epsilon();
+    // Numerical reference tolerances below apply ONLY to this independently
+    // reordered tensor comparison, not the original 78 exact identity checks.
+    long double largest = 1;
+    for (const auto value : expected) largest = std::max(largest, std::abs(value));
+    for (const auto value : oldReference) largest = std::max(largest, std::abs(value));
+    for (unsigned row = 1; row <= 3; ++row) for (unsigned column = 1; column <= 3; ++column) {
+        const auto index = 3*(row-1)+column-1;
+        INFO("tank=" << selected << " row=" << row << " column=" << column
+             << " supplied=" << suppliedTank(row,column) << " old-CG reference=" << oldReference[index]
+             << " published-CG reference=" << expected[index]);
+        CHECK(std::abs(static_cast<long double>(suppliedTank(row,column))-expected[index]) <= 512*epsilon*largest);
+    }
+    REQUIRE(native->endMassChange(nullptr, nullptr));
+    // Independent causal control: the change of WHOLE J must be explained by
+    // replacing precisely the tank tensor. This does not call a J drift a
+    // velocity-setter error or demand skipping required mass reconciliation.
+    const auto afterJ = balance->GetJ();
+    for (unsigned row = 1; row <= 3; ++row) for (unsigned column = 1; column <= 3; ++column) {
+        const auto index = 3*(row-1)+column-1;
+        const long double observed = static_cast<long double>(afterJ(row,column))-beforeJ(row,column);
+        const long double predicted = expected[index]-suppliedTank(row,column);
+        const long double scale = std::max(largest, std::abs(static_cast<long double>(beforeJ(row,column))));
+        INFO("whole J row=" << row << " column=" << column << " observed=" << observed << " tank prediction=" << predicted);
+        CHECK(std::abs(observed-predicted) <= 1024*epsilon*scale);
+        CHECK(std::abs(static_cast<long double>(balance->in.TankInertia(row,column))-expected[index]) <= 512*epsilon*largest);
+    }
+}
+
+
+TEST_CASE("Committed native mass change publishes tank and public inertia about final CG",
+          "[mass][native-mass-committed-epoch]") {
+    session::World world(options("native-mass-committed-epoch"));
+    const auto id = wing(world, "f16c", 6000, 220);
+    auto* native = dynamic_cast<sim::JsbsimModel*>(world.model(id));
+    REQUIRE(native);
+    const auto balance = native->exec().GetMassBalance();
+    const auto propulsion = native->exec().GetPropulsion();
+    REQUIRE(propulsion->GetNumTanks() > 0);
+    REQUIRE(propulsion->GetNumTanks() <= std::numeric_limits<unsigned>::max());
+    unsigned selected = static_cast<unsigned>(propulsion->GetNumTanks());
+    for (unsigned index = 0; index < propulsion->GetNumTanks(); ++index)
+        if (propulsion->GetTank(index)->GetContents() > 0) { selected = index; break; }
+    REQUIRE(selected < propulsion->GetNumTanks());
+    REQUIRE(native->beginMassChange());
+    const auto initialCg = balance->GetXYZcg();
+    sim::VehicleState initialState;
+    native->state(initialState);
+    const auto tank = propulsion->GetTank(selected);
+    // An actual mass input changes DURING the owned transaction. This asserts
+    // the contracted committed endpoint, not an intermediate begin snapshot.
+    tank->SetContents(tank->GetContents() * .5);
+    REQUIRE(native->endMassChange(nullptr, nullptr));
+    const auto finalCg = balance->GetXYZcg();
+    CHECK((finalCg - initialCg).Magnitude() > 0);
+    sim::VehicleState finalState;
+    native->state(finalState);
+    CHECK(finalState.simTime == initialState.simTime);
+    CHECK(finalState.stepCount == initialState.stepCount);
+    // Independent central tensor sum using current native input scalars only.
+    // No native point-mass inertia helper supplies the expected tensor.
+    std::array<long double, 9> expectedTank{};
+    for (unsigned index = 0; index < propulsion->GetNumTanks(); ++index) {
+        const auto item = propulsion->GetTank(index);
+        const auto position = item->GetXYZ();
+        const long double mass = static_cast<long double>(item->GetContents()) * (1.0 / 32.174049);
+        const long double r[3] = {(static_cast<long double>(finalCg(1)) - position(1)) / 12,
+                                 (static_cast<long double>(position(2)) - finalCg(2)) / 12,
+                                 (static_cast<long double>(finalCg(3)) - position(3)) / 12};
+        const long double square = r[0]*r[0]+r[1]*r[1]+r[2]*r[2];
+        for (unsigned row = 0; row < 3; ++row) for (unsigned column = 0; column < 3; ++column)
+            expectedTank[3*row+column] += mass*((row == column ? square : 0)-r[row]*r[column]);
+        expectedTank[0] += item->GetIxx(); expectedTank[4] += item->GetIyy(); expectedTank[8] += item->GetIzz();
+    }
+    sim::RigidMassPropertiesV1 published;
+    REQUIRE(native->rigidMassPropertiesV1(published));
+    CHECK(published.massKg == balance->GetMass()*14.5939029372064);
+    const long double epsilon = std::numeric_limits<double>::epsilon();
+    long double scale = 1;
+    for (const auto value : expectedTank) scale = std::max(scale, std::abs(value));
+    for (unsigned row = 1; row <= 3; ++row) for (unsigned column = 1; column <= 3; ++column) {
+        const auto index = 3*(row-1)+column-1;
+        const long double supplied = balance->in.TankInertia(row,column);
+        INFO("committed row=" << row << " column=" << column << " supplied tank=" << supplied
+             << " final-CG independent tank=" << expectedTank[index]);
+        CHECK(std::abs(supplied-expectedTank[index]) <= 512*epsilon*scale);
+        // All other whole-body terms are retained as native computed them;
+        // replace only the independently checked tank contribution. This
+        // checks the public tensor consequence, not merely its native input.
+        const long double expectedWhole = static_cast<long double>(balance->GetJ()(row,column))
+                                          - supplied + expectedTank[index];
+        const long double expectedPublic = expectedWhole*1.3558179483314;
+        const long double publicScale = std::max(1.0L, std::abs(expectedPublic));
+        CHECK(std::isfinite(published.inertiaBodyKgM2[index]));
+        CHECK(std::abs(static_cast<long double>(published.inertiaBodyKgM2[index])-expectedPublic)
+              <= 1024*epsilon*publicScale);
+    }
+}
+
+
+TEST_CASE("Native single-run mass refresh preserves null and holding paths",
+          "[mass][native-mass-refresh-method]") {
+    session::World legacy(options("native-mass-refresh-legacy"));
+    session::World explicitNull(options("native-mass-refresh-null"));
+    const auto legacyId = wing(legacy, "f16c", 6000, 220);
+    const auto nullId = wing(explicitNull, "f16c", 6000, 220);
+    auto* legacyModel = dynamic_cast<sim::JsbsimModel*>(legacy.model(legacyId));
+    auto* nullModel = dynamic_cast<sim::JsbsimModel*>(explicitNull.model(nullId));
+    REQUIRE(legacyModel); REQUIRE(nullModel);
+    const auto supply = [](sim::JsbsimModel& model) {
+        const auto balance = model.exec().GetMassBalance();
+        const auto propulsion = model.exec().GetPropulsion();
+        balance->in.TanksWeight = propulsion->GetTanksWeight();
+        balance->in.TanksMoment = propulsion->GetTanksMoment();
+        balance->in.TankInertia = propulsion->CalculateTankInertias();
+    };
+    supply(*legacyModel); supply(*nullModel);
+    const auto first = legacyModel->exec().GetMassBalance();
+    const auto second = nullModel->exec().GetMassBalance();
+    REQUIRE_FALSE(first->Run(false));
+    REQUIRE_FALSE(second->RunWithInputRefreshV1(false, nullptr, nullptr));
+    CHECK(first->GetMass() == second->GetMass());
+    for (unsigned row = 1; row <= 3; ++row) {
+        CHECK(first->GetXYZcg(static_cast<int>(row)) == second->GetXYZcg(static_cast<int>(row)));
+        for (unsigned column = 1; column <= 3; ++column) {
+            const double a = first->GetJ()(row,column), b = second->GetJ()(row,column);
+            const double ai = first->GetJinv()(row,column), bi = second->GetJinv()(row,column);
+            CHECK(std::memcmp(&a, &b, sizeof(double)) == 0);
+            CHECK(std::memcmp(&ai, &bi, sizeof(double)) == 0);
+        }
+    }
+    struct Counter { mutable unsigned calls = 0; } counter;
+    const auto observe = +[](JSBSim::FGMassBalance&, const void* context) {
+        const auto& value = *static_cast<const Counter*>(context);
+        ++value.calls;
+    };
+    const auto heldJ = second->GetJ();
+    const auto heldCg = second->GetXYZcg();
+    const double heldTime = nullModel->exec().GetSimTime();
+    REQUIRE_FALSE(second->RunWithInputRefreshV1(true, observe, &counter));
+    CHECK(counter.calls == 0);
+    CHECK(nullModel->exec().GetSimTime() == heldTime);
+    for (unsigned row = 1; row <= 3; ++row) {
+        CHECK(second->GetXYZcg(static_cast<int>(row)) == heldCg(row));
+        for (unsigned column = 1; column <= 3; ++column) CHECK(second->GetJ()(row,column) == heldJ(row,column));
+    }
+}
+
+TEST_CASE("Native mass refresh runs once at computed CG before inertia composition",
+          "[mass][native-mass-refresh-method]") {
+    session::World plain(options("native-mass-refresh-plain"));
+    session::World refreshed(options("native-mass-refresh-one"));
+    const auto plainId = wing(plain, "f16c", 6000, 220);
+    const auto refreshedId = wing(refreshed, "f16c", 6000, 220);
+    auto* firstModel = dynamic_cast<sim::JsbsimModel*>(plain.model(plainId));
+    auto* secondModel = dynamic_cast<sim::JsbsimModel*>(refreshed.model(refreshedId));
+    REQUIRE(firstModel); REQUIRE(secondModel);
+    const auto changeInput = [](sim::JsbsimModel& model) {
+        const auto propulsion = model.exec().GetPropulsion();
+        REQUIRE(propulsion->GetNumTanks() > 0);
+        const auto tank = propulsion->GetTank(0);
+        tank->SetContents(tank->GetContents() * .5);
+        const auto balance = model.exec().GetMassBalance();
+        balance->in.TanksWeight = propulsion->GetTanksWeight();
+        balance->in.TanksMoment = propulsion->GetTanksMoment();
+        balance->in.TankInertia = propulsion->CalculateTankInertias();
+    };
+    changeInput(*firstModel); changeInput(*secondModel);
+    const auto first = firstModel->exec().GetMassBalance();
+    const auto second = secondModel->exec().GetMassBalance();
+    const auto oldCg = second->GetXYZcg();
+    struct Counter {
+        mutable unsigned calls = 0;
+        mutable double seenCg[3] = {};
+    } counter;
+    const auto refresh = +[](JSBSim::FGMassBalance& balance, const void* context) noexcept {
+        const auto& value = *static_cast<const Counter*>(context);
+        ++value.calls;
+        for (unsigned axis = 1; axis <= 3; ++axis) value.seenCg[axis-1] = balance.GetXYZcg(static_cast<int>(axis));
+        // Positive diagonal synthetic input, restricted to this numerical
+        // method test. No aircraft/scene/production inertia is authored here.
+        balance.in.TankInertia(1,1) += .25;
+        balance.in.TankInertia(2,2) += .5;
+        balance.in.TankInertia(3,3) += .75;
+    };
+    const double time = secondModel->exec().GetSimTime();
+    REQUIRE_FALSE(first->Run(false));
+    REQUIRE_FALSE(second->RunWithInputRefreshV1(false, refresh, &counter));
+    CHECK(counter.calls == 1);
+    CHECK(secondModel->exec().GetSimTime() == time);
+    CHECK((second->GetXYZcg()-oldCg).Magnitude() > 0);
+    CHECK(second->GetMass() == first->GetMass());
+    for (unsigned row = 1; row <= 3; ++row) {
+        CHECK(counter.seenCg[row-1] == second->GetXYZcg(static_cast<int>(row)));
+        CHECK(second->GetXYZcg(static_cast<int>(row)) == first->GetXYZcg(static_cast<int>(row)));
+        for (unsigned column = 1; column <= 3; ++column) {
+            const double delta = row == column ? .25*row : 0;
+            const double scale = std::max(1.0, std::abs(first->GetJ()(row,column)));
+            CHECK(std::abs(second->GetJ()(row,column)-first->GetJ()(row,column)-delta)
+                  <= 16*std::numeric_limits<double>::epsilon()*scale);
         }
     }
 }

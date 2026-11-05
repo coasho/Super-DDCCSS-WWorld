@@ -33,6 +33,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iomanip>
+#include <limits>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -99,13 +100,14 @@ struct FeedProbe {
     std::vector<unsigned> feeds;
     std::vector<double> previous;
     std::vector<fsim::sim::PropertyHandle> diagnostics;
+    std::vector<std::string> diagnosticPaths;
     std::vector<FeedSample> samples;
     double expectedIntegral=0,requestedIntegral=0,burnedLbs=0;
     bool priorStarved=false;
     double maximumSupplyError=0,maximumForceError=0,maximumFlowError=0,maximumTankError=0;
     std::uint64_t checked=0,shortBatches=0,violations=0;
     void advance(fsim::sim::JsbsimModel& model,JSBSim::FGRocket& engine,double dt,
-                 std::uint64_t sample,bool retain) {
+                 std::uint64_t sample,bool retain,const fsim::sim::PropertyHandle& vacuumHandle) {
         constexpr double lb=.45359237,lbf=4.4482216152605;
         const auto propulsion=model.exec().GetPropulsion();
         FeedSample observation;auto& state=observation.state;
@@ -140,7 +142,7 @@ struct FeedProbe {
         }
         if(full)expected=request;
         const double supplied=diagnostics[2].get();
-        const double vacuum=model.property("propulsion/engine[0]/vacuum-thrust_lbs").get();
+        const double vacuum=vacuumHandle.get();
         const double expectedForce=full?raw:expected/dt*engine.GetIsp();
         maximumSupplyError=std::max(maximumSupplyError,std::abs(expected-supplied)*lb);
         maximumFlowError=std::max(maximumFlowError,std::abs(engine.GetFuelFlowRate()-expected/dt)*lb);
@@ -159,36 +161,64 @@ struct PoweredProbe {
     fsim::sim::JsbsimModel* model=nullptr;
     std::vector<JSBSim::FGRocket*> engines;
     std::vector<fsim::sim::PropertyHandle> vacuum,extra;
+    std::vector<std::string> vacuumPaths,extraPaths;
     std::vector<std::string> columns;
     std::vector<std::array<double,64>> samples;
     FeedProbe feed;
     std::array<double,2> peakVacuum{},engineFlowIntegral{};
     double nativeDt=0,initialFuel=0,flowIntegral=0,vacuumImpulse=0,inletStart=-1;
     std::uint64_t nativeSamples=0;
+    // Handles are observationally bound only after the first native substep
+    // creates PrepareFuel's diagnostics. PRE tank state above is unchanged.
+    unsigned observationFailure=0; // 1: missing diagnostic, 2: callback exception
+    const char* missingDiagnostic=nullptr;
+    bool diagnosticsBound=false;
+    bool bindPostStep() {
+        const auto bind=[&](const auto& paths,auto& handles) {
+            for(std::size_t k=0;k<paths.size();++k) {
+                handles[k]=model->property(paths[k]);
+                if(!handles[k].valid()) {
+                    observationFailure=1;missingDiagnostic=paths[k].c_str();++feed.violations;
+                    return false;
+                }
+            }
+            return true;
+        };
+        diagnosticsBound=bind(vacuumPaths,vacuum)&&bind(feed.diagnosticPaths,feed.diagnostics)&&bind(extraPaths,extra);
+        return diagnosticsBound;
+    }
     static void observe(void* context,unsigned substep,unsigned substeps) noexcept {
         auto& p=*static_cast<PoweredProbe*>(context);++p.nativeSamples;
-        std::array<double,64> row{};std::size_t at=0;
-        row[at++]=static_cast<double>(p.nativeSamples);row[at++]=p.model->exec().GetSimTime();
-        row[at++]=p.model->energy().fuelKg;
-        for(std::size_t k=0;k<p.engines.size();++k) {
-            const auto* engine=p.engines[k];const double flow=engine->GetFuelFlowRate()*.45359237;
-            const double thrust=p.vacuum[k].get()*4.4482216152605;
-            p.peakVacuum[k]=std::max(p.peakVacuum[k],thrust);
-            row[at++]=flow;row[at++]=thrust;row[at++]=engine->GetThrust()*4.4482216152605;
-            row[at++]=engine->GetIsp();row[at++]=engine->in.Pressure;
-            p.engineFlowIntegral[k]+=flow*p.nativeDt;
-            p.flowIntegral+=flow*p.nativeDt;p.vacuumImpulse+=thrust*p.nativeDt;
+        if(p.observationFailure)return;
+        try {
+            if(!p.diagnosticsBound&&!p.bindPostStep())return;
+            std::array<double,64> row{};std::size_t at=0;
+            row[at++]=static_cast<double>(p.nativeSamples);row[at++]=p.model->exec().GetSimTime();
+            row[at++]=p.model->energy().fuelKg;
+            for(std::size_t k=0;k<p.engines.size();++k) {
+                const auto* engine=p.engines[k];const double flow=engine->GetFuelFlowRate()*.45359237;
+                const double thrust=p.vacuum[k].get()*4.4482216152605;
+                p.peakVacuum[k]=std::max(p.peakVacuum[k],thrust);
+                row[at++]=flow;row[at++]=thrust;row[at++]=engine->GetThrust()*4.4482216152605;
+                row[at++]=engine->GetIsp();row[at++]=engine->in.Pressure;
+                p.engineFlowIntegral[k]+=flow*p.nativeDt;
+                p.flowIntegral+=flow*p.nativeDt;p.vacuumImpulse+=thrust*p.nativeDt;
+            }
+            if(p.inletStart>=0) {
+                for(unsigned axis=1;axis<=3;++axis)row[at++]=p.engines.front()->in.PQRi(axis);
+                row[at++]=p.engines.front()->in.Temperature*5./9.;
+            }
+            for(const auto& value:p.extra)row[at++]=value.get();
+            p.feed.advance(*p.model,*p.engines.front(),p.nativeDt,p.nativeSamples,
+                substep==substeps||(p.inletStart>=0&&row[1]>=p.inletStart-2*p.nativeDt),p.vacuum.front());
+            // All finite-inlet transition samples remain native-substep samples;
+            // ordinary and pulse trajectories retain each complete outer sample.
+            if(substep==substeps||(p.inletStart>=0&&row[1]>=p.inletStart-2*p.nativeDt))p.samples.push_back(row);
+        } catch(...) {
+            // The observer is noexcept: record failure without allocating or
+            // throwing a Catch assertion through the native step boundary.
+            p.observationFailure=2;++p.feed.violations;
         }
-        if(p.inletStart>=0) {
-            for(unsigned axis=1;axis<=3;++axis)row[at++]=p.engines.front()->in.PQRi(axis);
-            row[at++]=p.engines.front()->in.Temperature*5./9.;
-        }
-        for(const auto& value:p.extra)row[at++]=value.get();
-        p.feed.advance(*p.model,*p.engines.front(),p.nativeDt,p.nativeSamples,
-            substep==substeps||(p.inletStart>=0&&row[1]>=p.inletStart-2*p.nativeDt));
-        // All finite-inlet transition samples remain native-substep samples;
-        // ordinary and pulse trajectories retain each complete outer sample.
-        if(substep==substeps||(p.inletStart>=0&&row[1]>=p.inletStart-2*p.nativeDt))p.samples.push_back(row);
     }
 };
 }
@@ -221,7 +251,7 @@ TEST_CASE("Every actual AAM engine executes an independent powered propulsion re
         for(unsigned k=0;k<propulsion->GetNumEngines();++k) {
             auto* engine=dynamic_cast<JSBSim::FGRocket*>(propulsion->GetEngine(k).get());REQUIRE(engine);
             probe.engines.push_back(engine);
-            const auto vacuum=model.property("propulsion/engine["+std::to_string(k)+"]/vacuum-thrust_lbs");REQUIRE(vacuum.valid());probe.vacuum.push_back(vacuum);
+            probe.vacuumPaths.push_back("propulsion/engine["+std::to_string(k)+"]/vacuum-thrust_lbs");
             for(const auto* leaf:{"flow_kg_s","vacuum_thrust_n","delivered_thrust_n","isp_s","pressure_psf"})
                 probe.columns.push_back("engine"+std::to_string(k)+"_"+leaf);
         }
@@ -230,11 +260,10 @@ TEST_CASE("Every actual AAM engine executes an independent powered propulsion re
         for(unsigned k=0;k<propulsion->GetNumTanks();++k)probe.feed.previous.push_back(propulsion->GetTank(k)->GetContents());
         REQUIRE(!probe.feed.feeds.empty());
         for(const auto* leaf:{"requested-vacuum-thrust-lbs","requested-fuel-lbs","supplied-fuel-lbs","valid"}) {
-            const auto handle=model.property(std::string("fsim/rocket-feed-v1/engine[0]/")+leaf);
-            REQUIRE(handle.valid());probe.feed.diagnostics.push_back(handle);
+            probe.feed.diagnosticPaths.push_back(std::string("fsim/rocket-feed-v1/engine[0]/")+leaf);
         }
         const auto add=[&](const std::string& path) {
-            const auto handle=model.property(path);REQUIRE(handle.valid());probe.extra.push_back(handle);probe.columns.push_back(path);
+            probe.extraPaths.push_back(path);probe.columns.push_back(path);
         };
         double duration=.2;PulsePolicyV1 pulse;std::string pulseError;
         const bool commanded=configurePulseV1(*selected,pulse,pulseError);
@@ -266,6 +295,8 @@ TEST_CASE("Every actual AAM engine executes an independent powered propulsion re
         const auto retained=static_cast<std::size_t>(steps)+
             (inlet?static_cast<std::size_t>(std::ceil((steps*model.dt()-probe.inletStart)/probe.nativeDt))+4:0)+8;
         probe.samples.reserve(retained);
+        probe.vacuum.resize(probe.vacuumPaths.size());probe.feed.diagnostics.resize(probe.feed.diagnosticPaths.size());
+        probe.extra.resize(probe.extraPaths.size());
         fsim::sim::ControlInputs commands;commands.setThrottleAll(1);
         {
             fsim::sim::ScopedNativeStepObserverV1 observing({&model,&probe,&PoweredProbe::observe});
@@ -275,6 +306,11 @@ TEST_CASE("Every actual AAM engine executes an independent powered propulsion re
                 model.step(commands);
             }
         }
+        INFO("POST diagnostic failure kind="<<probe.observationFailure<<" path="<<(probe.missingDiagnostic?probe.missingDiagnostic:"none"));
+        REQUIRE(probe.observationFailure==0);REQUIRE(probe.diagnosticsBound);
+        for(const auto& handle:probe.vacuum)REQUIRE(handle.valid());
+        for(const auto& handle:probe.feed.diagnostics)REQUIRE(handle.valid());
+        for(const auto& handle:probe.extra)REQUIRE(handle.valid());
         REQUIRE(!probe.samples.empty());REQUIRE(probe.flowIntegral>0);REQUIRE(probe.vacuumImpulse>0);
         REQUIRE(probe.feed.checked==probe.nativeSamples);REQUIRE(probe.feed.violations==0);
         REQUIRE(probe.feed.maximumSupplyError<1e-11);REQUIRE(probe.feed.maximumTankError<1e-11);
@@ -310,7 +346,8 @@ TEST_CASE("Every actual AAM engine executes an independent powered propulsion re
         for(std::size_t k=0;k<probe.feed.feeds.size();++k){if(k)out<<',';out<<probe.feed.feeds[k];}
         out<<"],\"samples\":[";
         for(std::size_t k=0;k<probe.feed.samples.size();++k) {
-            if(k)out<<',';out<<"{\"state\":";array(out,probe.feed.samples[k].state);out<<",\"tanks\":[";
+            if(k)out<<',';
+            out<<"{\"state\":";array(out,probe.feed.samples[k].state);out<<",\"tanks\":[";
             for(std::size_t j=0;j<probe.feed.samples[k].tanks.size();++j){if(j)out<<',';array(out,probe.feed.samples[k].tanks[j]);}
             out<<"]}";
         }
@@ -426,6 +463,8 @@ void nativePlant(std::ostream& out,const std::string& modelName) {
 }
 }
 
+void guidanceBranchReferences(std::ostream&,const Spec&,const std::string&);
+
 TEST_CASE("All actual AAM card configurations execute numeric guidance and control method references",
           "[component-reference-native][sim-m03]") {
     const auto header=captureHeader();
@@ -519,7 +558,211 @@ TEST_CASE("All actual AAM card configurations execute numeric guidance and contr
             }
             stream<<']';
         }
+        stream<<",\"guidance_branches\":";guidanceBranchReferences(stream,spec,name);
         stream<<'}';++count;
     }
     stream<<"],\"model_count\":"<<count<<"}\n";REQUIRE(count==24);REQUIRE(stream.good());
+}
+
+// Independent algebraic branch reference. These disclosed synthetic observations
+// exercise each unchanged loaded card; they are not captured seeker waveforms,
+// flight-trajectory residuals, hardware calibration or encounter acceptance.
+namespace guidance_branch_reference {
+using A=std::array<double,3>;
+A value(V3 v){return {v.x,v.y,v.z};}
+double inner(A a,A b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}
+double length(A a){return std::sqrt(inner(a,a));}
+A direction(A a){const double n=length(a);return n>0?A{a[0]/n,a[1]/n,a[2]/n}:A{};}
+A plus(A a,A b){return {a[0]+b[0],a[1]+b[1],a[2]+b[2]};}
+A times(A a,double k){return {a[0]*k,a[1]*k,a[2]*k};}
+// Lagrange's identity, evaluated with scalar dot products, independently of
+// the production nested-cross helpers: (l cross d) cross h=d(l.h)-l(d.h).
+A turn(A l,A d,A h,double gain){return times(plus(times(d,inner(l,h)),times(l,-inner(d,h))),gain);}
+A finish(A steering,const SeekerFrameV2& f,const Spec& s) {
+    const A h=direction(value(f.velocity));
+    steering=plus(steering,times(h,-inner(steering,h)));
+    A result=plus(steering,times(direction(value(f.up)),9.80665));
+    const double size=length(result),limit=s.maxG*9.80665;
+    return size>limit?times(result,limit/size):result;
+}
+A terminal(const SeekerFrameV2& f,const SeekerTrackV2& t,const Spec& s,bool predict) {
+    A l=value(t.direction);const A d=value(t.directionRate),h=direction(value(f.velocity));
+    if(predict)l=direction(plus(l,times(d,f.timeS-t.sampleTimeS)));
+    const double scale=t.rangeRateMs?std::max(0.,-*t.rangeRateMs):length(value(f.velocity));
+    return finish(t.rateAvailable?turn(l,d,h,s.navigationGain*scale):A{},f,s);
+}
+A midcourse(const SeekerFrameV2& f,const LauncherEstimateV2& e,const Spec& s,bool loft) {
+    A steering{};
+    if(s.inertialMidcourse) {
+        const A relative=plus(plus(value(e.position),times(value(e.velocity),f.timeS-e.sampleTimeS)),times(value(f.position),-1));
+        const A relativeVelocity=plus(value(e.velocity),times(value(f.velocity),-1));
+        const double range=length(relative);const A l=direction(relative);
+        const double closing=-inner(relativeVelocity,l);
+        if(range>0&&closing>0)
+            steering=turn(l,relativeVelocity,direction(value(f.velocity)),s.navigationGain*closing/range);
+        if(loft) {
+            const A h=direction(value(f.velocity)),u=direction(value(f.up));
+            const double a=std::sin(std::clamp(s.loftRad,0.,.7))*s.loftAccelerationG*9.80665;
+            steering=plus(steering,times(plus(u,times(h,-inner(u,h))),a));
+        }
+    }
+    return finish(steering,f,s);
+}
+}
+
+void guidanceBranchReferences(std::ostream& stream,const Spec& spec,const std::string& name) {
+    using namespace guidance_branch_reference;
+    SeekerFrameV2 frame;frame.timeS=frame.ageS=1;frame.dtS=.01;
+    frame.position={100,20,30};frame.velocity={550,30,-20};frame.up={0,0,1};
+    SeekerTrackV2 track;track.localId=1;track.sampleTimeS=1;
+    track.direction={.8,.6,0};track.directionRate={-.012,.016,-.01};track.rateAvailable=true;
+    if(spec.seeker=="active_radar"){track.rangeM=5000;track.rangeRateMs=-450;}
+    SeekerResultV2 measured;measured.valid=measured.active=measured.tracking=measured.supported=true;measured.track=track;
+    stream<<"{\"model\":\""<<name<<"\",\"navigation_gain\":"<<spec.navigationGain<<",\"max_g\":"<<spec.maxG
+          <<",\"inertial_midcourse\":"<<(spec.inertialMidcourse?"true":"false")<<",\"launcher_updates\":"<<(spec.launcherUpdates?"true":"false")
+          <<",\"loft_rad\":"<<spec.loftRad<<",\"loft_acceleration_g\":"<<spec.loftAccelerationG<<",\"cases\":[";
+    unsigned caseCount=0;
+    const auto check=[&](const char* label,const Output& actual,A expected,WeaponPhase phase,
+                         const SeekerResultV2& input,const char* state) {
+        INFO(label);CHECK(actual.phase==phase);
+        CHECK(actual.tracking==(phase!=WeaponPhase::Unguided&&input.tracking));
+        CHECK(actual.active==(phase!=WeaponPhase::Unguided&&input.active));
+        CHECK(actual.supported==(phase!=WeaponPhase::Unguided&&input.supported&&
+            (spec.seeker=="semi_active_radar"||spec.launcherUpdates)));
+        const A observed=value(actual.acceleration);
+        double errorMax=0;
+        for(unsigned axis=0;axis<3;++axis) {
+            REQUIRE(std::isfinite(observed[axis]));
+            errorMax=std::max(errorMax,std::abs(observed[axis]-expected[axis]));
+            // Equivalent dot/cross and sqrt/hypot evaluation differ only
+            // by roundoff here. This is a 128-epsilon SI arithmetic bound,
+            // not a relaxed sensor, trajectory or physical outcome limit.
+            CHECK(std::abs(observed[axis]-expected[axis])<=128*std::numeric_limits<double>::epsilon()*
+                std::max({1.,spec.maxG*9.80665,std::abs(expected[axis])}));
+        }
+        if(caseCount)stream<<',';
+        stream<<"{\"case\":\""<<label<<"\",\"latch_precondition\":\""<<state<<"\",\"frame\":{\"time_s\":"<<frame.timeS
+              <<",\"age_s\":"<<frame.ageS<<",\"dt_s\":"<<frame.dtS
+              <<",\"position\":";array(stream,value(frame.position));stream<<",\"velocity\":";array(stream,value(frame.velocity));
+        stream<<",\"up\":";array(stream,value(frame.up));stream<<"},\"input\":{\"valid\":"<<(input.valid?"true":"false")
+              <<",\"active\":"<<(input.active?"true":"false")<<",\"tracking\":"<<(input.tracking?"true":"false")
+              <<",\"supported\":"<<(input.supported?"true":"false")<<",\"measurement_time_s\":";
+        if(input.measurementTimeS)stream<<*input.measurementTimeS;else stream<<"null";
+        if(input.track) {
+            const auto& t=*input.track;stream<<",\"track\":{\"local_id\":"<<t.localId<<",\"sample_time_s\":"<<t.sampleTimeS
+                <<",\"direction\":";array(stream,value(t.direction));stream<<",\"direction_rate\":";array(stream,value(t.directionRate));
+            stream<<",\"rate_available\":"<<(t.rateAvailable?"true":"false")<<",\"range_m\":";
+            if(t.rangeM)stream<<*t.rangeM;else stream<<"null";
+            stream<<",\"range_rate_m_s\":";if(t.rangeRateMs)stream<<*t.rangeRateMs;else stream<<"null";stream<<'}';
+        }
+        if(input.midcourseEstimate) {
+            const auto& e=*input.midcourseEstimate;stream<<",\"estimate\":{\"sample_time_s\":"<<e.sampleTimeS<<",\"position\":";
+            array(stream,value(e.position));stream<<",\"velocity\":";array(stream,value(e.velocity));stream<<'}';
+        }
+        stream<<"},\"expected_acceleration_m_s2\":";array(stream,expected);
+        stream<<",\"actual_acceleration_m_s2\":";array(stream,observed);
+        stream<<",\"absolute_tolerance_m_s2\":";
+        A tolerances{};
+        for(unsigned axis=0;axis<3;++axis)tolerances[axis]=128*std::numeric_limits<double>::epsilon()*
+            std::max({1.,spec.maxG*9.80665,std::abs(expected[axis])});
+        array(stream,tolerances);
+        stream<<",\"expected_phase\":"<<static_cast<unsigned>(phase)<<",\"actual_phase\":"<<static_cast<unsigned>(actual.phase)
+              <<",\"arithmetic_relative_tolerance\":"<<128*std::numeric_limits<double>::epsilon()
+              <<",\"native_time_to_go_s\":";
+        if(std::isfinite(actual.timeToGoS))stream<<actual.timeToGoS;else stream<<"null";
+        stream<<",\"actual_tracking\":"<<(actual.tracking?"true":"false")<<",\"actual_supported\":"<<(actual.supported?"true":"false")
+              <<",\"maximum_absolute_error_m_s2\":"<<errorMax<<'}';
+        ++caseCount;
+    };
+    {
+        MeasuredPnGuidanceV2 g(spec);const auto actual=g.updateMeasured(frame,measured);
+        check("oblique_terminal",actual,terminal(frame,track,spec,false),WeaponPhase::Homing,measured,"reset");
+        if(track.rangeM&&track.rangeRateMs)CHECK(actual.timeToGoS==*track.rangeM/450.);
+        else CHECK(std::isnan(actual.timeToGoS));
+    }
+    {
+        auto input=measured;input.track->rateAvailable=false;
+        MeasuredPnGuidanceV2 g(spec);
+        check("no_rate_nonzero_stored_derivative",g.updateMeasured(frame,input),finish({},frame,spec),WeaponPhase::Homing,input,"reset");
+    }
+    {
+        auto input=measured;input.track->rangeM.reset();input.track->rangeRateMs.reset();
+        MeasuredPnGuidanceV2 g(spec);
+        check("bearing_own_speed_fallback",g.updateMeasured(frame,input),terminal(frame,*input.track,spec,false),WeaponPhase::Homing,input,"reset");
+    }
+    if(spec.seeker=="active_radar")for(const double radial:{0.,450.}) {
+        auto input=measured;input.track->rangeRateMs=radial;MeasuredPnGuidanceV2 g(spec);
+        const auto actual=g.updateMeasured(frame,input);
+        check(radial==0?"measured_zero_closing":"measured_opening_clamped",actual,finish({},frame,spec),WeaponPhase::Homing,input,"reset");
+        CHECK(std::isnan(actual.timeToGoS));
+    }
+    {
+        // Direct-interface negative control: the marker's VALUE deliberately
+        // differs from the authoritative original track epoch. Production
+        // uses its presence, then predicts from track.sampleTimeS exactly.
+        auto input=measured;input.track->sampleTimeS=.75;input.measurementTimeS=.9;
+        MeasuredPnGuidanceV2 g(spec);
+        check("original_track_epoch_prediction_distinct_presence_marker",g.updateMeasured(frame,input),terminal(frame,*input.track,spec,true),WeaponPhase::Homing,input,"reset; direct-interface epoch-marker negative control");
+    }
+    {
+        auto input=measured;input.track->directionRate={-12,16,-10};
+        MeasuredPnGuidanceV2 g(spec);const auto actual=g.updateMeasured(frame,input);
+        check("gravity_inclusive_total_vector_clip",actual,terminal(frame,*input.track,spec,false),WeaponPhase::Homing,input,"reset");
+        CHECK(std::abs(length(value(actual.acceleration))-spec.maxG*9.80665)<=128*std::numeric_limits<double>::epsilon()*spec.maxG*9.80665);
+    }
+    {
+        MeasuredPnGuidanceV2 g(spec);SeekerResultV2 loss;loss.valid=true;
+        check("seeking_without_measurement",g.updateMeasured(frame,loss),finish({},frame,spec),WeaponPhase::Seeking,loss,"reset");
+        REQUIRE(g.updateMeasured(frame,measured).phase==WeaponPhase::Homing);
+        check("loss_after_terminal_latch",g.updateMeasured(frame,loss),finish({},frame,spec),WeaponPhase::Lost,loss,"terminal acquired");
+        g.resetGuidanceStateV1();
+        check("explicit_reset_clears_latch",g.updateMeasured(frame,loss),finish({},frame,spec),WeaponPhase::Seeking,loss,"explicit reset");
+    }
+    {
+        MeasuredPnGuidanceV2 g(spec);auto input=measured;input.track->sampleTimeS=1.25;
+        check("future_track_rejected",g.updateMeasured(frame,input),{},WeaponPhase::Unguided,input,"reset");
+        SeekerResultV2 loss;loss.valid=true;
+        check("rejected_track_does_not_latch",g.updateMeasured(frame,loss),finish({},frame,spec),WeaponPhase::Seeking,loss,"future track rejected");
+    }
+    {
+        SeekerResultV2 input;input.valid=true;input.supported=true;
+        LauncherEstimateV2 estimate;estimate.position={5000,1000,200};estimate.velocity={120,-10,5};estimate.sampleTimeS=.5;
+        input.midcourseEstimate=estimate;MeasuredPnGuidanceV2 g(spec);
+        check("permitted_midcourse_and_loft_or_disabled_capability",g.updateMeasured(frame,input),midcourse(frame,estimate,spec,true),WeaponPhase::Midcourse,input,"reset");
+        REQUIRE(g.updateMeasured(frame,measured).phase==WeaponPhase::Homing);
+        check("lost_latch_suppresses_loft_not_permitted_inertial_fallback",g.updateMeasured(frame,input),midcourse(frame,estimate,spec,false),WeaponPhase::Lost,input,"terminal acquired");
+    }
+    {
+        SeekerResultV2 input;input.valid=true;
+        LauncherEstimateV2 estimate;estimate.position={5000,20,30};estimate.velocity={650,30,-20};estimate.sampleTimeS=1;
+        input.midcourseEstimate=estimate;MeasuredPnGuidanceV2 g(spec);
+        const auto actual=g.updateMeasured(frame,input);
+        check("opening_midcourse_has_no_PN",actual,midcourse(frame,estimate,spec,true),WeaponPhase::Midcourse,input,"reset");
+        CHECK(std::isnan(actual.timeToGoS));
+    }
+    stream<<"],\"case_count\":"<<caseCount<<'}';
+    REQUIRE(caseCount==(spec.seeker=="active_radar"?15u:13u));
+}
+
+TEST_CASE("All actual AAM guidance cards satisfy independent measured PN branch references",
+          "[component-guidance-reference][sim-m03]") {
+    const auto header=captureHeader();
+    const auto library=std::filesystem::path(FSIM_TEST_STORE_DIR);std::vector<std::string> errors;
+    const auto population=readStoreLibrary(library,errors);REQUIRE(errors.empty());
+    std::ostream& stream=std::cout;
+    stream<<std::setprecision(17)<<"{\"schema\":\"fsim.sim-m03.guidance-branch-reference.v1\",\"input_epoch_sha256\":\""
+          <<header.epochSha<<"\",\"executable\":"<<header.executable.dump()<<",\"runtime_modules\":"<<header.runtimeModules.dump()
+          <<",\"scope\":\"Independent scalar algebra against actual native calls; unchanged 24 card configurations; disclosed synthetic branch inputs, not flight acceptance\",\"models\":[";
+    unsigned count=0;
+    for(const char* name:cards) {
+        INFO(name);const auto found=population.find(name);REQUIRE(found!=population.end());
+        const auto& card=*found->second;ProfileV1 profile;std::string error;
+        REQUIRE(readProfileV1(library/(std::string(name)+".json"),card,profile,error));
+        Spec spec;REQUIRE(configureCompositionV1(card,profile,spec,spec,error));
+        REQUIRE(spec.seekerModel.engineering.version==3);
+        if(count)stream<<',';
+        guidanceBranchReferences(stream,spec,name);++count;
+    }
+    stream<<"],\"model_count\":"<<count<<"}\n";
+    REQUIRE(count==24);REQUIRE(stream.good());
 }

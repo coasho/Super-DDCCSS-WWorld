@@ -300,6 +300,82 @@ void retainedTurnHistoryClosesDecisionBoundary() {
             near(.5+turn.fraction*.5,expected.fraction) && near(turn.missM,expected.missM),
             "Contiguous same-target retained motion must confirm the shared corner at its actual boundary epoch");
 }
+void explicitInitialStationaryPointAgreesWithDirectSweep() {
+    const auto s=explicitFuze();
+    const std::vector<MotionSample> own{{0,{0,.5,0}},{1,{1,.5,0}}};
+    const std::vector<MotionSample> target{{0,{}},{1,{}}};
+    // r(u)=(u,.5,0), so d(|r|^2)/du=2u. The exact initial
+    // stationary point is captured at inclusive arming, not clamped there.
+    const auto direct=sweptFuze(own.front().position,own.back().position,{},{},0,1,s);
+    require(direct.valid && direct.triggered && direct.fraction==0 && near(direct.missM,.5),
+            "The direct sweep admits the exact initial stationary point");
+    const auto path=sweptPathFuze(own,target,0,1,s,1,false);
+    require(path.valid && path.triggered && path.fraction==direct.fraction && near(path.missM,direct.missM),
+            "A captured single-segment path must preserve the direct sweep's initial stationary point");
+    FuzeTurnStateV1 state;
+    const auto first=state.evaluate(own,target,0,1,s,1,false,7);
+    require(first.valid && first.triggered && first.fraction==0 && near(first.missM,.5),
+            "A release without preceding history retains its captured initial stationary point");
+}
+void retainedTurnHistoryDoesNotRepeatReportedStationaryBoundary() {
+    const auto s=explicitFuze();
+    const std::vector<MotionSample> approaching{{0,{-1,.5,0}},{1,{0,.5,0}}};
+    const std::vector<MotionSample> departing{{0,{0,.5,0}},{1,{1,.5,0}}};
+    const std::vector<MotionSample> target{{0,{}},{1,{}}};
+    FuzeTurnStateV1 state;
+    const auto before=state.evaluate(approaching,target,0,1,s,1,false,7);
+    require(before.valid && before.triggered && before.fraction==1,
+            "The preceding captured interval reports its exact final stationary point");
+    require(sweptPathFuze(departing,target,1,1,s,1,false).triggered,
+            "The independent path still includes its exact initial stationary point");
+    const auto after=state.evaluate(departing,target,1,1,s,1,false,7);
+    require(after.valid && !after.triggered,
+            "Contiguous release history must not report the same stationary boundary twice");
+}
+void retainedTurnHistoryKeepsLaterTurnAfterReportedBoundary() {
+    const auto s=explicitFuze();
+    const std::vector<MotionSample> approaching{{0,{-1,.5,0}},{1,{0,.5,0}}};
+    const std::vector<MotionSample> returning{{0,{0,.5,0}},{.25,{1,.5,0}},
+                                             {.75,{-1,.5,0}},{1,{-2,.5,0}}};
+    const std::vector<MotionSample> target{{0,{}},{1,{}}};
+    FuzeTurnStateV1 state;
+    const auto before=state.evaluate(approaching,target,0,1,s,1,false,7);
+    require(before.valid && before.triggered && before.fraction==1,
+            "The preceding interval establishes an already reported stationary boundary");
+    // The shared point is already reported; the independently derived next
+    // stationary point is x=0 halfway through the current captured interval.
+    const auto after=state.evaluate(returning,target,1,1,s,1,false,7);
+    require(after.valid && after.triggered && near(after.fraction,.5) && near(after.missM,.5),
+            "Suppressing an already reported initial point must still search for the next legitimate turn");
+}
+void explicitInitialClampedRecedingPointRemainsRejected() {
+    const auto s=explicitFuze();
+    const std::vector<MotionSample> own{{0,{.25,.5,0}},{1,{1,.5,0}}};
+    const std::vector<MotionSample> target{{0,{}},{1,{}}};
+    const auto direct=sweptFuze(own.front().position,own.back().position,{},{},0,1,s);
+    const auto path=sweptPathFuze(own,target,0,1,s,1,false);
+    require(direct.valid && !direct.triggered && path.valid && !path.triggered,
+            "A receding minimum merely clamped to the first endpoint is not an actual stationary point");
+    FuzeTurnStateV1 state;
+    const auto first=state.evaluate(own,target,0,1,s,1,false,7);
+    require(first.valid && !first.triggered,
+            "Absent history cannot promote a clamped receding endpoint into a turn");
+}
+void retainedTurnHistoryChecksBothSidesOfInitialStationarity() {
+    const auto s=explicitFuze();
+    const std::vector<MotionSample> receding{{0,{0,.25,0}},{1,{0,.5,0}}};
+    const std::vector<MotionSample> tangent{{0,{0,.5,0}},{1,{1,.5,0}}};
+    const std::vector<MotionSample> target{{0,{}},{1,{}}};
+    FuzeTurnStateV1 state;
+    const auto before=state.evaluate(receding,target,0,1,s,1,false,7);
+    require(before.valid && !before.triggered,
+            "The preceding receding interval contains no actual stationary point");
+    require(sweptPathFuze(tangent,target,1,1,s,1,false).triggered,
+            "The standalone tangent segment has an exact initial stationary point");
+    const auto after=state.evaluate(tangent,target,1,1,s,1,false,7);
+    require(after.valid && !after.triggered,
+            "A contiguous receding-to-tangent boundary is not a two-sided closest approach");
+}
 void retainedTurnHistoryCannotBridgeSwitchGapOrReset() {
     const std::vector<MotionSample> approaching{{0,{-2,0,0}},{.5,{-.5,0,0}}};
     const std::vector<MotionSample> departing{{0,{-.5,0,0}},{.5,{-2,0,0}}};
@@ -430,6 +506,11 @@ int main(int argc,char** argv) {
         {"v1 unknown dispatch", explicitLawRejectsUnknownDispatch},
         {"v1 native corner", explicitCornerAndLinearSubdivisionsAgree},
         {"v1 retained corner", retainedTurnHistoryClosesDecisionBoundary},
+        {"v1 initial stationary point", explicitInitialStationaryPointAgreesWithDirectSweep},
+        {"v1 reported stationary boundary", retainedTurnHistoryDoesNotRepeatReportedStationaryBoundary},
+        {"v1 later turn after reported boundary", retainedTurnHistoryKeepsLaterTurnAfterReportedBoundary},
+        {"v1 clamped initial endpoint", explicitInitialClampedRecedingPointRemainsRejected},
+        {"v1 two-sided stationary boundary", retainedTurnHistoryChecksBothSidesOfInitialStationarity},
         {"v1 history boundaries", retainedTurnHistoryCannotBridgeSwitchGapOrReset},
         {"v1 delay lifecycle", delayWaitsForCapturedDueWindowAndConsumesOnce},
         {"v1 delay boundaries", delayZeroAndBoundariesUseExactEpochs},

@@ -1,9 +1,15 @@
 #include "simulation/mission_systems/damage/Damage.h"
+#include "simulation/mission_systems/damage/AuthoredFieldPolicyV3.h"
 #include "simulation/mission_systems/damage/LiquidSceneV1.h"
+#include "simulation/mission_systems/damage/detail/PlaneEqualityV1.h"
+#include "simulation/mission_systems/damage/detail/MaterialContactV3.h"
 
 #include "foundation/core/Json.h"
 
 #include <algorithm>
+#include <atomic>
+#include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <limits>
 #include <map>
@@ -13,6 +19,14 @@
 namespace fsim::ms::damage {
 
 namespace {
+
+bool fragmentContactTraceEnabledV1() noexcept {
+    static const bool enabled=[]() noexcept {
+        const char* value=std::getenv("FSIM_FRAGMENT_CONTACT_TRACE_V1");
+        return value&&value[0]=='1'&&value[1]=='\0';
+    }();
+    return enabled;
+}
 
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kSteel = 7850.0, kExplosive = 1700.0, kAluminium = 2780.0; // kg/m^3
@@ -128,6 +142,11 @@ double gurneyCylinder(double gurneyMs, double caseKg, double chargeKg) noexcept 
 }
 
 std::optional<Warhead> warheadOf(const StoreCard& card) {
+    if(const auto authored=card.parameters.find("warhead_model_version");authored!=card.parameters.end()&&
+       (authored->second.value==3 || authored->second.value==4)) {
+        std::string error;
+        return authored->second.value==3?readAuthoredFieldPolicyV3(card,error):readAuthoredRingPolicyV4(card,error);
+    }
     if (card.warheadKind.empty()) return std::nullopt;
     if (card.parameters.find("warhead_model_version")==card.parameters.end())
         for (const auto& parameter : card.parameters)
@@ -746,27 +765,66 @@ struct TimeCoordinate {double time,along;};
 struct ScenePlane {V3 normal;double bound;};
 bool finiteLineContact(V3 a,V3 velocity,V3 d,double k,double duration,
                        const std::vector<ScenePlane>& planes,double& time,double& along,V3& normal,bool exit=false,
-                       bool closedSkin=false) {
-    std::vector<TimeCoordinate> polygon={{0,0},{duration,0},{duration,1+k*duration},{0,1}};
-    for(const auto& plane:planes) {
-        if(polygon.empty())return false;
-        const double offset=dot(plane.normal,a)-plane.bound;
-        const double rate=dot(plane.normal,velocity),slope=dot(plane.normal,d);
-        const auto value=[&](TimeCoordinate p){return offset+rate*p.time+slope*p.along;};
-        std::vector<TimeCoordinate> next;
-        auto before=polygon.back();double vb=value(before);
-        for(const auto after:polygon) {
-            const double va=value(after);
-            if((vb<=0)!=(va<=0)) {
-                const double fraction=vb/(vb-va);
-                next.push_back({before.time+fraction*(after.time-before.time),before.along+fraction*(after.along-before.along)});
-            }
-            if(va<=0)next.push_back(after);
-            before=after;vb=va;
+                       bool closedSkin=false,bool pairedEquality=false,detail::MaterialDomainV3* contactDomainV3=nullptr) {
+    std::vector<TimeCoordinate> polygon;
+    bool reduced=false;
+    if(pairedEquality&&planes.size()<=6) {
+        bool exactPair=false;
+        for(std::size_t i=0;i<planes.size()&&!exactPair;++i)for(std::size_t j=i+1;j<planes.size();++j) {
+            const auto& leftPlane=planes[i];const auto& rightPlane=planes[j];
+            if(detail::oppositePlaneV1({leftPlane.normal.x,leftPlane.normal.y,leftPlane.normal.z},leftPlane.bound,
+                                       {rightPlane.normal.x,rightPlane.normal.y,rightPlane.normal.z},rightPlane.bound)) {exactPair=true;break;}
         }
-        polygon=std::move(next);
+        if(exactPair) {
+            std::array<detail::PlaneEqualityInputV1,6> coefficients{};
+            for(std::size_t i=0;i<planes.size();++i) {
+                const auto& p=planes[i];
+                coefficients[i]={{p.normal.x,p.normal.y,p.normal.z},p.bound,
+                    dot(p.normal,a)-p.bound,dot(p.normal,velocity),dot(p.normal,d)};
+            }
+            const auto reduction=detail::reducePlaneEqualityV1(coefficients.data(),planes.size(),k,duration);
+            if(reduction.status==detail::PlaneEqualityResultV1::Status::Empty)return false;
+            if(reduction.status==detail::PlaneEqualityResultV1::Status::Reduced) {
+                for(std::size_t i=0;i<reduction.count;++i)
+                    polygon.push_back({reduction.vertices[i].time,reduction.vertices[i].along});
+                reduced=true;
+            }
+        }
+    }
+    if(!reduced) {
+        polygon={{0,0},{duration,0},{duration,1+k*duration},{0,1}};
+        for(const auto& plane:planes) {
+            if(polygon.empty())return false;
+            const double offset=dot(plane.normal,a)-plane.bound;
+            const double rate=dot(plane.normal,velocity),slope=dot(plane.normal,d);
+            const auto value=[&](TimeCoordinate p){return offset+rate*p.time+slope*p.along;};
+            std::vector<TimeCoordinate> next;
+            auto before=polygon.back();double vb=value(before);
+            for(const auto after:polygon) {
+                const double va=value(after);
+                if((vb<=0)!=(va<=0)) {
+                    const double fraction=vb/(vb-va);
+                    next.push_back({before.time+fraction*(after.time-before.time),before.along+fraction*(after.along-before.along)});
+                }
+                if(va<=0)next.push_back(after);
+                before=after;vb=va;
+            }
+            polygon=std::move(next);
+        }
     }
     if(polygon.empty())return false;
+    if(contactDomainV3) {
+        std::array<detail::PlaneEqualityInputV1,6> coefficients{};
+        if(planes.size()<=coefficients.size()) {
+            for(std::size_t i=0;i<planes.size();++i) {
+                const auto& p=planes[i];coefficients[i]={{p.normal.x,p.normal.y,p.normal.z},p.bound,
+                    dot(p.normal,a)-p.bound,dot(p.normal,velocity),dot(p.normal,d)};
+            }
+            std::vector<std::array<double,2>> native;native.reserve(polygon.size());
+            for(const auto vertex:polygon)native.push_back({vertex.time,vertex.along});
+            *contactDomainV3=detail::materialDomainV3(coefficients.data(),planes.size(),k,duration,native);
+        }
+    }
     const auto ordering=[](auto left,auto right){return left.time<right.time || (left.time==right.time&&left.along<right.along);};
     const auto first=exit?std::max_element(polygon.begin(),polygon.end(),ordering):std::min_element(polygon.begin(),polygon.end(),ordering);
     time=first->time;along=first->along;normal={};double nearest=std::numeric_limits<double>::infinity();
@@ -826,6 +884,7 @@ struct SceneSkinTriangle {
     std::array<V3,3> vertices;
     V3 normal;
     int face=0;
+    std::size_t originalTriangleV3=0;
 };
 std::vector<SceneSkinTriangle> authoredSkinTriangles(const ContactMesh& mesh) {
     // Keep distinct surfaces of a nonconvex shell. Only adjacent coplanar
@@ -862,7 +921,7 @@ std::vector<SceneSkinTriangle> authoredSkinTriangles(const ContactMesh& mesh) {
     for(std::size_t i=0;i<mesh.triangles.size();++i)if(!mesh.triangleNeighbors[i]) {
         const auto& indices=mesh.triangles[i];
         const std::array<V3,3> vertices={mesh.vertices[indices[0]],mesh.vertices[indices[1]],mesh.vertices[indices[2]]};
-        result.push_back({vertices,normalized(cross(vertices[1]-vertices[0],vertices[2]-vertices[0])),static_cast<int>(root(i))+2});
+        result.push_back({vertices,normalized(cross(vertices[1]-vertices[0],vertices[2]-vertices[0])),static_cast<int>(root(i))+2,i});
     }
     return result;
 }
@@ -1260,7 +1319,14 @@ LiquidAdvance liquidRk4(const FragmentFieldV1::Projectile& p,LiquidMotion state,
     const auto b=liquidDerivative(p,increment(state,a,h/2),time+h/2,environment,liquids,targets,pointPhase);if(!b.valid)return out;
     const auto c=liquidDerivative(p,increment(state,b,h/2),time+h/2,environment,liquids,targets,pointPhase);if(!c.valid)return out;
     const auto d=liquidDerivative(p,increment(state,c,h),time+h,environment,liquids,targets,pointPhase);if(!d.valid)return out;
-    out.motion=increment(increment(increment(increment(state,a,h/6),b,h/3),c,h/3),d,h/6);
+    // Sum the RK4 weighted displacements before adding them to the state.
+    // Separate additions can each round away although their sum is visible,
+    // freezing a material endpoint while the represented flight clock advances.
+    out.motion=state;
+    out.motion.position0+=a.position0*(h/6)+b.position0*(h/3)+c.position0*(h/3)+d.position0*(h/6);
+    out.motion.position1+=a.position1*(h/6)+b.position1*(h/3)+c.position1*(h/3)+d.position1*(h/6);
+    out.motion.velocity0+=a.velocity0*(h/6)+b.velocity0*(h/3)+c.velocity0*(h/3)+d.velocity0*(h/6);
+    out.motion.velocity1+=a.velocity1*(h/6)+b.velocity1*(h/3)+c.velocity1*(h/3)+d.velocity1*(h/6);
     accumulate(out,a,h/6);accumulate(out,b,h/3);accumulate(out,c,h/3);accumulate(out,d,h/6);out.valid=true;return out;
 }
 LiquidAdvance advanceLiquidPoint(const FragmentFieldV1::Projectile& p,double duration,const SceneEnvironmentV1& environment,
@@ -1524,7 +1590,8 @@ FragmentFieldV1 emitFragmentFieldV1(const Warhead& w,const Burst& burst,Rng& rng
 
 static SceneAssessmentV1 assessSceneImpl(const FragmentFieldV1& field,const std::vector<MaterialSceneVictimV2>& supplied,
                               const SceneEnvironmentV1& environment,const SceneLiquidInputsV1* liquidInput,
-                              std::vector<SceneLiquidOnlyWorkV2>* onlyWork=nullptr,bool localCoordinates=false) {
+                              std::vector<SceneLiquidOnlyWorkV2>* onlyWork=nullptr,bool localCoordinates=false,
+                              const V3* diagnosticTranslationV1=nullptr,MaterialContactHistoryV3* contactHistoryV3=nullptr,bool persistentHistoryV3=false) {
     if(liquidInput&&!localCoordinates) {
         // Integrate local displacement, not successive sub-ULP additions to
         // Earth-scale ECEF coordinates. One frozen translation covers every
@@ -1536,8 +1603,12 @@ static SceneAssessmentV1 assessSceneImpl(const FragmentFieldV1& field,const std:
         auto localVictims=supplied;
         for(auto& victim:localVictims){victim.target.at=victim.target.at-origin;
             for(auto& sample:victim.motion)sample.target.at=sample.target.at-origin;}
-        auto result=assessSceneImpl(localField,localVictims,environment,liquidInput,onlyWork,true);
+        if(contactHistoryV3)for(auto& particle:contactHistoryV3->particles)
+            for(auto& key:particle.active)key.boundaryTarget.at=key.boundaryTarget.at-origin;
+        auto result=assessSceneImpl(localField,localVictims,environment,liquidInput,onlyWork,true,&origin,contactHistoryV3,persistentHistoryV3);
         if(!result.valid)return result;
+        if(contactHistoryV3)for(auto& particle:contactHistoryV3->particles)
+            for(auto& key:particle.active)key.boundaryTarget.at+=origin;
         result.continuation.burst.at=field.burst.at;
         for(auto& p:result.continuation.projectiles){p.at+=origin;if(p.segment)p.end+=origin;}
         return result;
@@ -1612,6 +1683,8 @@ static SceneAssessmentV1 assessSceneImpl(const FragmentFieldV1& field,const std:
             if(!frame.panels[index].surface)if(const auto* mesh=frame.contactGeometry->panel(index))
                 skinMeshes.try_emplace(mesh,authoredSkinTriangles(*mesh));
     }
+    if(contactHistoryV3&&contactHistoryV3->particles.size()!=field.projectiles.size())return {};
+    std::vector<MaterialContactHistoryV3::Particle> nextContactParticlesV3;
     double mass=0;
     for(const auto& p:field.projectiles) {
         if(!finiteScene(p.at)||!finiteScene(p.velocity)||!std::isfinite(length(p.velocity))||!(p.massKg>0)||!std::isfinite(p.massKg)||
@@ -1621,8 +1694,12 @@ static SceneAssessmentV1 assessSceneImpl(const FragmentFieldV1& field,const std:
         mass+=p.massKg;
     }
     if(!std::isfinite(mass)||std::abs(mass-field.caseKg)>1e-9*std::max(1.0,field.caseKg))return {};
-    struct Crossing {double duration=0;std::size_t victim=0,index=0;int side=0;bool skin=false;V3 normal,point;int liquidTank=-1;};
-    for(auto p:field.projectiles) {
+    struct Crossing {double duration=0;std::size_t victim=0,index=0;int side=0;bool skin=false;V3 normal,point;int liquidTank=-1;
+        std::size_t materialNodeV3=std::numeric_limits<std::size_t>::max();bool paidContinuationV3=false;};
+    for(std::size_t particleIndexV3=0;particleIndexV3<field.projectiles.size();++particleIndexV3) {
+        auto p=field.projectiles[particleIndexV3];
+        auto activeMaterialV3=contactHistoryV3?contactHistoryV3->particles[particleIndexV3].active:std::vector<MaterialFacetKeyV3>{};
+        const std::set<std::array<std::uint64_t,5>> originalVisitedV3(p.crossedFaces.begin(),p.crossedFaces.end());
         double age=0;bool absorbed=false,anyStrike=false;
         const double materialLength=p.materialLengthM>0?p.materialLengthM:p.segment&&p.expansionPerS>0?
             length(p.end-p.at)*(1+p.expansionPerS*p.breakupAgeS):0;
@@ -1697,10 +1774,14 @@ static SceneAssessmentV1 assessSceneImpl(const FragmentFieldV1& field,const std:
             }
             const V3 chord=(next.at-p.at)*(1/duration),endChord=(nextEnd.at-p.end)*(1/duration);
             std::optional<Crossing> first;
+            std::vector<Crossing> candidatesV3;
+            std::vector<detail::MaterialFacetQueryV3> materialNodesV3;
             bool invalidFlight=false;
-            const auto consider=[&](std::size_t victim,std::size_t index,bool skin,int side,double time,V3 normal,V3 point,int liquidTank=-1) {
-                if(!std::isfinite(time)||time<0||time>duration||visited.count({victims[victim]->identity,victims[victim]->generation,
-                    liquidTank>=0?2u:skin?0u:1u,liquidTank>=0?static_cast<std::uint64_t>(liquidTank):index,static_cast<std::uint64_t>(side)}))return;
+            const auto consider=[&](std::size_t victim,std::size_t index,bool skin,int side,double time,V3 normal,V3 point,int liquidTank=-1,std::size_t materialNodeV3=std::numeric_limits<std::size_t>::max()) {
+                const bool materialRodV3=materialNodeV3!=std::numeric_limits<std::size_t>::max()&&materialNodesV3[materialNodeV3].domain.valid;
+                const auto& excludedV3=materialRodV3?originalVisitedV3:visited;
+                if(!std::isfinite(time)||time<0||time>duration||((!materialRodV3||!persistentHistoryV3)&&excludedV3.count({victims[victim]->identity,victims[victim]->generation,
+                    liquidTank>=0?2u:skin?0u:1u,liquidTank>=0?static_cast<std::uint64_t>(liquidTank):index,static_cast<std::uint64_t>(side)})))return;
                 if(liquidFlight&&!p.segment&&time>0&&time<duration) {
                     const auto& target=sampledTargets[victim];const V3 relativeChord=toBody(target,chord-target.velocity);
                     if(dot(relativeChord,relativeChord)>0) {
@@ -1717,8 +1798,8 @@ static SceneAssessmentV1 assessSceneImpl(const FragmentFieldV1& field,const std:
                         time=hi; // The upper bracket has actually reached the face.
                     }
                 }
-                Crossing crossing{time,victim,index,side,skin,normal,point,liquidTank};
-                if(!first||time<first->duration)first=crossing; // Equal ties retain sorted source order.
+                Crossing crossing{time,victim,index,side,skin,normal,point,liquidTank,materialNodeV3,false};
+                candidatesV3.push_back(crossing); // Original stable source order; selection follows metadata collection.
             };
             for(std::size_t vi=0;vi<victims.size();++vi) {
                 const auto& victim=*victims[vi];const auto& target=sampledTargets[vi];
@@ -1742,14 +1823,20 @@ static SceneAssessmentV1 assessSceneImpl(const FragmentFieldV1& field,const std:
                         const V3 centre=(mesh->low+mesh->high)*.5,half=(mesh->high-mesh->low)*.5;
                         double broad=0,leave=0,along=0;V3 ignored;
                         if(p.segment) {
-                            if(!finiteLineContact(source,velocity,d,k,duration,boxPlanes(centre,half),broad,along,ignored))return;
+                            if(!finiteLineContact(source,velocity,d,k,duration,boxPlanes(centre,half),broad,along,ignored,false,false,true))return;
                         } else if(!slab(source,direction,centre,half,broad,leave,ignored,ignored)||
                                   std::max(broad,0.0)>speed*duration)return;
                         for(const auto& triangle:skinMeshes.at(mesh)) {
                             double time=0;along=0;
                             if(p.segment) {
-                                if(finiteLineContact(source,velocity,d,k,duration,trianglePlanes(triangle),time,along,ignored))
-                                    consider(vi,index,true,triangle.face,time,triangle.normal,source+velocity*time+d*along);
+                                detail::MaterialDomainV3 domain;
+                                if(finiteLineContact(source,velocity,d,k,duration,trianglePlanes(triangle),time,along,ignored,false,false,true,&domain)) {
+                                    const auto node=materialNodesV3.size();
+                                    const double plateM=frame.skinThicknessM(frame.panels[index].section);
+                                    materialNodesV3.push_back({{victim.identity,victim.generation,index,triangle.originalTriangleV3,frame.contactGeometry,plateM,target,false},triangle.vertices,
+                                        plateM,domain,source,velocity,d,k,duration});
+                                    consider(vi,index,true,triangle.face,time,triangle.normal,source+velocity*time+d*along,-1,node);
+                                }
                             } else {
                                 const auto& v=triangle.vertices;
                                 // A repeated last corner lets the established
@@ -1769,8 +1856,10 @@ static SceneAssessmentV1 assessSceneImpl(const FragmentFieldV1& field,const std:
                                 skin?boxPlanes(frame.panels[index].centre,frame.panels[index].half):
                                      boxPlanes(frame.components[index].centre,frame.components[index].half);
                             double time=0,along=0;V3 normal;
+                            // In-plane clip edges bound a finite surface's
+                            // footprint; penetration uses its material normal.
                             if(!planes.empty()&&finiteLineContact(source,velocity,d,k,duration,planes,time,along,normal,false,skin&&!surface))
-                                consider(vi,index,skin,side,time,normal,source+velocity*time+d*along);
+                                consider(vi,index,skin,side,time,surface?planes.front().normal:normal,source+velocity*time+d*along);
                             if(skin&&!surface&&finiteLineContact(source,velocity,d,k,duration,planes,time,along,normal,true))
                                 consider(vi,index,true,1,time,normal,source+velocity*time+d*along);
                         }
@@ -1830,6 +1919,27 @@ static SceneAssessmentV1 assessSceneImpl(const FragmentFieldV1& field,const std:
                     }
                 }
             }
+            activeMaterialV3.erase(std::remove_if(activeMaterialV3.begin(),activeMaterialV3.end(),[&](const auto& key) {
+                const auto found=std::find_if(materialNodesV3.begin(),materialNodesV3.end(),[&](const auto& node){return node.key==key;});
+                if(found==materialNodesV3.end()||!found->domain.valid)return true;
+                for(std::size_t axis=0;axis<3;++axis)
+                    if(!detail::materialPointEqualV3(key.boundaryTarget.bodyToEcef[axis],found->key.boundaryTarget.bodyToEcef[axis]))return true;
+                return
+                    (found->domain.entry.time>0&&!(key.freshBoundary&&detail::materialPoseEqualV3(key.boundaryTarget,found->key.boundaryTarget)));
+            }),activeMaterialV3.end());
+            for(auto candidate:candidatesV3) {
+                if(candidate.materialNodeV3!=std::numeric_limits<std::size_t>::max()) {
+                    const auto& node=materialNodesV3[candidate.materialNodeV3];
+                    if(std::find(activeMaterialV3.begin(),activeMaterialV3.end(),node.key)!=activeMaterialV3.end())continue;
+                    for(const auto& oldNode:materialNodesV3) {
+                        const auto active=std::find(activeMaterialV3.begin(),activeMaterialV3.end(),oldNode.key);
+                        if(active!=activeMaterialV3.end()&&active->paid&&detail::sameMaterialBranchV3(oldNode,node)) {
+                            candidate.paidContinuationV3=true;break;
+                        }
+                    }
+                }
+                if(!first||candidate.duration<first->duration)first=candidate;
+            }
             if(invalidFlight)return {};
             const double elapsed=first?first->duration:duration;
             const V3 oldVelocity=p.segment?(p.velocity+p.endVelocity)*.5:p.velocity;
@@ -1872,11 +1982,26 @@ static SceneAssessmentV1 assessSceneImpl(const FragmentFieldV1& field,const std:
                 }
             } else result.airMomentumEcef+=(oldVelocity-incoming)*p.massKg+gravityImpulse;
             age+=elapsed;
+            activeMaterialV3.erase(std::remove_if(activeMaterialV3.begin(),activeMaterialV3.end(),[&](const auto& key) {
+                const auto found=std::find_if(materialNodesV3.begin(),materialNodesV3.end(),[&](const auto& node){return node.key==key;});
+                return found==materialNodesV3.end()||!found->domain.valid||found->domain.leave.time<elapsed;
+            }),activeMaterialV3.end());
+            for(auto& key:activeMaterialV3) {
+                const auto node=std::find_if(materialNodesV3.begin(),materialNodesV3.end(),[&](const auto& item){return item.key==key;});
+                key.boundaryTarget=node->key.boundaryTarget;key.boundaryTarget.at+=key.boundaryTarget.velocity*elapsed;
+                key.freshBoundary=elapsed==0&&key.freshBoundary;
+            }
             if(!first)continue;
             const auto& crossing=*first;const auto& victim=*victims[crossing.victim];const auto& target=sampledTargets[crossing.victim];
             auto& impact=result.victims[crossing.victim].impact;
             visited.insert({victim.identity,victim.generation,crossing.liquidTank>=0?2u:crossing.skin?0u:1u,
                 crossing.liquidTank>=0?static_cast<std::uint64_t>(crossing.liquidTank):crossing.index,static_cast<std::uint64_t>(crossing.side)});
+            if(crossing.paidContinuationV3) {
+                auto key=materialNodesV3[crossing.materialNodeV3].key;
+                key.boundaryTarget.at+=key.boundaryTarget.velocity*elapsed;key.freshBoundary=true;
+                activeMaterialV3.push_back(std::move(key));
+                continue; // Existing paid lumped contact branch; no second THOR/impulse/hit/RNG.
+            }
             const V3 centre=p.segment?(p.at+p.end)*.5:p.at;
             const V3 targetOrigin=target.at+target.velocity*elapsed;
             const V3 materialVelocity=target.velocity+cross(target.angularVelocityEcef,centre-targetOrigin);
@@ -1896,13 +2021,28 @@ static SceneAssessmentV1 assessSceneImpl(const FragmentFieldV1& field,const std:
                 if(!struck[crossing.victim]){++impact.fragmentsStriking;struck[crossing.victim]=true;p.struckVictims.push_back({victim.identity,victim.generation});}
                 anyStrike=true;continue; // Negligible bladder wall: no stopping work.
             }
-            if(!(speed>0))continue;
+            if(!(speed>0)) {
+                if(crossing.materialNodeV3!=std::numeric_limits<std::size_t>::max()) {
+                    auto key=materialNodesV3[crossing.materialNodeV3].key;
+                    key.boundaryTarget.at+=key.boundaryTarget.velocity*elapsed;
+                    key.freshBoundary=true;key.paid=false;activeMaterialV3.push_back(std::move(key));
+                }
+                continue;
+            }
+            if(crossing.materialNodeV3!=std::numeric_limits<std::size_t>::max()) {
+                auto key=materialNodesV3[crossing.materialNodeV3].key;
+                key.boundaryTarget.at+=key.boundaryTarget.velocity*elapsed;key.freshBoundary=true;
+                activeMaterialV3.push_back(std::move(key));
+            }
             if(!result.firstStrikeAgeS||field.ageS+age<*result.firstStrikeAgeS)result.firstStrikeAgeS=field.ageS+age;
             const V3 direction=relative*(1/speed);double after=0;
+            double observedThorThicknessV1=std::numeric_limits<double>::quiet_NaN();
+            double observedObliquityV1=std::numeric_limits<double>::quiet_NaN();
             if(crossing.skin) {
                 const auto& panel=victim.geometry->airframe().panels[crossing.index];
                 const double obliquity=std::acos(std::min(1.0,std::abs(dot(toBody(target,direction),crossing.normal))));
-                after=thorResidual(victim.geometry->airframe().skinThicknessM(panel.section),p.areaM2,p.massKg,speed,obliquity);
+                after=thorResidual((observedThorThicknessV1=victim.geometry->airframe().skinThicknessM(panel.section)),p.areaM2,p.massKg,speed,obliquity);
+                if(fragmentContactTraceEnabledV1())observedObliquityV1=obliquity;
                 auto found=std::find_if(impact.panels.begin(),impact.panels.end(),[&](auto& hit){return hit.panel==static_cast<int>(crossing.index);});
                 if(found==impact.panels.end()){Impact::PanelHits hit;hit.panel=static_cast<int>(crossing.index);impact.panels.push_back(hit);found=std::prev(impact.panels.end());}
                 ++found->hits;if(after>0){++found->perforations;found->holeAreaM2+=p.areaM2;}
@@ -1913,6 +2053,69 @@ static SceneAssessmentV1 assessSceneImpl(const FragmentFieldV1& field,const std:
                 const V3 endRelative=p.segment?p.endVelocity-p.velocity-cross(target.angularVelocityEcef,p.end-p.at):V3{};
                 ++found->hits;found->energyJ+=.5*p.massKg*speed*speed+p.massKg*dot(endRelative,endRelative)/24;
                 found->fastestMs=std::max(found->fastestMs,speed);found->areaM2+=p.areaM2;
+            }
+            if(fragmentContactTraceEnabledV1()) {
+                // Saturating per-process bound: no wraparound, TLS, owner
+                // inference, RNG draws or solver calls enter this observer.
+                static std::atomic<unsigned> emitted{0};
+                unsigned ticket=emitted.load(std::memory_order_relaxed);
+                while(ticket<256&&!emitted.compare_exchange_strong(ticket,ticket+1,
+                    std::memory_order_relaxed,std::memory_order_relaxed)) {}
+                if(ticket<256)try {
+                    const auto number=[](double value)->core::Json {
+                        return std::isfinite(value)?core::Json(value):core::Json(nullptr);
+                    };
+                    const auto vector=[&](V3 value)->core::Json {
+                        return core::Json::Array{number(value.x),number(value.y),number(value.z)};
+                    };
+                    core::Json axes=core::Json::Array{};
+                    for(const auto axis:target.bodyToEcef)axes.push(vector(axis));
+                    const auto& frame=victim.geometry->airframe();
+                    const char* shape=!crossing.skin?"component_slab":frame.panels[crossing.index].surface?
+                        "finite_surface_quad":frame.contactGeometry&&frame.contactGeometry->panel(crossing.index)?
+                        "closed_skin_mesh":"closed_skin_box";
+                    core::Json key=core::Json::Array{std::to_string(victim.identity),std::to_string(victim.generation),
+                        "0",std::to_string(crossing.index),std::to_string(crossing.side)};
+                    if(!crossing.skin)key=core::Json::Array{std::to_string(victim.identity),std::to_string(victim.generation),
+                        "1",std::to_string(crossing.index),std::to_string(crossing.side)};
+                    core::Json record=core::Json::Object{
+                        {"schema","fsim.fragment-contact-observation.v1"},
+                        {"index",static_cast<int>(ticket+1)},{"process_limit",256},{"process_limit_reached",ticket+1==256},
+                        {"source_ordinal",std::to_string(p.sourceOrdinalV1)},
+                        {"source_weapon_identity_available",false},{"source_weapon_identity",nullptr},
+                        {"victim_identity",std::to_string(victim.identity)},{"victim_generation",std::to_string(victim.generation)},
+                        {"field_age_before_s",number(field.ageS)},{"local_contact_age_s",number(age)},
+                        {"contact_age_s",number(field.ageS+age)},{"interval_duration_s",number(duration)},
+                        {"processed_elapsed_s",number(elapsed)},{"visited_key",std::move(key)},
+                        {"skin",crossing.skin},{"geometry_class",shape},{"material_index",std::to_string(crossing.index)},
+                        {"stable_merged_face_or_side",crossing.side},{"original_triangle_ordinal_available",false},
+                        {"positions_frame",localCoordinates?"scene_local_ecef_axes":"ecef"},
+                        {"scene_translation_ecef_m",vector(diagnosticTranslationV1?*diagnosticTranslationV1:V3{})},
+                        {"field_burst_position_m",vector(field.burst.at)},
+                        {"field_burst_axis_ecef",vector(field.burst.axis)},{"field_burst_velocity_ecef_ms",vector(field.burst.velocity)},
+                        {"crossing_point_body_m",vector(crossing.point)},{"material_normal_body",vector(crossing.normal)},
+                        {"rod_start_m",vector(p.at)},{"rod_end_m",vector(p.end)},
+                        {"velocity_ecef_ms",vector(p.velocity)},{"end_velocity_ecef_ms",vector(p.endVelocity)},
+                        {"chord_ecef_ms",vector(chord)},{"end_chord_ecef_ms",vector(endChord)},
+                        {"target_interval_origin_m",vector(target.at)},{"target_contact_origin_m",vector(targetOrigin)},
+                        {"target_velocity_ecef_ms",vector(target.velocity)},{"target_body_axes_ecef",std::move(axes)},
+                        {"target_angular_velocity_ecef_rad_s",vector(target.angularVelocityEcef)},
+                        {"material_velocity_ecef_ms",vector(materialVelocity)},
+                        {"incoming_com_velocity_ecef_ms",vector(incoming)},{"relative_com_velocity_ecef_ms",vector(relative)},
+                        {"mass_kg",number(p.massKg)},{"presented_area_m2",number(p.areaM2)},
+                        {"material_length_m",number(p.materialLengthM)},{"expansion_per_s",number(p.expansionPerS)},
+                        {"breakup_age_s",number(p.breakupAgeS)},{"relative_com_speed_ms",number(speed)},
+                        {"thor_availability",crossing.skin?"available":"not_applicable"},
+                        {"thor_thickness_m",number(observedThorThicknessV1)},
+                        {"obliquity_rad",number(observedObliquityV1)},{"residual_speed_ms",number(after)},
+                        {"semantics","actual processed contact before response; side is stable merged mesh face or primitive side, not an original triangle index"}};
+                    const std::string text="FRAGMENT_CONTACT_TRACE_V1 "+record.dump()+"\n";
+                    if(text.size()<=32768)std::fwrite(text.data(),1,text.size(),stderr);
+                    else std::fputs("FRAGMENT_CONTACT_TRACE_V1_REFUSED row_budget\n",stderr);
+                    std::fflush(stderr);
+                } catch(...) {
+                    std::fputs("FRAGMENT_CONTACT_TRACE_V1_REFUSED serialization\n",stderr);
+                }
             }
             const V3 impulse=direction*(p.massKg*(speed-after));
             result.transferredMomentumEcef+=impulse;const V3 bodyImpulse=toBody(victim.target,impulse);
@@ -1942,6 +2145,7 @@ static SceneAssessmentV1 assessSceneImpl(const FragmentFieldV1& field,const std:
         if(!absorbed) {
             result.remainingMassKg+=p.massKg;result.remainingMomentumEcef+=(p.segment?(p.velocity+p.endVelocity)*.5:p.velocity)*p.massKg;
             p.crossedFaces.assign(visited.begin(),visited.end());result.continuation.projectiles.push_back(std::move(p));
+            nextContactParticlesV3.push_back({std::move(activeMaterialV3)});
         }
     }
     // Preserve the established blast fit without resampling a fragment field.
@@ -1969,19 +2173,22 @@ static SceneAssessmentV1 assessSceneImpl(const FragmentFieldV1& field,const std:
     result.continuation.tntKg=field.tntKg;result.continuation.burst=field.burst;
     result.continuation.ageS=field.ageS+environment.maxFlightTimeS;
     result.continuation.emittedCount=field.emittedCount?field.emittedCount:field.projectiles.size();result.continuation.applyBlast=false;
+    if(contactHistoryV3)contactHistoryV3->particles=std::move(nextContactParticlesV3);
     result.valid=true;return result;
 }
 
 SceneAssessmentV1 assessSceneV1(const FragmentFieldV1& field,const std::vector<SceneVictimV1>& victims,const SceneEnvironmentV1& environment) {
     std::vector<MaterialSceneVictimV2> adapted;adapted.reserve(victims.size());
     for(const auto& v:victims)adapted.push_back({v.identity,v.generation,&v.geometry,v.target,v.motion});
-    return assessSceneImpl(field,adapted,environment,nullptr);
+    MaterialContactHistoryV3 transient;transient.particles.resize(field.projectiles.size());
+    return assessSceneImpl(field,adapted,environment,nullptr,nullptr,false,nullptr,&transient);
 }
 SceneAssessmentV1 assessSceneLiquidsV1(const FragmentFieldV1& field,const std::vector<SceneVictimV1>& victims,
     const SceneEnvironmentV1& environment,const SceneLiquidInputsV1& liquids) {
     std::vector<MaterialSceneVictimV2> adapted;adapted.reserve(victims.size());
     for(const auto& v:victims)adapted.push_back({v.identity,v.generation,&v.geometry,v.target,v.motion});
-    return assessSceneImpl(field,adapted,environment,&liquids);
+    MaterialContactHistoryV3 transient;transient.particles.resize(field.projectiles.size());
+    return assessSceneImpl(field,adapted,environment,&liquids,nullptr,false,nullptr,&transient);
 }
 
 SceneLiquidAssessmentV2 assessSceneLiquidsV2(const FragmentFieldV1& field,const std::vector<SceneVictimV1>& victims,
@@ -1990,12 +2197,70 @@ SceneLiquidAssessmentV2 assessSceneLiquidsV2(const FragmentFieldV1& field,const 
     for(const auto& v:victims)adapted.push_back({v.identity,v.generation,&v.geometry,v.target,v.motion});
     for(const auto& v:only)adapted.push_back({v.identity,v.generation,nullptr,v.target,v.motion});
     SceneLiquidAssessmentV2 result;
-    result.scene=assessSceneImpl(field,adapted,environment,&liquids,&result.liquidOnlyWork);
+    MaterialContactHistoryV3 transient;transient.particles.resize(field.projectiles.size());
+    result.scene=assessSceneImpl(field,adapted,environment,&liquids,&result.liquidOnlyWork,false,nullptr,&transient);
     if(!result.scene.valid)return {};
     for(const auto& row:result.liquidOnlyWork)if(!std::isfinite(row.energyJ)||row.energyJ<0)return {};
     std::sort(result.liquidOnlyWork.begin(),result.liquidOnlyWork.end(),[](const auto& a,const auto& b){
         return a.identity<b.identity||(a.identity==b.identity&&a.nativeTank<b.nativeTank);});
     return result;
+}
+
+namespace {
+bool stageMaterialHistoryV3(const FragmentFieldV1& field,const MaterialContactHistoryV3& history,MaterialContactHistoryV3& staged) {
+    if(history.initialized&&!detail::materialFieldEqualV3(field,history.expected))return false;
+    // Existing V2 providers may legally publish unknown/duplicate ordinal
+    // labels. Stable ordered continuation snapshots, not those labels, own
+    // the per-index history inside this one physical source context.
+    staged=history;
+    if(!staged.initialized){staged={};staged.particles.resize(field.projectiles.size());}
+    return staged.particles.size()==field.projectiles.size();
+ }
+void revalidateMaterialOwnersV3(MaterialContactHistoryV3& history,const std::vector<SceneVictimV1>& victims) {
+    for(auto& particle:history.particles)particle.active.erase(std::remove_if(particle.active.begin(),particle.active.end(),[&](const auto& key) {
+        const auto victim=std::find_if(victims.begin(),victims.end(),[&](const auto& value){return value.identity==key.victim&&value.generation==key.generation;});
+        return victim==victims.end()||victim->geometry.airframe().contactGeometry!=key.geometry||
+            !detail::materialPoseEqualV3(key.boundaryTarget,victim->target);
+    }),particle.active.end());
+}
+}
+bool rebindMaterialContactOwnerV3(MaterialContactHistoryV3& history,const MaterialOwnerHandoffV3& handoff,const Target& target) {
+    if(!handoff.from||!handoff.fromGeneration||!handoff.to||!handoff.toGeneration||
+       !handoff.fromGeometry||!handoff.toGeometry||!validSceneTarget(target))return false;
+    for(const auto panel:handoff.panels)if(!handoff.fromGeometry->panel(panel)||!handoff.toGeometry->panel(panel))return false;
+    for(auto& particle:history.particles)for(auto& key:particle.active)
+        if(key.victim==handoff.from&&key.generation==handoff.fromGeneration&&key.geometry==handoff.fromGeometry&&
+           std::find(handoff.panels.begin(),handoff.panels.end(),key.panel)!=handoff.panels.end()) {
+            key.victim=handoff.to;key.generation=handoff.toGeneration;key.geometry=handoff.toGeometry;
+            key.boundaryTarget=target;
+        }
+    return true;
+}
+SceneAssessmentV1 assessSceneMaterialContactsV3(const FragmentFieldV1& field,const std::vector<SceneVictimV1>& victims,
+    const SceneEnvironmentV1& environment,MaterialContactHistoryV3& history) {
+    MaterialContactHistoryV3 staged;if(!stageMaterialHistoryV3(field,history,staged))return {};
+    revalidateMaterialOwnersV3(staged,victims);
+    std::vector<MaterialSceneVictimV2> adapted;adapted.reserve(victims.size());
+    for(const auto& v:victims)adapted.push_back({v.identity,v.generation,&v.geometry,v.target,v.motion});
+    auto result=assessSceneImpl(field,adapted,environment,nullptr,nullptr,false,nullptr,&staged,true);
+    if(!result.valid)return {};
+    staged.expected=result.continuation;staged.initialized=true;history=std::move(staged);return result;
+}
+SceneLiquidAssessmentV2 assessSceneLiquidsMaterialContactsV3(const FragmentFieldV1& field,
+    const std::vector<SceneVictimV1>& victims,const std::vector<SceneLiquidOnlyVictimV2>& only,
+    const SceneEnvironmentV1& environment,const SceneLiquidInputsV1& liquids,MaterialContactHistoryV3& history) {
+    MaterialContactHistoryV3 staged;if(!stageMaterialHistoryV3(field,history,staged))return {};
+    revalidateMaterialOwnersV3(staged,victims);
+    std::vector<MaterialSceneVictimV2> adapted;adapted.reserve(victims.size()+only.size());
+    for(const auto& v:victims)adapted.push_back({v.identity,v.generation,&v.geometry,v.target,v.motion});
+    for(const auto& v:only)adapted.push_back({v.identity,v.generation,nullptr,v.target,v.motion});
+    SceneLiquidAssessmentV2 result;
+    result.scene=assessSceneImpl(field,adapted,environment,&liquids,&result.liquidOnlyWork,false,nullptr,&staged,true);
+    if(!result.scene.valid)return {};
+    for(const auto& row:result.liquidOnlyWork)if(!std::isfinite(row.energyJ)||row.energyJ<0)return {};
+    std::sort(result.liquidOnlyWork.begin(),result.liquidOnlyWork.end(),[](const auto& a,const auto& b){
+        return a.identity<b.identity||(a.identity==b.identity&&a.nativeTank<b.nativeTank);});
+    staged.expected=result.scene.continuation;staged.initialized=true;history=std::move(staged);return result;
 }
 
 } // namespace fsim::ms::damage

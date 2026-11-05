@@ -1107,6 +1107,104 @@
       "uncertainty": 4.0,
       "basis": "assumed",
       "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "warhead_model_version": {
+      "value": 4,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Explicit GAME connected-ring input. Intrinsic source retained from isolated archived method snapshot; fixed source location from actual-loft certificate615043ab, with no encounter/target/outcome inputs. Exact GAME discretization/axis convention, not known hardware. Initial mathematical centerline containment only; finite material cross-section is not reconstructed. Native behavior never samples metadata uncertainty."
+    },
+    "warhead_case_kg": {
+      "value": 20.4,
+      "unit": "kg",
+      "uncertainty": 3.0599999999999996,
+      "basis": "assumed",
+      "note": "Explicit GAME connected-ring input. Intrinsic source retained from isolated archived method snapshot; fixed source location from actual-loft certificate615043ab, with no encounter/target/outcome inputs. Assigned marginal discrepancy scale from the widest existing authored relative anchor; not independently measured or propagated hardware covariance. Initial mathematical centerline containment only; finite material cross-section is not reconstructed. Native behavior never samples metadata uncertainty."
+    },
+    "warhead_structure_kg": {
+      "value": 3.6000000000000014,
+      "unit": "kg",
+      "uncertainty": 0.5400000000000001,
+      "basis": "assumed",
+      "note": "Explicit GAME connected-ring input. Intrinsic source retained from isolated archived method snapshot; fixed source location from actual-loft certificate615043ab, with no encounter/target/outcome inputs. Assigned marginal discrepancy scale from the widest existing authored relative anchor; not independently measured or propagated hardware covariance. Initial mathematical centerline containment only; finite material cross-section is not reconstructed. Native behavior never samples metadata uncertainty."
+    },
+    "warhead_tnt_equivalent_kg": {
+      "value": 14.512227895726955,
+      "unit": "kg",
+      "uncertainty": 2.176834184359043,
+      "basis": "assumed",
+      "note": "Explicit GAME connected-ring input. Intrinsic source retained from isolated archived method snapshot; fixed source location from actual-loft certificate615043ab, with no encounter/target/outcome inputs. Assigned marginal discrepancy scale from the widest existing authored relative anchor; not independently measured or propagated hardware covariance. Initial mathematical centerline containment only; finite material cross-section is not reconstructed. Native behavior never samples metadata uncertainty."
+    },
+    "warhead_case_outer_radius_m": {
+      "value": 0.117,
+      "unit": "m",
+      "uncertainty": 0.01755,
+      "basis": "assumed",
+      "note": "Explicit GAME connected-ring input. Intrinsic source retained from isolated archived method snapshot; fixed source location from actual-loft certificate615043ab, with no encounter/target/outcome inputs. Assigned marginal discrepancy scale from the widest existing authored relative anchor; not independently measured or propagated hardware covariance. Initial mathematical centerline containment only; finite material cross-section is not reconstructed. Native behavior never samples metadata uncertainty."
+    },
+    "warhead_case_inner_radius_m": {
+      "value": 0.10504569842902907,
+      "unit": "m",
+      "uncertainty": 0.01575685476435436,
+      "basis": "assumed",
+      "note": "Explicit GAME connected-ring input. Intrinsic source retained from isolated archived method snapshot; fixed source location from actual-loft certificate615043ab, with no encounter/target/outcome inputs. Assigned marginal discrepancy scale from the widest existing authored relative anchor; not independently measured or propagated hardware covariance. Initial mathematical centerline containment only; finite material cross-section is not reconstructed. Native behavior never samples metadata uncertainty."
+    },
+    "warhead_case_length_m": {
+      "value": 0.2957131060842457,
+      "unit": "m",
+      "uncertainty": 0.04435696591263686,
+      "basis": "assumed",
+      "note": "Explicit GAME connected-ring input. Intrinsic source retained from isolated archived method snapshot; fixed source location from actual-loft certificate615043ab, with no encounter/target/outcome inputs. Assigned marginal discrepancy scale from the widest existing authored relative anchor; not independently measured or propagated hardware covariance. Initial mathematical centerline containment only; finite material cross-section is not reconstructed. Native behavior never samples metadata uncertainty."
+    },
+    "warhead_fragment_count": {
+      "value": 61,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Explicit GAME connected-ring input. Intrinsic source retained from isolated archived method snapshot; fixed source location from actual-loft certificate615043ab, with no encounter/target/outcome inputs. Exact GAME discretization/axis convention, not known hardware. Initial mathematical centerline containment only; finite material cross-section is not reconstructed. Native behavior never samples metadata uncertainty."
+    },
+    "warhead_fragment_area_m2": {
+      "value": 0.003606496311644452,
+      "unit": "m^2",
+      "uncertainty": 0.0005409744467466677,
+      "basis": "assumed",
+      "note": "Explicit GAME connected-ring input. Intrinsic source retained from isolated archived method snapshot; fixed source location from actual-loft certificate615043ab, with no encounter/target/outcome inputs. Assigned marginal discrepancy scale from the widest existing authored relative anchor; not independently measured or propagated hardware covariance. Initial mathematical centerline containment only; finite material cross-section is not reconstructed. Native behavior never samples metadata uncertainty."
+    },
+    "warhead_source_speed_ms": {
+      "value": 1400,
+      "unit": "m/s",
+      "uncertainty": 210.0,
+      "basis": "assumed",
+      "note": "Explicit GAME connected-ring input. Intrinsic source retained from isolated archived method snapshot; fixed source location from actual-loft certificate615043ab, with no encounter/target/outcome inputs. Assigned marginal discrepancy scale from the widest existing authored relative anchor; not independently measured or propagated hardware covariance. Initial mathematical centerline containment only; finite material cross-section is not reconstructed. Native behavior never samples metadata uncertainty."
+    },
+    "warhead_fragment_cd": {
+      "value": 1.3,
+      "unit": "1",
+      "uncertainty": 0.195,
+      "basis": "assumed",
+      "note": "Explicit GAME connected-ring input. Intrinsic source retained from isolated archived method snapshot; fixed source location from actual-loft certificate615043ab, with no encounter/target/outcome inputs. Assigned marginal discrepancy scale from the widest existing authored relative anchor; not independently measured or propagated hardware covariance. Initial mathematical centerline containment only; finite material cross-section is not reconstructed. Native behavior never samples metadata uncertainty."
+    },
+    "warhead_station_x_m": {
+      "value": 2.7620237078306715,
+      "unit": "m",
+      "uncertainty": 0.6729164915882495,
+      "basis": "assumed",
+      "note": "Explicit GAME connected-ring input. Intrinsic source retained from isolated archived method snapshot; fixed source location from actual-loft certificate615043ab, with no encounter/target/outcome inputs. Blind source-only prior SD, not an identified hardware station interval. Initial mathematical centerline containment only; finite material cross-section is not reconstructed. Native behavior never samples metadata uncertainty."
+    },
+    "warhead_station_y_m": {
+      "value": 0.0,
+      "unit": "m",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Explicit GAME connected-ring input. Intrinsic source retained from isolated archived method snapshot; fixed source location from actual-loft certificate615043ab, with no encounter/target/outcome inputs. Exact GAME discretization/axis convention, not known hardware. Initial mathematical centerline containment only; finite material cross-section is not reconstructed. Native behavior never samples metadata uncertainty."
+    },
+    "warhead_station_z_m": {
+      "value": 0.0,
+      "unit": "m",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Explicit GAME connected-ring input. Intrinsic source retained from isolated archived method snapshot; fixed source location from actual-loft certificate615043ab, with no encounter/target/outcome inputs. Exact GAME discretization/axis convention, not known hardware. Initial mathematical centerline containment only; finite material cross-section is not reconstructed. Native behavior never samples metadata uncertainty."
     }
   },
   "sources": {
@@ -1475,20 +1573,35 @@
         "implementation_id": "equipment.r-27er.warhead",
         "configuration_version": 1,
         "parameter_refs": {
+          "warhead_model_version": "warhead_model_version",
           "warhead_kg": "warhead_kg",
           "explosive_kg": "explosive_kg",
-          "gurney_kms": "gurney_kms",
-          "diameter_m": "diameter_m"
+          "diameter_m": "diameter_m",
+          "length_m": "length_m",
+          "warhead_case_kg": "warhead_case_kg",
+          "warhead_structure_kg": "warhead_structure_kg",
+          "warhead_tnt_equivalent_kg": "warhead_tnt_equivalent_kg",
+          "warhead_case_outer_radius_m": "warhead_case_outer_radius_m",
+          "warhead_case_inner_radius_m": "warhead_case_inner_radius_m",
+          "warhead_case_length_m": "warhead_case_length_m",
+          "warhead_fragment_count": "warhead_fragment_count",
+          "warhead_fragment_area_m2": "warhead_fragment_area_m2",
+          "warhead_source_speed_ms": "warhead_source_speed_ms",
+          "warhead_fragment_cd": "warhead_fragment_cd",
+          "warhead_station_x_m": "warhead_station_x_m",
+          "warhead_station_y_m": "warhead_station_y_m",
+          "warhead_station_z_m": "warhead_station_z_m"
         },
         "bindings": {
-          "burst_reference": "captured_weapon_cg",
+          "burst_reference": "captured_authored_station_from_nose",
           "blast": "kingery_bulmash.swisdak_1994.free_air.v1",
           "penetration": "thor.aluminium_2024_t3.v1",
-          "assessment": "native.fragment_blast.v1"
+          "assessment": "native.fragment_blast.v1",
+          "topology": "native.connected_ring.material_limited.v1"
         },
         "basis": "assumed",
-        "note": "Generic uncalibrated homogenized finite connected-ring execution; shared material vertices, conservative case mass, finite segment interception, continuity bounded by total equivalent rod length then local breakup. Rod dimensions, weld integrity and equipment lethality remain engineering assumptions; no new hardware constants or scene outcomes calibrate this configuration; retained generic Gurney/rod-speed approximations are not R27 measurements.",
-        "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
+        "note": "Explicit GAME connected polygon with retained count, mass, material length, area, speed, Cd, blast and unfolding/breakup law; independent blind material-frame station prior. No solid-angle zone alias or encounter calibration. Gurney does not drive this new policy.",
+        "validity": "Source-only certificate covers initial zero-thickness centerline; finite material volume, weld behavior, equipment accuracy and held-out effectiveness are not established. Separate native execution is required."
       },
       "propulsion": {
         "availability": "available",
@@ -1542,6 +1655,6 @@
     }
   },
   "simulation_model": {
-    "calibration": "R-27ER is uncalibrated. R-27ER combines SARH illumination with the 350 kg extended 260 mm motor/body and connected-ring warhead topology. The 35 kN/9 kN authored phases and larger evolving inertia distinguish it from R-27R despite common rod/charge records. Retained card anchors: mass 350.0 kg (published; source ru-r27; uncertainty 5.0), length 4.78 m (derived; source ru-r27; uncertainty 0.08), diameter 0.26 m (published; source ru-r27; uncertainty 0.003), warhead 39.0 kg (published; source wp-r27; uncertainty 1.0), explosive 15.0 kg (published; source wt-datamine; uncertainty 2.25). Current receiver rf_signal.v1; control fsim.control.load_feedback_cascade; propulsion fsim.propulsion.jsbsim_generated_solid_rocket; fuze native.fuze.swept_path.v1; warhead native.warhead.connected_ring.v1. The extended ER geometry/impulse, bistatic receiver and connected-ring deployment require their own measured response; R/ET/T sharing cannot establish ER hit probability or lethal radius. Source classes and uncertainty records remain unchanged; assumed, derived and game-reference values are not promoted to equipment measurements. Per-model theory, parameter deltas and numerical method routes are in docs/research/sim-m03/component-methods/per-model-effects-components.json and per-model-six-components.json; the separate docs/research/sim-m03/calibration-ledger.json identifies the remaining equipment comparisons. Arithmetic or native scenario verification does not establish held-out accuracy. No admitted same-model independent baseline-to-new held-out calibration receipt is claimed; engineering completion continues through its own gates."
+    "calibration": "R-27ER is uncalibrated. R-27ER combines SARH illumination with the 350 kg extended 260 mm motor/body and connected-ring warhead topology. The 35 kN/9 kN authored phases and larger evolving inertia distinguish it from R-27R despite common rod/charge records. Retained card anchors: mass 350.0 kg (published; source ru-r27; uncertainty 5.0), length 4.78 m (derived; source ru-r27; uncertainty 0.08), diameter 0.26 m (published; source ru-r27; uncertainty 0.003), warhead 39.0 kg (published; source wp-r27; uncertainty 1.0), explosive 15.0 kg (published; source wt-datamine; uncertainty 2.25). Current receiver rf_signal.v1; control fsim.control.load_feedback_cascade; propulsion fsim.propulsion.jsbsim_generated_solid_rocket; fuze native.fuze.swept_path.v1; warhead native.warhead.authored_ring.v4. The extended ER geometry/impulse, bistatic receiver and connected-ring deployment require their own measured response; R/ET/T sharing cannot establish ER hit probability or lethal radius. Source classes and uncertainty records remain unchanged; assumed, derived and game-reference values are not promoted to equipment measurements. Per-model theory, parameter deltas and numerical method routes are in docs/research/sim-m03/component-methods/per-model-effects-components.json and per-model-six-components.json; the separate docs/research/sim-m03/calibration-ledger.json identifies the remaining equipment comparisons. Arithmetic or native scenario verification does not establish held-out accuracy. No admitted same-model independent baseline-to-new held-out calibration receipt is claimed; engineering completion continues through its own gates."
   }
 }

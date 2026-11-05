@@ -32,7 +32,7 @@
         <ixx unit="SLUG*FT2"> 10.1463 </ixx>
         <iyy unit="SLUG*FT2"> 221.5366 </iyy>
         <izz unit="SLUG*FT2"> 221.5366 </izz>
-        <emptywt unit="LBS"> 275.398 </emptywt>
+        <emptywt unit="LBS"> 275.39837144967845 </emptywt>
         <location name="CG" unit="IN">
             <x>104.5216535433071</x>
             <y>0</y>
@@ -132,7 +132,7 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 48770 </spring_coeff>
+            <spring_coeff unit="N/M"> 48771 </spring_coeff>
             <damping_coeff unit="N/M/SEC"> 1626 </damping_coeff>
             <damping_coeff_rebound unit="N/M/SEC"> 1626 </damping_coeff_rebound>
         </contact>

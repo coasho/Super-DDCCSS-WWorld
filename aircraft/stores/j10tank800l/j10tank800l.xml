@@ -32,7 +32,7 @@
         <ixx unit="SLUG*FT2"> 4.8281 </ixx>
         <iyy unit="SLUG*FT2"> 105.4081 </iyy>
         <izz unit="SLUG*FT2"> 105.4081 </izz>
-        <emptywt unit="LBS"> 176.370 </emptywt>
+        <emptywt unit="LBS"> 176.36980974790205 </emptywt>
         <location name="CG" unit="IN">
             <x>90.092519685039363</x>
             <y>0</y>

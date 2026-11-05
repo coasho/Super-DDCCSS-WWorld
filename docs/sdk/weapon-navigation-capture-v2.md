@@ -57,3 +57,10 @@ The source integration window is main HEAD
 `e7ea9abe9dd9a148a42b1f6174353115bc9c8f5f`; its bounded paths are World.cpp,
 World.h, WorldWeaponLinks.cpp, VehiclePool.h/.cpp, NavigationStrapdownV2.h/.cpp,
 the new NavigationCaptureV2.h, the focused integration test and this method note.
+
+The physical-receiver guidance frame uses the same selected own-navigation
+position to derive its up vector through navigationGravityVerticalV2. The physical
+scene and detector frame retain their actual axes. Missing, stale or invalid
+selected navigation cannot be replaced by scene truth. The guidance normalization
+and control transform can differ by floating-point rounding; the dependency and
+rigid-longitude-rotation fixtures compare their actual numerical outputs.

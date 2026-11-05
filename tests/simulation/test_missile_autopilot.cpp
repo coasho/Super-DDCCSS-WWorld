@@ -500,10 +500,125 @@ void overflowing_inertial_coupling_is_unavailable_and_neutral() {
                 "Overflowing required inertial-coupling torque must fail closed with neutral surfaces");
     }
 }
+// Independent zero-aerodynamic-pressure rigid-body fixture. Forward thrust
+// still makes incidence change velocity direction, and a displaced nozzle
+// supplies nonzero angular control even when aerodynamic forceSlope is zero.
+void powered_nozzle_retains_zero_aero_directional_trim() {
+    constexpr double thrust=10000,arm=-1.25;
+    for(const bool yaw:{false,true}) for(const double direction:{-1.,1.})
+        for(const double polarity:{-1.,1.}) for(const bool aware:{false,true}) {
+            auto in=flight();in.rollMomentPerRad=in.rollDamping=0;in.limitsRad[0]=0;
+            in.pitch={0,-thrust*polarity,0,arm*thrust*polarity,0};
+            in.yaw={0,thrust*polarity,0,arm*thrust*polarity,0};
+            const unsigned force=yaw?1u:2u,axis=yaw?2u:1u;
+            const double sense=yaw?-1.:1.,angle=direction*.05;
+            (yaw?in.betaRad:in.alphaRad)=angle;
+            in.demandBody[force]=-thrust*angle/in.massKg;
+            in.ratesRadS[axis]=sense*thrust*angle/(in.massKg*in.speedMs);
+            in.measured=AeroFeedback{{thrust,0,0},{0,0,0},{0,0,0}};
+            FinControlConfigV1 config;config.version=1;
+            const auto out=aware?actuatorAwareCommands(in,config,actualActuators()):finCommands(in,config,actualActuators());
+            require(out.available,"Powered nozzle must retain real directional authority without aerodynamic lift slope");
+            const double delta=(yaw?out.rudder:out.elevator)*in.limitsRad[axis];
+            const auto& a=yaw?in.yaw:in.pitch;
+            const double forceActual=a.forceControl*delta;
+            const double torqueActual=a.momentControl*delta;
+            const double angleDot=sense*in.ratesRadS[axis]+(forceActual-thrust*angle)/(in.massKg*in.speedMs);
+            require(std::abs(delta)<1e-11&&std::abs(torqueActual)<1e-7&&std::abs(angleDot)<1e-10,
+                    "Independent nozzle force/moment balance must retain the known zero-deflection constant-rate trim");
+            require(std::abs((forceActual-thrust*angle)/in.massKg-in.demandBody[force])<1e-9,
+                    "Powered-nozzle steady directional force must equal requested specific acceleration");
+        }
+}
+void powered_nozzle_zero_aero_refusals_preserve_legacy_and_finite_domain() {
+    auto in=flight();in.rollMomentPerRad=in.rollDamping=0;in.limitsRad[0]=0;constexpr double thrust=10000,arm=-1.25;
+    in.pitch={0,-thrust,0,arm*thrust,0};in.yaw={0,thrust,0,arm*thrust,0};
+    in.measured=AeroFeedback{{thrust,0,0},{0,0,0},{0,0,0}};
+    FinControlConfigV1 config;config.version=1;
+    for(const bool aware:{false,true}) for(unsigned defect=0;defect<7;++defect) {
+        auto bad=in;auto chosen=config;
+        if(defect==0)chosen.version=0; // Original unversioned semantics remain frozen.
+        if(defect==1)bad.measured.reset();
+        if(defect==2)bad.measured->forceBodyN[0]=0; // True directional trim singularity.
+        if(defect==3){bad.measured->forceBodyN[0]=0;bad.pitch.forceControl=bad.pitch.momentControl=0;bad.yaw.forceControl=bad.yaw.momentControl=0;}
+        if(defect==4)bad.measured->forceBodyN[0]=std::numeric_limits<double>::quiet_NaN();
+        if(defect==5)bad.demandBody[0]=thrust/bad.massKg; // D=F_eff-Fx+mDx is exactly zero.
+        if(defect==6)bad.massKg=0;
+        const auto out=aware?actuatorAwareCommands(bad,chosen,actualActuators()):finCommands(bad,chosen,actualActuators());
+        require(!out.available&&out.aileron==0&&out.elevator==0&&out.rudder==0,
+                "Zero-thrust, singular, invalid or unversioned inputs must retain neutral refusal");
+    }
+}
+void powered_nozzle_zero_aero_finite_plant_tracks_directional_force() {
+    constexpr double thrust=10000,arm=-1.25,dt=.00025;
+    for(const bool aware:{false,true}) {
+        auto in=flight();in.rollMomentPerRad=in.rollDamping=0;in.limitsRad[0]=0;in.pitch={0,-thrust,0,arm*thrust,0};in.yaw={0,thrust,0,arm*thrust,0};
+        FinControlConfigV1 config;config.version=1;in.demandBody={0,4,-6};
+        double alpha=0,beta=0,q=0,r=0,elevator=0,rudder=0;
+        for(unsigned step=0;step<40000;++step) {
+            const double fz=in.pitch.forceControl*elevator,fy=in.yaw.forceControl*rudder;
+            const double my=in.pitch.momentControl*elevator,mz=in.yaw.momentControl*rudder;
+            in.alphaRad=alpha;in.betaRad=beta;in.ratesRadS={0,q,r};
+            in.measured=AeroFeedback{{thrust,fy,fz},{0,my,mz},{0,elevator,rudder}};
+            const auto out=aware?actuatorAwareCommands(in,config,actualActuators()):finCommands(in,config,actualActuators());
+            require(out.available,"Finite powered zero-aero plant must retain the selected feedback law");
+            alpha+=(q+(fz-thrust*alpha)/(in.massKg*in.speedMs))*dt;
+            beta+=(-r+(fy-thrust*beta)/(in.massKg*in.speedMs))*dt;
+            q+=my/in.inertiaKgM2[1]*dt;r+=mz/in.inertiaKgM2[2]*dt;
+            elevator+=std::clamp((out.elevator*in.limitsRad[1]-elevator)/in.actuatorLagS,-4.,4.)*dt;
+            rudder+=std::clamp((out.rudder*in.limitsRad[2]-rudder)/in.actuatorLagS,-4.,4.)*dt;
+            require(std::isfinite(alpha)&&std::isfinite(beta)&&std::hypot(alpha,beta)<.2,
+                    "Finite powered zero-aero body must remain inside the disclosed small-angle domain");
+        }
+        const double az=(in.pitch.forceControl*elevator-thrust*alpha)/in.massKg;
+        const double ay=(in.yaw.forceControl*rudder-thrust*beta)/in.massKg;
+        require(std::abs(az+6)<.05&&std::abs(ay-4)<.05,
+                "Independent finite nozzle/body dynamics must achieve both directional accelerations");
+    }
+}
+
+void powered_nozzle_trim_is_continuous_as_aerodynamic_pressure_vanishes() {
+    constexpr double thrust=10000,arm=-1.25;
+    for(const double fraction:{1.,.001,1e-6,1e-12,0.}) for(const bool yaw:{false,true})
+        for(const double direction:{-1.,1.}) for(const bool aware:{false,true}) {
+            auto in=flight();in.rollMomentPerRad=in.rollDamping=0;in.limitsRad[0]=0;
+            in.pitch.forceAngle*=fraction;in.pitch.forceControl=in.pitch.forceControl*fraction-thrust;
+            in.pitch.momentAngle*=fraction;in.pitch.momentControl=in.pitch.momentControl*fraction+arm*thrust;
+            in.pitch.momentRate*=fraction;
+            in.yaw.forceAngle*=fraction;in.yaw.forceControl=in.yaw.forceControl*fraction+thrust;
+            in.yaw.momentAngle*=fraction;in.yaw.momentControl=in.yaw.momentControl*fraction+arm*thrust;
+            in.yaw.momentRate*=fraction;
+            const auto& a=yaw?in.yaw:in.pitch;const unsigned force=yaw?1u:2u,axis=yaw?2u:1u;
+            const double sense=yaw?-1.:1.,angle=direction*.04;
+            // Independently solve the physical constant-incidence and Euler
+            // moment equations for the actual body rate and nozzle deflection.
+            const double a00=sense*in.massKg*in.speedMs,a01=a.forceControl,a10=a.momentRate,a11=a.momentControl;
+            const double b0=(thrust-a.forceAngle)*angle,b1=-a.momentAngle*angle,det=a00*a11-a01*a10;
+            require(std::abs(det)>1,"Low-pressure physical trim oracle must retain full rank");
+            const double rate=(b0*a11-a01*b1)/det,delta=(a00*b1-b0*a10)/det;
+            const double actualForce=a.forceAngle*angle+a.forceControl*delta;
+            const double actualMoment=a.momentAngle*angle+a.momentRate*rate+a.momentControl*delta;
+            require(std::abs(sense*rate+(actualForce-thrust*angle)/(in.massKg*in.speedMs))<1e-12&&std::abs(actualMoment)<1e-8,
+                    "Independent low-pressure oracle must close force and moment before invoking the controller");
+            (yaw?in.betaRad:in.alphaRad)=angle;in.ratesRadS[axis]=rate;
+            in.demandBody[force]=(actualForce-thrust*angle)/in.massKg;
+            AeroFeedback measured;measured.forceBodyN[0]=thrust;measured.forceBodyN[force]=actualForce;
+            measured.momentBodyNm[axis]=actualMoment;measured.controlRad[axis]=delta;in.measured=measured;
+            FinControlConfigV1 config;config.version=1;
+            const auto out=aware?actuatorAwareCommands(in,config,actualActuators()):finCommands(in,config,actualActuators());
+            require(out.available&&std::abs((yaw?out.rudder:out.elevator)*in.limitsRad[axis]-delta)<1e-10,
+                    "Existing configured laws must preserve one physical trim continuously through vanishing aero pressure");
+        }
+}
+
 }
 int main() {
     unsigned passed = 0;
-    for (const auto test : {assigned_actuator_poles_control_unstable_native_plants,
+    for (const auto test : {powered_nozzle_retains_zero_aero_directional_trim,
+             powered_nozzle_zero_aero_refusals_preserve_legacy_and_finite_domain,
+             powered_nozzle_zero_aero_finite_plant_tracks_directional_force,
+             powered_nozzle_trim_is_continuous_as_aerodynamic_pressure_vanishes,
+             assigned_actuator_poles_control_unstable_native_plants,
              asymmetric_native_stop_normalization_preserves_requested_radians,
              configured_native_actuator_mismatch_is_unavailable, configured_control_response_and_refusals_are_executed,
              overflowing_inertial_coupling_is_unavailable_and_neutral,

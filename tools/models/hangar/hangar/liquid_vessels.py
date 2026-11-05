@@ -10,6 +10,7 @@ import heapq
 import json
 import math
 import numbers
+import sys
 from collections import Counter
 from fractions import Fraction
 from pathlib import Path
@@ -87,20 +88,105 @@ def _represented_box(mesh, lo, hi):
             all(v == 1 and edges[(b, a)] == 1 for (a, b), v in edges.items()))
 
 
-def _inscribed_vertical_band(mesh, lo, hi, check=None):
-    """ALL outward facet halfspaces propose a conservative central Z band.
+def _strict_partial_box(candidate, lo, hi, check=None):
+    """Sufficient NEGATIVE-containment proof for an already admitted solid.
 
-    Coefficients/extrema are exact rationals of represented double vertices.
-    Only the proposed candidate is rounded inward to representable endpoints;
-    actual mesh faces are never moved. This is a proposal, not containment proof.
+    A strict outside box corner and a plane bounding EVERY candidate vertex
+    prove a positive-volume part of Box lies outside candidate's convex hull.
+    No positive containment is admitted here. 64 vertices/128 faces/4 planes
+    bound optional arithmetic; unavailable/unproven inputs retain the original
+    strict Boolean. Float scores choose work only; every final sign is exact.
+    No persistent cache, moved plane, epsilon or model/budget change.
+    """
+    if check is not None: check()
+    if candidate.num_vert() > 64 or candidate.num_tri() > 128: return False
+    data = _mesh_arrays(candidate.to_mesh64())
+    if data is None: return False
+    p, triangles = data
+    if (len(p) > 64 or len(triangles) > 128 or np.shape(lo) != (3,) or np.shape(hi) != (3,) or
+            not np.isfinite(lo).all() or not np.isfinite(hi).all() or np.any(hi <= lo)): return False
+    # Min/max select existing represented coordinates exactly, with no
+    # arithmetic tolerance. A corner beyond this axis hull proves NOT-contained.
+    minimum, maximum = np.min(p, axis=0), np.max(p, axis=0)
+    if np.any(maximum <= minimum): return False
+    if np.any(lo < minimum) or np.any(hi > maximum): return True
+    # One bounded batched ranking replaces per-face/per-sign NumPy dispatch.
+    # These floats select optional work ONLY; all final plane signs below
+    # remain exact. A missed/poor candidate retains the original strict proof.
+    if check is not None: check()
+    with np.errstate(over='ignore', invalid='ignore', under='ignore', divide='ignore'):
+        vertices = p[triangles]
+        origins = np.repeat(vertices[:, 0], 2, axis=0)
+        normals = np.repeat(np.cross(vertices[:, 1]-vertices[:, 0], vertices[:, 2]-vertices[:, 0]), 2, axis=0)
+        normals[1::2] *= -1
+        scales = np.max(np.abs(normals), axis=1)
+        corners = np.where(normals >= 0, hi, lo)
+        box_values = np.einsum('fi,fi->f', normals, corners-origins)
+        candidate_values = np.einsum('fvi,fi->fv', p[None, :, :]-origins[:, None, :], normals)
+        scores = (box_values-np.maximum(0., np.max(candidate_values, axis=1)))/scales
+        valid = np.isfinite(normals).all(axis=1) & np.isfinite(scales) & (scales > 0) & np.isfinite(scores) & (scores > 0)
+        choices = [(-float(scores[i]), int(i//2), 1 if i % 2 == 0 else -1) for i in np.flatnonzero(valid)]
+    if check is not None: check()
+    if not choices: return False
+    choices.sort()
+    exact = [tuple(Fraction.from_float(float(x)) for x in row) for row in p]
+    lower, upper = [tuple(Fraction.from_float(float(x)) for x in row) for row in (lo, hi)]
+    for _, index, sign in choices[:4]:
+        if check is not None: check()
+        a, b, c = (exact[int(i)] for i in triangles[index])
+        u, v = tuple(y-x for x, y in zip(a, b)), tuple(y-x for x, y in zip(a, c))
+        n = tuple(sign*x for x in (u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0]))
+        if not any(n): continue
+        corner = tuple(upper[i] if n[i] >= 0 else lower[i] for i in range(3))
+        if sum(n[i]*(corner[i]-a[i]) for i in range(3)) <= 0: continue
+        supported = True
+        for count, point in enumerate(exact):
+            if check is not None and count % 16 == 0: check()
+            if sum(n[i]*(point[i]-a[i]) for i in range(3)) > 0:
+                supported = False; break
+        if supported: return True
+    return False
+
+
+def _cell_contained(box, candidate, overlap, lo, hi, check=None):
+    """Original represented-box/strict Boolean classification seam."""
+    contained = False; mesh = None
+    if overlap.volume() > 0 and overlap.num_tri() == 12:
+        mesh = overlap.to_mesh64(); contained = _represented_box(mesh, lo, hi)
+    if not contained and _strict_partial_box(candidate, lo, hi, check): return False, mesh
+    # A validated materialized intersection can expose a supporting plane
+    # absent from the bounded candidate shortlist. Partiality is relative to
+    # this represented intersection, never positive containment or capacity.
+    if not contained and _strict_partial_box(overlap, lo, hi, check): return False, mesh
+    if not contained:
+        contained = liquid._valid(box-candidate, 'Cell/interior difference').is_empty()
+    return contained, mesh
+
+
+def _inscribed_vertical_band(mesh, lo, hi, check=None):
+    """Same exact facet inequalities on a common binary64 dyadic grid.
+
+    Integer operations avoid intermediate Fraction normalization. Only final
+    selected bounds/sensitivities become Fractions; no geometric sign, endpoint
+    rounding, proposal/fallback rule or deadline callback position changes.
     """
     data = _mesh_arrays(mesh)
     if data is None or np.any(hi <= lo): return None
     positions, triangles = data
-    p = [tuple(Fraction.from_float(float(x)) for x in row) for row in positions]
-    low, high = [tuple(Fraction.from_float(float(x)) for x in row) for row in (lo, hi)]
-    lower, upper = low[2], high[2]; lower_s = (Fraction(), Fraction()); upper_s = lower_s
-    vertical_s = lower_s; conflict = False
+    ratios = [tuple(float(x).as_integer_ratio() for x in row) for row in positions]
+    ratios += [tuple(float(x).as_integer_ratio() for x in row) for row in (lo, hi)]
+    exponent = max(denominator.bit_length()-1 for row in ratios for _, denominator in row)
+    grid = 1 << exponent
+    scaled = [tuple(numerator << (exponent-(denominator.bit_length()-1))
+                    for numerator, denominator in row) for row in ratios]
+    p, low, high = scaled[:-2], scaled[-2], scaled[-1]
+    del ratios, scaled
+    lower, upper = (low[2], 1), (high[2], 1)
+    zero = ((0, 1), (0, 1)); lower_s = upper_s = vertical_s = zero
+    conflict = False
+    def larger(a, b): return a[0]*b[1] > b[0]*a[1]
+    def equal(a, b): return a[0]*b[1] == b[0]*a[1]
+    def maxima(a, b): return tuple(x if larger(x, y) else y for x, y in zip(a, b))
     for triangle in triangles:
         if check is not None: check()
         a, b, c = (p[int(i)] for i in triangle)
@@ -112,26 +198,32 @@ def _inscribed_vertical_band(mesh, lo, hi, check=None):
         if n[2] == 0:
             if maximum > bound:
                 conflict = True
-                changes = tuple(abs(n[i])*(high[i]-low[i]) for i in (0, 1)); scale = sum(changes)
+                changes = tuple(abs(n[i])*(high[i]-low[i]) for i in (0, 1))
+                scale = sum(changes)
                 if not scale: return None
-                vertical_s = tuple(max(old, change/scale) for old, change in zip(vertical_s, changes))
+                vertical_s = maxima(vertical_s, tuple((change, scale) for change in changes))
             continue
-        value = (bound-maximum)/n[2]
-        sensitivity = tuple(abs(n[i]/n[2])*(high[i]-low[i]) for i in (0, 1))
+        numerator, denominator = bound-maximum, n[2]
+        if denominator < 0: numerator, denominator = -numerator, -denominator
+        value = (numerator, denominator)
+        sensitivity = tuple((abs(n[i])*(high[i]-low[i]), abs(n[2])*grid) for i in (0, 1))
         if n[2] < 0:
-            if value > lower: lower, lower_s = value, sensitivity
-            elif value == lower: lower_s = tuple(map(max, zip(lower_s, sensitivity)))
+            if larger(value, lower): lower, lower_s = value, sensitivity
+            elif equal(value, lower): lower_s = maxima(lower_s, sensitivity)
         else:
-            if value < upper: upper, upper_s = value, sensitivity
-            elif value == upper: upper_s = tuple(map(max, zip(upper_s, sensitivity)))
+            if larger(upper, value): upper, upper_s = value, sensitivity
+            elif equal(value, upper): upper_s = maxima(upper_s, sensitivity)
+    lower = Fraction(lower[0], lower[1]*grid)
+    upper = Fraction(upper[0], upper[1]*grid)
     try:
         a, b = float(lower), float(upper)
         if not math.isfinite(a) or not math.isfinite(b): return None
         if Fraction.from_float(a) < lower: a = math.nextafter(a, math.inf)
         if Fraction.from_float(b) > upper: b = math.nextafter(b, -math.inf)
     except (OverflowError, ValueError): return None
+    chosen = vertical_s if conflict else maxima(lower_s, upper_s)
     return dict(lower=a, upper=b, vertical_conflict=conflict,
-                sensitivity=vertical_s if conflict else tuple(map(max, zip(lower_s, upper_s))))
+                sensitivity=tuple(Fraction(numerator, denominator) for numerator, denominator in chosen))
 
 
 def _column_residual_axis(proposal, lo, hi, max_edge):
@@ -151,6 +243,46 @@ def _column_partition(lo, hi, lower, upper):
     if upper < hi[2]:
         a = lo.copy(); a[2] = upper; result.append((a, hi.copy(), 'upper'))
     return result
+
+
+
+def _column_core_box(low, high):
+    """Materialize the optional proposal with the original exact box endpoints.
+
+    This intentionally matches liquid._box's eight vertices/twelve triangles.
+    It exposes the object before strict validation only at this proposal seam;
+    ordinary cells and all original Boolean proofs still use liquid._box.
+    """
+    vertices = np.array([[low[0], low[1], low[2]], [high[0], low[1], low[2]],
+                         [high[0], high[1], low[2]], [low[0], high[1], low[2]],
+                         [low[0], low[1], high[2]], [high[0], low[1], high[2]],
+                         [high[0], high[1], high[2]], [low[0], high[1], high[2]]])
+    triangles = np.array([[0, 2, 1], [0, 3, 2], [4, 5, 6], [4, 6, 7],
+                          [0, 1, 5], [0, 5, 4], [1, 2, 6], [1, 6, 5],
+                          [2, 3, 7], [2, 7, 6], [3, 0, 4], [3, 4, 7]], dtype=np.uint64)
+    return liquid._mf().Manifold(liquid._mf().Mesh64(vertices, triangles))
+
+
+def _column_core(low, high, report=None):
+    """Observe an optional proposal; hard geometry refusals remain unchanged."""
+    solid = _column_core_box(low, high)
+    status, volume, empty = solid.status(), solid.volume(), solid.is_empty()
+    unusable = empty or volume == 0
+    hard = status != liquid._mf().Error.NoError or not math.isfinite(volume) or volume < 0
+    if report is not None and (hard or unusable):
+        report(dict(core_low_m=low.tolist(), core_high_m=high.tolist(),
+                    core_low_hex=[float(v).hex() for v in low],
+                    core_high_hex=[float(v).hex() for v in high],
+                    core_extent_m=(high-low).tolist(),
+                    kernel_status=str(status), kernel_is_empty=bool(empty),
+                    kernel_volume_m3=volume if math.isfinite(volume) else repr(volume),
+                    kernel_vertices=solid.num_vert(), kernel_triangles=solid.num_tri(),
+                    mesh_input_tolerance=0, hard_refusal=bool(hard)))
+    if unusable and not hard:
+        # No capacity or material is credited. The unchanged parent overlap
+        # follows the ordinary bounded split below; it is not discarded.
+        return None
+    return liquid._valid(solid, 'Cell box', nonempty=True)
 
 
 def _nested_requirements(tanks):
@@ -309,6 +441,15 @@ def _pack_shared(design, hull, tanks, excluded, limits, policy, *, exclusion_box
     certified = {i: 0. for i in range(4)}
     def feasible():
         return all(certified[r] >= dr and certified[f] >= total for r, f, dr, total in pairs)
+    core_reported = False
+    def report_core(context, info):
+        nonlocal core_reported
+        if core_reported: return
+        core_reported = True
+        # One bounded raw diagnostic per invocation. Do not filter background
+        # output through a buffered pipeline; root retains the complete log.
+        print('HANGAR_LIQUID_OPTIONAL_CORE '+json.dumps(dict(context, **info),
+              allow_nan=False, sort_keys=True), file=sys.stderr, flush=True)
     push(low, high, 0)
     while pending and not feasible():
         if screened >= limits['max_screened_cells']:
@@ -342,14 +483,9 @@ def _pack_shared(design, hull, tanks, excluded, limits, policy, *, exclusion_box
                 box = liquid._box(lo, hi); candidate = available if domain is None else records[domain][0]
                 overlap = liquid._valid(box ^ candidate, 'Cell/interior intersection')
                 if overlap.is_empty(): continue
-                if overlap.volume() > 0 and overlap.num_tri() == 12:
-                    mesh = overlap.to_mesh64(); contained = _represented_box(mesh, lo, hi)
-                if not contained:
-                    # Unrecognized represented topology retains the original
-                    # strict proof. A failing negative difference is NEVER
-                    # reinterpreted or overridden by a later certificate.
-                    contained = liquid._valid(box-candidate, 'Cell/interior difference').is_empty()
+                contained, mesh = _cell_contained(box, candidate, overlap, lo, hi, check)
             if not contained:
+                parent_lo, parent_hi = lo.copy(), hi.copy()
                 lo, hi = _contract_overlap(overlap, lo, hi)
                 # Coarse over-edge cells first obey the unchanged edge rule;
                 # local proposals then inspect ALL materialized oriented facets.
@@ -359,12 +495,22 @@ def _pack_shared(design, hull, tanks, excluded, limits, policy, *, exclusion_box
                 if proposal is not None and not proposal['vertical_conflict']:
                     parts = _column_partition(lo, hi, proposal['lower'], proposal['upper'])
                     if parts and all(kind == 'core' or b[2]-a[2] > limits['min_extent_m'] for a, b, kind in parts):
-                        core_lo, core_hi, _ = parts[0]; core = liquid._box(core_lo, core_hi)
-                        proof = liquid._valid(core ^ overlap, 'Column core/interior intersection')
-                        core_contained = (not proof.is_empty() and proof.volume() > 0 and proof.num_tri() == 12 and
-                                          _represented_box(proof.to_mesh64(), core_lo, core_hi))
-                        if not core_contained:
-                            core_contained = liquid._valid(core-overlap, 'Column core/interior difference').is_empty()
+                        core_lo, core_hi, _ = parts[0]
+                        context = dict(design=design, depth=depth, screened_cells=screened,
+                                       parent_low_m=parent_lo.tolist(), parent_high_m=parent_hi.tolist(),
+                                       contracted_low_m=lo.tolist(), contracted_high_m=hi.tolist(),
+                                       proposed_lower_m=proposal['lower'], proposed_upper_m=proposal['upper'],
+                                       lower_hex=float(proposal['lower']).hex(), upper_hex=float(proposal['upper']).hex(),
+                                       min_extent_m=limits['min_extent_m'], max_edge_m=max_edge,
+                                       overlap_volume_m3=overlap.volume())
+                        core = _column_core(core_lo, core_hi, lambda info: report_core(context, info))
+                        core_contained = False
+                        if core is not None:
+                            proof = liquid._valid(core ^ overlap, 'Column core/interior intersection')
+                            core_contained = (not proof.is_empty() and proof.volume() > 0 and proof.num_tri() == 12 and
+                                              _represented_box(proof.to_mesh64(), core_lo, core_hi))
+                            if not core_contained:
+                                core_contained = liquid._valid(core-overlap, 'Column core/interior difference').is_empty()
                         proof = None; core = None
                         if core_contained:
                             if len(parts) == 1:

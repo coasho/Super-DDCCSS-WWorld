@@ -514,7 +514,7 @@ set_tests_properties(weapon_employment_core PROPERTIES LABELS "native-engagement
 add_executable(fsim_contact_fuze_native_test simulation/test_contact_fuze_native.cpp)
 set_target_properties(fsim_contact_fuze_native_test PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/weapon-v2-fixture/bin")
-target_link_libraries(fsim_contact_fuze_native_test PRIVATE fsim::session)
+target_link_libraries(fsim_contact_fuze_native_test PRIVATE fsim::session libJSBSim)
 add_dependencies(fsim_contact_fuze_native_test fsim_payload_cards)
 add_dependencies(fsim_contact_fuze_native_test fsim_weapon_v2_fixture)
 target_compile_definitions(fsim_contact_fuze_native_test PRIVATE
@@ -649,6 +649,7 @@ add_executable(fsim_tests
     simulation/test_comm.cpp)
 
 target_link_libraries(fsim_tests PRIVATE fsim::env fsim::session fsim::ms fsim::control fsim::effects fsim::comm fsim::ipc fsim::sim fsim::io fsim::core Catch2::Catch2WithMain)
+target_link_libraries(fsim_tests PRIVATE libJSBSim)
 add_dependencies(fsim_tests fsim_payload_cards)
 target_compile_definitions(fsim_tests PRIVATE FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}"
                                                 FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft"
@@ -1208,3 +1209,10 @@ endforeach()
 
 include(${CMAKE_SOURCE_DIR}/cmake/SerialVerification.cmake)
 
+
+# Version5 exact-order source summation, including native fenv refusal controls.
+add_executable(fsim_source_wave_sum_v5_test simulation/test_source_wave_sum_v5.cpp)
+target_link_libraries(fsim_source_wave_sum_v5_test PRIVATE fsim::ms)
+fsim_set_warnings(fsim_source_wave_sum_v5_test)
+add_test(NAME source_wave_sum_v5 COMMAND fsim_source_wave_sum_v5_test)
+set_tests_properties(source_wave_sum_v5 PROPERTIES LABELS "sim-m03;weapon-sensor-engineering" TIMEOUT 30 RUN_SERIAL TRUE)

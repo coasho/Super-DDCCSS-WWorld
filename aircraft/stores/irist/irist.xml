@@ -32,7 +32,7 @@
         <ixx unit="SLUG*FT2"> 0.09211 </ixx>
         <iyy unit="SLUG*FT2"> 34.44635 </iyy>
         <izz unit="SLUG*FT2"> 34.44635 </izz>
-        <emptywt unit="LBS"> 137.6288 </emptywt>
+        <emptywt unit="LBS"> 137.62876577822533 </emptywt>
         <location name="CG" unit="IN">
             <x> 49.112462514832856 </x>
             <y> 0 </y>
@@ -128,8 +128,8 @@
                 <length unit="IN"> 64.4157 </length>
                 <bore_diameter unit="IN"> 1.7428 </bore_diameter>
             </grain_config>
-            <capacity unit="LBS"> 55.05525 </capacity>
-            <contents unit="LBS"> 55.05525 </contents>
+            <capacity unit="LBS"> 55.05525137135767 </capacity>
+            <contents unit="LBS"> 55.05525137135767 </contents>
         </tank>
     </propulsion>
     <flight_control name="Finite missile controls (engineering estimates)">

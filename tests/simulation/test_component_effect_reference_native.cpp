@@ -1,7 +1,8 @@
 #include "simulation/mission_systems/components/Providers.h"
 #include "simulation/mission_systems/weapon/Composition.h"
-#include "simulation/mission_systems/components/support/ReceiverConfigurationV1.h"
+#include "simulation/mission_systems/components/support/ReceiverConfigurationV3.h"
 #include "simulation/mission_systems/components/implementations/seeker/ThermalImageReceiverV1.h"
+#include "simulation/mission_systems/components/implementations/seeker/ThermalReticleReceiverV1.h"
 #include "simulation/mission_systems/components/implementations/seeker/RadioReceiverV1.h"
 #include "foundation/core/Json.h"
 #include "ComponentReferenceRuntimeV1.h"
@@ -144,9 +145,13 @@ TEST_CASE("Actual selected AAM effects methods expose primary-reference observat
         auto fuze=builtInProvidersV1().fuze.create(*profile.find("fuze"),context,error);
         auto warhead=builtInProvidersV1().warhead.create(*profile.find("warhead"),context,error);
         INFO(error);REQUIRE(seeker);REQUIRE(fuze);REQUIRE(warhead);
-        DescriptorV1 normalized;ReceiverConfigurationV2 receiver;
-        REQUIRE(receiverConfigurationV2(*profile.find("seeker"),normalized,receiver,error));
-        REQUIRE(receiver.single.kind!=PhysicalReceiverKindV1::Scalar);
+        DescriptorV1 normalized;ReceiverConfigurationV3 selected;
+        REQUIRE(receiverConfigurationV3(*profile.find("seeker"),normalized,selected,error));
+        const auto& receiver=selected.inherited;
+        // The V3 scalar selection is explicit; retained V2 paths keep their
+        // non-scalar admission predicate and all original numerical checks.
+        if(!selected.reticle)REQUIRE(receiver.single.kind!=PhysicalReceiverKindV1::Scalar);
+        else REQUIRE(dynamic_cast<ThermalReticleSeekerExecutionV1*>(seeker.get())!=nullptr);
         J row;row.set("model",id).set("card_sha256",hashFile(library/(id+".json")))
             .set("seeker_implementation",profile.find("seeker")->implementationId)
             .set("fuze_implementation",std::string(fuze->implementationId()))
@@ -179,7 +184,7 @@ TEST_CASE("Actual selected AAM effects methods expose primary-reference observat
                     .set("actual",actual);measurements.emplace_back(std::move(m));
             }
         } else {
-            std::vector<ReceiverScenePolicyV1> bands{receiver.single.scene};
+            std::vector<ReceiverScenePolicyV1> bands{selected.reticle?selected.reticle->scene:receiver.single.scene};
             if(receiver.secondBandScene)bands.push_back(*receiver.secondBandScene);
             for(const auto& band:bands)for(const double temperature:{300.,600.,1000.,2000.}) {
                 const double actual=ThermalImageReceiverV1::bandRadiance(temperature,.8,band.lowUm,band.highUm);
@@ -188,6 +193,49 @@ TEST_CASE("Actual selected AAM effects methods expose primary-reference observat
                     .set("emissivity",.8).set("low_um",band.lowUm).set("high_um",band.highUm)
                     .set("actual",actual);measurements.emplace_back(std::move(m));
             }
+            if(selected.reticle) {
+                const auto& policy=selected.reticle->policy;const auto& c=policy.detector;
+                ThermalReticleReceiverV1 optical;REQUIRE(optical.configure(policy,error));
+                ThermalSceneFrameV1 scene;scene.timeS=0;scene.up={0,0,1};
+                scene.skyRadianceWm2Sr=1;scene.groundRadianceWm2Sr=1;
+                const auto startup=optical.expose(scene,{1,0,0},2005);
+                REQUIRE(startup.valid);REQUIRE_FALSE(startup.complete);
+                // Read strictly inside the first completed-cycle interval;
+                // this preserves the true zero-initial-condition pole epoch.
+                scene.timeS=1/policy.frequencyHz+c.integrationTimeS;
+                const auto scan=optical.expose(scene,{1,0,0},2005);
+                REQUIRE(scan.valid);REQUIRE(scan.complete);REQUIRE(scan.exposureStartTimeS==0);
+                REQUIRE(scan.phases.size()==policy.samplesPerScan);
+                REQUIRE(scan.incidentElectrons.size()==policy.samplesPerScan);
+                REQUIRE(scan.expectedElectrons.size()==policy.samplesPerScan);
+                J::Array samples;
+                const unsigned count=policy.samplesPerScan;
+                // Export every scalar observation: no sparse waveform claims
+                // and no fitted source/target identity in this uniform case.
+                for(unsigned j=0;j<count;++j) {
+                    J sample;sample.set("index",static_cast<double>(j)).set("phase_rad",scan.phases[j])
+                        .set("incident_electrons",scan.incidentElectrons[j]);
+                    sample.set("expected_electrons",scan.expectedElectrons[j]);
+                    samples.emplace_back(std::move(sample));
+                }
+                J m;m.set("law","uniform_reticle_charge").set("receiver_model","thermal_conscan_reticle.v1")
+                    .set("reticle_pattern",profile.find("seeker")->bindings.at("reticle_pattern"))
+                    .set("reticle_design",profile.find("seeker")->bindings.at("reticle_design"))
+                    .set("scalar_implementation",profile.find("seeker")->implementationId)
+                    .set("width",static_cast<double>(c.width)).set("height",static_cast<double>(c.height))
+                    .set("periods",static_cast<double>(policy.periods)).set("samples_per_scan",static_cast<double>(count))
+                    .set("spatial_samples",static_cast<double>(policy.spatialSamples))
+                    .set("exposure_samples",static_cast<double>(c.exposureSamples))
+                    .set("scan_radius_rad",policy.scanRadiusRad).set("stop_radius_rad",policy.stopRadiusRad)
+                    .set("frequency_hz",policy.frequencyHz).set("pixel_pitch_rad",c.pixelPitchRad)
+                    .set("aperture_m2",c.apertureAreaM2).set("transmission",c.opticalTransmission)
+                    .set("integration_s",c.integrationTimeS).set("response_s",c.pixelResponseTimeS)
+                    .set("quantum_efficiency",c.quantumEfficiency).set("wavelength_m",c.effectiveWavelengthM)
+                    .set("dark_electrons_s",c.darkCurrentElectronsS).set("radiance_w_m2_sr",1.)
+                    .set("exposure_start_s",scan.exposureStartTimeS).set("initial_expected_electrons",0.)
+                    .set("initial_detector_time_s",0.).set("samples",J(std::move(samples)));
+                measurements.emplace_back(std::move(m));
+            } else {
             // Constant radiance has an independent photon-budget/solid-angle
             // solution for either the quadrant or imaging detector. Observe
             // expected charge before random shot/read noise and ADC clipping.
@@ -209,15 +257,32 @@ TEST_CASE("Actual selected AAM effects methods expose primary-reference observat
                 .set("wavelength_m",c.effectiveWavelengthM).set("dark_electrons_s",c.darkCurrentElectronsS)
                 .set("radiance_w_m2_sr",1.).set("actual",image.expectedElectrons[index]);
             measurements.emplace_back(std::move(m));
+            }
         }
         row.set("seeker",J(std::move(measurements)));
         row.set("fuze",J::Array{proximity(*fuze,.5),proximity(*fuze,1.5)});
         row.set("fuze_endpoint",endpointApproach(*fuze));
         const auto& w=warhead->model();
-        const double cylinder=damage::gurneyCylinder(w.gurneyMs,w.caseKg,w.explosiveKg);
-        REQUIRE(std::isfinite(cylinder));REQUIRE(cylinder>0);REQUIRE(w.speedMs>0);
-        J wm;wm.set("gurney_ms",w.gurneyMs).set("case_kg",w.caseKg).set("charge_kg",w.explosiveKg)
-            .set("actual",cylinder).set("source_speed_ms",w.speedMs)
+        const bool direct=w.modelVersion==3||w.modelVersion==4;
+        REQUIRE(w.speedMs>0);REQUIRE(std::isfinite(w.speedMs));
+        J wm;
+        if(direct) {
+            // The selected policies own a declared kinematic source, not a
+            // Gurney driver. An internal zero placeholder is not a measurement.
+            REQUIRE(w.stationStructuralM);
+            wm.set("gurney_ms",nullptr).set("actual",nullptr)
+                .set("gurney_availability","not_applicable")
+                .set("source_speed_availability","available")
+                .set("speed_driver","declared_kinematic_source")
+                .set("fragment_cd",w.fragmentCd)
+                .set("station_structural_m",J::Array{w.stationStructuralM->x,w.stationStructuralM->y,w.stationStructuralM->z});
+        } else {
+            const double cylinder=damage::gurneyCylinder(w.gurneyMs,w.caseKg,w.explosiveKg);
+            REQUIRE(std::isfinite(cylinder));REQUIRE(cylinder>0);
+            wm.set("gurney_ms",w.gurneyMs).set("actual",cylinder);
+        }
+        wm.set("case_kg",w.caseKg).set("charge_kg",w.explosiveKg)
+            .set("source_speed_ms",w.speedMs)
             .set("model_version",static_cast<double>(w.modelVersion))
             .set("fragment_source",static_cast<int>(w.fragmentSource))
             .set("rod",w.kind==damage::Warhead::Kind::Rod)

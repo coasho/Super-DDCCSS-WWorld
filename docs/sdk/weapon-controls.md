@@ -116,3 +116,40 @@ The installed C++, C99 and Python consumers in `tests/compatibility/equipment_pa
 Focused regressions cover stable authored fin identity under reordering/subdivision, refusal of distinct duplicate authored surfaces, quiet unsupported-model queries/publication, native public fin state/jam/removal, optional-stream identity/sequence/time matching, invalid wire flags and IDs, v8 replay state, actual generated GLB poses, old v7 playback fallback, actual-over-fallback precedence and matching-clock midpoint/identity guards. Native and installed gates and the complete live/replay GUI scenario remain required before acceptance.
 
 This adds observability and faithful presentation of the admitted reduced-order control model. The existing assumed 25/s channel lag, 4 rad/s actuator rate and geometry-derived aerodynamic estimates remain uncalibrated. It supplies no new equipment constants, and does not establish a 30 km hit or full SIM-M03 acceptance.
+
+## Powered directional control at vanishing aerodynamic pressure
+
+The versioned measured-load controller solves velocity-direction acceleration,
+including actual axial force. Its trim determinant is
+
+```
+D = F_angle - F_control*M_angle/M_control - F_x + m*demand_x
+    - sign*F_control*M_rate*(demand_x + gravity_x)/(M_control*speed)
+```
+
+Here `sign` is +1 for pitch and -1 for yaw; the other quantities are the same
+SI native loads, derivatives, mass, speed and specific-force request already
+used by the controller. A powered nozzle with zero aerodynamic derivatives
+still has nonzero control force and moment. With zero axial demand and rate
+damping, its determinant is `-thrust`, not the zero aerodynamic-only slope.
+The old aerodynamic-slope precondition incorrectly refused that valid state
+before the directional solver ran. Current versioned measured-axial execution
+uses the directional solver's existing finite/singular checks. Unversioned
+and non-axial callers retain their original preconditions.
+
+Independent Newton/Euler fixtures first construct constant-incidence trim,
+then integrate body incidence/rate and finite actuator lag/rate over time.
+They exercise pitch/yaw, both actuator-aware and cascade laws, both control
+polarities, vanishing-pressure continuity, absent authority, singular trim,
+invalid inputs and retained legacy refusal. The current Release execution
+passes all 24 autopilot cases, including these four added cases. This does
+not substitute for the individual models' coupled native encounters.
+
+The physical basis is [Jackson, Overview of Missile Flight Control Systems,
+JHU/APL 29(1), pp.9-24](https://www.jhuapl.edu/sites/default/files/2024-09/29-01-Jackson.pdf)
+and the [manufacturer's IRIS-T control-section description](https://www.group.sener/en/project/iris-t-and-iris-t-sl-control-sections/).
+These support force/moment feedback and finite thrust-vector authority; the
+equations above are the project's disclosed small-angle engineering reduction.
+They do not extend its incidence domain or assert arbitrary controllability:
+a genuine singular pole-assignment determinant remains a refusal. No authored
+gain, actuator limit, force coefficient, scenario or threshold changes.

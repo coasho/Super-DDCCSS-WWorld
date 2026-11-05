@@ -31,10 +31,14 @@ inline V3 motionAt(const std::vector<MotionSample>& path, double offsetS) noexce
     return path.back().position;
 }
 
-inline FuzeResult sweptPathFuze(const std::vector<MotionSample>& own,
-                               const std::vector<MotionSample>& target,
-                               double ageBeforeS, double stepDurationS, const Spec& spec,
-                               double eligibleEndS, bool exclusiveEnd) {
+namespace fuze_detail {
+// A standalone captured path includes an exact initial stationary point.
+// Contiguous release history owns that shared point's two-sided eligibility
+// and deduplication, without changing any captured timestamp or later turn.
+inline FuzeResult sweptPathFuzeImpl(const std::vector<MotionSample>& own,
+                                   const std::vector<MotionSample>& target,
+                                   double ageBeforeS, double stepDurationS, const Spec& spec,
+                                   double eligibleEndS, bool exclusiveEnd, bool includeInitialPoint) {
     FuzeResult result;
     if (!fuze_detail::validModel(spec) || !validMotionPath(own) || !validMotionPath(target) ||
         !std::isfinite(ageBeforeS) || ageBeforeS < 0 ||
@@ -93,7 +97,8 @@ inline FuzeResult sweptPathFuze(const std::vector<MotionSample>& own,
     };
     for (std::size_t k=1;k<times.size();++k) {
         const auto& part=parts[k-1];
-        if (part.triggered && part.fraction>0 && part.fraction<1) {
+        if (part.triggered && part.fraction<1 &&
+            (part.fraction>0 || (k==1 && includeInitialPoint && part.fraction==0))) {
             const double t=times[k-1]+part.fraction*(times[k]-times[k-1]);
             const auto found=candidate(t,relativeAt(t));
             if (found.triggered) return found;
@@ -122,6 +127,15 @@ inline FuzeResult sweptPathFuze(const std::vector<MotionSample>& own,
     }
     return result;
 }
+} // namespace fuze_detail
+
+inline FuzeResult sweptPathFuze(const std::vector<MotionSample>& own,
+                               const std::vector<MotionSample>& target,
+                               double ageBeforeS, double stepDurationS, const Spec& spec,
+                               double eligibleEndS, bool exclusiveEnd) {
+    return fuze_detail::sweptPathFuzeImpl(own,target,ageBeforeS,stepDurationS,spec,
+                                        eligibleEndS,exclusiveEnd,true);
+}
 
 /// Actual last captured relative segment from this release/target only. It
 /// confirms a corner at a shared decision boundary after the opening segment
@@ -135,14 +149,19 @@ public:
                         const std::vector<MotionSample>& target,
                         double ageBeforeS,double durationS,const Spec& spec,
                         double eligibleEndS,bool exclusiveEnd,std::uint32_t targetId) {
-        auto result=sweptPathFuze(own,target,ageBeforeS,durationS,spec,eligibleEndS,exclusiveEnd);
+        const bool contiguous=available_ && targetId==targetId_ && ageBeforeS==ageS_ &&
+                              !own.empty() && !target.empty() &&
+                              same(own.front().position,own_) && same(target.front().position,target_);
+        auto result=fuze_detail::sweptPathFuzeImpl(own,target,ageBeforeS,durationS,spec,
+                                                eligibleEndS,exclusiveEnd,!contiguous);
         if (!result.valid || spec.fuzeModelVersion!=1 || targetId==0) {
             reset();
             return targetId==0 && spec.fuzeModelVersion==1 ? FuzeResult{} : result;
         }
         const double end=std::min({eligibleEndS,own.back().offsetS,target.back().offsetS});
-        const bool contiguous=available_ && targetId==targetId_ && ageBeforeS==ageS_ &&
-                              same(own.front().position,own_) && same(target.front().position,target_);
+        // The shared endpoint is evaluated from both captured sides below.
+        // A reported endpoint is skipped, while the path helper has already
+        // retained the first eligible turn strictly after that shared point.
         if (contiguous && !reported_ && end>0 && ageBeforeS>=spec.armingS && ageBeforeS<spec.lifeS) {
             double first=end;
             for (const auto* path : {&own,&target})

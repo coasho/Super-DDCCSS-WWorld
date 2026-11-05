@@ -699,7 +699,7 @@ def powered_comparisons(result, native, root=ROOT):
             actual,expected=np.broadcast_arrays(np.asarray(actual,float),np.asarray(expected,float))
             worst=np.unravel_index(np.argmax(abs(actual-expected)),actual.shape)
             check=dict(name=name+' (maximum absolute residual)',actual=checked['max_absolute_error'],expected=0.,
-                tolerance=tolerance,passed=True,worst_observation=dict(index=list(worst),actual=float(actual[worst]),expected=float(expected[worst])),
+                tolerance=tolerance,passed=True,worst_observation=dict(index=[int(index) for index in worst],actual=float(actual[worst]),expected=float(expected[worst])),
                 native_observations=len(values),inputs=inputs)
             row['method']['residuals'].append(check);row['method']['tests']+=1;row['method']['assertions']+=1
         dt=observed['native_dt_s'];eps=np.finfo(float).eps

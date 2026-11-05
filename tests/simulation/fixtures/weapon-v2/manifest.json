@@ -1,36 +1,36 @@
 {
   "schema": "fsim.weapon-v2-native-fixture-source.v1",
   "generator": "tests/simulation/fixtures/weapon_v2_assets.py",
-  "generator_sha256": "ddec2ec406a1094375761c3dbb7cec2112640fd122dd6367b05528d51f5d0782",
-  "scope": "Exactly four explicit retained V2 detector profiles for unchanged native compatibility assertions. Current24 V3 production acceptance is separate.",
-  "verification_scope": "Current input, generated fixture and generator hashes are checked before every native fixture staging build.",
+  "generator_sha256": "010e07c2c6b9ce2db15760a780dbf223103723bc77519011b88204782fddb729",
+  "scope": "Exactly four explicit retained V2 detector profiles with original nonseeker mechanisms and numeric inputs. Current production acceptance is separate.",
+  "verification_scope": "Current input, generated fixture, generator and normalization dependencies are checked before native fixture staging.",
   "files": [
     {
       "input": "assets/stores/aim-9m.json",
-      "input_sha256": "f35b00d8c6bbaa9f6f5816ad2f60eecd47de477f2384ac373915d8b2bcd9cd3a",
+      "input_sha256": "97df961e688aedb880753855c73db5453feb5d4d1ecf1503e2e766ef5cc6f5dc",
       "fixture": "tests/simulation/fixtures/weapon-v2/aim-9m.json",
-      "fixture_sha256": "59941b6919def9f63b0717f9f1edf8281fe1823368d8209a7ebd7f76ca90dde3",
+      "fixture_sha256": "64a787ea550609122c1efc635c6ec7d8cc2c01fca53a7e373acecd20d2510ba1",
       "selected_seeker": "fsim.seeker.nonimaging_ir.v2"
     },
     {
       "input": "assets/stores/aim-9x.json",
-      "input_sha256": "b81fe278c626e7aa33cc69d5bbc5e7f98a5986654cd8d0d9057ada07d56cd4b3",
+      "input_sha256": "8894aa6a1310e2575069345a61cbb1ae0bd00e3884899634e734672db789dde4",
       "fixture": "tests/simulation/fixtures/weapon-v2/aim-9x.json",
-      "fixture_sha256": "c19b30db859613c5b10ba5e71cc455caca9d76bc00519b92942d0588b853378a",
+      "fixture_sha256": "f6edd9a2d978949a62557453c42f6a244804b525cff21f6a93eb3891674c10a9",
       "selected_seeker": "fsim.seeker.imaging_ir.v2"
     },
     {
       "input": "assets/stores/aim-7m.json",
-      "input_sha256": "0bebf52b9c769fa2402f048fd60db57acb93158b0bc44ab81e1aa1b2666b1a64",
+      "input_sha256": "5c473f59fbf0728f7ec841dd7da1ab66c59a47416d88f6b6c0e13b1bcd257327",
       "fixture": "tests/simulation/fixtures/weapon-v2/aim-7m.json",
-      "fixture_sha256": "546265a53a51729afb396011fa1f1a73fab250975af96f7448c9c093d1d7958a",
+      "fixture_sha256": "d4752a21c12849ee472281580335e3bc6831ff761081e0926dd2143cf0583dba",
       "selected_seeker": "fsim.seeker.semi_active_radar.v2"
     },
     {
       "input": "assets/stores/aim-120c.json",
-      "input_sha256": "4ee469959b3c5a1f4c150102ad919a117804dbc4984604c06f02bc61bde3c230",
+      "input_sha256": "6aa631953aa69befb7b2677be42dd9ca4e5eab2a5e5672995387bf934031bd66",
       "fixture": "tests/simulation/fixtures/weapon-v2/aim-120c.json",
-      "fixture_sha256": "77aef352b24eb4e15b193b60e8644cbe66ff1e718bbf3839ef701a238ad147f8",
+      "fixture_sha256": "d81fd624adcc458ebed8ae97f5982e6991924a501a73968ce5d0a3c674083f5b",
       "selected_seeker": "fsim.seeker.active_radar.v2"
     }
   ],
@@ -38,7 +38,7 @@
   "dependencies": {
     "catalogue": {
       "path": "tools/models/hangar/hangar/data/equipment_models.json",
-      "sha256": "a4995a221e5f0f9092c1e3f1095b1cfaf9c0aa8f26e791ab577409710366d8be"
+      "sha256": "92726a798885785fa820b5e3c29757bdcacce1000a137ba175d747fd2b4b37c5"
     },
     "normalizer": {
       "path": "tools/models/hangar/hangar/equipment_models.py",

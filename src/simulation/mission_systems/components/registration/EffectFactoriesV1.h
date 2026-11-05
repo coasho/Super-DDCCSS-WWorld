@@ -16,4 +16,6 @@ std::unique_ptr<WarheadAdapter> makeNativeWarheadAdapterV1(std::string id, Warhe
 std::unique_ptr<WarheadAdapter> makeZonedCaseWarheadV1(std::string, Warhead);
 std::unique_ptr<WarheadAdapter> makeSideCaseWarheadV1(std::string, Warhead);
 std::unique_ptr<WarheadAdapter> makeFiniteZonedCaseWarheadV2(std::string, Warhead);
+std::unique_ptr<WarheadAdapter> makeAuthoredFieldWarheadV3(std::string, Warhead);
+std::unique_ptr<WarheadAdapter> makeAuthoredRingWarheadV4(std::string, Warhead);
 }

@@ -1,0 +1,208 @@
+{
+  "schema": "fsim.sim-m03.development-checkpoint.v1",
+  "date": "2026-11-04",
+  "branch": "main",
+  "preceding_commit": "f8bd88224c1d36a1efb6017580c852e177d9c095",
+  "status": "checkpoint_unaccepted",
+  "acceptance_flags": {
+    "sim_m03": false,
+    "full_chain_24": false,
+    "component_cells_216": false,
+    "both_presets": false,
+    "installed": false,
+    "fleet": false,
+    "visual": false,
+    "replay": false
+  },
+  "evidence_policy": "These are local archived receipts at their own recorded source/executable epochs, not current full-program acceptance. Raw evidence is ignored and not distributed in this commit. Worktree byte hashes may differ from Git line-ending normalization; rebuild/retest after checkout.",
+  "local_receipts": [
+    {
+      "path": "build/architecture-reviews/sim-m03-current-20261104/rod-contact-v3-current/exit-slice-current/runs.json",
+      "sha256": "0526af640d85b449b0169cafe5facc677aa3e4b5923cd9eb805407415cfe893d",
+      "recorded_summaries": [
+        {
+          "label": "build",
+          "exit_code": 0,
+          "elapsed_s": 12.446882800024468
+        },
+        {
+          "label": "original-diagonal",
+          "exit_code": 0,
+          "elapsed_s": 0.02431449998402968,
+          "assertions": 52,
+          "failures": 0,
+          "junit_sections": 1
+        },
+        {
+          "label": "original-partition",
+          "exit_code": 0,
+          "elapsed_s": 0.019056000019190833,
+          "assertions": 147,
+          "failures": 0,
+          "junit_sections": 6
+        },
+        {
+          "label": "history-controls",
+          "exit_code": 0,
+          "elapsed_s": 0.023207099991850555,
+          "assertions": 192,
+          "failures": 0,
+          "junit_sections": 23
+        }
+      ]
+    },
+    {
+      "path": "build/architecture-reviews/sim-m03-current-20261104/damage-contact-v3-owned-current/run.json",
+      "sha256": "9a1df098ad7bce8b3c738a773b5fdc14468828270cee33eb5c67be39cd0315ed",
+      "recorded_summaries": [
+        {
+          "status": "FAIL",
+          "exit_code": 8,
+          "elapsed_s": 116.15713000000687,
+          "failures": 1,
+          "expected_cases": 91,
+          "executed_cases": 91
+        }
+      ]
+    },
+    {
+      "path": "build/architecture-reviews/sim-m03-current-20261104/reticle-repair/moving-radiator-v2/v5-certified-edge-phase-current-run.json",
+      "sha256": "327912c2b8303148fadcb15230802f4bee217ba0e0e8484f6111f5e50108355d",
+      "recorded_summaries": [
+        {
+          "exit_code": 0,
+          "elapsed_s": 0.22553049999987707,
+          "assertions": 14662,
+          "failures": 0,
+          "junit_sections": 4
+        }
+      ]
+    },
+    {
+      "path": "build/architecture-reviews/sim-m03-current-20261104/reticle-repair/moving-radiator-v2/v5-certified-edge-captured-moving-current-run.json",
+      "sha256": "19399d51e6a7a256daaa5c321faf2277373a47fec4e774676e2142fdb46a05d8",
+      "recorded_summaries": [
+        {
+          "exit_code": "timeout",
+          "elapsed_s": 180.00861109999823
+        }
+      ]
+    },
+    {
+      "path": "build/architecture-reviews/sim-m03-current-20261104/reticle-repair/moving-radiator-v2/quadrature-research/root-fast-v5-integration/source-wave-current.json",
+      "sha256": "0e78e3a1e1269848689b366069ceea4985b1930aeb6be574772aba5ebf2670e8",
+      "recorded_summaries": [
+        {
+          "exit_code": 0,
+          "elapsed_s": 0.5092153000005055
+        }
+      ]
+    },
+    {
+      "path": "build/architecture-reviews/sim-m03-current-20261104/reticle-repair/moving-radiator-v2/quadrature-research/v5-field-edge-domain-revision-1/root-native-current/run.json",
+      "sha256": "735b98be285e89b0766ea973daf6c6d3a4b880c66d84375d2e28991ad9f28c17",
+      "recorded_summaries": [
+        {}
+      ]
+    },
+    {
+      "path": "build/architecture-reviews/sim-m03-current-20261104/zero-work-causal-audit/projectile-state-observer/r27r-after-material-contact-v3/native-runs.json",
+      "sha256": "cc55bed608b0e558dcdee3ca01cc95aeb5fac13b8befc4949456b0c70d7edaa9",
+      "recorded_summaries": [
+        {
+          "model": "r-27r",
+          "exit_code": 42,
+          "elapsed_s": 14.493542900017928,
+          "counts": {
+            "named_cases": 1,
+            "assertions": 12040,
+            "failures": 0
+          }
+        }
+      ]
+    },
+    {
+      "path": "build/architecture-reviews/sim-m03-current-20261104/zero-work-causal-audit/projectile-state-observer/ring-source-models-et-t-current/native-runs.json",
+      "sha256": "058653fec95f174bc76607b291cb0c591b5f504bcc1a9b8a3b1f2e7432f91057",
+      "recorded_summaries": [
+        {
+          "model": "r-27et",
+          "exit_code": 42,
+          "elapsed_s": 570.2727602000232,
+          "counts": {
+            "named_cases": 1,
+            "assertions": 61071,
+            "failures": 1
+          }
+        },
+        {
+          "model": "r-27t",
+          "exit_code": 42,
+          "elapsed_s": 497.218097200006,
+          "counts": {
+            "named_cases": 1,
+            "assertions": 61400,
+            "failures": 1
+          }
+        }
+      ]
+    },
+    {
+      "path": "build/architecture-reviews/sim-m03-current-20261104/weapon-v2-compatibility-refresh/root-current/run.json",
+      "sha256": "3145c7ad669c17fec6e3a35d16bed6bfc6d874274e705c7096f204660e5cab98",
+      "recorded_summaries": [
+        {
+          "exit_code": 0,
+          "elapsed_s": 0.13844789998256601
+        }
+      ]
+    }
+  ],
+  "paused_worktree_source_sha256": {
+    "src/simulation/mission_systems/damage/Damage.cpp": "20f9a94f0c2376e8b3e9abf95cd19b3f5ec983398dfe186bbd2ae2af657bdc46",
+    "src/simulation/mission_systems/damage/MaterialContactHistoryV3.h": "46a6fb077767c00a34881f039eb5f143bcbc9ec75e14694bd504bcfcb80bf965",
+    "src/simulation/mission_systems/damage/detail/MaterialContactV3.h": "87ef0c6a7f7628991759c94fadf588d3903328005261cf5942c4be3d0e603923",
+    "src/simulation/runtime/world/WorldDamage.cpp": "fb946a2eda2445917a139cc02590a0a95ef1bf1c8c68dbc0491b9a7714ff3d0b",
+    "src/simulation/mission_systems/components/support/MovingConicMomentsV4.cpp": "49fd03b5d4c0f75bc2ffdad54976000155c886f587418e942713e2fc7cddd2fc",
+    "src/simulation/mission_systems/components/support/MovingConicMomentsV4.h": "871421046b445439c01ad4338588eee90350bd0eb33929f6e701cc73cc2993fe",
+    "src/simulation/mission_systems/components/support/SourceWaveSumV5.h": "86f631857d74304b966be127558d98ecc42bfbc9c454282f78683d8c4378334e",
+    "src/simulation/mission_systems/components/implementations/seeker/MovingRadiatorInverseV2.cpp": "242843e49ce2a6cb46c3bf8969f849c76e7702dc7f7742218f16be84a5575870",
+    "tests/simulation/test_damage.cpp": "9e39e739d91cb451b641d98fe87f3bd41fd653da4ff99405db6697f358ea7250",
+    "tests/simulation/test_thermal_reticle_receiver.cpp": "b5db82157ec267709e4964b8b1d6c4de8fcc94cfea4b99c150c355005ec08453",
+    "tests/simulation/fixtures/weapon_v2_assets.py": "9f64e1314e529359cc3a243dcf3610acc4eb45cebcb596740926442b96d2789b",
+    "tests/simulation/fixtures/weapon-v2/manifest.json": "bcddbef282b1236b2b408da6ddb4f60b4a58ef1ca0964ced1ce2166eae6551d4"
+  },
+  "known_blockers": [
+    "R-27R native World ownership-handoff error; nonmesh panels must not be treated as ContactMeshes",
+    "Exact contact history continuity lost to incremental versus canonical moving-origin arithmetic",
+    "Captured moving thermal gate times out at the original180-second limit",
+    "Current24/24 and216-cell admission and complete preset/installed/fleet/visual/replay campaigns remain unaccepted"
+  ],
+  "unapplied_work": "Research candidates remain local under the dated evidence root; no further repair is applied as part of this pause.",
+  "r27r_actual_junit": {
+    "path": "build/architecture-reviews/sim-m03-current-20261104/zero-work-causal-audit/projectile-state-observer/r27r-after-material-contact-v3/r-27r.xml",
+    "sha256": "fcce19f642f9be9bbe185bfdcb02ee64d35ac21be9aa9f3c7d905a710b58ca2e",
+    "errors": 1,
+    "failures": 0,
+    "complete_full_chain": false
+  },
+  "commit_line_ending_normalization": [
+    {
+      "path": "tests/simulation/fixtures/weapon_v2_assets.py",
+      "before_sha256": "9f64e1314e529359cc3a243dcf3610acc4eb45cebcb596740926442b96d2789b",
+      "after_sha256": "010e07c2c6b9ce2db15760a780dbf223103723bc77519011b88204782fddb729",
+      "scope": "Git-required LF normalization only"
+    },
+    {
+      "path": "tools/models/hangar/hangar/data/equipment_models.json",
+      "before_sha256": "af5de2767e26321e5a9dbde2286d4385c2d9209752fd32bafeabf3fcae6ca4ad",
+      "after_sha256": "92726a798885785fa820b5e3c29757bdcacce1000a137ba175d747fd2b4b37c5",
+      "scope": "Git-required LF normalization only"
+    }
+  ],
+  "commit_compatibility_regeneration": {
+    "path": "build/architecture-reviews/sim-m03-current-20261104/checkpoint-commit/normalized-compatibility/run.json",
+    "sha256": "98e60aed961f5e3a99a0da518399a90587ec432eeca4f7a444669ab210640ee8",
+    "all_four_fixture_bytes_unchanged": true
+  }
+}

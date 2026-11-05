@@ -15,6 +15,8 @@ add_library(fsim_ms STATIC
     components/implementations/seeker/EngineeringSeekerV3.cpp
     components/implementations/seeker/ThermalImageReceiverV1.cpp
     components/implementations/seeker/ThermalReticleReceiverV1.cpp
+    components/implementations/seeker/MovingRadiatorInverseV2.cpp
+    components/support/MovingConicMomentsV4.cpp
     components/implementations/seeker/RadioReceiverV1.cpp
     components/implementations/seeker/RadioTemporalCoincidenceV1.cpp
     components/implementations/guidance/MeasuredPnGuidanceV2.cpp
@@ -76,6 +78,8 @@ add_library(fsim_ms STATIC
     damage/Damage.h
     damage/Damage.cpp
     damage/WarheadAdapter.cpp
+    damage/AuthoredFieldPolicyV3.cpp
+    components/implementations/warhead/AuthoredFieldWarheadV3.cpp
     damage/State.h
     damage/State.cpp
     damage/Debris.h

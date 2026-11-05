@@ -2681,7 +2681,7 @@ void World::flyReleases() {
                 if (releasedCard && (guided || armedEffects)) {
                     const auto warhead=w->warheadAdapter ? std::optional<ms::damage::Warhead>{w->warheadAdapter->model()}
                                                         : ms::damage::warheadOf(*releasedCard);
-                    if (warhead && (warhead->modelVersion==1 || warhead->modelVersion==2)) {
+                    if (warhead && (warhead->modelVersion==1 || warhead->modelVersion==2 || warhead->modelVersion==3 || warhead->modelVersion==4)) {
                         w->fixedBurstRequired=true;
                         if (w->contactNoseFromOriginBodyM && warhead->stationStructuralM) {
                             const auto station=*warhead->stationStructuralM;
@@ -2840,6 +2840,9 @@ void World::flyReleases() {
                 applyStoreMasses(*l);
                 const double reaction[3] = {-kg * r.launch.ejectionBodyMs[0], -kg * r.launch.ejectionBodyMs[1], -kg * r.launch.ejectionBodyMs[2]};
                 model.endMassChange(nullptr, reaction);
+                // Later releases use their own current CG and the matching
+                // native pose/velocity; the model origin remains fixed.
+                pool_->refreshState(l->slot);
             }
         }
     }
@@ -3156,6 +3159,10 @@ void World::step(unsigned n) {
             sense();
             advanceWeaponNavigationV1();
             finishEngagements();
+            // Boundary C: all engagement sources/contacts are collected. Their
+            // B-to-C material response commits before ground/release ownership
+            // and mass transitions; later stepDamage cannot publish C twice.
+            advanceDetonationEffects();
             // a weapon that struck the ground has ended (its fuze and warhead: MS-7)
             std::vector<std::uint32_t> impacts;
             for (std::size_t s = 0; s < entries_.size(); ++s)

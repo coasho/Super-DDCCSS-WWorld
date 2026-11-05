@@ -169,6 +169,59 @@ def original_certificate(self, index, lo, hi):
 
 
 class SharedVesselPackingTests(unittest.TestCase):
+    def test_actual_rq_one_ulp_optional_proposal_refines_parent(self):
+        # Exact endpoints from normal rq4b model generation, screened cell1146.
+        # Its positive parent overlap is0.001844211328676976m3; this optional
+        # one-ULP slab materializes as NoError/empty/zero in the actual backend.
+        low = np.array([float.fromhex(value) for value in
+            ('-0x1.af2d9776a9a2fp-2', '-0x1.3f35810000000p+3', '-0x1.0701edd7369edp-2')])
+        high = np.array([float.fromhex(value) for value in
+            ('-0x1.c69547176c888p-3', '-0x1.2b42449000000p+3', '-0x1.0701edd7369ecp-2')])
+        self.assertTrue(np.all(high > low))
+        raw = vessels._column_core_box(low, high)
+        self.assertEqual(raw.status(), mf.Error.NoError)
+        self.assertTrue(raw.is_empty())
+        self.assertEqual(raw.volume(), 0.)
+        self.assertIsNone(vessels._column_core(low, high))
+
+    def test_optional_column_box_preserves_original_endpoint_mesh(self):
+        lo, hi = np.array([.7578125, -1.25, .25]), np.array([1., -1.125, .5])
+        original = liquid._box(lo, hi).to_mesh64()
+        candidate = vessels._column_core(lo, hi).to_mesh64()
+        np.testing.assert_array_equal(candidate.vert_properties, original.vert_properties)
+        np.testing.assert_array_equal(candidate.tri_verts, original.tri_verts)
+        self.assertGreater(vessels._column_core(lo, hi).volume(), 0.)
+
+    def test_optional_core_refuses_only_noerror_empty_or_zero_proposals(self):
+        lo, hi = np.zeros(3), np.ones(3)
+        for empty, volume in ((True, 0.), (False, 0.)):
+            with self.subTest(empty=empty, volume=volume):
+                solid = SimpleNamespace(status=lambda: mf.Error.NoError, volume=lambda: volume,
+                    is_empty=lambda: empty, num_vert=lambda: 0, num_tri=lambda: 0)
+                reports = []
+                with patch.object(vessels, '_column_core_box', return_value=solid):
+                    self.assertIsNone(vessels._column_core(lo, hi, reports.append))
+                self.assertEqual(len(reports), 1)
+                self.assertEqual(reports[0]['kernel_status'], str(mf.Error.NoError))
+                self.assertFalse(reports[0]['hard_refusal'])
+
+    def test_optional_core_keeps_all_hard_geometry_refusals(self):
+        lo, hi = np.zeros(3), np.ones(3)
+        bad_status = 'synthetic_invalid_status'
+        for status, volume in ((bad_status, 0.), (mf.Error.NoError, -1e-19),
+                               (mf.Error.NoError, math.nan), (mf.Error.NoError, math.inf)):
+            with self.subTest(status=status, volume=volume):
+                solid = SimpleNamespace(status=lambda: status, volume=lambda: volume,
+                    is_empty=lambda: True, num_vert=lambda: 0, num_tri=lambda: 0)
+                reports = []
+                with patch.object(vessels, '_column_core_box', return_value=solid):
+                    with self.assertRaises(liquid.LiquidError):
+                        vessels._column_core(lo, hi, reports.append)
+                self.assertTrue(reports[0]['hard_refusal'])
+        with patch.object(vessels, '_column_core_box', side_effect=RuntimeError('kernel failure')):
+            with self.assertRaisesRegex(RuntimeError, 'kernel failure'):
+                vessels._column_core(lo, hi)
+
     def test_exact_box_mesh_certificate_preserves_provided_seam_topology(self):
         lo, hi = np.array([-3., 7., 11.]), np.array([-1., 10., 15.])
         native = mf.Manifold.cube(hi-lo).translate(lo).to_mesh64()
@@ -271,6 +324,42 @@ class SharedVesselPackingTests(unittest.TestCase):
                 return vessels.ORDINARY
             def receipt(self, cells): return {'scope': 'synthetic exact dyadic wedge; not native RQ geometry'}
         result = vessels._pack_shared('rq4b', hull, tanks, None, dict(max_seconds=60.), WedgePolicy())
+        self.assertEqual(result['limits']['max_cells'], 65536)
+        self.assertLessEqual(result['ledger']['screened_cells'], 1048576)
+        self.assertLessEqual(len(result['cells']), 65536)
+        self.assertAlmostEqual(math.fsum(c['volume_m3'] for c in result['cells']), 15/512, places=12)
+        self.assertTrue(all(max(b-a for a, b in zip(c['low_m'], c['high_m'])) <= .5*(1+1e-12) for c in result['cells']))
+        self.assertTrue(result['ledger']['global_aabb_nonoverlap_verified'])
+    def test_rejected_optional_core_refines_parent_without_losing_required_volume(self):
+        self.assertTrue(callable(vessels._inscribed_vertical_band))
+        hull = self.wedge(); volume = (15/512)/4
+        tanks = [dict(index=i, capacity_kg=800*volume, density_kg_m3=800.,
+                      anchor_body_m=[.5, 1. if i in (0, 2) else 3., .0625],
+                      section='left wing' if i in (0, 2) else 'right wing') for i in range(4)]
+        class WedgePolicy:
+            selected = {0, 1}
+            def __init__(self): self.tanks = {t['index']: t for t in tanks}
+            def assignment_order(self, ids): return [2, 3, 0, 1]
+            def _certificates(self, a, b):
+                if b[1] <= 2.: return (1, -1, 1, -1)
+                if a[1] >= 2.: return (-1, 1, -1, 1)
+                return (0, 0, 0, 0)
+            def certificate(self, i, a, b): return self._certificates(a, b)[i]
+            def region(self, i, a, b): return liquid._box(a, b)
+            def eligibility(self, i, a, b):
+                if self.certificate(i, a, b) != 1: raise liquid.LiquidError('analytic owner refusal')
+                return vessels.ORDINARY
+            def receipt(self, cells): return {'scope': 'synthetic exact dyadic wedge; not native RQ geometry'}
+        original_core = vessels._column_core
+        rejected = []
+        def reject_first(low, high, report=None):
+            if not rejected:
+                rejected.append((low.copy(), high.copy()))
+                return None
+            return original_core(low, high, report)
+        with patch.object(vessels, '_column_core', side_effect=reject_first):
+            result = vessels._pack_shared('rq4b', hull, tanks, None, dict(max_seconds=60.), WedgePolicy())
+        self.assertEqual(len(rejected), 1)
         self.assertEqual(result['limits']['max_cells'], 65536)
         self.assertLessEqual(result['ledger']['screened_cells'], 1048576)
         self.assertLessEqual(len(result['cells']), 65536)

@@ -2104,3 +2104,730 @@ TEST_CASE("Added skin damage drag dissipates actual air-relative motion at all a
     V3 force,moment;damage.aeroLoss(forward,force,moment);
     CHECK(near(force.x,-magnitude,1e-12));CHECK(force.y==0);CHECK(force.z==0);
 }
+
+// A generic finite-CCD method witness derived from an independent replay's
+// query, not an observed internal native contact or a World encounter change.
+// The actual authored F16C mesh and native skin/constraint tolerances remain
+// unchanged. Synthetic retained-face history isolates its one finite triangle.
+TEST_CASE("finite triangle retains a rationally feasible line intersection", "[damage][scene-effects][finite-triangle-line-feasibility]") {
+    std::string error;const auto frame=readAirframe(kAircraft/"f16c/f16c.damage.json",error);INFO(error);REQUIRE(frame);
+    REQUIRE(frame->contactGeometry);const auto* mesh=frame->contactGeometry->panel(77);REQUIRE(mesh);
+    REQUIRE(mesh->triangles.size()>1344);
+    const auto& indices=mesh->triangles[1344];
+    const V3 a=mesh->vertices[indices[0]],b=mesh->vertices[indices[1]],c=mesh->vertices[indices[2]];
+    // Exact authored face identity1346 = original triangle root1344 +2.
+    CHECK(a.x==4.73336);CHECK(a.y==.30467);CHECK(a.z==-.71927);
+    CHECK(b.x==4.73336);CHECK(b.y==.29881);CHECK(b.z==-.77324);
+    CHECK(c.x==4.6525);CHECK(c.y==.30988);CHECK(c.z==-.72974);
+    constexpr double duration=2.5798499008052814e-5;
+    FragmentFieldV1 field;field.valid=true;field.caseKg=.33442622950819667;
+    field.burst.axis={1,0,0};field.applyBlast=false;field.emittedCount=1;
+    FragmentFieldV1::Projectile p;p.sourceOrdinalV1=1;p.segment=true;
+    p.at={4.699495709316732,.5504803928718082,-.8503123394168568};
+    p.end={4.675161666159645,.3047537520286624,-.6928693780727511};
+    p.velocity={-929.3587612318177,-630.1474296047509,-1035.519821218271};
+    p.endVelocity={-929.3587612318175,-630.14742960475,-1035.5198212182718};
+    p.massKg=field.caseKg;p.areaM2=.0040520511782326614;p.cd=1.3;
+    // Ordinary source IDs1/1 identify this UNIT fixture only. They are not
+    // relabelled as the independent flow's weapon/ordinal or native trace.
+    for(std::size_t panel=0;panel<frame->panels.size();++panel) {
+        const auto* skin=frame->contactGeometry->panel(panel);
+        if(skin) {
+            for(std::size_t face=2;face<skin->triangles.size()+2;++face)
+                if(panel!=77||face!=1346)p.crossedFaces.push_back({1,1,0,panel,face});
+        } else for(std::uint64_t face=0;face<2;++face)p.crossedFaces.push_back({1,1,0,panel,face});
+    }
+    // Independent geometric witness. A sample strictly INSIDE the exact
+    // feasible time interval has positive barycentric coordinates and an
+    // interior finite-material coordinate; no geometric epsilon is added.
+    const auto chord=((p.at+p.velocity*duration)-p.at)*(1/duration);
+    const auto endChord=((p.end+p.endVelocity*duration)-p.end)*(1/duration);
+    const auto d=p.end-p.at;const double k=dot(d,endChord-chord)/dot(d,d);
+    constexpr double sampleTime=(2.314661032949634e-5+2.4254221073377637e-5)/2;
+    const auto normal=cross(b-a,c-a);const double denom=dot(normal,d);REQUIRE(denom!=0);
+    const auto rayPoint=p.at+chord*sampleTime;const double along=dot(normal,a-rayPoint)/denom;
+    REQUIRE(along>0);REQUIRE(along<1+k*sampleTime);REQUIRE(sampleTime>0);REQUIRE(sampleTime<duration);
+    const auto point=rayPoint+d*along,e1=b-a,e2=c-a,relative=point-a;
+    const double aa=dot(e1,e1),ab=dot(e1,e2),bb=dot(e2,e2),ar=dot(e1,relative),br=dot(e2,relative);
+    const double determinant=aa*bb-ab*ab;REQUIRE(determinant>0);
+    const double u=(bb*ar-ab*br)/determinant,v=(aa*br-ab*ar)/determinant;
+    REQUIRE(u>0);REQUIRE(v>0);REQUIRE(u+v<1);
+    field.projectiles.push_back(std::move(p));
+    SceneEnvironmentV1 environment;environment.airDensity=0;environment.maxFlightTimeS=duration;environment.maxSubstepS=duration;
+    const auto result=assessSceneV1(field,{{1,AttachedGeometryView(*frame),sceneTarget(),1}},environment);
+    REQUIRE(result.valid);REQUIRE(result.victims.size()==1);
+    const auto& panels=result.victims.front().impact.panels;
+    const auto hit=std::find_if(panels.begin(),panels.end(),[](const auto& row){return row.panel==77;});
+    REQUIRE(hit!=panels.end());CHECK(hit->hits>0);
+}
+
+#include "simulation/mission_systems/damage/detail/PlaneEqualityV1.h"
+
+namespace {
+namespace equality_test=fsim::ms::damage::detail;
+using EqualityInput=equality_test::PlaneEqualityInputV1;
+using EqualityStatus=equality_test::PlaneEqualityResultV1::Status;
+EqualityInput equalityPlane(V3 normal,double bound,V3 at={},V3 velocity={1,0,0},V3 segment={0,1,0}) {
+    return {{normal.x,normal.y,normal.z},bound,dot(normal,at)-bound,dot(normal,velocity),dot(normal,segment)};
+}
+std::array<EqualityInput,2> equalityPair(V3 normal,double bound,V3 at={},V3 velocity={1,0,0},V3 segment={0,1,0}) {
+    return {equalityPlane(normal,bound,at,velocity,segment),equalityPlane(normal*(-1),-bound,at,velocity,segment)};
+}
+Airframe equalityTetrahedron() {
+    Airframe frame;frame.sections.resize(1);Airframe::Panel panel;
+    panel.section=0;panel.surface=false;panel.centre={.5,.5,.5};panel.half={.5,.5,.5};panel.areaM2=3;frame.panels.push_back(panel);
+    ContactMesh mesh;mesh.kind=ContactMesh::Kind::Panel;mesh.index=0;
+    mesh.vertices.reserve(4);
+    mesh.vertices.push_back({0,0,0});mesh.vertices.push_back({0,1,0});
+    mesh.vertices.push_back({0,0,1});mesh.vertices.push_back({1,0,0});
+    mesh.triangles.reserve(4);
+    mesh.triangles.push_back({0,2,1});mesh.triangles.push_back({0,3,2});
+    mesh.triangles.push_back({0,1,3});mesh.triangles.push_back({1,2,3});mesh.triangleNeighbors.resize(4);
+    std::vector<ContactMesh> meshes;meshes.push_back(std::move(mesh));std::string error;
+    REQUIRE(setContactGeometryV1(frame,std::move(meshes),error));INFO(error);return frame;
+}
+SceneAssessmentV1 equalityTetrahedronQuery(const Airframe& frame,V3 at,V3 end,V3 velocity,double duration) {
+    auto field=singleSceneProjectile();field.applyBlast=false;field.emittedCount=1;auto& p=field.projectiles.front();
+    p.segment=true;p.at=at;p.end=end;p.velocity=p.endVelocity=velocity;p.sourceOrdinalV1=1;
+    // Only the x=0 face is unvisited. This is a synthetic generic-method
+    // history, never an invented contact in a model's actual encounter.
+    p.crossedFaces={{1,1,0,0,3},{1,1,0,0,4},{1,1,0,0,5}};
+    SceneEnvironmentV1 environment;environment.airDensity=0;environment.maxFlightTimeS=duration;environment.maxSubstepS=duration;
+    return assessSceneV1(field,{{1,AttachedGeometryView(frame),sceneTarget(),1}},environment);
+}
+}
+
+TEST_CASE("paired plane interval preserves fixed time and lexicographic endpoints", "[damage][scene-effects][finite-triangle-equality]") {
+    const auto fixed=equalityPair({1,0,0},.5);
+    const auto result=equality_test::reducePlaneEqualityV1(fixed.data(),fixed.size(),0,1);
+    REQUIRE(result.status==EqualityStatus::Reduced);REQUIRE(result.count==2);
+    CHECK(result.vertices[0].time==.5);CHECK(result.vertices[0].along==0);
+    CHECK(result.vertices[1].time==.5);CHECK(result.vertices[1].along==1);
+    // The stable pivot need not return vertices in time order. Keep the
+    // ORIGINAL common lex(time,along) selection, including an equal-time tie.
+    const auto sloped=equalityPair({1,.25,0},.5);
+    const auto endpoints=equality_test::reducePlaneEqualityV1(sloped.data(),sloped.size(),0,1);
+    REQUIRE(endpoints.status==EqualityStatus::Reduced);REQUIRE(endpoints.count==2);
+    const auto ordering=[](auto a,auto b){return a.time<b.time||(a.time==b.time&&a.along<b.along);};
+    const auto begin=endpoints.vertices.begin(),last=begin+static_cast<std::ptrdiff_t>(endpoints.count);
+    const auto entry=*std::min_element(begin,last,ordering),exit=*std::max_element(begin,last,ordering);
+    CHECK(entry.time==.25);CHECK(entry.along==1);CHECK(exit.time==.5);CHECK(exit.along==0);
+}
+
+TEST_CASE("paired plane interval preserves zero coefficients and genuine singleton", "[damage][scene-effects][finite-triangle-equality]") {
+    const auto coplanar=equalityPair({0,0,1},0);
+    CHECK(equality_test::reducePlaneEqualityV1(coplanar.data(),coplanar.size(),0,1).status==EqualityStatus::Fallback);
+    const auto outside=equalityPair({0,0,1},0,{0,0,.25});
+    CHECK(equality_test::reducePlaneEqualityV1(outside.data(),outside.size(),0,1).status==EqualityStatus::Empty);
+    const auto past=equalityPair({1,0,0},-.25),beyond=equalityPair({0,1,0},2);
+    CHECK(equality_test::reducePlaneEqualityV1(past.data(),past.size(),0,1).status==EqualityStatus::Empty);
+    CHECK(equality_test::reducePlaneEqualityV1(beyond.data(),beyond.size(),0,1).status==EqualityStatus::Empty);
+    const auto final=equalityPair({1,0,0},1);
+    const auto contracted=equality_test::reducePlaneEqualityV1(final.data(),final.size(),-1,1);
+    REQUIRE(contracted.status==EqualityStatus::Reduced);REQUIRE(contracted.count==1);
+    CHECK(contracted.vertices[0].time==1);CHECK(contracted.vertices[0].along==0);
+    const auto q=equalityPair({0,1,0},.5),t=equalityPair({1,0,0},.25);
+    const std::array<EqualityInput,4> point={q[0],q[1],t[0],t[1]};
+    const auto singleton=equality_test::reducePlaneEqualityV1(point.data(),point.size(),0,1);
+    REQUIRE(singleton.status==EqualityStatus::Reduced);REQUIRE(singleton.count==1);
+    CHECK(singleton.vertices[0].time==.25);CHECK(singleton.vertices[0].along==.5);
+    const auto tiny=equalityPair({1,0,0},0,{-1e-12,0,0},{0,1,0},{2e-12,0,0});
+    const auto finite=equality_test::reducePlaneEqualityV1(tiny.data(),tiny.size(),0,1);
+    REQUIRE(finite.status==EqualityStatus::Reduced);REQUIRE(finite.count==2);
+    CHECK(finite.vertices[0].along==.5);CHECK(finite.vertices[1].along==.5);
+}
+
+TEST_CASE("paired plane interval never merges thickness or asymmetric rounded coefficients", "[damage][scene-effects][finite-triangle-equality]") {
+    const auto exact=equalityPair({1,.25,0},.5);
+    auto thin=exact;thin[0].bound+=1e-10;thin[1].bound+=1e-10;
+    CHECK(equality_test::reducePlaneEqualityV1(thin.data(),thin.size(),0,1).status==EqualityStatus::Fallback);
+    auto near=exact;near[1].normal[0]=-std::nextafter(1.,2.);
+    CHECK(equality_test::reducePlaneEqualityV1(near.data(),near.size(),0,1).status==EqualityStatus::Fallback);
+    for(int role=0;role<3;++role) {
+        auto asymmetric=exact;
+        double* value=role==0?&asymmetric[1].offset:role==1?&asymmetric[1].rate:&asymmetric[1].slope;
+        *value=std::nextafter(*value,std::numeric_limits<double>::infinity());
+        CHECK(equality_test::reducePlaneEqualityV1(asymmetric.data(),asymmetric.size(),0,1).status==EqualityStatus::Fallback);
+    }
+}
+
+TEST_CASE("paired plane interval falls back on unsafe arithmetic without publishing vertices", "[damage][scene-effects][finite-triangle-equality]") {
+    const auto exact=equalityPair({1,.25,0},.5);
+    auto nonfinite=exact;nonfinite[1].offset=std::numeric_limits<double>::infinity();
+    auto result=equality_test::reducePlaneEqualityV1(nonfinite.data(),nonfinite.size(),0,1);
+    CHECK(result.status==EqualityStatus::Fallback);CHECK(result.count==0);
+    result=equality_test::reducePlaneEqualityV1(exact.data(),exact.size(),std::numeric_limits<double>::quiet_NaN(),1);
+    CHECK(result.status==EqualityStatus::Fallback);CHECK(result.count==0);
+    const auto maximum=std::numeric_limits<double>::max();const auto huge=equalityPair({1,0,0},maximum/2);
+    result=equality_test::reducePlaneEqualityV1(huge.data(),huge.size(),maximum,maximum);
+    CHECK(result.status==EqualityStatus::Fallback);CHECK(result.count==0);
+    const auto tiny=equalityPair({1,0,0},std::numeric_limits<double>::denorm_min(),{}, {maximum,0,0});
+    result=equality_test::reducePlaneEqualityV1(tiny.data(),tiny.size(),0,1);
+    CHECK(result.status==EqualityStatus::Fallback);CHECK(result.count==0);
+}
+
+TEST_CASE("paired plane interval handles the triangle pipeline axial broad box", "[damage][scene-effects][finite-triangle-equality]") {
+    // A six-plane zero-width AABB is a broadphase input only. No material
+    // geometry is thickened, and generic box callers still do not opt in.
+    const V3 at{-1,0,0},velocity{1,0,0},segment{0,.25,0};
+    const std::array<EqualityInput,6> box={equalityPlane({1,0,0},0,at,velocity,segment),
+        equalityPlane({-1,0,0},0,at,velocity,segment),equalityPlane({0,1,0},1,at,velocity,segment),
+        equalityPlane({0,-1,0},1,at,velocity,segment),equalityPlane({0,0,1},1,at,velocity,segment),
+        equalityPlane({0,0,-1},1,at,velocity,segment)};
+    const auto result=equality_test::reducePlaneEqualityV1(box.data(),box.size(),0,2);
+    REQUIRE(result.status==EqualityStatus::Reduced);REQUIRE(result.count==2);
+    CHECK(result.vertices[0].time==1);CHECK(result.vertices[0].along==0);
+    CHECK(result.vertices[1].time==1);CHECK(result.vertices[1].along==1);
+}
+
+TEST_CASE("finite triangle pipeline keeps axial coplanar and receding controls", "[damage][scene-effects][finite-triangle-equality]") {
+    const auto frame=equalityTetrahedron();
+    struct Query {const char* name;V3 at,end,velocity;double duration;bool contact;double first;};
+    const Query queries[]={
+        {"axial fixed time",{-.25,.2,.2},{-.25,.3,.2},{1,0,0},.5,true,.25},
+        {"exact final endpoint",{-.25,.2,.2},{-.25,.3,.2},{1,0,0},.25,true,.25},
+        {"initial inward boundary",{0,.2,.2},{0,.3,.2},{1,0,0},.25,true,0},
+        {"coplanar redundant plane",{0,.2,.2},{0,.3,.2},{0,.1,0},.25,true,0},
+        {"parallel outside",{-.1,.2,.2},{-.1,.3,.2},{0,.1,0},.25,false,0},
+        {"finite tiny slope",{-1e-12,.2,.2},{1e-12,.3,.2},{0,.1,0},.25,true,0},
+        {"receding negative",{-.25,.2,.2},{-.25,.3,.2},{-1,0,0},.25,false,0}
+    };
+    for(const auto& query:queries) {
+        INFO(query.name);const auto result=equalityTetrahedronQuery(frame,query.at,query.end,query.velocity,query.duration);
+        REQUIRE(result.valid);REQUIRE(result.victims.size()==1);
+        const auto& impact=result.victims.front().impact;
+        const auto hit=std::find_if(impact.panels.begin(),impact.panels.end(),[](const auto& row){return row.panel==0&&row.hits>0;});
+        CHECK((hit!=impact.panels.end())==query.contact);
+        if(query.contact) {REQUIRE(result.firstStrikeAgeS);CHECK(*result.firstStrikeAgeS==query.first);}
+        else CHECK_FALSE(result.firstStrikeAgeS);
+    }
+}
+
+
+TEST_CASE("Finite surface quad uses authored plate normal for rod penetration at an edge",
+          "[damage][scene-effects][surface-material-normal]") {
+    // This is an isolated affine geometry/constitutive witness derived from
+    // the historical captured panel21 query, NOT a replay of a native contact.
+    // Vacuum and one material face isolate the existing plate-normal contract;
+    // no authored model/card, encounter scene or original predicate changes.
+    std::string error;
+    const auto authored = readAirframe(std::filesystem::path(FSIM_TEST_AIRCRAFT_DIR)/"f16c/f16c.damage.json", error);
+    INFO(error); REQUIRE(authored); REQUIRE(authored->panels.size() > 21);
+    Airframe faceFrame;
+    faceFrame.sections = authored->sections;
+    auto face = authored->panels[21]; REQUIRE(face.surface); REQUIRE(face.thicknessM > 0);
+    const V3 originalNormal = normalized(cross(face.corners[2]-face.corners[0], face.corners[3]-face.corners[1]));
+    for (auto& corner : face.corners) corner += originalNormal*(-.5*face.thicknessM);
+    face.thicknessM = 0; // The original lower MATERIAL FACE, isolated once.
+    faceFrame.panels.push_back(face);
+    const V3 plateNormal = normalized(cross(face.corners[2]-face.corners[0], face.corners[3]-face.corners[1]));
+    const double plateM = faceFrame.skinThicknessM(face.section);
+    REQUIRE(plateM > 0);
+    auto rodField = singleSceneProjectile(); rodField.applyBlast = false;
+    auto& rod = rodField.projectiles.front(); rod.sourceOrdinalV1 = 1; rod.segment = true;
+    rod.at = {6.3151506147579815, -.39501717288267096, -.2872484835123959};
+    const V3 segment{-.16716356435101495, .00038480462373797293, -.0016636012754637564};
+    rod.end = rod.at+segment;
+    rod.velocity = {-1075.5987104258968, -515.3394184390694, 1261.2709773147967};
+    rod.endVelocity = rod.velocity+segment*.00012757868851270325;
+    rod.massKg = .045727848101265824; rod.areaM2 = .0010038286619451428; rod.cd = 1.3;
+    rodField.caseKg = rod.massKg;
+    const V3 incoming = (rod.velocity+rod.endVelocity)*.5;
+    const double speed = length(incoming);
+    const V3 direction = incoming*(1/speed);
+    // Independent evaluation of the unchanged documented software law.
+    // The angle is to the material PLATE normal, never an in-plane clip edge.
+    const double theta = std::acos(std::min(1.0, std::abs(dot(direction,plateNormal))));
+    const double secant = 1/std::max(std::cos(std::min(std::abs(theta),1.45)),.12);
+    const double fps = speed/.3048, grains = rod.massKg/6.479891e-5;
+    const double hIn = plateM/.0254, areaIn = rod.areaM2/(.0254*.0254);
+    const double expectedSpeed = std::max(fps-std::pow(10.,7.047)*std::pow(hIn*areaIn,1.029)*
+        std::pow(grains,-1.072)*std::pow(secant,1.251)*std::pow(fps,-.139),0.)*.3048;
+    REQUIRE(expectedSpeed > 0);
+    SceneEnvironmentV1 environment; environment.airDensity = 0;
+    environment.maxFlightTimeS = .0003; environment.maxSubstepS = .0003;
+    // Existing incoming mean velocity matches a point at the material midpoint.
+    // Its face crossing is strictly inside the authored quad, avoiding an edge
+    // ambiguity in the control while retaining the same plate-law inputs.
+    auto pointField = rodField;
+    auto& point = pointField.projectiles.front(); point.segment = false;
+    point.at = (rod.at+rod.end)*.5; point.velocity = incoming;
+    const double pointTime = dot(face.corners[0]-point.at,plateNormal)/dot(incoming,plateNormal);
+    REQUIRE(pointTime > 0); REQUIRE(pointTime < environment.maxFlightTimeS);
+    const V3 pointOnFace=point.at+incoming*pointTime;
+    const double firstSide=dot(cross(face.corners[1]-face.corners[0],pointOnFace-face.corners[0]),plateNormal);
+    REQUIRE(firstSide!=0);
+    for(unsigned edge=0;edge<4;++edge) {
+        const double side=dot(cross(face.corners[(edge+1)%4]-face.corners[edge],pointOnFace-face.corners[edge]),plateNormal);
+        CAPTURE(edge,side);
+        REQUIRE(side!=0); REQUIRE((side>0)==(firstSide>0));
+    }
+    // Isolate the point controls before any lateral-wall crossing. Compute
+    // the earliest unattenuated side exit from geometric edge equations at
+    // the strict-interior front point. Existing front response only slows the
+    // same direction, so its actual side exit cannot precede this bound.
+    double pointSideExit=std::numeric_limits<double>::infinity();
+    for(unsigned edge=0;edge<4;++edge) {
+        const V3 tangent=face.corners[(edge+1)%4]-face.corners[edge];
+        const double side=dot(cross(tangent,pointOnFace-face.corners[edge]),plateNormal);
+        const double rate=dot(cross(tangent,incoming),plateNormal);
+        if(side*rate<0)pointSideExit=std::min(pointSideExit,pointTime-side/rate);
+    }
+    REQUIRE(std::isfinite(pointSideExit)); REQUIRE(pointSideExit>pointTime);
+    const double pointHorizon=(pointTime+pointSideExit)*.5;
+    REQUIRE(pointHorizon>pointTime); REQUIRE(pointHorizon<pointSideExit);
+    REQUIRE(pointHorizon<environment.maxFlightTimeS);
+    // A closed prism's FRONT is the identical authored quad, triangulated.
+    // The midpoint point control reaches that face away from sidewalls; the
+    // deep back face is not reached during this isolated interval.
+    Airframe meshFrame = faceFrame;
+    auto& bodyPanel = meshFrame.panels.front(); bodyPanel.surface = false;
+    ContactMesh mesh; mesh.index = 0; mesh.vertices.reserve(8); mesh.triangles.reserve(12);
+    for (const auto corner : face.corners) mesh.vertices.push_back(corner);
+    for (const auto corner : face.corners) mesh.vertices.push_back(corner+plateNormal*2);
+    mesh.triangles.push_back({0,2,1}); mesh.triangles.push_back({0,3,2});
+    mesh.triangles.push_back({4,5,6}); mesh.triangles.push_back({4,6,7});
+    for (unsigned index = 0; index < 4; ++index) {
+        const unsigned next = (index+1)%4;
+        mesh.triangles.push_back({index,next,next+4});
+        mesh.triangles.push_back({index,next+4,index+4});
+    }
+    mesh.triangleNeighbors.resize(mesh.triangles.size());
+    V3 low = mesh.vertices.front(), high = low;
+    for (const auto vertex : mesh.vertices) {
+        low.x=std::min(low.x,vertex.x);low.y=std::min(low.y,vertex.y);low.z=std::min(low.z,vertex.z);
+        high.x=std::max(high.x,vertex.x);high.y=std::max(high.y,vertex.y);high.z=std::max(high.z,vertex.z);
+    }
+    bodyPanel.centre=(low+high)*.5; bodyPanel.half=(high-low)*.5;
+    std::vector<ContactMesh> meshes; meshes.push_back(std::move(mesh));
+    REQUIRE(setContactGeometryV1(meshFrame,std::move(meshes),error)); INFO(error);
+    const auto check = [&](const FragmentFieldV1& field,const Airframe& frame,bool rodCase) {
+        auto interval=environment;
+        if(!rodCase)interval.maxFlightTimeS=interval.maxSubstepS=pointHorizon;
+        const auto result = assessSceneV1(field,{{1,AttachedGeometryView(frame),sceneTarget()}},interval);
+        REQUIRE(result.valid); REQUIRE(result.victims.size()==1);
+        const auto& impact=result.victims.front().impact;
+        REQUIRE(impact.panels.size()==1); CHECK(impact.panels[0].panel==0);
+        CHECK(impact.panels[0].hits==1); CHECK(impact.panels[0].perforations==1);
+        CHECK(impact.components.empty()); REQUIRE(result.firstStrikeAgeS);
+        CHECK(*result.firstStrikeAgeS>0); CHECK(*result.firstStrikeAgeS<interval.maxFlightTimeS);
+        if(!rodCase) CHECK(std::abs(*result.firstStrikeAgeS-pointTime)<1e-12);
+        else CHECK(std::abs(*result.firstStrikeAgeS-.00020212230740909273)<1e-12);
+        REQUIRE(result.continuation.projectiles.size()==1);
+        const auto& survivor=result.continuation.projectiles.front();
+        const double bound=512*std::numeric_limits<double>::epsilon()*std::max(1.0,speed);
+        CHECK(length(survivor.velocity-direction*expectedSpeed)<bound);
+        if(rodCase) CHECK(length(survivor.endVelocity-direction*expectedSpeed)<bound);
+        CHECK(std::abs(result.transferredMomentumEcef.x-(incoming.x-direction.x*expectedSpeed)*rod.massKg)<1e-10);
+        CHECK(std::abs(result.remainingMassKg-rod.massKg)<1e-15);
+        return survivor.velocity;
+    };
+    const auto pointVelocity=check(pointField,faceFrame,false);
+    const auto triangleVelocity=check(pointField,meshFrame,false);
+    const auto rodVelocity=check(rodField,faceFrame,true);
+    const double bound=512*std::numeric_limits<double>::epsilon()*std::max(1.0,speed);
+    CHECK(length(pointVelocity-triangleVelocity)<bound);
+    CHECK(length(pointVelocity-rodVelocity)<bound);
+}
+
+
+namespace {
+FragmentFieldV1 branchContinuityField(bool rod) {
+    auto field=singleSceneProjectile();field.applyBlast=false;field.emittedCount=1;
+    auto& p=field.projectiles.front();p.sourceOrdinalV1=1;p.segment=rod;
+    p.at={-.75,0,1.1};p.end={-.25,0,1.4};
+    p.velocity=p.endVelocity={1000,0,-1000};
+    // A midpoint point has the identical incoming COM velocity, mass and area.
+    if(!rod)p.at=(p.at+p.end)*.5;
+    return field;
+}
+struct BranchContinuityObservation {
+    V3 velocity,impulse;
+    int hits=0,perforations=0;
+    double firstAge=0,remainingMass=0,absorbedMass=0;
+};
+BranchContinuityObservation branchContinuityQuery(const Airframe& frame,bool rod,double horizon) {
+    SceneEnvironmentV1 environment;environment.airDensity=0;
+    environment.maxFlightTimeS=horizon;environment.maxSubstepS=horizon;
+    const auto field=branchContinuityField(rod);
+    const auto result=assessSceneV1(field,{{1,AttachedGeometryView(frame),sceneTarget(),1}},environment);
+    REQUIRE(result.valid);REQUIRE(result.victims.size()==1);REQUIRE(result.firstStrikeAgeS);
+    REQUIRE(result.continuation.projectiles.size()==1);
+    CHECK(result.victims.front().impact.components.empty());
+    BranchContinuityObservation out;out.velocity=result.continuation.projectiles.front().velocity;
+    out.impulse=result.transferredMomentumEcef;out.firstAge=*result.firstStrikeAgeS;
+    out.remainingMass=result.remainingMassKg;out.absorbedMass=result.absorbedMassKg;
+    for(const auto& hit:result.victims.front().impact.panels){out.hits+=hit.hits;out.perforations+=hit.perforations;}
+    if(rod)CHECK(length(result.continuation.projectiles.front().endVelocity-out.velocity)==0);
+    return out;
+}
+double branchContinuityResidual(double incomingSpeed) {
+    // Independent evaluation of the unchanged documented THOR plate law.
+    // Both fixed material planes have |cos(obliquity)|=1/sqrt(2).
+    const auto field=branchContinuityField(true);const auto& p=field.projectiles.front();
+    const double fps=incomingSpeed/.3048,grains=p.massKg/6.479891e-5;
+    const double thicknessIn=.02/.0254,areaIn=p.areaM2/(.0254*.0254);
+    return std::max(fps-std::pow(10.,7.047)*std::pow(thicknessIn*areaIn,1.029)*
+        std::pow(grains,-1.072)*std::pow(std::sqrt(2.),1.251)*std::pow(fps,-.139),0.)*.3048;
+}
+void checkBranchContinuityResponse(const BranchContinuityObservation& out,double speed,int crossings) {
+    const auto field=branchContinuityField(true);const auto& p=field.projectiles.front();
+    const V3 direction=normalized(p.velocity);
+    const double bound=512*std::numeric_limits<double>::epsilon()*length(p.velocity);
+    CHECK(out.hits==crossings);CHECK(out.perforations==crossings);
+    CHECK(length(out.velocity-direction*speed)<bound);
+    CHECK(length(out.impulse-(p.velocity-direction*speed)*p.massKg)<bound*p.massKg);
+    CHECK(std::abs(out.remainingMass-p.massKg)<1e-15);CHECK(out.absorbedMass==0);
+}
+}
+
+TEST_CASE("finite rod continuous skin contact is invariant under ownership partition",
+          "[damage][scene-effects][rod-material-branch]") {
+    const auto whole=authoredShell(false),split=authoredShell(true);
+    // EXACT same physical outer cube [-1,1]^3. The split x=0 closures
+    // are explicitly nonmaterial ownership caps, not a second skin wall.
+    REQUIRE(whole.panels.size()==1);REQUIRE(split.panels.size()==2);
+    double wholeArea=0,splitArea=0,wholeMass=0,splitMass=0;
+    for(const auto& s:whole.sections){wholeArea+=s.skinAreaM2;wholeMass+=s.skinKg;}
+    for(const auto& s:split.sections){splitArea+=s.skinAreaM2;splitMass+=s.skinKg;}
+    REQUIRE(wholeArea==splitArea);REQUIRE(wholeMass==splitMass);
+    for(const auto& frame:{&whole,&split})for(std::size_t i=0;i<frame->panels.size();++i) {
+        REQUIRE(frame->skinThicknessM(frame->panels[i].section)==.02);
+        const auto* mesh=frame->contactGeometry->panel(i);REQUIRE(mesh);
+        int caps=0;for(const auto& neighbor:mesh->triangleNeighbors)if(neighbor)++caps;
+        REQUIRE(caps==(frame==&split?2:0));
+    }
+    const auto source=branchContinuityField(true);const auto& p=source.projectiles.front();
+    REQUIRE(p.massKg==.01);REQUIRE(p.areaM2==1e-5);
+    const double speed=length(p.velocity),after=branchContinuityResidual(speed);
+    REQUIRE(after>0);REQUIRE(after<speed);
+    // With translation s=(1000 m/s)*time before response, the top-skin
+    // contact is q=(s-.1)/.3 and x=-11/12+(8/3)s, for .1<=s<=.4.
+    // At the ownership seam s=11/32, q=13/16 is STRICTLY interior:
+    // one connected material branch, with no intervening exit or new wall.
+    const double seamS=11./32,entryS=.1,exitS=.4,seamQ=13./16;
+    REQUIRE(seamS>entryS);REQUIRE(seamS<exitS);REQUIRE(seamQ>0);REQUIRE(seamQ<1);
+    CHECK(std::abs((seamS-.1)/.3-seamQ)<1e-15);
+    CHECK(std::abs(-11./12+(8./3)*seamS)<1e-15);
+    // One plate response only slows the SAME direction. A conservative lower
+    // translation bound at this fixed horizon exceeds the branch end .4;
+    // the actual path stays inside all lateral/bottom boundaries.
+    const double horizon=.0005;
+    REQUIRE(horizon*1000*(after/speed)>exitS);
+    REQUIRE(horizon*1000<1.25); // B never reaches the cube's right x=1 wall.
+    for(const bool rod:{false,true}) {
+        DYNAMIC_SECTION("source " << (rod?"finite rod":"midpoint point control")) {
+            const auto a=branchContinuityQuery(whole,rod,horizon);
+            const auto b=branchContinuityQuery(split,rod,horizon);
+            checkBranchContinuityResponse(a,after,1);
+            checkBranchContinuityResponse(b,after,1);
+            const double first=rod?.0001:.00025;
+            CHECK(std::abs(a.firstAge-first)<1e-12);CHECK(std::abs(b.firstAge-first)<1e-12);
+            const double bound=512*std::numeric_limits<double>::epsilon()*speed;
+            CHECK(length(a.velocity-b.velocity)<bound);
+            CHECK(length(a.impulse-b.impulse)<bound*p.massKg);
+        }
+    }
+}
+
+TEST_CASE("finite rod disjoint second material plate remains a second response",
+          "[damage][scene-effects][rod-material-branch]") {
+    Airframe frame;frame.sections.resize(1);frame.sections[0].skinAreaM2=8;
+    frame.sections[0].skinKg=.02*2780*frame.sections[0].skinAreaM2;
+    for(const double z:{1.,.5}) {
+        Airframe::Panel panel;panel.section=0;panel.surface=true;panel.areaM2=4;
+        panel.corners={V3{-1,-1,z},V3{1,-1,z},V3{1,1,z},V3{-1,1,z}};
+        panel.thicknessM=0;frame.panels.push_back(panel);
+    }
+    // For the SAME rod, first-plane contact spans s=[.1,.4] and the
+    // second-plane branch s=[.6,.9]. The open .2 m interval is a true
+    // disconnection, NOT a triangulation/ownership transition.
+    REQUIRE(.4<.6);
+    const auto source=branchContinuityField(true);const double speed=length(source.projectiles.front().velocity);
+    const double first=branchContinuityResidual(speed),second=branchContinuityResidual(first);
+    REQUIRE(second>0);REQUIRE(second<first);
+    const double horizon=.0011;
+    REQUIRE(horizon*1000*(second/speed)>.9);REQUIRE(horizon*1000<1.25);
+    for(const bool rod:{false,true}) {
+        DYNAMIC_SECTION("source " << (rod?"finite rod two disjoint branches":"point two disjoint plates")) {
+            const auto result=branchContinuityQuery(frame,rod,horizon);
+            checkBranchContinuityResponse(result,second,2);
+            CHECK(std::abs(result.firstAge-(rod?.0001:.00025))<1e-12);
+        }
+    }
+}
+
+
+// These additive internal-method controls preserve every preceding assertion.
+#include "simulation/mission_systems/damage/MaterialContactHistoryV3.h"
+#include "simulation/mission_systems/damage/detail/MaterialContactV3.h"
+
+namespace {
+int materialBranchHitsV3(const SceneAssessmentV1& result) {
+    int count=0;for(const auto& victim:result.victims)for(const auto& hit:victim.impact.panels)count+=hit.hits;
+    return count;
+}
+double materialBranchSpeedReferenceV3(double plate,double speed,double cosine) {
+    const double fps=speed/.3048,grains=.01/6.479891e-5;
+    const double secant=1/std::max(cosine,.12);
+    return std::max(fps-std::pow(10.,7.047)*std::pow((plate/.0254)*(1e-5/(.0254*.0254)),1.029)*
+        std::pow(grains,-1.072)*std::pow(secant,1.251)*std::pow(fps,-.139),0.)*.3048;
+}
+SceneEnvironmentV1 materialBranchEnvironmentV3(double horizon) {
+    SceneEnvironmentV1 out;out.airDensity=0;out.maxFlightTimeS=horizon;out.maxSubstepS=horizon;
+    return out;
+}
+}
+
+TEST_CASE("V3 finite material branch persists before at and after a call split",
+          "[damage][scene-effects][rod-material-history-v3]") {
+    const auto frame=authoredShell(true);const auto initial=branchContinuityField(true);
+    const double speed=length(initial.projectiles.front().velocity),after=branchContinuityResidual(speed);
+    const double seam=.0001+(11./32-.1)/(1000*after/speed),horizon=.0005;
+    const std::array<double,7> cuts={.00009,.0001,.0002,seam-1e-8,seam,seam+1e-8,.00045};
+    for(const double cut:cuts) {
+        DYNAMIC_SECTION("cut "<<cut) {
+            MaterialContactHistoryV3 history;
+            const auto first=assessSceneMaterialContactsV3(initial,{{1,AttachedGeometryView(frame),sceneTarget(),1}},materialBranchEnvironmentV3(cut),history);
+            REQUIRE(first.valid);REQUIRE(first.continuation.projectiles.size()==1);
+            const auto second=assessSceneMaterialContactsV3(first.continuation,{{1,AttachedGeometryView(frame),sceneTarget(),1}},materialBranchEnvironmentV3(horizon-cut),history);
+            REQUIRE(second.valid);REQUIRE(second.continuation.projectiles.size()==1);
+            CHECK(materialBranchHitsV3(first)+materialBranchHitsV3(second)==1);
+            const double bound=512*std::numeric_limits<double>::epsilon()*speed;
+            CHECK(length(second.continuation.projectiles.front().velocity-normalized(initial.projectiles.front().velocity)*after)<bound);
+            CHECK(length(first.transferredMomentumEcef+second.transferredMomentumEcef-
+                (initial.projectiles.front().velocity-second.continuation.projectiles.front().velocity)*.01)<bound*.01);
+        }
+    }
+}
+
+TEST_CASE("finite material branch has exact initial shared-edge connectivity",
+          "[damage][scene-effects][rod-material-history-v3]") {
+    auto field=branchContinuityField(true);auto& p=field.projectiles.front();
+    p.at={0,-.2,1.1};p.end={0,.2,1.1};p.velocity=p.endVelocity={0,0,-1000};
+    const double expected=materialBranchSpeedReferenceV3(.02,1000,1);
+    for(const bool partitioned:{false,true}) {
+        DYNAMIC_SECTION("ownership split "<<partitioned) {
+            const auto frame=authoredShell(partitioned);MaterialContactHistoryV3 history;
+            const auto result=assessSceneMaterialContactsV3(field,{{1,AttachedGeometryView(frame),sceneTarget(),1}},materialBranchEnvironmentV3(.0002),history);
+            REQUIRE(result.valid);REQUIRE(result.continuation.projectiles.size()==1);
+            CHECK(materialBranchHitsV3(result)==1);
+            CHECK(std::abs(result.continuation.projectiles.front().velocity.z+expected)<1e-10);
+        }
+    }
+}
+
+TEST_CASE("opposing skin contacts at disjoint rod coordinates retain two debits",
+          "[damage][scene-effects][rod-material-history-v3]") {
+    const auto frame=authoredShell(false);auto field=branchContinuityField(true);auto& p=field.projectiles.front();
+    p.at={0,0,2};p.end={0,0,-2};p.velocity=p.endVelocity={0,0,-1000};
+    // The two simultaneous intersections differ by exactly half the rod.
+    REQUIRE((3./4-1./4)==.5);
+    const double first=materialBranchSpeedReferenceV3(.02,1000,1),second=materialBranchSpeedReferenceV3(.02,first,1);
+    REQUIRE(second>0);MaterialContactHistoryV3 history;
+    const auto result=assessSceneMaterialContactsV3(field,{{1,AttachedGeometryView(frame),sceneTarget(),1}},materialBranchEnvironmentV3(.00001),history);
+    REQUIRE(result.valid);REQUIRE(result.continuation.projectiles.size()==1);
+    CHECK(materialBranchHitsV3(result)==2);
+    CHECK(std::abs(result.continuation.projectiles.front().velocity.z+second)<1e-10);
+}
+
+TEST_CASE("a different authored material thickness starts another response domain",
+          "[damage][scene-effects][rod-material-history-v3]") {
+    auto frame=authoredShell(true);frame.sections[1].skinKg*=.5;
+    REQUIRE(frame.skinThicknessM(0)!=frame.skinThicknessM(1));
+    const auto field=branchContinuityField(true);const double speed=length(field.projectiles.front().velocity);
+    const double first=materialBranchSpeedReferenceV3(.02,speed,1/std::sqrt(2.));
+    const double second=materialBranchSpeedReferenceV3(.01,first,1/std::sqrt(2.));
+    MaterialContactHistoryV3 history;
+    const auto result=assessSceneMaterialContactsV3(field,{{1,AttachedGeometryView(frame),sceneTarget(),1}},materialBranchEnvironmentV3(.0005),history);
+    REQUIRE(result.valid);REQUIRE(result.continuation.projectiles.size()==1);
+    CHECK(materialBranchHitsV3(result)==2);
+    CHECK(length(result.continuation.projectiles.front().velocity-normalized(field.projectiles.front().velocity)*second)<1e-10);
+}
+
+TEST_CASE("captured motion produces positive absence then a real same-facet reentry",
+          "[damage][scene-effects][rod-material-history-v3]") {
+    const auto frame=authoredShell(false);const auto field=branchContinuityField(true);
+    SceneVictimV1 victim{1,AttachedGeometryView(frame),sceneTarget(),1};
+    victim.motion={{0,sceneTarget()},{.0002,sceneTarget()},{.0003,sceneTarget({0,0,1})},{.0005,sceneTarget({0,0,-1})}};
+    // These real captured boundaries survive the vacuum affine shortcut.
+    // Initially the top wall is paid at .1ms. It then moves away, leaving a
+    // positive interval with no intersection, and returns through the rod.
+    MaterialContactHistoryV3 history;
+    const auto result=assessSceneMaterialContactsV3(field,{victim},materialBranchEnvironmentV3(.0005),history);
+    REQUIRE(result.valid);REQUIRE(result.continuation.projectiles.size()==1);
+    CHECK(materialBranchHitsV3(result)==2);
+    REQUIRE(result.firstStrikeAgeS);CHECK(std::abs(*result.firstStrikeAgeS-.0001)<1e-12);
+}
+
+TEST_CASE("V3 material history rejects changed source bits and rolls back refusals",
+          "[damage][scene-effects][rod-material-history-v3]") {
+    const auto frame=authoredShell(true);const auto field=branchContinuityField(true);MaterialContactHistoryV3 history;
+    const auto first=assessSceneMaterialContactsV3(field,{{1,AttachedGeometryView(frame),sceneTarget(),1}},materialBranchEnvironmentV3(.0002),history);
+    REQUIRE(first.valid);REQUIRE(history.initialized);const auto retained=history;
+    auto changed=first.continuation;changed.projectiles.front().velocity.y=-0.0;
+    REQUIRE(std::signbit(changed.projectiles.front().velocity.y));
+    CHECK_FALSE(assessSceneMaterialContactsV3(changed,{{1,AttachedGeometryView(frame),sceneTarget(),1}},materialBranchEnvironmentV3(.0003),history).valid);
+    CHECK(fsim::ms::damage::detail::materialFieldEqualV3(history.expected,retained.expected));
+    REQUIRE(history.particles.size()==retained.particles.size());CHECK(history.particles.front().active==retained.particles.front().active);
+    auto invalid=sceneTarget();invalid.at.x=std::numeric_limits<double>::quiet_NaN();
+    CHECK_FALSE(assessSceneMaterialContactsV3(first.continuation,{{1,AttachedGeometryView(frame),invalid,1}},materialBranchEnvironmentV3(.0003),history).valid);
+    CHECK(fsim::ms::damage::detail::materialFieldEqualV3(history.expected,retained.expected));CHECK(history.particles.front().active==retained.particles.front().active);
+    const auto valid=assessSceneMaterialContactsV3(first.continuation,{{1,AttachedGeometryView(frame),sceneTarget(),1}},materialBranchEnvironmentV3(.0003),history);
+    REQUIRE(valid.valid);CHECK(materialBranchHitsV3(valid)==0);
+}
+
+TEST_CASE("a positive future entry expires an old active facet before suppression",
+          "[damage][scene-effects][rod-material-history-v3]") {
+    const auto frame=authoredShell(false);const auto field=branchContinuityField(true);MaterialContactHistoryV3 history;
+    const auto first=assessSceneMaterialContactsV3(field,{{1,AttachedGeometryView(frame),sceneTarget(),1}},materialBranchEnvironmentV3(.0002),history);
+    REQUIRE(first.valid);REQUIRE_FALSE(history.particles.front().active.empty());
+    SceneVictimV1 moved{1,AttachedGeometryView(frame),sceneTarget({0,0,1}),1};
+    moved.motion={{0,sceneTarget({0,0,1})},{.0003,sceneTarget({0,0,-1})}};
+    const auto second=assessSceneMaterialContactsV3(first.continuation,{moved},materialBranchEnvironmentV3(.0003),history);
+    REQUIRE(second.valid);REQUIRE(second.firstStrikeAgeS);
+    CHECK(*second.firstStrikeAgeS>first.continuation.ageS);
+    CHECK(materialBranchHitsV3(second)==1);
+}
+
+TEST_CASE("a changed victim generation cannot borrow a paid material episode",
+          "[damage][scene-effects][rod-material-history-v3]") {
+    const auto frame=authoredShell(false);const auto field=branchContinuityField(true);MaterialContactHistoryV3 history;
+    const auto first=assessSceneMaterialContactsV3(field,{{1,AttachedGeometryView(frame),sceneTarget(),1}},materialBranchEnvironmentV3(.0002),history);
+    REQUIRE(first.valid);
+    const auto second=assessSceneMaterialContactsV3(first.continuation,{{1,AttachedGeometryView(frame),sceneTarget(),2}},materialBranchEnvironmentV3(.0001),history);
+    REQUIRE(second.valid);CHECK(materialBranchHitsV3(second)==1);
+}
+
+TEST_CASE("only a trusted native detached-material map preserves paid ownership",
+          "[damage][scene-effects][rod-material-history-v3]") {
+    auto source=std::make_shared<Airframe>(authoredShell(false));VehicleDamage state(source);
+    const V3 shift{.2,.3,.4};REQUIRE(state.separate(0));
+    auto child=state.detachedState(0,shift);REQUIRE(child);
+    const auto field=branchContinuityField(true);MaterialContactHistoryV3 original;
+    const auto first=assessSceneMaterialContactsV3(field,{{1,AttachedGeometryView(*source),sceneTarget(),1}},materialBranchEnvironmentV3(.0002),original);
+    REQUIRE(first.valid);REQUIRE_FALSE(original.particles.front().active.empty());
+    const auto childTarget=sceneTarget(shift);
+    for(const bool trusted:{false,true}) {
+        DYNAMIC_SECTION("trusted handoff "<<trusted) {
+            auto history=original;
+            if(trusted) {
+                MaterialOwnerHandoffV3 map;map.from=1;map.fromGeneration=1;map.to=2;map.toGeneration=5;
+                map.fromGeometry=source->contactGeometry;map.toGeometry=child->airframe().contactGeometry;
+                map.panels=child->attachedGeometry().panelIndices();
+                REQUIRE(rebindMaterialContactOwnerV3(history,map,childTarget));
+            }
+            const auto second=assessSceneMaterialContactsV3(first.continuation,{{2,child->attachedGeometry(),childTarget,5}},materialBranchEnvironmentV3(.0003),history);
+            REQUIRE(second.valid);CHECK(materialBranchHitsV3(second)==(trusted?0:1));
+        }
+    }
+}
+
+
+TEST_CASE("liquid V3 floating origin retains canonical history across calls",
+          "[damage][scene-effects][rod-material-history-v3]") {
+    const auto frame=authoredShell(true);const V3 origin{4000000,-3000000,2000000};
+    auto field=branchContinuityField(true);field.burst.at=origin;
+    for(auto& particle:field.projectiles){particle.at+=origin;particle.end+=origin;}
+    MaterialContactHistoryV3 history;SceneLiquidInputsV1 liquid;
+    // Empty liquid population deliberately isolates the REAL liquid-entrypoint
+    // floating-origin recursion and canonical history, not wet-material work.
+    const auto first=assessSceneLiquidsMaterialContactsV3(field,{{1,AttachedGeometryView(frame),sceneTarget(origin),1}},
+        {},materialBranchEnvironmentV3(.0002),liquid,history);
+    REQUIRE(first.scene.valid);REQUIRE_FALSE(history.particles.front().active.empty());
+    for(const auto& key:history.particles.front().active) {
+        CHECK(fsim::ms::damage::detail::materialPointBitsEqualV3(key.boundaryTarget.at,origin));
+    }
+    const auto second=assessSceneLiquidsMaterialContactsV3(first.scene.continuation,{{1,AttachedGeometryView(frame),sceneTarget(origin),1}},
+        {},materialBranchEnvironmentV3(.0003),liquid,history);
+    REQUIRE(second.scene.valid);REQUIRE(second.scene.continuation.projectiles.size()==1);
+    CHECK(materialBranchHitsV3(first.scene)+materialBranchHitsV3(second.scene)==1);
+    CHECK(first.liquidOnlyWork.empty());CHECK(second.liquidOnlyWork.empty());
+    const double expected=branchContinuityResidual(length(field.projectiles.front().velocity));
+    CHECK(length(second.scene.continuation.projectiles.front().velocity-normalized(field.projectiles.front().velocity)*expected)<1e-10);
+}
+
+
+namespace {
+class UnknownOrdinalSceneFixtureV3 final : public WarheadSceneExecutionV2 {
+public:
+    FragmentFieldV1 emitScene(const Burst& burst,fsim::Rng&) const override {
+        auto field=branchContinuityField(true);field.burst=burst;
+        field.projectiles.front().sourceOrdinalV1=0; // Existing public zero=unknown.
+        auto other=field.projectiles.front();other.at.x+=3;other.end.x+=3;
+        field.projectiles.push_back(other);field.caseKg*=2;field.emittedCount=2;
+        return field;
+    }
+};
+}
+TEST_CASE("existing custom scene providers retain zero ordinal continuation semantics",
+          "[damage][scene-effects][rod-material-history-v3]") {
+    UnknownOrdinalSceneFixtureV3 concrete;const WarheadSceneExecutionV2& provider=concrete;
+    fsim::Rng random(23);const auto field=provider.emitScene(Burst{},random);
+    REQUIRE(field.valid);REQUIRE(field.projectiles.size()==2);
+    REQUIRE(field.projectiles[0].sourceOrdinalV1==0);REQUIRE(field.projectiles[1].sourceOrdinalV1==0);
+    const auto frame=authoredShell(true);MaterialContactHistoryV3 history;
+    const auto first=assessSceneMaterialContactsV3(field,{{1,AttachedGeometryView(frame),sceneTarget(),1}},materialBranchEnvironmentV3(.0002),history);
+    REQUIRE(first.valid);REQUIRE(first.continuation.projectiles.size()==2);REQUIRE(history.particles.size()==2);
+    CHECK_FALSE(history.particles[0].active.empty());CHECK(history.particles[1].active.empty());
+    const auto second=assessSceneMaterialContactsV3(first.continuation,{{1,AttachedGeometryView(frame),sceneTarget(),1}},materialBranchEnvironmentV3(.0003),history);
+    REQUIRE(second.valid);REQUIRE(second.continuation.projectiles.size()==2);
+    CHECK(materialBranchHitsV3(first)+materialBranchHitsV3(second)==1);
+    CHECK(second.continuation.projectiles[0].sourceOrdinalV1==0);CHECK(second.continuation.projectiles[1].sourceOrdinalV1==0);
+    CHECK(length(second.continuation.projectiles[1].velocity-field.projectiles[1].velocity)==0);
+}
+
+
+namespace {
+fsim::ms::damage::detail::MaterialDomainV3 positiveTimeTriangleDomainV3(
+    const std::array<V3,3>& triangle,V3 at,V3 velocity,V3 segment) {
+    namespace method=fsim::ms::damage::detail;
+    const V3 normal=normalized(cross(triangle[1]-triangle[0],triangle[2]-triangle[0]));
+    std::array<method::PlaneEqualityInputV1,5> planes{};
+    const auto make=[&](V3 n,double bound) {
+        return method::PlaneEqualityInputV1{{n.x,n.y,n.z},bound,dot(n,at)-bound,dot(n,velocity),dot(n,segment)};
+    };
+    const double bound=dot(normal,triangle[0]);planes[0]=make(normal,bound);planes[1]=make(normal*(-1),-bound);
+    for(std::size_t edge=0;edge<3;++edge) {
+        const V3 outward=cross(triangle[(edge+1)%3]-triangle[edge],normal);
+        planes[edge+2]=make(outward,dot(outward,triangle[edge]));
+    }
+    const auto original=method::reducePlaneEqualityV1(planes.data(),planes.size(),0,1);
+    REQUIRE(original.status==method::PlaneEqualityResultV1::Status::Reduced);REQUIRE(original.count==2);
+    std::vector<std::array<double,2>> native;
+    for(std::size_t i=0;i<original.count;++i)native.push_back({original.vertices[i].time,original.vertices[i].along});
+    return method::materialDomainV3(planes.data(),planes.size(),0,1,native);
+}
+}
+TEST_CASE("future fixed-time rod contact retains the entire material-coordinate slice",
+          "[damage][scene-effects][rod-material-history-v3][rod-entry-slice]") {
+    namespace method=fsim::ms::damage::detail;
+    // Native cube RIGHT face, triangles2/3: same physical wall/diagonal.
+    // These dyadic inputs isolate the historical exit reconstruction issue;
+    // they do not replay or fit the observed 3.47e-18 native event time.
+    const std::array<V3,3> paid={V3{1,-1,-1},V3{1,1,-1},V3{1,1,1}};
+    const std::array<V3,3> next={V3{1,-1,-1},V3{1,1,1},V3{1,-1,1}};
+    const V3 at{std::nextafter(1.,0.),-.25,0},velocity{1,0,0},segment{0,.5,0};
+    const double time=std::ldexp(1.,-53);
+    REQUIRE(time>0);CHECK(at.x+time==1);
+    method::MaterialFacetQueryV3 oldFace,newFace;
+    oldFace.key.victim=newFace.key.victim=1;oldFace.key.generation=newFace.key.generation=1;
+    oldFace.thickness=newFace.thickness=.02;oldFace.vertices=paid;newFace.vertices=next;
+    oldFace.domain=positiveTimeTriangleDomainV3(paid,at,velocity,segment);
+    newFace.domain=positiveTimeTriangleDomainV3(next,at,velocity,segment);
+    REQUIRE(oldFace.domain.valid);REQUIRE(newFace.domain.valid);
+    CHECK(oldFace.domain.entry.time==time);CHECK(oldFace.domain.leave.time==time);
+    CHECK(newFace.domain.entry.time==time);CHECK(newFace.domain.leave.time==time);
+    CHECK(oldFace.domain.entry.along==.5);CHECK(oldFace.domain.leave.along==1);
+    CHECK(newFace.domain.entry.along==0);CHECK(newFace.domain.leave.along==.5);
+    // The lex entry is the material endpoint, NOT the shared diagonal.
+    CHECK((newFace.domain.entry.mask&(std::uint32_t{1}<<6))==0);
+    CHECK((newFace.domain.entrySliceMask&(std::uint32_t{1}<<6))!=0);
+    CHECK(method::sameMaterialBranchV3(oldFace,newFace));
+    const V3 commonPoint=at+velocity*time+segment*.5;
+    CHECK(commonPoint.x==1);CHECK(commonPoint.y==0);CHECK(commonPoint.z==0);
+    // A q-disjoint wall with no actual common physical edge cannot borrow it.
+    auto disjoint=newFace;
+    for(auto& vertex:disjoint.vertices)vertex.z+=2;
+    CHECK_FALSE(method::sameMaterialBranchV3(oldFace,disjoint));
+}

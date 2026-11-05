@@ -1,5 +1,6 @@
 """Independent numeric controls; native coupling is a separate required input."""
 import copy
+import hashlib
 import math
 import json
 import tempfile
@@ -13,6 +14,38 @@ import component_references_kinematics as ref
 
 
 class ComponentKinematicsReferenceTests(unittest.TestCase):
+
+    def test_parser_body_digest_changes_invalidate_the_existing_header_implementation_closure(self):
+        # The fixture seed includes Cards.h/Profile.h directly. Isolate that
+        # source closure from model inventory; do not edit any active body.
+        with mock.patch.object(ref,'roster',return_value=[]), mock.patch('component_matrix.native_paths',return_value=set()):
+            baseline=ref.source_epoch(ref.ROOT)
+            sources={r['path']:r['sha256'] for r in baseline['sources']}
+            original_digest=ref.digest
+            for relative in ('src/simulation/mission_systems/Cards.cpp',
+                             'src/simulation/mission_systems/components/Profile.cpp'):
+                with self.subTest(body=relative):
+                    body=(ref.ROOT/relative).resolve()
+                    self.assertIn(relative,sources)
+                    self.assertEqual(sources[relative],original_digest(body))
+                    # Inject only the digest of a concrete in-memory body edit.
+                    # Its declaration header and every other input stay exact.
+                    changed_hash=hashlib.sha256(body.read_bytes()+b'\n// parser body dependency control\n').hexdigest()
+                    def changed_digest(path):
+                        return changed_hash if Path(path).resolve()==body else original_digest(path)
+                    with mock.patch.object(ref,'digest',side_effect=changed_digest):
+                        changed=ref.source_epoch(ref.ROOT)
+                    changed_sources={r['path']:r['sha256'] for r in changed['sources']}
+                    self.assertEqual(set(sources),set(changed_sources))
+                    self.assertEqual({p for p in sources if sources[p]!=changed_sources[p]},{relative})
+                    with tempfile.TemporaryDirectory() as directory:
+                        epoch=Path(directory)/'original-epoch.json'
+                        epoch.write_text(json.dumps(baseline),encoding='utf-8')
+                        with mock.patch.object(ref,'source_epoch',return_value=changed):
+                            with self.assertRaisesRegex(ValueError,'stale or incomplete'):
+                                ref.validate_capture_run([],epoch,Path(directory)/'absent-receipt.json')
+
+
     def test_selected_r77_reference_uses_the_finite_input_signal_stage(self):
         card=next(c for _,c,_ in ref.roster() if c['id']=='r-77m')
         control=ref.resolved(card,'autopilot')|ref.resolved(card,'actuator')

@@ -485,6 +485,7 @@ TEST_CASE("Each maintained AAM executes one identifiable native release to actua
                 if(reticle->complete) {
                     packet.set("capture_time_s",controlNumber(reticle->measurementTimeS)).set("exposure_start_s",controlNumber(reticle->exposureStartTimeS))
                         .set("exposure_end_s",controlNumber(reticle->exposureEndTimeS)).set("bearing_resolved",reticle->bearingResolved)
+                        .set("precise_bearing",reticle->preciseBearing)
                         .set("saturated",reticle->saturated).set("fit_snr",controlNumber(reticle->fitSnr))
                         .set("fit_residual",controlNumber(reticle->fitResidual)).set("adc_step_electrons",controlNumber(reticle->adcStepElectrons))
                         .set("variance_bound_electrons2",controlNumber(reticle->varianceBoundElectrons2))
@@ -492,6 +493,44 @@ TEST_CASE("Each maintained AAM executes one identifiable native release to actua
                         .set("feature_count",static_cast<double>(reticle->features.size()))
                         .set("phase_rad",controlArray(reticle->phases)).set("incident_electrons",controlArray(reticle->incidentElectrons))
                         .set("expected_electrons",controlArray(reticle->expectedElectrons)).set("measured_electrons",controlArray(reticle->measuredElectrons));
+                    const bool fitAvailable=std::isfinite(reticle->compactFitSnr)&&reticle->compactFitSnr>0;
+                    packet.set("compact_fit_available",fitAvailable)
+                        .set("compact_fit_snr",controlNumber(reticle->compactFitSnr))
+                        .set("compact_fit_residual",controlNumber(reticle->compactFitResidual))
+                        .set("fitted_centre_x_rad",fitAvailable?controlNumber(reticle->fittedCentreXRad):core::Json())
+                        .set("fitted_centre_y_rad",fitAvailable?controlNumber(reticle->fittedCentreYRad):core::Json())
+                        .set("fitted_width_rad",fitAvailable?controlNumber(reticle->fittedWidthRad):core::Json())
+                        .set("fitted_height_rad",fitAvailable?controlNumber(reticle->fittedHeightRad):core::Json());
+                    // Observer only: exact native own-pose and inverse refusal
+                    // state. Unvisited stages retain explicit unavailable/null.
+                    const auto& horizon=reticle->horizonDiagnostic;
+                    const bool horizonAttempted=horizon.refusal!=0;
+                    const bool nullAvailable=horizon.refusal>=4&&std::isfinite(horizon.nullResidual);
+                    const bool localVarianceAvailable=horizon.refusal>=17&&std::isfinite(horizon.localVariance)&&horizon.localVariance>0;
+                    core::Json inverse;
+                    inverse.set("attempted",horizonAttempted)
+                        .set("refusal_code",horizonAttempted?core::Json(static_cast<double>(horizon.refusal)):core::Json())
+                        .set("own_up_x",horizonAttempted?controlNumber(horizon.ownUp.x):core::Json())
+                        .set("own_up_y",horizonAttempted?controlNumber(horizon.ownUp.y):core::Json())
+                        .set("own_up_z",horizonAttempted?controlNumber(horizon.ownUp.z):core::Json())
+                        .set("null_fit_available",nullAvailable)
+                        .set("null_cutoff",nullAvailable?controlNumber(horizon.nullCutoff):core::Json())
+                        .set("null_residual",nullAvailable?controlNumber(horizon.nullResidual):core::Json())
+                        .set("source_fit_available",horizon.fitAvailable)
+                        .set("source_shape_x_y_width_height_cutoff",horizon.fitAvailable?controlArray(horizon.shape):core::Json())
+                        .set("source_residual",horizon.fitAvailable?controlNumber(horizon.sourceResidual):core::Json())
+                        .set("raw_budget_available",horizon.budgetAvailable)
+                        .set("raw_budget_sky_ground_source",horizon.budgetAvailable?controlArray(horizon.rawBudget):core::Json())
+                        .set("information_available",horizon.informationAvailable)
+                        .set("information_determinant",horizon.informationAvailable?controlNumber(horizon.informationDeterminant):core::Json())
+                        .set("information_trace",horizon.informationAvailable?controlNumber(horizon.informationTrace):core::Json())
+                        .set("local_variance_available",localVarianceAvailable)
+                        .set("local_variance_rad2",localVarianceAvailable?controlNumber(horizon.localVariance):core::Json())
+                        .set("alternative_available",horizon.alternativeAvailable)
+                        .set("alternative_shape_x_y_width_height_cutoff",horizon.alternativeAvailable?controlArray(horizon.alternativeShape):core::Json())
+                        .set("alternative_delta_cost_sigma2",horizon.alternativeAvailable?controlNumber(horizon.alternativeDelta):core::Json())
+                        .set("alternative_separation_rad",horizon.alternativeAvailable?controlNumber(horizon.alternativeSeparation):core::Json());
+                    packet.set("horizon_inference",std::move(inverse));
                     if(!reticle->features.empty()) {
                         const auto& feature=reticle->features.front();
                         packet.set("feature_x",controlNumber(feature.direction.x)).set("feature_y",controlNumber(feature.direction.y)).set("feature_z",controlNumber(feature.direction.z))

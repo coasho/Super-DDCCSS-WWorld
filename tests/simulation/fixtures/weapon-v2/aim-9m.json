@@ -578,6 +578,14 @@
     }
   },
   "sources": {
+    "native-conscan-engineering-v1": {
+      "title": "Declared scalar conical-scan optical/electronic design",
+      "publisher": "Project engineering derivation",
+      "url": "docs/research/sim-m03/thermal-reticle-method.md",
+      "accessed": "2026-11-03",
+      "evidence_kind": "engineering_derivation",
+      "note": "R=min(width,height)*pitch/2; r=R/2; n=max(1,floor(pi*r/(8*psfSigma))); f=1/(2*pi*n*responseTime).128 phase samples and4x4 spatial quadrature are explicit numerical design. Method references: NAWCWD TP8347(2013),7-1.33-37 and Howser,JHUAPL16(1),1995,27-33. Independent SA-14-only reference: DOI10.1016/j.infrared.2010.07.001,100Hz*12=1200Hz. No OEM AAM constants, fitted scene outcome or empirical calibration are claimed."
+    },
     "usaf-aim9": {
       "evidence_kind": "government_publication",
       "title": "AIM-9 Sidewinder (fact sheet)",
@@ -941,5 +949,8 @@
         "validity": "Source geometry and model correlations; equipment accuracy requires independent validation."
       }
     }
+  },
+  "simulation_model": {
+    "calibration": "Retained native compatibility fixture: seeker V2 and native.warhead.zoned_case.v1 use the original scalar inputs and captured-CG burst. The following production-card model discussion does not select this fixture runtime: AIM-9M Sidewinder is uncalibrated. The Sidewinder-M selects a scalar conical-scan reticle with seven-model shared software optics but its own 85.5 kg geometry, reduced-smoke motor and passive rolleron surfaces. Reticle carrier/background inference is not the old quadrant mechanism or AIM-9X imaging. Retained card anchors: mass 85.5 kg (published; source usaf-aim9; uncertainty 1.0), length 2.87 m (published; source usaf-aim9; uncertainty 0.01), diameter 0.127 m (published; source usaf-aim9; uncertainty 0.002), warhead 9.43 kg (derived; source usn-aim9x; uncertainty 0.2), explosive 3.58 kg (published; source wt-datamine; uncertainty 0.54). Current receiver thermal_conscan_reticle.v1; control fsim.control.load_feedback_cascade; propulsion fsim.propulsion.jsbsim_generated_solid_rocket; fuze native.fuze.swept_path.v1; warhead native.warhead.authored_field.v3. The 9.43 kg warhead entry is a declared cross-variant derivation; exact M reticle/noise, rolleron bearing friction and detonation spectra remain inferred rather than established by the bulk USAF fact sheet. Source classes and uncertainty records remain unchanged; assumed, derived and game-reference values are not promoted to equipment measurements. Per-model theory, parameter deltas and numerical method routes are in docs/research/sim-m03/component-methods/per-model-effects-components.json and per-model-six-components.json; the separate docs/research/sim-m03/calibration-ledger.json identifies the remaining equipment comparisons. Arithmetic or native scenario verification does not establish held-out accuracy. No admitted same-model independent baseline-to-new held-out calibration receipt is claimed; engineering completion continues through its own gates."
   }
 }
