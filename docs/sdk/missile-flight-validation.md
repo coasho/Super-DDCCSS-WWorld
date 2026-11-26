@@ -117,7 +117,7 @@ under the declared numerical configuration. Legacy terrain-strike energy keeps
 its fixed-tick incoming state/mass; precise contact initiation uses its separate
 substep snapshot, without changing the original impact assertions.
 
-The [current production directory](../../build/architecture-reviews/sim-m02-delivery-20261031/production/index.html)
+The current production directory (build/architecture-reviews/sim-m02-delivery-20261031/production/index.html)
 contains all 88 rows, source/method/product fingerprints and raw generation logs.
 Its generation entry point does not launch tests or flight sweeps. All writers
 join before the single SDK/Python installation. `campaign-timing.json` records
@@ -127,7 +127,7 @@ flight/control/reset/release execution and records the actual loaded DLL.
 These basic flights are separate from the historical 210-condition sampling
 campaign described above; historical sample totals are not current results.
 
-The [delivery report](../../build/architecture-reviews/sim-m02-delivery-20261031/delivery.md)
+The delivery report (build/architecture-reviews/sim-m02-delivery-20261031/delivery.md)
 separates full-table production integrity, current basic execution, internal
 consistency predicates, source review and actual clean HEAD-plus-patch application.
 The dated basic-use campaign did not run a new long full regression. The current task requires actual functional closure with the original scenarios and assertions. No older full-suite result is relabeled as
@@ -362,16 +362,16 @@ including their failures, remain separate evidence.
 
 ### Aerodynamic reference outcome
 
-See the [retained aerodynamic research cases](../hangar-system.md#11-historical-evidence-and-retained-lessons)
+See the [retained aerodynamic research cases](../hangar-system.md#consolidated-lessons)
 for numerical outcomes, failed controls and their evidence roots. The
-[method](../hangar-system.md#5-solver-research-and-controlled-numerical-changes)
-and [physical-admission boundaries](../hangar-system.md#8-sampling-interpolation-spatial-accuracy-and-physical-scope)
+[method](../hangar-system.md#shared-method-and-retained-limits)
+and [physical-admission boundaries](../hangar-system.md#calibration-and-measured-errors)
 are maintained there; successful propulsion comparison does not close them.
 
 ### Reproducible entrypoints
 
 Run from the repository root after the project-local setup/build in the
-[Hangar system guide](../hangar-system.md#2-whole-system-setup-build-run-and-stop).
+[Hangar system guide](../hangar-system.md#normal-entrypoints).
 The reference safeguard uses only Python's standard library. The matched
 powered-flight comparison additionally needs the pinned optional RocketPy
 environment; a software-only SDK build does not require offline CFD tools.
@@ -488,7 +488,7 @@ receipts and parameter hashes remain there or in the dated integration root.
 
 ### Aerodynamic method and source controls
 
-The [2026-10-22 research case](../hangar-system.md#2026-10-22-conservation-gradients-thermodynamics-and-generated-models)
+The [2026-10-22 research case](../hangar-system.md#consolidated-lessons)
 retains the wall-force defect, conservative wall/gradient corrections, exact
 disabled replays, sphere/enthalpy/AUSM/face-EOS controls and remaining accuracy
 failures. Their numerical/operator proofs do not admit equipment coefficients.

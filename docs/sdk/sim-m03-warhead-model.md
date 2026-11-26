@@ -170,7 +170,7 @@ not declared blast equivalence, and changing blast equivalence leaves fragment
 speed fixed. The legacy fixture checks that the new angular field is ignored.
 These additional fixtures await the combined native GREEN gate.
 
-The later root-owned [scoped regression](sim-m03-five-km-repair.md#current-scoped-regression-evidence)
+The later root-owned [scoped regression](sim-m03-five-km-repair.md#current-repair-delivery-status)
 records all synthetic V1 mechanism/boundary/spin/blast cases passing in both
 presets. Current physical-model acceptance remains failed: the unchanged
 showcase has zero sampled intersections, and the 6 m side-burst fixture has no

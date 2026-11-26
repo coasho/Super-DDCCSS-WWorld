@@ -232,6 +232,35 @@ int main(int argc, char** argv) {
         }
         CHECK(found);
     }
+    /* SIM-M05 (MS-9b): C99 payload task (Dispense salvo) & payload report + Agent scope */
+    {
+        fsim_payload_task task;
+        fsim_ms_result task_res;
+        fsim_payload_value values[8];
+        uint32_t value_count = 0;
+        uint32_t before_chaff = 0, before_flare = 0, after_chaff = 0, after_flare = 0;
+        fsim_payload_task_init(&task);
+        task.payload = 2; /* cmds on f16c */
+        task.kind = FSIM_TASK_DISPENSE;
+        task.chaff = 1;
+        task.flares = 1;
+        task.salvos = 1;
+        task.interval_s = 0.5;
+        CHECK(strcmp(fsim_task_kind_name(FSIM_TASK_JAM), "jam") == 0);
+        CHECK(strcmp(fsim_task_kind_name(FSIM_TASK_DISPENSE), "dispense") == 0);
+        CHECK(fsim_vehicle_payload_task(red, a, &task, NULL, &task_res) == FSIM_NOT_ALLOWED);
+        CHECK(fsim_world_countermeasures(blue, a, &before_chaff, &before_flare) == FSIM_OK);
+        fsim_ms_result_init(&task_res);
+        CHECK(fsim_vehicle_payload_task(blue, a, &task, NULL, &task_res) == FSIM_OK);
+        CHECK(task_res.status == FSIM_COMMAND_ACCEPTED);
+        CHECK(fsim_world_step(world, 60) == FSIM_OK);
+        CHECK(fsim_world_countermeasures(blue, a, &after_chaff, &after_flare) == FSIM_OK);
+        CHECK(before_chaff - after_chaff == 1);
+        CHECK(before_flare - after_flare == 1);
+        fsim_payload_value_init(&values[0]);
+        CHECK(fsim_vehicle_payload_report(red, a, 2, values, 8, &value_count) == FSIM_NOT_ALLOWED);
+        CHECK(fsim_vehicle_payload_report(blue, a, 2, values, 8, &value_count) == FSIM_OK);
+    }
     fsim_world_destroy(observer);
     fsim_world_destroy(boss);
     fsim_world_destroy(red);

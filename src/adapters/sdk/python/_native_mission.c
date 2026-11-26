@@ -877,6 +877,74 @@ PyObject* world_contacts(PyObject* o, PyObject* const* args, Py_ssize_t n) {
     return list;
 }
 
+/* payload_task(id, payload, kind, contact, chaff, flares, salvos, interval_s, az_centre, el_centre, az_half, el_half,
+ *              frequency_hz, bandwidth_hz, duration_s, source=0, controller=0, command_id=0) -> result */
+PyObject* world_payload_task(PyObject* o, PyObject* const* args, Py_ssize_t n) {
+    WorldObject* self = (WorldObject*)o;
+    uint32_t id, payload;
+    int32_t kind, chaff, flares, salvos;
+    uint64_t contact;
+    double d[8];
+    fsim_ms_options opts;
+    if (!check_args(n, 15, 18, "payload_task") || !as_u32(args[0], &id) || !as_u32(args[1], &payload) ||
+        !as_int(args[2], &kind) || !as_u64(args[3], &contact) || !as_int(args[4], &chaff) || !as_int(args[5], &flares) ||
+        !as_int(args[6], &salvos) || !as_doubles(args, 7, 8, d))
+        return NULL;
+    if (!ms_options_from(args, 15, n, &opts)) return NULL;
+    Py_DECREF(Py_None);
+    fsim_payload_task t;
+    fsim_payload_task_init(&t);
+    t.payload = payload;
+    t.kind = kind;
+    t.contact = contact;
+    t.chaff = chaff;
+    t.flares = flares;
+    t.salvos = salvos;
+    t.interval_s = d[0];
+    t.azimuth_centre_rad = d[1];
+    t.elevation_centre_rad = d[2];
+    t.azimuth_half_width_rad = d[3];
+    t.elevation_half_width_rad = d[4];
+    t.frequency_hz = d[5];
+    t.bandwidth_hz = d[6];
+    t.duration_s = d[7];
+    fsim_ms_result r;
+    fsim_ms_result_init(&r);
+    if (fsim_vehicle_payload_task(self->world, id, &t, &opts, &r) != FSIM_OK) return fail();
+    return ms_result_tuple(&r);
+}
+
+/* payload_report(id, payload) -> [(name, value, unit)] */
+PyObject* world_payload_report(PyObject* o, PyObject* const* args, Py_ssize_t n) {
+    WorldObject* self = (WorldObject*)o;
+    uint32_t id, payload, count = 0;
+    if (!check_args(n, 2, 2, "payload_report") || !as_u32(args[0], &id) || !as_u32(args[1], &payload)) return NULL;
+    if (fsim_vehicle_payload_report(self->world, id, payload, NULL, 0, &count) != FSIM_OK) return fail();
+    fsim_payload_value* t = count ? (fsim_payload_value*)PyMem_Malloc(sizeof(fsim_payload_value) * count) : NULL;
+    if (count && !t) return PyErr_NoMemory();
+    if (count) {
+        fsim_payload_value_init(&t[0]);
+        uint32_t got = 0;
+        if (fsim_vehicle_payload_report(self->world, id, payload, t, count, &got) != FSIM_OK) {
+            PyMem_Free(t);
+            return fail();
+        }
+        if (got < count) count = got;
+    }
+    PyObject* list = PyList_New(0);
+    for (uint32_t i = 0; list && i < count; ++i) {
+        PyObject* x = Py_BuildValue("(sds)", t[i].name ? t[i].name : "", t[i].value, t[i].unit ? t[i].unit : "");
+        if (!x || PyList_Append(list, x) < 0) {
+            Py_XDECREF(x);
+            Py_CLEAR(list);
+            break;
+        }
+        Py_DECREF(x);
+    }
+    PyMem_Free(t);
+    return list;
+}
+
 PyObject* mod_amti_mode_name(PyObject* m, PyObject* const* args, Py_ssize_t n) {
     int code;
     (void)m;

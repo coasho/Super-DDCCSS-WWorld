@@ -50,7 +50,7 @@ the old one - its aircraft, their trails, the focus - is dropped.
 - Every live vehicle, as a 3D model over full-Earth satellite imagery (to level 19, ~0.3 m/px) and terrain (30 m data to level 15, smoothly refined below it so the imagery keeps sharpening at low altitude), with a label, a trail and a chase/orbit/overview camera (`tab` cycles vehicles; left drag rotates the view around its focus (middle drag too); space + left drag pans only when the camera is detached (camera mode "free", or before any vehicle exists): it moves the globe so the ground follows the cursor, including across the poles - locked to a vehicle, space + left drag does nothing, and a plain left drag rotates about it; the wheel zooms 12 % a notch, out to 50,000 km (the whole Earth) and in to 6 m from a followed vehicle (1.5 times a smaller one's radius, down to 5 cm) or 25 m from a detached focus on the ground - locked to a vehicle it changes nothing but the distance, and detached it zooms towards the ground under the pointer (osgEarth's zoomToMouse), except beyond some 1,600 km (a quarter of the Earth's radius), where it too changes only the distance; `--no-zoom-to-cursor`, or `"zoomToCursor": false` under `camera` in `viewer.json`, makes the wheel zoom straight in; space alone, released without a drag, pauses; the right button is not a camera control; the camera never enters the terrain).
 - Vehicle creation, reset (new "generation") and removal, as they happen.
 - Several training applications at once: the monitor lists every live world and switches between them (`--world <name>` picks one at start).
-- Per-type models: a vehicle of type `jsbsim:f16` is drawn with `models/f16.glb` (or `.gltf`) if such a file exists in an asset directory (`<exe>/../share/flightsim/models`, the source tree's `assets/models`, or a `--assets` path), else with the platform's default aircraft; `VehicleSpec::model` names a file explicitly. Files are loaded once, on first use, and shared by every vehicle of that type; a `<file>.manifest` (`forward`, `up`, `scale`) fixes axes and size. Aircraft made with [hangar](../hangar-system.md) carry their own model (`aircraft/<name>/<name>.glb`), found the same way - and so does every store (a missile, a bomb, a tank, a pod, cargo: each a design of its own, [Hangar system](../hangar-system.md#3-model-contract-and-reproducibility)).
+- Per-type models: a vehicle of type `jsbsim:f16` is drawn with `models/f16.glb` (or `.gltf`) if such a file exists in an asset directory (`<exe>/../share/flightsim/models`, the source tree's `assets/models`, or a `--assets` path), else with the platform's default aircraft; `VehicleSpec::model` names a file explicitly. Files are loaded once, on first use, and shared by every vehicle of that type; a `<file>.manifest` (`forward`, `up`, `scale`) fixes axes and size. Aircraft made with [hangar](../hangar-system.md) carry their own model (`aircraft/<name>/<name>.glb`), found the same way - and so does every store (a missile, a bomb, a tank, a pod, cargo: each a design of its own, [Hangar system](../hangar-system.md#inputs-products-and-ownership)).
 - Moving control surfaces, for models that mark them (see below): ailerons, elevator, rudder and flaps follow each vehicle's deflections, from the trainer or the replay.
 - What the engines and the air do (see [Effects](#effects)): afterburner flames, glowing nozzles and hot exhaust; wing tip vortices; condensation on the airframe - over the wings and canards, in the leading-edge extensions' vortices - and the transonic vapour cone; contrails high up.
 - The world's clock (sun position and sky), wind, atmosphere and weather - its cloud drawn as volumetric clouds (see [Clouds](#clouds)).
@@ -178,7 +178,7 @@ their segmentation images show the same deflections.
 ### Breakup sections
 
 A designed aircraft's model is split into the sections a structural kill breaks it into - `fsim:section:nose`,
-`centre`, `left-wing`, `right-wing`, `tail` (hangar's, [Hangar system](../hangar-system.md#9-generation-staging-native-flight-and-visual-acceptance)) - each node at its
+`centre`, `left-wing`, `right-wing`, `tail` (hangar's, [Hangar system](../hangar-system.md#verification-and-reproduction)) - each node at its
 break, what is mounted on it (its control surfaces, gear, pylons, nozzles) below it. Whole, they are at rest; the
 damage chain's `Separated` events hide the failed sections, while debris entities draw those sections alone at
 their own simulated poses. This is implemented in `VehicleVisuals::hideSection` and the viewer's event handling.
@@ -207,7 +207,7 @@ opens them (`StoreInfo::bayDoors`, half a second before a release from the bay) 
 each store's card and its bay's doors in its mission record; a recording carries the stores as they change (its `M` records, version 3), so a
 replay draws them too.
 
-Everything an aircraft carries beside its people, its built-in equipment and its small items is a store ([Hangar system](../hangar-system.md#3-model-contract-and-reproducibility)), drawn the same way: the F-22A's, F-35A's, J-20A's and Su-57's bay missiles in their bays, the EA-18G's three ALQ-99 jamming pods on its stations 3, 6 and 9 (its airframe's model no longer has them: as it spawns it is drawn clean, and with its "jamming pods" loadout each pod hangs under its pylon and leaves with a jettison), a missile jettisoned as the body it is. A transport's cargo - a loaded pallet, an airdrop bundle - rides on its hold's pallet positions (its manifest's stations, inside its skin: drawn there, out of sight); released over the ramp it is a vehicle of its own, drawn as its box, its pallet and its straps (`aircraft/463lpallet/463lpallet.glb`, `aircraft/cdsa22/cdsa22.glb`), and listed among the vehicles. hangar cuts no bay and hangs no rack for a hold's stations: the hold is the fuselage as it is drawn.
+Everything an aircraft carries beside its people, its built-in equipment and its small items is a store ([Hangar system](../hangar-system.md#inputs-products-and-ownership)), drawn the same way: the F-22A's, F-35A's, J-20A's and Su-57's bay missiles in their bays, the EA-18G's three ALQ-99 jamming pods on its stations 3, 6 and 9 (its airframe's model no longer has them: as it spawns it is drawn clean, and with its "jamming pods" loadout each pod hangs under its pylon and leaves with a jettison), a missile jettisoned as the body it is. A transport's cargo - a loaded pallet, an airdrop bundle - rides on its hold's pallet positions (its manifest's stations, inside its skin: drawn there, out of sight); released over the ramp it is a vehicle of its own, drawn as its box, its pallet and its straps (`aircraft/463lpallet/463lpallet.glb`, `aircraft/cdsa22/cdsa22.glb`), and listed among the vehicles. hangar cuts no bay and hangs no rack for a hold's stations: the hold is the fuselage as it is drawn.
 
 ### Where a picture is hung
 
@@ -229,7 +229,7 @@ A store's own model has its origin at its CG as it hangs on a station: a tank's,
 the Mk 82's CG, a missile's CG with its motor full. A missile's file says so (`fsim/model/origin-x-in`), since its
 empty CG is its structure's, burnt out: lit, its CG moves 0.2 to 0.5 m ahead as its motor burns, and its picture stays
 on its airframe. hangar's model stage holds every store's model to this - its nose and its tail from its origin, its
-length, its width or its fins' reach measured on the mesh's own vertices ([Hangar system](../hangar-system.md#3-model-contract-and-reproducibility)).
+length, its width or its fins' reach measured on the mesh's own vertices ([Hangar system](../hangar-system.md#inputs-products-and-ownership)).
 
 ## Flight status
 
@@ -264,7 +264,7 @@ separate GPU validation effort.
 Native showcase recordings default to 30 Hz. The scene's capture rate accepts positive integer divisors of
 30 Hz; it selects snapshots while preserving the SDK's 120 Hz JSBSim integration and 30 Hz World guidance,
 fuze and damage steps. It does not retime simulation to match the viewer's display rate. See the
-[Hangar scene contract](../hangar-system.md#3-model-contract-and-reproducibility) for the supported rates and generated evidence files.
+[Hangar scene contract](../hangar-system.md#inputs-products-and-ownership) for the supported rates and generated evidence files.
 
 On Windows, double-click `Engagement.cmd` in the repository root to run the original 5 km head-on F-16C /
 AIM-120C scene in one fullscreen Viewer. It uses the existing `ucrt64-release` build, with no recording,

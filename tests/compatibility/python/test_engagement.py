@@ -153,6 +153,37 @@ class EngagementTest(unittest.TestCase):
             self.assertEqual(carrier.strike_status(activity), native)
             self.assertIsNone(observer.strike_status(activity))
 
+    def test_sim_m05_electronic_attack_and_programmed_salvo(self):
+        with fsim.World("py-sim-m05", publish=False, terrain=False, workers=1, dt=1.0 / 120.0, frame_skip=4) as world:
+            f16 = world.create_vehicle("f16", "jsbsim:f16c", latitude_deg=35.0, longitude_deg=-117.0,
+                                       altitude_msl_m=6000.0, heading_deg=90.0, airspeed_ms=220.0)
+            growler = world.create_vehicle("ea18g", "jsbsim:ea18g", latitude_deg=35.0, longitude_deg=-116.80,
+                                           altitude_msl_m=6000.0, heading_deg=270.0, airspeed_ms=220.0)
+            f16.set_payload_state("rwr", "operate")
+            f16.set_payload_state("cmds", "operate")
+            growler.set_payload_state("jammers", "operate")
+            world.step(5)
+            f16_agent = world.create_agent(f16, "f16-agent")
+            growler_agent = world.create_agent(growler, "growler-agent")
+
+            jam_act = growler_agent.jam("jammers", frequency_hz=9.86e9, bandwidth_hz=40e6)
+            self.assertGreater(jam_act, 0)
+            rep = {v.name: v.value for v in growler_agent.payload_report("jammers")}
+            self.assertEqual(rep.get("active"), 1.0)
+            self.assertAlmostEqual(rep.get("frequency"), 9.86e9, delta=1e6)
+
+            world.step(30)
+            contacts = f16_agent.contacts("rwr")
+            self.assertTrue(any(c.mode == fsim.EmitterMode.JAMMER and c.truth == 0 for c in contacts))
+
+            before = f16_agent.countermeasures()
+            salvo_act = f16_agent.dispense_salvo("cmds", chaff=1, flares=1, salvos=1, interval_s=0.5)
+            self.assertGreater(salvo_act, 0)
+            world.step(60)
+            after = f16_agent.countermeasures()
+            self.assertEqual(before.chaff - after.chaff, 1)
+            self.assertEqual(before.flare - after.flare, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

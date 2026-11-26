@@ -52,7 +52,7 @@ JSBSim flies the launcher, target and released weapon, and the SDK owns guidance
 Missing native support fails the scene instead of substituting a scripted trajectory or scheduled burst. The
 plume comparison measures rendered shape and brightness; it does not calibrate real-world missile performance.
 Older scripted-fixture measurements retain their original dates and scope in the [viewer guide](sdk/viewer.md).
-For continuous live viewer acceptance, use [Hangar's `--live` launcher](hangar-system.md#3-model-contract-and-reproducibility) with one fullscreen
+For continuous live viewer acceptance, use [Hangar's `--live` launcher](hangar-system.md#inputs-products-and-ownership) with one fullscreen
 viewer attached to the exact published World for the entire native run. Captured frames are evidence for their
 individual times, not proof that the complete live release, flight and aftermath were observed.
 

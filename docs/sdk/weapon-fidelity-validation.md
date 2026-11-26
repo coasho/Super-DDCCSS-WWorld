@@ -109,7 +109,7 @@ waivers. VLM/DATCOM/CFD outputs remain simulated estimates and do not establish
 measured equipment accuracy. A working kill chain does not remove the separate
 measured-calibration gap.
 
-The common [88-design production and basic-use evidence](../../build/architecture-reviews/sim-m02-delivery-20261031/delivery.md)
+The common 88-design production and basic-use evidence (build/architecture-reviews/sim-m02-delivery-20261031/delivery.md)
 records native flight, sampled instantaneous forces/performance, physical
 component applicability, generated product hashes and an isolated installed
 consumer. Its engineering status is independent of the optional measurement
@@ -209,7 +209,7 @@ substitute for fleet coverage.
 
 ## All24 AAM repairs and remaining gates, 2026-10-30
 
-The [repair report](../../build/architecture-reviews/aam-closure-20261030/index.html)
+The repair report (build/architecture-reviews/aam-closure-20261030/index.html)
 retains the original report, every failed intermediate attempt and the fresh
 per-model native/visual results. The same 48 scene hashes produce zero reverse-flow
 cases (previously eight). Fleet peak absolute alpha decreases from 179.9218 to
@@ -248,7 +248,7 @@ telemetry refusal found by this replay was repaired without weakening assertions
 The shared generator repair preserves the two frozen store calibration gains:
 MK82 holdout CD NRMSE 7.2435% versus baseline 7.4365%; A-22 scaled bare-container
 CD 18.3121% versus 24.5713%. Original parameters and reference partitions remain
-unchanged. The [fresh receipts](../../build/architecture-reviews/aam-closure-20261030/closure.json)
+unchanged. The fresh receipts (build/architecture-reviews/aam-closure-20261030/closure.json)
 do not imply full-scale A-22 or unmeasured lift/moment validation.
 
 Full closure remains incomplete. The fleet still needs the generic
@@ -286,7 +286,7 @@ All 24 models ran two unchanged native SDK cases (5 km head-on; 3 km tail with a
 
 The 48 cases contain 39 detonations and nine weapons still in flight at 40 s. Native engagement records contain damage in 35 cases and a true native destroyed flag in nine; these flags retain native semantics, not a claim that every such aircraft exploded. Detonation does not imply fragment Hit, destruction or functional loss. All24 exact-model aerodynamic records remain blocked in this dated optional measured-calibration ledger; those labels do not decide SIM-M02 engineering acceptance. These short forward shots do not establish maximum range/speed/g, high off-boresight, LOAL, countermeasure or datalink fidelity. No plant/card/calibration parameter was fitted from these outcomes.
 
-Actual v8 recordings were replayed through production VehicleVisuals: every physical fin ID, angle and independent hinge matrix agrees; authored actuator stops and rates agree. This verifies synchronization, not control stability. One controller-unavailable sample at release is distinguished from repeated loss of inversion after departure. Full raw telemetry and card/provider comparisons are in [the generated per-model report](../../build/architecture-reviews/aam-chain-20261030/index.html), with original scenes, hashes, logs and captures beside it.
+Actual v8 recordings were replayed through production VehicleVisuals: every physical fin ID, angle and independent hinge matrix agrees; authored actuator stops and rates agree. This verifies synchronization, not control stability. One controller-unavailable sample at release is distinguished from repeated loss of inversion after departure. Full raw telemetry and card/provider comparisons are in the generated per-model report (build/architecture-reviews/aam-chain-20261030/index.html), with original scenes, hashes, logs and captures beside it.
 
 | Model | Head / tail fuze miss (m) | Peak Mach | Peak incidence / load | Card and control finding |
 |---|---:|---:|---:|---|

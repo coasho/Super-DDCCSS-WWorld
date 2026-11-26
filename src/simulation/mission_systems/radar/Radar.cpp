@@ -505,6 +505,13 @@ void Radar::dwell(double time, double az, double el, const sim::VehicleState& ow
     // the dwell's threshold: its false-alarm time's, among its resolution cells
     const double cells = resolutionCells(search_.mode, dwellS_, search_.rangeScaleM, speed);
     const double pfa = dwellPfa(search_.mode, dwellS_, search_.rangeScaleM, speed);
+    // External noise jamming (SIM-M05 / MS-9b): raises effective noise PSD
+    // from N0 = k*T0*F to N0 + J0, degrading SNR by 10*log10(1 + J0/N0) dB.
+    const double rxBwHz = std::max(1.0 / std::max(dwellS_, 1e-6), 0.5 * kLight / std::max(spec_.rangeResolutionM, 1.0));
+    const double j0WHz = scene.jammingDensityWHz(spec_.frequencyHz, rxBwHz, az, el, pattern_,
+                                                 spec_.azimuthFaces, spec_.aperture.electronic, own);
+    const double n0WHz = std::pow(10.0, (kKT0DbW + spec_.noiseFigureDb) / 10.0);
+    const double jamDegradationDb = (j0WHz > 0.0 && n0WHz > 0.0) ? (10.0 * std::log10(1.0 + j0WHz / n0WHz)) : 0.0;
     std::vector<Detection> found;
     // a measurement's errors, as its SNR (linear) gives them (range resolution, monopulse beam splitting, Doppler
     // resolution), none below its card's floors (SIM-M01): the same draws scaled, so the floors change no detection
@@ -552,7 +559,7 @@ void Radar::dwell(double time, double az, double el, const sim::VehicleState& ow
         const double loss = scene.pathLossDb(ids[k], spec_.frequencyHz);
         const double dwell = dwellS_;
         double snr = 10.0 * std::log10(spec_.averagePowerW) + 2.0 * gain + 10.0 * std::log10(4.0 * kPi * sigma / (lambda * lambda)) - 2.0 * loss +
-                     10.0 * std::log10(dwell) - kKT0DbW - spec_.noiseFigureDb - spec_.systemLossDb + spec_.classCalibrationDb;
+                     10.0 * std::log10(dwell) - kKT0DbW - spec_.noiseFigureDb - spec_.systemLossDb + spec_.classCalibrationDb - jamDegradationDb;
         if (inSidelobeBand && search_.mode != Mode::VelocitySearch) snr -= spec_.sidelobeClutterDb;
         const double s = std::pow(10.0, snr / 10.0);
         const double pd = dwellPd(snr, fluctuationOf(fluct), search_.mode, pfa);
@@ -707,8 +714,13 @@ void Radar::dwellSignal(double time, double az, double el, const sim::VehicleSta
         const double sigma = scene.sigma(ids[k], spec_.frequencyHz, spec_.polarizationRad, fluct);
         if (!(sigma > 0.0)) continue;
         const double loss = scene.pathLossDb(ids[k], spec_.frequencyHz);
-        const double snr =10.0 * std::log10(spec_.averagePowerW) + 2.0 * gain + 10.0 * std::log10(4.0 * kPi * sigma / (lambda * lambda)) - 2.0 * loss +
-                           10.0 * std::log10(dwellS_) - kKT0DbW - spec_.noiseFigureDb - spec_.systemLossDb + spec_.classCalibrationDb;
+        const double rxBwHz = std::max(1.0 / std::max(dwellS_, 1e-6), 0.5 * kLight / std::max(spec_.rangeResolutionM, 1.0));
+        const double j0WHz = scene.jammingDensityWHz(spec_.frequencyHz, rxBwHz, az, el, pattern_,
+                                                     spec_.azimuthFaces, spec_.aperture.electronic, own);
+        const double n0WHz = std::pow(10.0, (kKT0DbW + spec_.noiseFigureDb) / 10.0);
+        const double jamDegradationDb = (j0WHz > 0.0 && n0WHz > 0.0) ? (10.0 * std::log10(1.0 + j0WHz / n0WHz)) : 0.0;
+        const double snr = 10.0 * std::log10(spec_.averagePowerW) + 2.0 * gain + 10.0 * std::log10(4.0 * kPi * sigma / (lambda * lambda)) - 2.0 * loss +
+                           10.0 * std::log10(dwellS_) - kKT0DbW - spec_.noiseFigureDb - spec_.systemLossDb + spec_.classCalibrationDb - jamDegradationDb;
         signal::Echo e;
         e.rangeM = range;
         e.rangeRateMs = (vt[0] - vOwn[0]) * d[0] + (vt[1] - vOwn[1]) * d[1] + (vt[2] - vOwn[2]) * d[2];

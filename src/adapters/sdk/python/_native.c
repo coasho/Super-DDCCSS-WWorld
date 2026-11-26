@@ -468,6 +468,10 @@ static PyMethodDef world_methods[] = {
     FAST("fused_tracks_v1",world_fused_tracks_v1,"fused_tracks_v1(id): non-consuming permitted platform knowledge"),
     FAST("fusion_status_v1",world_fusion_status_v1,"fusion_status_v1(id): processing limits and refusal counters"),
     FAST("contacts", world_contacts, "contacts(id, payload) -> [(id, payload, kind, mode, warning, truth, first, time, az, el, sigma, range, rate, lat, lon, h, strength, frequency, size)]"),
+    FAST("payload_task", world_payload_task,
+         "payload_task(id, payload, kind, contact, chaff, flares, salvos, interval_s, az_centre, el_centre, az_half, el_half, "
+         "frequency_hz, bandwidth_hz, duration_s, source=0, controller=0, command_id=0) -> result"),
+    FAST("payload_report", world_payload_report, "payload_report(id, payload) -> [(name, value, unit)]"),
     FAST("amti_detections", world_amti_detections, "amti_detections(id, payload, since) -> [(serial, payload, time, truth, range, az, el, rate, snr, lat, lon, h)]"),
     FAST("radar_cross_section", world_radar_cross_section,
          "radar_cross_section(observer, target, frequency_hz, tx_rad, rx_rad) -> (modelled, sigma_m2, fluctuation, az_rad, el_rad)"),

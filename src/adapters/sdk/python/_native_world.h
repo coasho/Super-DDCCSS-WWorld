@@ -264,6 +264,8 @@ PyObject* world_weapon_links_v1(PyObject* o,PyObject* const* args,Py_ssize_t n);
 PyObject* world_fused_tracks_v1(PyObject* o,PyObject* const* args,Py_ssize_t n);
 PyObject* world_fusion_status_v1(PyObject* o,PyObject* const* args,Py_ssize_t n);
 PyObject* world_contacts(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_payload_task(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_payload_report(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_agent_report(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_agent_strike_reports(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_agent_consent_reports(PyObject* o, PyObject* const* args, Py_ssize_t n);

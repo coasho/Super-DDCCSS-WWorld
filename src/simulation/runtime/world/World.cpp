@@ -18,6 +18,7 @@
 #include "simulation/flight_control/Profile.h"
 #include "fsim/ControllerRegistry.h"
 #include "simulation/flight/JsbsimModel.h"
+#include "simulation/mission_systems/ea/Jammer.h"
 #include "simulation/mission_systems/radar/Radar.h"
 #include "simulation/mission_systems/rf/Path.h"
 #include "simulation/mission_systems/weapon/LaunchEligibility.h"
@@ -895,6 +896,48 @@ void World::stepDms() {
                 return true;
             }
             return false;
+        }
+        bool jammed(std::uint32_t from, std::uint32_t to, const comm::NetSpec& spec,
+                    double rangeM, double) const override {
+            (void)from;
+            if (world.emissions_.empty()) return false;
+            double latB = 0.0, lonB = 0.0, hB = 0.0;
+            if (!locate(to, latB, lonB, hB)) return false;
+            double rxEcef[3];
+            ms::rf::geodeticToEcef(latB, lonB, hB, rxEcef);
+            constexpr double kPi = 3.14159265358979323846;
+            constexpr double kLight = 299792458.0;
+            constexpr double kTxPowerW = 200.0;        // basis: assumed tactical datalink terminal RF power
+            constexpr double kCommsJamMarginDb = 10.0; // basis: assumed tactical spread-spectrum link jam margin
+            const double rxBwHz = std::clamp(spec.dataRateBps * 50.0, 250.0e3, 3.0e6);
+            const double sigLossDb = 20.0 * std::log10(4.0 * kPi * std::max(rangeM, 1.0) * std::max(spec.frequencyHz, 1.0) / kLight);
+            const double rxSignalW = kTxPowerW * std::pow(10.0, -sigLossDb / 10.0);
+            double jamPowerW = 0.0;
+            for (const ms::Emission& em : world.emissions_) {
+                if (em.mode != ms::EmitterMode::Jammer || !em.state || em.entity == to) continue;
+                const double overlap = ms::ea::spectralOverlap(em.frequencyHz, em.bandwidthHz, spec.frequencyHz, rxBwHz);
+                if (overlap <= 0.0) continue;
+                const double dx = rxEcef[0] - em.state->positionEcef[0];
+                const double dy = rxEcef[1] - em.state->positionEcef[1];
+                const double dz = rxEcef[2] - em.state->positionEcef[2];
+                const double jamRangeM = std::max(1.0, std::sqrt(dx * dx + dy * dy + dz * dz));
+                double jamLossDb = 20.0 * std::log10(4.0 * kPi * jamRangeM * std::max(spec.frequencyHz, 1.0) / kLight);
+                if (spec.lineOfSight) {
+                    ms::rf::PathOptions po;
+                    po.frequencyHz = spec.frequencyHz;
+                    po.ground = world.ground_.get();
+                    const auto path = ms::rf::computePath(
+                        {em.state->latitudeRad, em.state->longitudeRad, em.state->altitudeMslM},
+                        {latB, lonB, hB}, po);
+                    if (std::isfinite(path.totalDb) && path.totalDb > jamLossDb) jamLossDb = path.totalDb;
+                }
+                const double txGainDbi = em.gainTowardsDbi(rxEcef);
+                const double j0WHz = ms::ea::receivedJammerDensityWHz(em.powerW, txGainDbi, 0.0, jamLossDb, em.bandwidthHz, overlap);
+                jamPowerW += j0WHz * rxBwHz;
+            }
+            if (!(jamPowerW > 0.0)) return false;
+            const double jToSDb = 10.0 * std::log10(jamPowerW / std::max(rxSignalW, 1e-30));
+            return jToSDb > kCommsJamMarginDb;
         }
     };
     dms_.step(simTime_, Where(*this), ground_.get(), dmsRng_);
@@ -2347,6 +2390,17 @@ ms::CommandResult World::submit(std::uint32_t id, const ms::AmtiCommand& command
     return e->ms.submit(command, options, simTime_);
 }
 
+ms::CommandResult World::submit(std::uint32_t id, const ms::PayloadTask& command, const ms::CommandOptions& options) {
+    Entry* e = entry(id);
+    if (!e) return ms::CommandResult{control::CommandStatus::Rejected, ms::Reason::UnknownVehicle, 0, options.commandId};
+    return e->ms.submit(command, options, simTime_);
+}
+
+std::vector<ms::PayloadValue> World::payloadReport(std::uint32_t id, std::uint16_t payload) const {
+    const Entry* e = entry(id);
+    return e ? e->ms.report(payload) : std::vector<ms::PayloadValue>{};
+}
+
 std::vector<ms::StoreInfo> World::stores(std::uint32_t id) const {
     const Entry* e = entry(id);
     return e ? e->ms.stores() : std::vector<ms::StoreInfo>{};
@@ -2991,10 +3045,21 @@ void World::sense() {
         }
         double pathLossDb(std::uint32_t target, double frequencyHz) const override {
             const Entry* a = world.entry(own);
-            const Entry* b = world.entry(target);
+            if (!a) return 200.0;
             const sim::VehicleState& sa = states[a->slot];
-            const sim::VehicleState& sb = states[b->slot];
-            const double d[3] = {sb.positionEcef[0] - sa.positionEcef[0], sb.positionEcef[1] - sa.positionEcef[1], sb.positionEcef[2] - sa.positionEcef[2]};
+            double bEcef[3] = {0.0, 0.0, 0.0};
+            double bLat = 0.0, bLon = 0.0, bAlt = 0.0;
+            if (const Entry* b = world.entry(target)) {
+                const sim::VehicleState& sb = states[b->slot];
+                bEcef[0] = sb.positionEcef[0], bEcef[1] = sb.positionEcef[1], bEcef[2] = sb.positionEcef[2];
+                bLat = sb.latitudeRad, bLon = sb.longitudeRad, bAlt = sb.altitudeMslM;
+            } else if (const comm::C2NodeSpec* c2 = world.c2Node(target)) {
+                bLat = c2->latitudeRad, bLon = c2->longitudeRad, bAlt = c2->altitudeMslM;
+                ms::rf::geodeticToEcef(bLat, bLon, bAlt, bEcef);
+            } else {
+                return 200.0;
+            }
+            const double d[3] = {bEcef[0] - sa.positionEcef[0], bEcef[1] - sa.positionEcef[1], bEcef[2] - sa.positionEcef[2]};
             const double range = std::max(1.0, std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]));
             const double freeSpace = 20.0 * std::log10(4.0 * 3.14159265358979323846 * range * frequencyHz / 299792458.0);
             const bool forward = own < target;
@@ -3009,9 +3074,9 @@ void World::sense() {
             ms::rf::PathOptions o;
             o.frequencyHz = frequencyHz;
             o.ground = world.ground_.get();
-            const sim::VehicleState& lo = forward ? sa : sb;
-            const sim::VehicleState& hi = forward ? sb : sa;
-            const auto p = ms::rf::computePath({lo.latitudeRad, lo.longitudeRad, lo.altitudeMslM}, {hi.latitudeRad, hi.longitudeRad, hi.altitudeMslM}, o);
+            const ms::rf::Terminal tA{sa.latitudeRad, sa.longitudeRad, sa.altitudeMslM};
+            const ms::rf::Terminal tB{bLat, bLon, bAlt};
+            const auto p = forward ? ms::rf::computePath(tA, tB, o) : ms::rf::computePath(tB, tA, o);
             const double excess = std::max(0.0, p.totalDb - p.freeSpaceDb);
             {
                 std::lock_guard<std::mutex> lock(world.pathExcessMutex_);
@@ -3019,6 +3084,55 @@ void World::sense() {
                 x.timeS = world.simTime_, x.excessDb = excess;
             }
             return freeSpace + excess;
+        }
+        double jammingDensityWHz(double frequencyHz, double bandwidthHz,
+                                 double beamAzimuthRad, double beamElevationRad,
+                                 const ms::rf::Pattern& pattern, unsigned azimuthFaces,
+                                 bool electronic, const sim::VehicleState& ownState) const override {
+            if (world.emissions_.empty()) return 0.0;
+            constexpr double kPi = 3.14159265358979323846;
+            const double cb = std::cos(beamElevationRad);
+            const double beamBody[3] = {cb * std::cos(beamAzimuthRad), cb * std::sin(beamAzimuthRad), -std::sin(beamElevationRad)};
+            const double sy = beamBody[1], sz = beamBody[2];
+            double totalJ0 = 0.0;
+            for (const ms::Emission& e : world.emissions_) {
+                if (e.mode != ms::EmitterMode::Jammer || !e.state || e.entity == own) continue;
+                const double overlap = ms::ea::spectralOverlap(e.frequencyHz, e.bandwidthHz, frequencyHz, bandwidthHz);
+                if (overlap <= 0.0) continue;
+                double los[3];
+                const double rangeM = ms::geom::lineOfSight(ownState, e.state->positionEcef, los);
+                if (!(rangeM > 1.0)) continue;
+                double db[3];
+                ms::geom::toBody(ownState, los, db);
+                double rxGainDbi = 0.0;
+                if (electronic) {
+                    if (azimuthFaces <= 1) {
+                        rxGainDbi = pattern.gainDbi(db, sy, sz);
+                    } else {
+                        const double spacing = 2.0 * kPi / static_cast<double>(azimuthFaces);
+                        const double centre = std::round(std::atan2(beamBody[1], beamBody[0]) / spacing) * spacing;
+                        const double c = std::cos(centre), s = std::sin(centre);
+                        const double local[3] = {c * db[0] + s * db[1], -s * db[0] + c * db[1], db[2]};
+                        rxGainDbi = 10.0 * std::log10(std::max(1e-12, pattern.gain(local, -s * beamBody[0] + c * beamBody[1], beamBody[2])));
+                    }
+                } else {
+                    double y[3] = {-beamBody[1], beamBody[0], 0.0};
+                    const double yl = std::hypot(y[0], y[1]);
+                    if (yl < 1e-9) y[0] = 0.0, y[1] = 1.0, y[2] = 0.0;
+                    else y[0] /= yl, y[1] /= yl;
+                    const double z[3] = {
+                        beamBody[1] * y[2] - beamBody[2] * y[1],
+                        beamBody[2] * y[0] - beamBody[0] * y[2],
+                        beamBody[0] * y[1] - beamBody[1] * y[0]
+                    };
+                    const double face[3] = {ms::geom::dot3(db, beamBody), ms::geom::dot3(db, y), ms::geom::dot3(db, z)};
+                    rxGainDbi = pattern.gainDbi(face);
+                }
+                const double txGainDbi = e.gainTowardsDbi(ownState.positionEcef);
+                const double lossDb = pathLossDb(e.entity, frequencyHz);
+                totalJ0 += ms::ea::receivedJammerDensityWHz(e.powerW, txGainDbi, rxGainDbi, lossDb, e.bandwidthHz, overlap);
+            }
+            return totalJ0;
         }
         double surfaceHeightM(double latitudeRad, double longitudeRad) const override {
             // (the clutter's ground, out to the radar's horizon: read apart from the tiles the vehicles stand on - a
@@ -3044,8 +3158,40 @@ void World::sense() {
     // what radiates, gathered before the workers start: a receiver reads this, never a radar another worker steps
     // (so what it hears is the scan the step before left - the same for any number of workers)
     emissions_.clear();
+    c2EmissionStates_.clear();
     for (std::size_t s = 0; s < entries_.size(); ++s)
         if (const Entry* e = entries_[s].get()) e->ms.emissions(states[s], simTime_, emissions_);
+    if (dms_.active()) {
+        std::vector<Dms::CarrierEmission> carriers;
+        dms_.activeCarriers(simTime_, 1.0, carriers);
+        c2EmissionStates_.reserve(carriers.size());
+        for (const auto& c : carriers) {
+            ms::Emission em;
+            em.entity = c.entity;
+            em.payload = 0;
+            em.mode = ms::EmitterMode::Datalink;
+            em.frequencyHz = c.frequencyHz;
+            em.bandwidthHz = c.bandwidthHz;
+            em.powerW = c.powerW;
+            em.peakPowerW = 0.0;
+            em.peakGainDbi = 0.0;
+            em.sidelobeDbi = 0.0;
+            em.allRound = true;
+            if (const Entry* e = entry(c.entity)) {
+                em.state = &states[e->slot];
+                emissions_.push_back(em);
+            } else if (const comm::C2NodeSpec* c2 = c2Node(c.entity)) {
+                sim::VehicleState st{};
+                st.latitudeRad = c2->latitudeRad;
+                st.longitudeRad = c2->longitudeRad;
+                st.altitudeMslM = c2->altitudeMslM;
+                ms::rf::geodeticToEcef(st.latitudeRad, st.longitudeRad, st.altitudeMslM, st.positionEcef);
+                c2EmissionStates_.push_back(st);
+                em.state = &c2EmissionStates_.back();
+                emissions_.push_back(em);
+            }
+        }
+    }
     for (const auto& e : entries_) if (e && e->guidance &&
             e->origin.phase != ms::WeaponPhase::Midcourse && e->origin.phase != ms::WeaponPhase::Unguided &&
             e->origin.seeker == "active_radar") {
@@ -3154,6 +3300,12 @@ void World::step(unsigned n) {
                     }
                     if (e->host.afterStep(after[s], positions, simTime_)) levelChanged(*e); // (what waited started)
                     e->ms.step(simTime_);
+                    const auto dispRequests = e->ms.takeDispenseRequests();
+                    for (const auto& req : dispRequests) {
+                        const ms::Reason dr = dispense(e->info.id, req.flare);
+                        e->ms.dispenseResult(req.activity, req.flare, dr, simTime_);
+                    }
+                    e->ms.finalizeSalvos(simTime_);
                 }
             advanceWeaponNavigationBoundaryV2();
             sense();

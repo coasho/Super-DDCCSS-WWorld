@@ -1,5 +1,6 @@
 #include "simulation/mission_systems/Model.h"
 
+#include "simulation/mission_systems/ea/Jammer.h"
 #include "simulation/mission_systems/esm/Receiver.h"
 
 namespace fsim::ms {
@@ -16,10 +17,10 @@ double Emission::gainTowardsDbi(const double placeEcef[3]) const noexcept {
 }
 
 std::unique_ptr<Model> makeModel(const Card& card, std::uint16_t count) {
-    (void)count;
     switch (card.family) {
     case Family::Esm: return esm::makeReceiver(card);
-    default: return nullptr; // (the other families' models: MS-9 to MS-11, not built yet)
+    case Family::ElectronicAttack: return ea::makeJammer(card, count);
+    default: return nullptr; // (the other families' models: MS-10 to MS-11, not built yet)
     }
 }
 

@@ -150,7 +150,7 @@ hashes agree. The additional AIM-120C event-relative strike check preserves
 native fragment Hit, crew loss and post-hit flight semantics. PL-10 does not
 satisfy that separate crew-loss predicate and is not promoted into a pass.
 
-The [issue ledger](../../../build/architecture-reviews/aam-closure-20261030/closure.json)
+The issue ledger (build/architecture-reviews/aam-closure-20261030/closure.json)
 explicitly remains incomplete for equipment closure: exact-model measured
 calibration, GPS/fitted weapon-link/commanded pulse mechanisms and full-envelope
 acceptance are pending. The existing feedback contract requires its reviewed

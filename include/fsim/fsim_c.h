@@ -2999,6 +2999,59 @@ FSIM_API const char* fsim_contact_kind_name(int kind); /* "emitter", "infrared",
 FSIM_API const char* fsim_emitter_mode_name(int mode); /* "unknown", "search", "lock", "illumination", "seeker", "jammer", "datalink" */
 
 /* ---------------------------------------------------------------------------
+ * Electronic attack, programmed countermeasures salvos and payload reports
+ * (MS-9b / SIM-M05; ABI additive).
+ * ------------------------------------------------------------------------- */
+enum fsim_task_kind {
+    FSIM_TASK_DISPENSE = 0,
+    FSIM_TASK_FIRE,
+    FSIM_TASK_JAM,
+    FSIM_TASK_SEARCH,
+    FSIM_TASK_TRACK,
+    FSIM_TASK_IMAGE
+};
+
+typedef struct fsim_payload_task {
+    uint32_t struct_size;             /* fsim_payload_task_init */
+    uint32_t payload;                 /* payload index */
+    int32_t kind;                     /* fsim_task_kind */
+    int32_t chaff;                    /* Dispense: chaff cartridges per salvo */
+    int32_t flares;                   /* Dispense: flare cartridges per salvo */
+    int32_t salvos;                   /* Dispense: number of salvos */
+    int32_t rounds;                   /* Fire: burst rounds */
+    uint64_t contact;                 /* Jam / Track: own-platform contact id (0: none) */
+    double interval_s;                /* Dispense: interval between salvos (s) */
+    double azimuth_centre_rad;        /* Jam / Search: centre azimuth (rad) */
+    double elevation_centre_rad;      /* Jam / Search: centre elevation (rad) */
+    double azimuth_half_width_rad;    /* NaN: payload default */
+    double elevation_half_width_rad;  /* NaN: payload default */
+    double range_scale_m;             /* NaN: payload default */
+    double frequency_hz;              /* Jam: centre frequency (Hz; NaN: contact or full band) */
+    double bandwidth_hz;              /* Jam: noise bandwidth (Hz; NaN: spot or full band) */
+    double latitude_rad;              /* Image */
+    double longitude_rad;             /* Image */
+    double resolution_m;              /* Image */
+    double duration_s;                /* Optional task duration (s; NaN: until canceled/done) */
+} fsim_payload_task;
+
+typedef struct fsim_payload_value {
+    uint32_t struct_size;             /* fsim_payload_value_init */
+    const char* name;                 /* constant figure name ("active", "power", "frequency", "bandwidth", "erp", ...) */
+    double value;                     /* numeric value (NaN when unavailable) */
+    const char* unit;                 /* constant unit string ("", "W", "Hz", "dBW", ...) */
+} fsim_payload_value;
+
+FSIM_API void fsim_payload_task_init(fsim_payload_task* task);
+FSIM_API void fsim_payload_value_init(fsim_payload_value* value);
+FSIM_API const char* fsim_task_kind_name(int kind); /* "dispense", "fire", "jam", "search", "track", "image" */
+/* Submit an electronic-attack or programmed countermeasures payload task (MS-9b / SIM-M05). */
+FSIM_API int fsim_vehicle_payload_task(fsim_world* world, uint32_t id, const fsim_payload_task* task,
+                                       const fsim_ms_options* options, fsim_ms_result* result);
+/* A payload's reported numeric figures: `max` at most into `out` (`out[0].struct_size` bytes apart), `*count` total. */
+FSIM_API int fsim_vehicle_payload_report(const fsim_world* world, uint32_t id, uint32_t payload,
+                                         fsim_payload_value* out, uint32_t max, uint32_t* count);
+
+/* ---------------------------------------------------------------------------
  * Legal reports with their provenance (ABI 1.73; docs/sdk/mission-training.md, section 10; fsim/MAReports.h). An agent
  * already reads its platform's reports - its own ship, its radars' tracks, its payloads' contacts, the tracks and peers
  * its links delivered, C2's tasks, the authority over it. fsim_agent_report adds nothing to what it may know: it says

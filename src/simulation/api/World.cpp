@@ -343,6 +343,15 @@ ms::CommandResult Vehicle::submit(const ms::AmtiCommand& command, const ms::Comm
     return ms::CommandResult{control::CommandStatus::Rejected, ms::Reason::UnknownVehicle, 0, options.commandId};
 }
 
+ms::CommandResult Vehicle::submit(const ms::PayloadTask& command, const ms::CommandOptions& options) {
+    if (world_) return world_->impl_->submit(id_, command, options);
+    return ms::CommandResult{control::CommandStatus::Rejected, ms::Reason::UnknownVehicle, 0, options.commandId};
+}
+
+std::vector<ms::PayloadValue> Vehicle::payloadReport(std::uint16_t payload) const {
+    return world_ ? world_->impl_->payloadReport(id_, payload) : std::vector<ms::PayloadValue>{};
+}
+
 std::vector<ms::StoreInfo> Vehicle::stores() const { return world_ ? world_->impl_->stores(id_) : std::vector<ms::StoreInfo>{}; }
 
 ms::Reason Vehicle::loadStore(std::uint16_t payload, int station, const std::string& store, int count) {

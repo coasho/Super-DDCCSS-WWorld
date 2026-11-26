@@ -30,6 +30,9 @@ published world through shared memory (see [viewer.md](viewer.md)).
 | [boundary.md](boundary.md) | SDK entry-point classification by Agent, MA core, Range, Referee and Platform; historical access findings and current call counts (ADR-31) |
 | [mission-systems.md](mission-systems.md) | the payloads each aircraft carries (radars, warning receivers, jammers, sensors, guns, stations): discovery, power states, BIT, grants (ADR-30) |
 | [engagement.md](engagement.md) | native missile release, flight, seekers, countermeasures, events, damage, own-platform Agent equipment access/reports, compatibility and modeling assumptions |
+| [sim-m04-dlz-wez.md](sim-m04-dlz-wez.md) | SIM-M04 (MS-8) flyout-derived 5-D DLZ and aspect-polar WEZ envelopes, uncertainty propagation, SHA-256 provenance and published-performance comparison |
+| [sim-m05-esm-ea-comint.md](sim-m05-esm-ea-comint.md) | SIM-M05 (MS-9b) electronic attack RF noise jamming, enhanced ESM/DF geolocation, COMINT datalink interception, comms jamming and programmed countermeasure salvos |
+| [sim-m03-full-chain-current.md](sim-m03-full-chain-current.md) | SIM-M03 all-model native full-chain verification status and historical per-model diagnostic record |
 | [engagement-validation.md](engagement-validation.md) | dated local regression and encounter evidence, reproduction paths and validation limits |
 | [vision.md](vision.md) | cameras on vehicles: offscreen RGB images of the same Earth the viewer draws (`fsim_vision.dll`) |
 | [vecenv.md](vecenv.md) | the batch (gym-style) layer for vectorised RL, built on the same object model; registering your own task, observation space and action space |

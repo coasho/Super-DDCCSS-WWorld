@@ -4,7 +4,7 @@ Aerodynamic evidence policy and the Hangar-to-runtime workflow are
 maintained in the [Hangar system guide](../../../hangar-system.md). This document
 retains its architectural, ownership and milestone contracts.
 
-The [current exact-model AAM gate](../../../hangar-system.md#exact-model-aam-aerodynamic-gate)
+The [current exact-model AAM gate](../../../hangar-system.md#sim-m02-aerodynamic-engineering-completeness-gate)
 supersedes the dated solver selections and acceptance assignments below.
 
 This is the accepted design and dated implementation history, not the current capability checklist.
@@ -228,7 +228,7 @@ calibrate real-world missile performance. See [status](../../../status.md) for t
 
 The scripted showcase and plume-check fixtures in the entries below are retired. Their supplied missile poses,
 timed bursts and injected target outcomes describe the recorded revision, not the maintained scene generator.
-Current [Hangar showcase](../../../hangar-system.md#3-model-contract-and-reproducibility) records SDK Worlds: JSBSim flight, observations, consent, guidance,
+Current [Hangar showcase](../../../hangar-system.md#inputs-products-and-ownership) records SDK Worlds: JSBSim flight, observations, consent, guidance,
 seekers, fuzes and damage determine the outcome. Missing native support fails instead of substituting a scripted
 trajectory. Historical commands and measurements below are retained as evidence of the earlier visual work;
 they do not validate the replacement scenes.
@@ -501,7 +501,7 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
   stations' point masses: its flight is unchanged to the bit, old XML against new, all 16
   ([sdk/mission-systems.md](../../../sdk/mission-systems.md#stores-and-weapon-employment-ms-7a)).
 - **MS-7e1, the missiles' models, and the first of MS-7e2 (2026-10-08).** All 24 missiles as hangar designs, written
-  by one rule from one table ([Hangar system](../../../hangar-system.md#3-model-contract-and-reproducibility)): each card's length, diameter, span and mass held, its
+  by one rule from one table ([Hangar system](../../../hangar-system.md#inputs-products-and-ownership)): each card's length, diameter, span and mass held, its
   shape assumed from photographs and said so; its control surfaces moving (`fsim:` nodes), its motor's nozzle cut in
   and named for the viewer (`rocket` in the manifest), its paint and markings bands. The viewer draws a motor's plume
   from its thrust (the exhaust's jet as a solid rocket's: [sdk/viewer.md](../../../sdk/viewer.md#effects)).
@@ -566,7 +566,7 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
   air. Current native armed engagements also terminate through their fuze or expiry; this dated scripted-preview
   evidence does not verify the replacement scene or a viewer rebuilt against the engagement delivery.
 - **MS-7e1, the vulnerable components (2026-10-09).** Every fixed-wing design's engines, fuel, crew and flight
-  controls placed from its design by one rule ([Hangar system](../../../hangar-system.md#9-generation-staging-native-flight-and-visual-acceptance), `hangar/vulnerability.py`): a
+  controls placed from its design by one rule ([Hangar system](../../../hangar-system.md#verification-and-reproduction), `hangar/vulnerability.py`): a
   turbofan by Raymer's statistical sizing from its thrust, bypass ratio and design Mach (within 40 % of five published
   engines; a shaft engine from its mass, an estimate), each tank its capacity of kerosene through its body's section or
   between its wing's spars (a long wing tank a chain of boxes), each crew payload's people seated, each control's
@@ -577,7 +577,7 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
   way: a design without bays carried an unused `cover` material in its model (the bay covers' change, MS-3) - made only
   with a cover now; the models committed as they are (a re-mesh drops it, byte for byte otherwise).
 - **MS-7e1, the chaff and flare dispensers (2026-10-09).** Each type's dispensers placed from what is public
-  ([Hangar system](../../../hangar-system.md#9-generation-staging-native-flight-and-visual-acceptance), `hangar/dispensers.py`): 22 Commons photographs of the types releasing flares,
+  ([Hangar system](../../../hangar-system.md#verification-and-reproduction), `hangar/dispensers.py`): 22 Commons photographs of the types releasing flares,
   then - the owner's call, against crude places - encyclopedias, the defence press, other games' documentation (War
   Thunder) and forums, each group's sources and their kind recorded. 19 types placed from sources, several with two
   groups (the A-10C's wingtips and gear pods, the Su-25's tail cone and nacelles, the Typhoon's flaperon fairings and
@@ -747,23 +747,23 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
   The retired showcase recorded the scripted shot in cold air at 10,500 m.
 - **MS-7e1, the carriage and the stores on their stations (2026-10-08).** Each aircraft's stations' pylons, launcher
   rails and racks in its model (fsim:station:<n> nodes, a pylon up to the skin found by a ray against the airframe's
-  mesh; [Hangar system](../../../hangar-system.md#3-model-contract-and-reproducibility)), shown once a store has been there; the stations' places
+  mesh; [Hangar system](../../../hangar-system.md#inputs-products-and-ownership)), shown once a store has been there; the stations' places
   in its manifest. The viewer draws each carried store with its own design's model on its station
   ([sdk/viewer.md](../../../sdk/viewer.md#stores-on-their-stations)), from the live world's mission records (each store's
   card then in them: ipc layout 7) or a recording's store records (format version 3); the retired showcase carried
   its missile as the carrier's store until it launched, a vehicle of its own from then.
 - **MS-7e1, the weapon bays and their doors (2026-10-08).** The F-22A's, F-35A's, J-20A's and Su-57's bays cut into
   their underside, their doors cut from the skin over them, hinged on their outer edges
-  ([Hangar system](../../../hangar-system.md#3-model-contract-and-reproducibility)); the store management opens a bay's doors before releasing
+  ([Hangar system](../../../hangar-system.md#inputs-products-and-ownership)); the store management opens a bay's doors before releasing
   from it and shuts them after ([sdk/mission-systems.md](../../../sdk/mission-systems.md#stores-and-weapon-employment-ms-7a));
   the viewer turns them, the store in the bay behind them. The doors' timings are assumed.
 - **MS-7e1, the parts the airstream turns (2026-10-08).** The AIM-9M's rollerons, spun by the airstream and blurring
-  into discs, and the Magic 2's tail, free to roll on its bearing ring ([Hangar system](../../../hangar-system.md#3-model-contract-and-reproducibility),
+  into discs, and the Magic 2's tail, free to roll on its bearing ring ([Hangar system](../../../hangar-system.md#inputs-products-and-ownership),
   [sdk/viewer.md](../../../sdk/viewer.md#parts-the-airstream-turns)); their sizes and rates assumed. The R-77M's lattice
-  (grid) fins: frames round a diamond lattice, all-moving on their spindles ([Hangar system](../../../hangar-system.md#3-model-contract-and-reproducibility)).
+  (grid) fins: frames round a diamond lattice, all-moving on their spindles ([Hangar system](../../../hangar-system.md#inputs-products-and-ownership)).
 - **MS-7e1, the breakup sections (2026-10-09).** Every fixed-wing design's airframe split into its nose, centre,
   wings and tail - triangle by triangle, so whole it is as it was - each closed over its break, a node at its break
-  with what is mounted on it ([Hangar system](../../../hangar-system.md#9-generation-staging-native-flight-and-visual-acceptance)): the pieces MS-7g's structural kill and MS-7h's
+  with what is mounted on it ([Hangar system](../../../hangar-system.md#verification-and-reproduction)): the pieces MS-7g's structural kill and MS-7h's
   breakup part. The rule is one estimate for every aircraft (no structural data).
 
 - **MS-4b done (2026-10-11): the radar's engagement modes**

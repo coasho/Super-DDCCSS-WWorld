@@ -316,7 +316,7 @@ source hashes accompany every table. Neither source is exact-model measurement
 evidence. No CFD result or AI-generated value is labeled measured.
 
 The [88-row component matrix](data/sim-m02-engineering-completeness.csv) and
-[delivery report](../build/architecture-reviews/sim-m02-replay-20261031/delivery.md)
+delivery report (`build/architecture-reviews/sim-m02-replay-20261031/delivery.md`)
 record final statuses and current counts. The historical two armed-store component blocks have new native implementations;
 fresh common checks, rather than changed labels, decide their current status. Whole-tool runtime, full static
 table/value counts, native sampling and consistency checks are separate from

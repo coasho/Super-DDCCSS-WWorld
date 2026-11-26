@@ -89,6 +89,16 @@ fsim_set_warnings(fsim_launch_zone_test)
 add_test(NAME launch_zone COMMAND fsim_launch_zone_test)
 set_tests_properties(launch_zone PROPERTIES LABELS "sim-m04;payload-components;native-engagement" TIMEOUT 180)
 
+add_executable(fsim_esm_ea_comint_test simulation/test_esm_ea_comint.cpp)
+target_link_libraries(fsim_esm_ea_comint_test PRIVATE fsim::sdk fsim::ms Catch2::Catch2WithMain)
+target_compile_definitions(fsim_esm_ea_comint_test PRIVATE
+    FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}"
+    FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft")
+add_dependencies(fsim_esm_ea_comint_test fsim_payload_cards)
+fsim_set_warnings(fsim_esm_ea_comint_test)
+add_test(NAME esm_ea_comint COMMAND fsim_esm_ea_comint_test)
+set_tests_properties(esm_ea_comint PROPERTIES LABELS "sim-m05;mission-systems;esm;ea" TIMEOUT 180)
+
 # Enumerate cases at test time rather than at build time: the executables are
 # linked before `deploy` has staged the DLLs beside them, so running them to
 # list their tests during the build would fail.

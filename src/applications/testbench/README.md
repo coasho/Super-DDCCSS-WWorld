@@ -110,7 +110,7 @@ before the Vehicle Interface's speed and turn limits followed the load (flown by
 its slow flight stepped down to `min_cas_ms` and asked to hold that speed - no aircraft passed all of it but the four
 rotorcraft).
 
-- **Full load** is what the aircraft's own files let it carry ([docs/hangar.md](../../../docs/hangar.md#mass-accounting)):
+- **Full load** is what the aircraft's own files let it carry ([docs/hangar-system.md](../../../docs/hangar-system.md#inputs-products-and-ownership)):
   its fixed load, every tank full, and every station its fit's loadouts load - where two loadouts give a station a
   store, the heavier - held to its design's declared maximum take-off weight where it has one (fuel left out to meet
   it). An aircraft with no loadouts and full tanks as it spawns flies the same either way.

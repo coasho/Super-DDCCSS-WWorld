@@ -15,7 +15,7 @@ Aerodynamic evidence policy and the Hangar-to-runtime workflow are
 maintained in the [Hangar system guide](../../../hangar-system.md). This document
 retains its architectural, ownership and milestone contracts.
 
-The [current exact-model AAM gate](../../../hangar-system.md#exact-model-aam-aerodynamic-gate)
+The [current exact-model AAM gate](../../../hangar-system.md#sim-m02-aerodynamic-engineering-completeness-gate)
 supersedes the dated solver selections and acceptance assignments below.
 
 Date: 2026-10-17. Initial planning baseline: main `5c80892`; source and implementation coverage rechecked at main `6170ec6`. This allocation starts MS planning; it makes no new implementation, protocol-conformance or model-acceptance claim.

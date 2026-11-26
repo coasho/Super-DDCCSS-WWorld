@@ -56,7 +56,7 @@ Files: new `tools/validation/missile/{reference,crosscheck,test_reference}.py`.
 
 The completed reference-tool and failed authored-geometry controls, repairs and
 remaining physical-admission work are maintained in the
-[Hangar research guide](../../hangar-system.md#11-dated-research-cases-and-retained-failures).
+[Hangar research guide](../../hangar-system.md#consolidated-lessons).
 Only computed channels and independently qualified domains can enter generated
 tables. The release/motor/powered-flight results in Tasks 1--3 remain separate.
 

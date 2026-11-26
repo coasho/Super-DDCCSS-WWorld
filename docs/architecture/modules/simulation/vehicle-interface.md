@@ -507,7 +507,7 @@ They are reports. The activity stays Active, the capability Available, and nothi
 
 **In the viewer.** The world publishes each vehicle's weight, its `minCasMs` and `leastCasMs()`, its speed floor, the bank its airspeed leaves it and its live activities' flags with every snapshot ([sdk/viewer.md](../../../sdk/viewer.md#flight-status)): the viewer shows them for the selected vehicle, and marks a vehicle that is low on energy, deviating or upset in its list and on its label.
 
-**What this does not change.** The profile's speeds and tables are still those hangar flew at spawn weight. The scaling is a lift-coefficient rule, not a re-flown envelope, and a store's drag enters only through the speed floor. The F-35A and the Su-57, whose bay missiles were moved from the fixed load to stores ([Hangar system](../../../hangar-system.md#3-model-contract-and-reproducibility)), keep profiles flown 608 and 972 kg heavier than they now spawn, so their ratio stays 1 until they carry more than that; the other aircraft that change touched were flown again at the weight they spawn at.
+**What this does not change.** The profile's speeds and tables are still those hangar flew at spawn weight. The scaling is a lift-coefficient rule, not a re-flown envelope, and a store's drag enters only through the speed floor. The F-35A and the Su-57, whose bay missiles were moved from the fixed load to stores ([Hangar system](../../../hangar-system.md#inputs-products-and-ownership)), keep profiles flown 608 and 972 kg heavier than they now spawn, so their ratio stays 1 until they carry more than that; the other aircraft that change touched were flown again at the weight they spawn at.
 
 ## 8. Boundary, threads, allocation
 

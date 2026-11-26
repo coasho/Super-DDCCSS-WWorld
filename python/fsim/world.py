@@ -2033,11 +2033,26 @@ class EmitterMode(enum.IntEnum):
 Contact = collections.namedtuple(
     "Contact", "id payload kind mode warning truth first_time_s time_s azimuth_rad elevation_rad bearing_sigma_rad range_m "
     "range_rate_ms latitude_rad longitude_rad height_m strength_db frequency_hz size_m")
-Contact.__doc__ = """What a passive sensor holds (MS-9a): a warning receiver's emitter - its bearing as measured (azimuth from
-the nose, right positive, and elevation, in the carrier's body axes; ``bearing_sigma_rad`` the measurement's standard
-deviation), the power it arrives with (``strength_db``, dBm), its frequency, what it does (``mode``: fsim.EmitterMode) and
-whether that is a threat to the carrier itself (``warning``: locked on it, lighting it). A receiver measures no range:
-``range_m`` and the place are NaN. ``truth`` is the emitter's carrier: the simulation's knowledge, for scoring."""
+Contact.__doc__ = """What a passive sensor holds (MS-9a/MS-9b): a warning receiver/ESM emitter contact - its bearing
+as measured (azimuth from the nose, right positive, and elevation, in the carrier's body axes; ``bearing_sigma_rad``
+the SNR-dependent standard deviation), received power (``strength_db``, dBm), frequency, emitter mode (``fsim.EmitterMode``
+including SEARCH, LOCK, ILLUMINATION, SEEKER, JAMMER, DATALINK) and threat flag (``warning``). Range and geodetic
+position remain NaN until moving-platform triangulation converges across an adequate baseline. ``truth`` is the emitter's
+carrier (0 for Agent handles)."""
+
+
+class TaskKind(enum.IntEnum):
+    """What a payload task commands (MS-9b / SIM-M05)."""
+    DISPENSE = 0
+    FIRE = 1
+    JAM = 2
+    SEARCH = 3
+    TRACK = 4
+    IMAGE = 5
+
+
+PayloadValue = collections.namedtuple("PayloadValue", "name value unit")
+PayloadValue.__doc__ = """One numeric figure reported by a payload model (e.g. active, power, frequency, bandwidth, erp)."""
 
 
 class MissionRejected(_native.Error):
@@ -2965,11 +2980,43 @@ class Vehicle:
         return FusionStatusV1(*self._h.fusion_status_v1(self.id))
 
     def contacts(self, payload="rwr"):
-        """What a payload's passive sensor holds (fsim.Contact; MS-9a): a warning receiver's emitters - every radar
-        whose signal reaches it above what it can detect, while the payload operates. It takes no command: power it to
-        operate (``set_payload_state``) and read. Empty for a payload with no such sensor, or not operating."""
+        """What a payload's passive sensor holds (fsim.Contact; MS-9a/MS-9b): a warning receiver/ESM set's emitters -
+        radars, seekers, active jammers and COMINT datalink carriers above sensitivity while operating."""
         return [Contact(t[0], t[1], ContactKind(t[2]), EmitterMode(t[3]), bool(t[4]), *t[5:])
                 for t in self._h.contacts(self.id, self._payload_index(payload))]
+
+    def submit_task(self, payload, kind, *, contact=0, chaff=0, flares=0, salvos=1, interval_s=0.5,
+                    azimuth_centre_rad=0.0, elevation_centre_rad=0.0, azimuth_half_width_rad=float("nan"),
+                    elevation_half_width_rad=float("nan"), frequency_hz=float("nan"), bandwidth_hz=float("nan"),
+                    duration_s=float("nan"), source=Source.POLICY, controller=0, command_id=0):
+        """Submit an electronic-attack (TaskKind.JAM) or programmed countermeasure salvo (TaskKind.DISPENSE) task."""
+        return _ms_checked(self._h.payload_task(
+            self.id, self._payload_index(payload), int(kind), int(contact), int(chaff), int(flares), int(salvos),
+            float(interval_s), float(azimuth_centre_rad), float(elevation_centre_rad), float(azimuth_half_width_rad),
+            float(elevation_half_width_rad), float(frequency_hz), float(bandwidth_hz), float(duration_s),
+            int(source), int(controller), int(command_id)))
+
+    def jam(self, payload, *, contact=0, frequency_hz=float("nan"), bandwidth_hz=float("nan"),
+            azimuth_centre_rad=0.0, elevation_centre_rad=0.0, azimuth_half_width_rad=float("nan"),
+            elevation_half_width_rad=float("nan"), duration_s=float("nan"),
+            source=Source.POLICY, controller=0, command_id=0):
+        """Command an operating RF electronic-attack payload to jam a sector/band or reactively follow an ESM contact."""
+        return self.submit_task(
+            payload, TaskKind.JAM, contact=contact, azimuth_centre_rad=azimuth_centre_rad,
+            elevation_centre_rad=elevation_centre_rad, azimuth_half_width_rad=azimuth_half_width_rad,
+            elevation_half_width_rad=elevation_half_width_rad, frequency_hz=frequency_hz,
+            bandwidth_hz=bandwidth_hz, duration_s=duration_s, source=source, controller=controller, command_id=command_id)
+
+    def dispense_salvo(self, payload, *, chaff=0, flares=0, salvos=1, interval_s=0.5, duration_s=float("nan"),
+                       source=Source.POLICY, controller=0, command_id=0):
+        """Command a programmed countermeasures salvo on an operating countermeasures payload."""
+        return self.submit_task(
+            payload, TaskKind.DISPENSE, chaff=chaff, flares=flares, salvos=salvos, interval_s=interval_s,
+            duration_s=duration_s, source=source, controller=controller, command_id=command_id)
+
+    def payload_report(self, payload):
+        """Read a payload model's reported numeric figures ([PayloadValue])."""
+        return [PayloadValue(*t) for t in self._h.payload_report(self.id, self._payload_index(payload))]
 
     def amti_detections(self, payload="radar", since=0):
         """A radar payload's detections (fsim.AmtiDetection) with serial >= ``since`` that it still keeps (its last

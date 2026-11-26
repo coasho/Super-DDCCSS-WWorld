@@ -471,6 +471,15 @@ ms::CommandResult Agent::submit(const ms::AmtiCommand& command, const ms::Comman
     FSIM_AGENT_MS_OPTIONS(options);
     return FSIM_AGENT_VEHICLE_OF.submit(command, o);
 }
+ms::CommandResult Agent::submit(const ms::PayloadTask& command, const ms::CommandOptions& options) {
+    FSIM_AGENT_AUDIT;
+    FSIM_AGENT_MS_OPTIONS(options);
+    return FSIM_AGENT_VEHICLE_OF.submit(command, o);
+}
+std::vector<ms::PayloadValue> Agent::payloadReport(std::uint16_t payload) const {
+    FSIM_AGENT_AUDIT;
+    return FSIM_AGENT_VEHICLE_OF.payloadReport(payload);
+}
 ms::CommandResult Agent::submit(const ms::StrikeCommand& command, const ms::CommandOptions& options) {
     FSIM_AGENT_AUDIT;
     FSIM_AGENT_MS_OPTIONS(options);

@@ -188,7 +188,7 @@ and retains their assigned follow-ups; other open items remain in the register.
 
 ## 10. HC-13 correction: Release selection for renderer changes (2026-10-16)
 
-The [review](arch-06-review-2026-10-16.md#1-p2--hc-13-graphics-changes-can-pass-without-a-release-build-or-test) found
+The [review](arch-06-review-2026-10-16.md#1-p2-hc-13-graphics-changes-can-pass-without-a-release-build-or-test) found
 that a change to scene, UI or Flow code was planned on `ucrt64-headless` alone, which does not compile it. Its selection
 then passed without the changed code being built or tested. The gap predates ARCH-06 (the old `src/world` and `src/ui`
 paths had it).

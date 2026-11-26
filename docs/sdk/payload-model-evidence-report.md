@@ -1,6 +1,6 @@
 # Payload component configuration and evidence report
 
-The 2026-10-30 [fresh catalogue](../../build/architecture-reviews/aam-closure-20261030/catalogue/report.html)
+The 2026-10-30 fresh catalogue (build/architecture-reviews/aam-closure-20261030/catalogue/report.html)
 contains all53 cards and477 role declarations with zero unmapped available IDs.
 Current selections include four measured seeker classes, measured PN, two
 autopilot classes and two propulsion classes. The [repair evidence](weapon-fidelity-validation.md#all24-aam-repairs-and-remaining-gates-2026-10-30)

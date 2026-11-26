@@ -373,6 +373,10 @@ public:
     /// Search with a radar (MS-4; its AMTI capability, "fsim.ms.amti:<payload>"): the payload must be operating;
     /// the activity runs until canceled, superseded by the next, or the payload stops operating.
     ms::CommandResult submit(const ms::AmtiCommand& command, const ms::CommandOptions& options = {});
+    /// Task an electronic-attack or countermeasures payload (MS-9b / SIM-M05: Jam, Dispense).
+    ms::CommandResult submit(const ms::PayloadTask& command, const ms::CommandOptions& options = {});
+    /// A payload's own reported numeric figures (e.g. active, power, frequency, bandwidth, erp).
+    std::vector<ms::PayloadValue> payloadReport(std::uint16_t payload) const;
     /// A radar payload's picture: its scan, volume and limits (empty for a payload that is not a radar).
     ms::RadarStatus radarStatus(std::uint16_t payload) const;
     /// Designate one of its radar's tracks as a target (ADR-31, AB-2b): an id - not an entity's - a behaviour's, a must

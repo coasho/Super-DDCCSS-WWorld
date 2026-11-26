@@ -27,7 +27,24 @@ public:
     public:
         virtual ~Locator() = default;
         virtual bool locate(std::uint32_t entity, double& latitudeRad, double& longitudeRad, double& heightM) const = 0;
+        /// Whether active RF jamming prevents `to` from receiving `from`'s transmission on `spec`.
+        /// Default false preserves standalone Dms and unjammed regression behavior.
+        virtual bool jammed(std::uint32_t from, std::uint32_t to, const comm::NetSpec& spec,
+                            double rangeM, double now) const {
+            (void)from; (void)to; (void)spec; (void)rangeM; (void)now;
+            return false;
+        }
     };
+
+    /// Active datalink RF carrier metadata (never message payload bytes or topics) for ESM/COMINT sensing.
+    struct CarrierEmission {
+        std::uint32_t entity = 0;
+        double frequencyHz = 1.0e9;
+        double bandwidthHz = 1.0e6;
+        double powerW = 200.0; ///< basis: assumed tactical datalink terminal RF power
+    };
+    /// Append carriers transmitted within `windowS` seconds of `now`.
+    void activeCarriers(double now, double windowS, std::vector<CarrierEmission>& out) const;
 
     /// No net: nothing to step (a world without nets steps as before).
     bool active() const noexcept { return !nets_.empty(); }
@@ -145,6 +162,7 @@ private:
         bool present = true;
         std::vector<comm::NetId> nets;
         std::vector<double> busyUntil;           ///< per net in `nets`: when its share is free
+        std::vector<double> lastTxS;             ///< per net in `nets`: last RF transmission time (COMINT carrier metadata)
         bool all = true;
         std::vector<comm::Topic> topics;
         std::deque<comm::DmsReceived> inbox;

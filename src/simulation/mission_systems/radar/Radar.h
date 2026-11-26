@@ -179,6 +179,17 @@ public:
     /// Uniform-volume RMS scale of the currently attached geometry, metres;
     /// zero denotes a point/unknown extent, never a guessed equipment value.
     virtual double targetExtentRmsM(std::uint32_t) const {return 0.;}
+    /// Total received external jammer power spectral density J0 (W/Hz) at the
+    /// radar receiver input for a dwell pointed at (beamAzRad, beamElRad) in
+    /// body axes, using the radar's actual antenna pattern and propagation path.
+    /// Zero when unjammed (preserves unjammed radar regressions bit-for-bit).
+    virtual double jammingDensityWHz(double frequencyHz, double bandwidthHz, double beamAzRad, double beamElRad,
+                                     const rf::Pattern& pattern, unsigned azimuthFaces, bool electronic,
+                                     const sim::VehicleState& own) const {
+        (void)frequencyHz, (void)bandwidthHz, (void)beamAzRad, (void)beamElRad;
+        (void)pattern, (void)azimuthFaces, (void)electronic, (void)own;
+        return 0.0;
+    }
 };
 
 class Radar {

@@ -2,7 +2,7 @@
 
 ## Closure status — 2026-11-25 (non-visual gates & transition to SIM-M04)
 
-At `main` HEAD `57a42c67f7dc1e1376f5a006b6f94bd8f23b2fc9` (preserving unrelated `assets/stores/cj-10a.json`):
+At `main` commit `3883b58` (base `57a42c67f7dc1e1376f5a006b6f94bd8f23b2fc9`; `assets/stores/cj-10a.json` separately committed as `3c326e4`):
 
 - **All-design production & liquid population:**
   - `complete-production` (`campaign.py --jobs 4`): **88 / 88** designs complete, **0 blocked** (`4,992.9 s`), including `rq4b` (`rq4b.liquid-v1.json`: `46,984 <= 65,536` cells, `168,161 <= 1,048,576` screened, `0.0` capacity error across 4 tanks), `u2s`, `kc135r`, and refreshed `aircraft/uh1h/tail-damping.json`.
@@ -338,7 +338,7 @@ The latest complete Release population at main
 for the complete command including its sensor-engineering companion. Each model
 owns seven separately archived native files under
 `build/architecture-reviews/sim-m03-current-20261104/trust-full24/models/<model>/`.
-The [current machine-readable diagnosis](../../build/architecture-reviews/sim-m03-current-20261104/trust-full24/current-diagnosis.json)
+The current machine-readable diagnosis (build/architecture-reviews/sim-m03-current-20261104/trust-full24/current-diagnosis.json)
 binds the actual CTest result, source epoch and all24 archive manifests. This is
 a failing diagnostic population, not SIM-M03 acceptance. Source, scene, seed,
 duration, tolerances, thresholds and native outcome predicates were not adjusted
@@ -549,7 +549,7 @@ change that reverses either native outcome.
 
 The unchanged native fixture uses seed 17, one worker, dt 1/120 s, frameSkip 4, 6000 m altitude, 250 m/s head-on aircraft, the original 5 km encounter and 40 s post-release horizon. SARH uses its established FA-18C launcher; the other current cases use F-16C. No radius, scene, seed, threshold or outcome was changed for this diagnosis.
 
-Initial baseline output: `build/architecture-reviews/sim-m03-current-20261104/aam-current24.log`. Archived unchanged per-model outputs are under `build/architecture-reviews/sim-m03-current-20261104/baseline24/<model>/`; all 168 diagnostic raw bindings point there, preserving the baseline across normal-output reruns. The [machine-readable diagnosis](../../build/architecture-reviews/sim-m03-current-20261104/full-chain-diagnosis.json) retains all 24 raw bindings, the actual producer/runtime identities, all 216 selected component records and each failed model's independent next experiment.
+Initial baseline output: `build/architecture-reviews/sim-m03-current-20261104/aam-current24.log`. Archived unchanged per-model outputs are under `build/architecture-reviews/sim-m03-current-20261104/baseline24/<model>/`; all 168 diagnostic raw bindings point there, preserving the baseline across normal-output reruns. The machine-readable diagnosis (build/architecture-reviews/sim-m03-current-20261104/full-chain-diagnosis.json) retains all 24 raw bindings, the actual producer/runtime identities, all 216 selected component records and each failed model's independent next experiment.
 
 ## Initial baseline observed outcomes
 

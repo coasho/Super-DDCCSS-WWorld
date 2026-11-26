@@ -34,7 +34,7 @@ retest: 8,358 snapshots and 40,104 fin angles, zero pose mismatches (`live-fins.
 mandatory presentation). Resource rejection logs are `.local/logs/f1734a643495431395f2ab40744b00ec-000.log`
 (sea) and `.local/logs/0591834d7a474ce4a1ba22c8fac22d9c-000.log` (global clouds), each exit 1. Live inputs `L/V/P`
 were pressed in the ASRAAM window and the panels stayed open. The current shadow and burst captures are linked
-from the [per-model report](../../build/architecture-reviews/aam-chain-20261030/index.html); its
+from the per-model report (build/architecture-reviews/aam-chain-20261030/index.html); its
 `presentation-verification.json` records hashes and exact logs. Physical missile departures remain open.
 Additional repository integration run: 4/7 passed (`integration.junit.xml` and raw CTest `integration.log` in the
 mandatory-presentation evidence directory). `architecture_boundary` and `architecture_configured` reject the

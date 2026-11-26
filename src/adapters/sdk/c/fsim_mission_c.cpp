@@ -780,6 +780,90 @@ FSIM_API const char* fsim_emitter_mode_name(int mode) {
     return mode >= 0 && mode < static_cast<int>(fsim::ms::EmitterMode::Count) ? fsim::ms::emitterModeName(static_cast<fsim::ms::EmitterMode>(mode)) : "";
 }
 
+FSIM_API void fsim_payload_task_init(fsim_payload_task* task) {
+    if (!task) return;
+    *task = fsim_payload_task{};
+    task->struct_size = sizeof *task;
+    task->kind = FSIM_TASK_SEARCH;
+    task->salvos = 1;
+    task->interval_s = 0.5;
+    const double qnan = std::numeric_limits<double>::quiet_NaN();
+    task->azimuth_half_width_rad = qnan;
+    task->elevation_half_width_rad = qnan;
+    task->range_scale_m = qnan;
+    task->frequency_hz = qnan;
+    task->bandwidth_hz = qnan;
+    task->latitude_rad = qnan;
+    task->longitude_rad = qnan;
+    task->resolution_m = qnan;
+    task->duration_s = qnan;
+}
+
+FSIM_API void fsim_payload_value_init(fsim_payload_value* value) {
+    if (value) *value = fsim_payload_value{}, value->struct_size = sizeof *value, value->name = "", value->unit = "";
+}
+
+FSIM_API const char* fsim_task_kind_name(int kind) {
+    return kind >= 0 && kind < static_cast<int>(fsim::ms::TaskKind::Count)
+               ? fsim::ms::taskKindName(static_cast<fsim::ms::TaskKind>(kind))
+               : "";
+}
+
+FSIM_API int fsim_vehicle_payload_task(fsim_world* world, uint32_t id, const fsim_payload_task* task,
+                                       const fsim_ms_options* options, fsim_ms_result* result) {
+    FSIM_AGENT_VEHICLE(world, id, FSIM_NOT_ALLOWED);
+    FSIM_AGENT_AS(world, options, FSIM_NOT_ALLOWED);
+    if (!world || !task || task->struct_size < sizeof(fsim_payload_task) || task->payload > 0xFFFFu)
+        return fail(FSIM_INVALID_ARGUMENT, "fsim_vehicle_payload_task: bad arguments");
+    if (task->kind < 0 || task->kind >= static_cast<int32_t>(fsim::ms::TaskKind::Count))
+        return fail(FSIM_INVALID_ARGUMENT, "fsim_vehicle_payload_task: unknown task kind");
+    fsim::ms::PayloadTask t;
+    t.payload = static_cast<std::uint16_t>(task->payload);
+    t.kind = static_cast<fsim::ms::TaskKind>(task->kind);
+    t.contact = task->contact;
+    t.chaff = task->chaff;
+    t.flares = task->flares;
+    t.salvos = task->salvos;
+    t.intervalS = task->interval_s;
+    t.rounds = task->rounds;
+    t.azimuthCentreRad = task->azimuth_centre_rad;
+    t.elevationCentreRad = task->elevation_centre_rad;
+    t.azimuthHalfWidthRad = task->azimuth_half_width_rad;
+    t.elevationHalfWidthRad = task->elevation_half_width_rad;
+    t.rangeScaleM = task->range_scale_m;
+    t.frequencyHz = task->frequency_hz;
+    t.bandwidthHz = task->bandwidth_hz;
+    t.latitudeRad = task->latitude_rad;
+    t.longitudeRad = task->longitude_rad;
+    t.resolutionM = task->resolution_m;
+    t.durationS = task->duration_s;
+    return msResult(world->world.submit(id, t, msOptions(world, options)), result);
+}
+
+FSIM_API int fsim_vehicle_payload_report(const fsim_world* world, uint32_t id, uint32_t payload,
+                                         fsim_payload_value* out, uint32_t max, uint32_t* count) {
+    FSIM_AGENT_VEHICLE(world, id, FSIM_NOT_ALLOWED);
+    if (!world || !count || payload > 0xFFFFu || (max && (!out || out[0].struct_size < sizeof(uint32_t))))
+        return FSIM_INVALID_ARGUMENT;
+    return guard("fsim_vehicle_payload_report", [&]() -> int {
+        const auto list = world->world.payloadReport(id, static_cast<std::uint16_t>(payload));
+        const uint32_t stride = max ? out[0].struct_size : 0;
+        for (std::size_t i = 0; i < list.size() && i < max; ++i) {
+            const fsim::ms::PayloadValue& v = list[i];
+            fsim_payload_value c;
+            fsim_payload_value_init(&c);
+            c.name = v.name ? v.name : "";
+            c.value = v.value;
+            c.unit = v.unit ? v.unit : "";
+            auto* slot = reinterpret_cast<fsim_payload_value*>(reinterpret_cast<char*>(out) + i * stride);
+            slot->struct_size = stride;
+            copyOut(c, slot);
+        }
+        *count = static_cast<uint32_t>(list.size());
+        return FSIM_OK;
+    });
+}
+
 FSIM_API int fsim_vehicle_amti_detections(const fsim_world* world, uint32_t id, uint32_t payload, uint64_t since, fsim_amti_detection* out,
                                           uint32_t max, uint32_t* count) {
     FSIM_AGENT_VEHICLE(world, id, FSIM_NOT_ALLOWED);

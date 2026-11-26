@@ -507,6 +507,10 @@ public:
     ms::CommandResult submit(std::uint32_t id, const ms::BitCommand& command, const ms::CommandOptions& options = {});
     /// Search with a radar (MS-4): the AMTI capability of its payload.
     ms::CommandResult submit(std::uint32_t id, const ms::AmtiCommand& command, const ms::CommandOptions& options = {});
+    /// Task an electronic-attack or countermeasures payload (MS-9b / SIM-M05).
+    ms::CommandResult submit(std::uint32_t id, const ms::PayloadTask& command, const ms::CommandOptions& options = {});
+    /// A payload's own reported numeric figures (e.g. jammer active/power/frequency/bandwidth/ERP).
+    std::vector<ms::PayloadValue> payloadReport(std::uint32_t id, std::uint16_t payload) const;
     /// A radar payload's picture (empty for an unknown vehicle or a payload that is not a radar).
     ms::RadarStatus radarStatus(std::uint32_t id, std::uint16_t payload) const noexcept;
     /// A radar payload's detections with serial >= `since` that it still keeps (its last 2048), oldest first.
@@ -1140,7 +1144,8 @@ private:
     mutable std::unordered_map<PathKey, PathExcess, PathKeyHash> pathExcess_;
     mutable std::mutex pathExcessMutex_; ///< (the radars look in parallel)
     std::vector<std::size_t> sensing_;   ///< the slots whose sensors look this step
-    std::vector<ms::Emission> emissions_; ///< what radiates this step: every vehicle's radars, as the step before left them
+    std::vector<ms::Emission> emissions_; ///< what radiates this step: every vehicle's radars, jammers and datalink carriers
+    std::vector<sim::VehicleState> c2EmissionStates_; ///< synthetic carrier states for C2 nodes emitting datalink traffic
     std::unique_ptr<ipc::MissionRecord> missionScratch_; ///< publishMission's record, reused
     /// The sensors' looks after a step (MS-4).
     void sense();

@@ -118,7 +118,7 @@ delay, once-only consumption, cancellation, overflow, and window partitioning.
 Native GREEN and World/card integration acceptance are owned by the root gate;
 this document alone makes no passing or fixed-scene kill claim.
 
-The later root-owned [scoped regression](sim-m03-five-km-repair.md#current-scoped-regression-evidence)
+The later root-owned [scoped regression](sim-m03-five-km-repair.md#current-repair-delivery-status)
 records passing fuze and contact-native gates on both current presets, including
 the canonical capture-epoch case. This software result does not close the
 remaining fragmentation/physical-model gates or establish equipment fuze data.

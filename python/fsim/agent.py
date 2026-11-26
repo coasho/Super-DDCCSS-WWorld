@@ -49,7 +49,7 @@ AGENT_VEHICLE_CALLS = (
     "cancel_mission", "mission_activity", "mission_activities", "amti_search", "amti_track", "amti_acquire", "radar_status",
     "amti_detections",
     "designate", "undesignate", "designations",
-    "amti_tracks", "contacts", "stores", "strike", "jettison", "strike_status",
+    "amti_tracks", "contacts", "submit_task", "jam", "dispense_salvo", "payload_report", "stores", "strike", "jettison", "strike_status",
 )
 # The World calls an agent makes: its clock, the terrain, its activities by id, mission data read.
 AGENT_WORLD_CALLS = (

@@ -60,6 +60,7 @@ bool Dms::join(std::uint32_t entity, comm::NetId id) {
     if (std::find(s.nets.begin(), s.nets.end(), id) != s.nets.end()) return true;
     s.nets.push_back(id);
     s.busyUntil.push_back(-std::numeric_limits<double>::infinity());
+    s.lastTxS.push_back(-std::numeric_limits<double>::infinity());
     n->members.push_back(i);
     return true;
 }
@@ -70,7 +71,9 @@ bool Dms::leave(std::uint32_t entity, comm::NetId id) {
     if (!n || !s) return false;
     const auto it = std::find(s->nets.begin(), s->nets.end(), id);
     if (it == s->nets.end()) return false;
-    s->busyUntil.erase(s->busyUntil.begin() + (it - s->nets.begin()));
+    const auto offset = it - s->nets.begin();
+    s->busyUntil.erase(s->busyUntil.begin() + offset);
+    if (offset < static_cast<std::ptrdiff_t>(s->lastTxS.size())) s->lastTxS.erase(s->lastTxS.begin() + offset);
     s->nets.erase(it);
     const std::size_t i = index(entity);
     n->members.erase(std::remove(n->members.begin(), n->members.end(), i), n->members.end());
@@ -360,8 +363,26 @@ double Dms::transmit(System& sender, std::size_t i, const Outgoing& m, double at
         return -1.0;
     }
     sender.busyUntil[i] = start + bits / std::max(share, 1e-9);
+    if (i < sender.lastTxS.size()) sender.lastTxS[i] = std::max(sender.lastTxS[i], sender.busyUntil[i]);
     ++n.stats.transmissions;
     return sender.busyUntil[i];
+}
+
+void Dms::activeCarriers(double now, double windowS, std::vector<CarrierEmission>& out) const {
+    for (const System& s : systems_) {
+        if (!s.present) continue;
+        const std::size_t count = std::min(s.nets.size(), s.lastTxS.size());
+        for (std::size_t i = 0; i < count; ++i) {
+            if (!std::isfinite(s.lastTxS[i]) || now - s.lastTxS[i] > windowS) continue;
+            const comm::NetSpec& spec = nets_[s.nets[i] - 1].info.spec;
+            CarrierEmission em;
+            em.entity = s.entity;
+            em.frequencyHz = spec.frequencyHz;
+            em.bandwidthHz = std::clamp(spec.dataRateBps * 50.0, 250.0e3, 3.0e6);
+            em.powerW = 200.0; // basis: assumed tactical datalink terminal RF power
+            out.push_back(em);
+        }
+    }
 }
 
 bool Dms::closes(Net& n, const System& from, const System& to, double now, const Locator& where, const sim::GroundProvider* ground, Rng& rng) {
@@ -372,7 +393,8 @@ bool Dms::closes(Net& n, const System& from, const System& to, double now, const
     double pa[3], pb[3];
     ms::rf::geodeticToEcef(a.latitudeRad, a.longitudeRad, a.heightM, pa);
     ms::rf::geodeticToEcef(b.latitudeRad, b.longitudeRad, b.heightM, pb);
-    if (std::hypot(pa[0] - pb[0], pa[1] - pb[1], pa[2] - pb[2]) > spec.rangeM) {
+    const double range = std::hypot(pa[0] - pb[0], pa[1] - pb[1], pa[2] - pb[2]);
+    if (range > spec.rangeM) {
         ++n.stats.outOfRange;
         return false;
     }
@@ -393,6 +415,10 @@ bool Dms::closes(Net& n, const System& from, const System& to, double now, const
             ++n.stats.masked;
             return false;
         }
+    }
+    if (where.jammed(from.entity, to.entity, spec, range, now)) {
+        ++n.stats.lost;
+        return false;
     }
     if (spec.lossProbability > 0.0 && rng.uniform() < spec.lossProbability) {
         ++n.stats.lost;

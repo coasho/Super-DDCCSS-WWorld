@@ -237,6 +237,10 @@ public:
     ms::CommandResult submit(const ms::StateCommand& command, const ms::CommandOptions& options = {});
     ms::CommandResult submit(const ms::BitCommand& command, const ms::CommandOptions& options = {});
     ms::CommandResult submit(const ms::AmtiCommand& command, const ms::CommandOptions& options = {});
+    /// Task an own-platform electronic-attack or countermeasures payload (MS-9b / SIM-M05).
+    ms::CommandResult submit(const ms::PayloadTask& command, const ms::CommandOptions& options = {});
+    /// Own-platform payload's reported numeric figures (e.g. jammer active/power/frequency/bandwidth/erp).
+    std::vector<ms::PayloadValue> payloadReport(std::uint16_t payload) const;
     /// A strike: its target 0 (by track: AB-2b) and its consent not given - the strike asks for it.
     ms::CommandResult submit(const ms::StrikeCommand& command, const ms::CommandOptions& options = {});
     ms::CommandResult submit(const ms::JettisonCommand& command, const ms::CommandOptions& options = {});

@@ -44,7 +44,8 @@ void Host::bind(std::uint32_t vehicle, std::shared_ptr<const Fit> fit, std::uint
     vehicle_ = vehicle;
     fit_ = std::move(fit);
     payloads_.clear(), state_.clear(), cards_.clear(), capabilities_.clear(), ids_.clear(), control_.clear(), statusCapability_.clear();
-    radars_.clear(), amtiCapability_.clear(), models_.clear(), modelRng_.clear();
+    radars_.clear(), amtiCapability_.clear(), eaCapability_.clear(), models_.clear(), modelRng_.clear();
+    salvos_.clear(), dispenseRequests_.clear();
     live_.clear(), ended_.clear();
     strikeCapability_.clear(), storeCapability_.clear(), stores_.clear(), storeInfo_.clear(), strikes_.clear(), endedStrikes_.clear(),
         releases_.clear(), carriage_.clear(), lostStations_.clear();
@@ -72,6 +73,7 @@ void Host::bind(std::uint32_t vehicle, std::shared_ptr<const Fit> fit, std::uint
         models_.push_back(spec.ok ? nullptr : makeModel(card, static_cast<std::uint16_t>(p.count)));
         modelRng_.emplace_back(radarSeed(seed ^ kModelStream, p.index));
         amtiCapability_.push_back(-1);
+        eaCapability_.push_back(-1);
         strikeCapability_.push_back(-1), storeCapability_.push_back(-1);
     }
     // the instance ids first, so their strings do not move as the list grows
@@ -92,6 +94,12 @@ void Host::bind(std::uint32_t vehicle, std::shared_ptr<const Fit> fit, std::uint
             }
             // a warning receiver (MS-9a): its emitter contacts modelled
             if (type == CapabilityType::Esm && models_[p.index]) c.support = control::Support::Supported, c.stage = 0;
+            // electronic attack RF jammers and programmed countermeasures salvos (MS-9b / SIM-M05)
+            if (type == CapabilityType::ElectronicAttack &&
+                ((p.family == Family::ElectronicAttack && models_[p.index]) || p.family == Family::Countermeasures)) {
+                c.support = control::Support::Supported, c.stage = 0;
+                eaCapability_[p.index] = static_cast<int>(capabilities_.size());
+            }
             // Native store lifecycle, engagements and advisory launch zones exist. The original calibrated
             // weapon and launch-zone acceptance remains partial (MS-7/MS-8).
             if (p.family == Family::StoreStation && !cards_[p.index]->stations.empty() &&
@@ -222,7 +230,14 @@ void Host::end(ActivityId id, control::ActivityState state, Reason reason, doubl
                     p.amti = 0;
                     if (radars_[i]) radars_[i]->stop();
                 }
+                if (p.task == id) { // (its EA jammer or countermeasure salvo stops)
+                    p.task = 0;
+                    if (models_[i]) models_[i]->stop(simTime);
+                }
             }
+            salvos_.erase(std::remove_if(salvos_.begin(), salvos_.end(),
+                                         [id](const Salvo& s) { return s.id == id; }),
+                          salvos_.end());
             endStrike(id);
             return;
         }
@@ -236,6 +251,10 @@ void Host::setState(std::uint16_t payload, PayloadState state) {
     // a search ends as its payload stops operating (a failure fails it)
     if (state != PayloadState::Operate && state_[payload].amti)
         end(state_[payload].amti, state == PayloadState::Failed ? control::ActivityState::Failed : control::ActivityState::Canceled,
+            unavailableFor(state), now_);
+    // a payload task (EA jammer or countermeasures salvo) ends as its payload stops operating
+    if (state != PayloadState::Operate && state_[payload].task)
+        end(state_[payload].task, state == PayloadState::Failed ? control::ActivityState::Failed : control::ActivityState::Canceled,
             unavailableFor(state), now_);
     // a model's payload no longer operating: what it held is gone
     if (state != PayloadState::Operate && payload < models_.size() && models_[payload]) models_[payload]->idle(now_);
@@ -360,6 +379,156 @@ CommandResult Host::submit(const AmtiCommand& command, const CommandOptions& opt
     return r;
 }
 
+CommandResult Host::submit(const PayloadTask& command, const CommandOptions& options, double simTime) {
+    now_ = simTime;
+    CommandResult r;
+    r.commandId = options.commandId;
+    if (command.payload >= payloads_.size()) return r.reason = Reason::UnknownPayload, r;
+    const PayloadInfo& info = payloads_[command.payload];
+    if (command.kind == TaskKind::Jam) {
+        if (info.family != Family::ElectronicAttack) return r.reason = Reason::NotSupported, r;
+        const int capability = eaCapability_[command.payload];
+        if (capability < 0 || !models_[command.payload]) return r.reason = Reason::NotImplemented, r;
+        if ((r.reason = admit(static_cast<std::size_t>(capability), options)) != Reason::None) return r;
+        std::optional<Contact> heldContact;
+        if (command.contact != 0) {
+            const std::uint16_t srcPayload = static_cast<std::uint16_t>(command.contact >> 48);
+            const auto srcContacts = contacts(srcPayload);
+            for (const Contact& c : srcContacts) {
+                if (c.id == command.contact) {
+                    heldContact = c;
+                    break;
+                }
+            }
+            if (!heldContact) return r.reason = Reason::UnknownContact, r;
+        }
+        Payload& p = state_[command.payload];
+        const Reason br = models_[command.payload]->begin(command, simTime);
+        if (br != Reason::None) return r.reason = br, r;
+        if (heldContact) {
+            models_[command.payload]->followed(&*heldContact);
+            if (models_[command.payload]->finished() != Reason::None) {
+                models_[command.payload]->stop(simTime);
+                return r.reason = Reason::InvalidParameter, r;
+            }
+        }
+        if (p.task) {
+            const ActivityId prev = p.task;
+            p.task = 0; // avoid stopping the newly started model inside end()
+            end(prev, control::ActivityState::Canceled, Reason::Superseded, simTime);
+        }
+        ActivityRecord& a = start(static_cast<std::size_t>(capability), command.payload, options, simTime);
+        a.percent = models_[command.payload]->percent();
+        p.task = a.id;
+        r.status = control::CommandStatus::Accepted;
+        r.activity = a.id;
+        return r;
+    }
+    if (command.kind == TaskKind::Dispense) {
+        if (info.family != Family::Countermeasures) return r.reason = Reason::NotSupported, r;
+        const int capability = eaCapability_[command.payload];
+        if (capability < 0) return r.reason = Reason::NotImplemented, r;
+        if ((r.reason = admit(static_cast<std::size_t>(capability), options)) != Reason::None) return r;
+        if (command.chaff < 0 || command.flares < 0 || (command.chaff == 0 && command.flares == 0) ||
+            command.salvos < 1 || !std::isfinite(command.intervalS) || command.intervalS < 0.0 ||
+            (std::isfinite(command.durationS) && !(command.durationS > 0.0))) {
+            return r.reason = Reason::InvalidParameter, r;
+        }
+        Payload& p = state_[command.payload];
+        if (p.task) end(p.task, control::ActivityState::Canceled, Reason::Superseded, simTime);
+        ActivityRecord& a = start(static_cast<std::size_t>(capability), command.payload, options, simTime);
+        a.percent = 0.0;
+        p.task = a.id;
+        Salvo s;
+        s.id = a.id;
+        s.payload = command.payload;
+        s.chaffPerSalvo = command.chaff;
+        s.flaresPerSalvo = command.flares;
+        s.totalSalvos = command.salvos;
+        s.intervalS = command.intervalS;
+        s.nextSalvoAt = simTime;
+        s.endAt = std::isfinite(command.durationS) ? (simTime + command.durationS) : std::numeric_limits<double>::infinity();
+        salvos_.push_back(s);
+        r.status = control::CommandStatus::Accepted;
+        r.activity = a.id;
+        return r;
+    }
+    if (static_cast<unsigned>(command.kind) >= static_cast<unsigned>(TaskKind::Count)) {
+        return r.reason = Reason::InvalidParameter, r;
+    }
+    return r.reason = Reason::NotImplemented, r;
+}
+
+void Host::advanceSalvos(double simTime) {
+    for (std::size_t i = salvos_.size(); i-- > 0;) {
+        Salvo& s = salvos_[i];
+        if (simTime > s.endAt + 1e-9) {
+            const ActivityId id = s.id;
+            end(id, control::ActivityState::Completed, Reason::GoalReached, simTime);
+            continue;
+        }
+        if (s.chaffLeftInSalvo == 0 && s.flaresLeftInSalvo == 0 && s.salvosStarted < s.totalSalvos &&
+            simTime + 1e-9 >= s.nextSalvoAt) {
+            s.chaffLeftInSalvo = s.chaffExpended ? 0 : s.chaffPerSalvo;
+            s.flaresLeftInSalvo = s.flareExpended ? 0 : s.flaresPerSalvo;
+            ++s.salvosStarted;
+            s.nextSalvoAt = simTime + s.intervalS;
+        }
+        if (s.chaffLeftInSalvo > 0 || s.flaresLeftInSalvo > 0) {
+            bool flare = false;
+            if (s.chaffLeftInSalvo > 0 && s.flaresLeftInSalvo > 0) {
+                flare = s.preferFlareNext;
+                s.preferFlareNext = !s.preferFlareNext;
+            } else {
+                flare = (s.flaresLeftInSalvo > 0);
+            }
+            dispenseRequests_.push_back({s.payload, s.id, flare});
+        }
+    }
+}
+
+std::vector<Host::DispenseRequest> Host::takeDispenseRequests() {
+    std::vector<DispenseRequest> out;
+    out.swap(dispenseRequests_);
+    return out;
+}
+
+void Host::dispenseResult(ActivityId activity, bool flare, Reason reason, double simTime) {
+    for (auto& s : salvos_) {
+        if (s.id != activity) continue;
+        if (reason == Reason::None) {
+            if (flare && s.flaresLeftInSalvo > 0) --s.flaresLeftInSalvo;
+            else if (!flare && s.chaffLeftInSalvo > 0) --s.chaffLeftInSalvo;
+            ++s.dispensedCount;
+            const int totalWanted = (s.chaffPerSalvo + s.flaresPerSalvo) * s.totalSalvos;
+            if (ActivityRecord* a = live(activity); a && totalWanted > 0) {
+                a->percent = std::clamp(100.0 * static_cast<double>(s.dispensedCount) / static_cast<double>(totalWanted), 0.0, 100.0);
+            }
+        } else if (reason == Reason::Expended) {
+            if (flare) s.flareExpended = true, s.flaresLeftInSalvo = 0;
+            else s.chaffExpended = true, s.chaffLeftInSalvo = 0;
+            const bool anyChaffLeft = s.chaffPerSalvo > 0 && !s.chaffExpended;
+            const bool anyFlareLeft = s.flaresPerSalvo > 0 && !s.flareExpended;
+            if (!anyChaffLeft && !anyFlareLeft) {
+                end(activity, control::ActivityState::Failed, Reason::Expended, simTime);
+            }
+        } else if (reason != Reason::StoreBusy) {
+            end(activity, control::ActivityState::Failed, reason, simTime);
+        }
+        return;
+    }
+}
+
+void Host::finalizeSalvos(double simTime) {
+    for (std::size_t i = salvos_.size(); i-- > 0;) {
+        const Salvo& s = salvos_[i];
+        if (s.salvosStarted >= s.totalSalvos && s.chaffLeftInSalvo == 0 && s.flaresLeftInSalvo == 0) {
+            const ActivityId id = s.id;
+            end(id, control::ActivityState::Completed, Reason::GoalReached, simTime);
+        }
+    }
+}
+
 CommandResult Host::cancel(control::Caller caller, ActivityId id, double simTime) {
     now_ = simTime;
     CommandResult r;
@@ -465,6 +634,7 @@ Reason Host::setAvailability(std::size_t capability, control::Availability avail
 void Host::step(double simTime) {
     now_ = simTime;
     advanceStrikes(simTime);
+    advanceSalvos(simTime);
     for (std::uint16_t i = 0; i < state_.size(); ++i) {
         Payload& p = state_[i];
         if (p.state != PayloadState::Starting && p.state != PayloadState::Bit) continue;
@@ -554,8 +724,38 @@ bool Host::sensing() const noexcept {
 
 void Host::sense(double simTime, const sim::VehicleState& own, const Scene& scene) {
     sense(simTime, own, static_cast<const radar::Scene&>(scene));
-    for (std::size_t i = 0; i < models_.size(); ++i)
-        if (models_[i] && state_[i].state == PayloadState::Operate) models_[i]->step(simTime, own, scene, modelRng_[i]);
+    // Step passive/non-following sensor models (e.g. ESM) first so contact-following models
+    // (e.g. reactive RF jammers) see fresh own-platform contacts in the same tick.
+    for (std::size_t i = 0; i < models_.size(); ++i) {
+        if (!models_[i] || state_[i].state != PayloadState::Operate) continue;
+        if (models_[i]->follows() != 0) continue;
+        models_[i]->step(simTime, own, scene, modelRng_[i]);
+    }
+    for (std::size_t i = 0; i < models_.size(); ++i) {
+        if (!models_[i] || state_[i].state != PayloadState::Operate) continue;
+        const std::uint64_t followId = models_[i]->follows();
+        if (followId != 0) {
+            const std::uint16_t srcPayload = static_cast<std::uint16_t>(followId >> 48);
+            const auto srcContacts = contacts(srcPayload);
+            const Contact* found = nullptr;
+            for (const Contact& c : srcContacts) {
+                if (c.id == followId) {
+                    found = &c;
+                    break;
+                }
+            }
+            models_[i]->followed(found);
+            models_[i]->step(simTime, own, scene, modelRng_[i]);
+        }
+        if (state_[i].task != 0) {
+            if (ActivityRecord* a = live(state_[i].task)) a->percent = models_[i]->percent();
+            const Reason fin = models_[i]->finished();
+            if (fin != Reason::None) {
+                const control::ActivityState st = (fin == Reason::GoalReached) ? control::ActivityState::Completed : control::ActivityState::Failed;
+                end(state_[i].task, st, fin, simTime);
+            }
+        }
+    }
 }
 
 void Host::emissions(const sim::VehicleState& own, double now, std::vector<Emission>& out) const {
@@ -593,6 +793,16 @@ void Host::emissions(const sim::VehicleState& own, double now, std::vector<Emiss
                 if (t.id == r->designated()) e.target = r->report(t, now, own).truth;
         e.state = &own;
         out.push_back(e);
+    }
+    for (std::size_t i = 0; i < models_.size(); ++i) {
+        if (!models_[i] || state_[i].state != PayloadState::Operate) continue;
+        Emission e;
+        if (models_[i]->emission(e)) {
+            e.entity = vehicle_;
+            e.payload = static_cast<std::uint16_t>(i);
+            e.state = &own;
+            out.push_back(e);
+        }
     }
 }
 
