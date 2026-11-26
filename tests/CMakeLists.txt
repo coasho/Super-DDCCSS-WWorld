@@ -1271,3 +1271,12 @@ add_dependencies(fsim_oms_adapter_test fsim_payload_cards)
 fsim_set_warnings(fsim_oms_adapter_test)
 add_test(NAME oms_adapter COMMAND fsim_oms_adapter_test)
 set_tests_properties(oms_adapter PROPERTIES LABELS "sim-m08;oms;adapter" TIMEOUT 180)
+
+# SIM-M09 (MS-7f & Mission Systems M1): Multi-seeker DLZ cross-check, autonomous 1v1 Agent+C2 loop, and 4v4 real-time benchmark.
+add_executable(fsim_sim_m09_encounters_test integration/test_sim_m09_encounters.cpp)
+target_link_libraries(fsim_sim_m09_encounters_test PRIVATE fsim::sdk Catch2::Catch2WithMain)
+target_compile_definitions(fsim_sim_m09_encounters_test PRIVATE FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
+add_dependencies(fsim_sim_m09_encounters_test fsim_payload_cards)
+fsim_set_warnings(fsim_sim_m09_encounters_test)
+add_test(NAME sim_m09_encounters COMMAND fsim_sim_m09_encounters_test)
+set_tests_properties(sim_m09_encounters PROPERTIES LABELS "sim-m09;native-engagement;performance" TIMEOUT 300 RUN_SERIAL TRUE)
