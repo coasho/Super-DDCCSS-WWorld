@@ -2,7 +2,7 @@
 
 Date: 2026-11-26
 Baseline: `main` at `f3d7f6f` (Phase 1 simulation roadmap **SIM-M04 → SIM-M10** complete and pushed)
-Status: **Proposed Plan (Awaiting User Review & Priority Confirmation)**
+Status: **Approved & Active** (user confirmed full scope including VIS-M15 visual showcase; physical-desktop visual testing unblocked via global `desktop-gui` MCP on `WinSta0\Default`)
 
 ---
 
@@ -27,6 +27,7 @@ A code-level audit of the current simulation runtime and Vulkan/VSG Viewer revea
 2. **Real-Time Fullscreen Performance Budget**: Target **≥ 60 FPS sustained (≥ 120–160 FPS target on desktop RTX-class GPUs) at primary display resolution (up to 3840×2160) with zero 15 ms+ hitch spikes**, while keeping full Earth imagery, terrain, clouds, sunlight, shadows, contrails, and volumetric explosions enabled.
 3. **Zero ABI / Permission Regressions**: Preserve `WorldLayout v9` backward compatibility (additive sidecars/events only), frozen C/C++/Python ABI, `fsim::Agent` `truth == 0` boundaries, and `sdk_boundary` 0-error compliance.
 4. **Public Literature & Open-Source Reference Alignment**: Align every new VFX, debris, and performance subsystem with established graphics/physics literature and mature open-source methods (NVIDIA Flow external-device interop, Frostbite/Guerrilla Games froxel & half-res bilateral volumetric compositing, Jolt/Bullet rigid-body tumbling aero drag, MIL-HDBK-2069 / Ball aircraft survivability & ullage overpressure, OpenSceneGraph/VSG indirect GPU particles).
+5. **Physical-Desktop Fullscreen Visual Verification Loop (`desktop-gui` MCP)**: All visual milestones (`VIS-M12`, `VIS-M11`, `VIS-M13`, `VIS-M14`, `VIS-M15`, `SIM-M12`) execute real-time (`1x`), fullscreen, primary-display (`3840×2160` on host NVIDIA GeForce RTX 5070 Ti) Vulkan runs via the interactive-desktop **`desktop-gui` MCP** (`WinSta0\Default`, DXGI Desktop Duplication `dxcam-dxgi`, single GUI slot) with complete scene layers enabled (Earth imagery, terrain, clouds, sunlight, aircraft shadows, exhaust, contrails, and Flow explosions/smoke). Every visual sprint records before/after `--stats` GPU pass timings and reviewed 4K captures rather than relying on offscreen-only smoke checks.
 
 ---
 
@@ -245,7 +246,7 @@ SIM-M09's measured 4v4 real-time benchmark (`docs/sdk/sim-m09-encounters.md`) pr
 
 #### Deliverables
 1. **Physical-Desktop Fullscreen Visual Acceptance Campaign**:
-   - Run the complete fullscreen primary-display 1× real-time Vulkan visual acceptance suite (`full-native-and-visual`, `explosives-visual`, SIM-M01 fusion, SIM-M09 1v1/4v4, SIM-M10 gun/Mk 82, VIS-M11 destruction/debris, VIS-M12 performance capture, VIS-M13/M14 combat VFX & overlays) on an interactive physical desktop session (outside `WinSta0\exebox-*`), recording actual screenshots, GPU timings, and statistical fire/smoke metrics (`B-63`).
+   - Run the complete fullscreen primary-display 1× real-time Vulkan visual acceptance suite (`full-native-and-visual`, `explosives-visual`, SIM-M01 fusion, SIM-M09 1v1/4v4, SIM-M10 gun/Mk 82, VIS-M11 destruction/debris, VIS-M12 performance capture, VIS-M13/M14/M15 combat VFX, overlays & avionics MFDs) via the interactive-desktop `desktop-gui` MCP (`WinSta0\Default`, `dxcam-dxgi`), recording actual 4K screenshots, GPU timings, and statistical fire/smoke metrics (`B-63`).
 2. **Green CI Pipeline (`B-65`)**:
    - Validate and fix `.github/workflows/ci.yml` headless build, test matrix, boundary check, and packaging checks.
 3. **Selected Hangar & Empirical Calibration Closures**:
@@ -265,3 +266,17 @@ To maximize immediate user-visible quality and unblock visual inspection early, 
 5. **Sprint 5 — `VIS-M14` (EMSO 3-D Overlays, Multi-Camera Suite & Fleet VFX Parity)**: Add radar/jamming/CRLB/Link 16/DLZ/LCOS/CCIP/SAR 3-D overlays, weapon/cockpit/PiP cameras, rotorcraft/prop/8-engine VFX, and MonitorGui polish.
 6. **Sprint 6 — `VIS-M15` (Physical-Fidelity Showcase: Live Sensor MFDs, Fog-of-War Split-View & X-Ray/Debrief)**: Bring every Phase 1 physical subsystem to life visually via the fighter MFD suite (FCR B-Scope, RWR, EO/IR/LRF thermal pod, live missile seeker PiP, SAR/Weather, HSD/SMS), Referee-vs-Agent Fog-of-War dual-reality view, 3-D RCS polar & internal X-Ray cutaway, and Tacview-grade `.fsrec` kill-cam replay debrief.
 7. **Sprint 7 — `SIM-M12` (Whole-Program Visual Acceptance, CI & Calibration Closure)**: Physical-desktop fullscreen visual sign-off, CI green, and clean handoff to the upper-layer formal MA & DRL training program.
+
+---
+
+## 6. Execution Status & Evidence Tracker
+
+| Sprint | Milestone | Status | Delivery Commit | Evidence Document |
+| --- | --- | --- | --- | --- |
+| Sprint 1 | **VIS-M12** — Volumetric Fire/Explosion & Contrail/Trail GPU Optimization | Ready (Next) | — | `docs/sdk/vis-m12-volumetric-vfx-perf.md` (planned) |
+| Sprint 2 | **VIS-M11** — Vehicle Destruction & Lightweight `DebrisField` Redesign | Pending | — | `docs/sdk/vis-m11-destruction-debris.md` (planned) |
+| Sprint 3 | **VIS-M13** — Unified GPU Particle Engine & Missing Combat VFX | Pending | — | `docs/sdk/vis-m13-gpu-particles-combat-vfx.md` (planned) |
+| Sprint 4 | **SIM-M11** — HC-45 Parallel `WeaponSensor` & On-Rail IR Acceleration | Pending | — | `docs/sdk/sim-m11-weapon-sensor-perf.md` (planned) |
+| Sprint 5 | **VIS-M14** — Tactical & EMSO 3-D Overlays, Multi-Camera & Fleet VFX | Pending | — | `docs/sdk/vis-m14-emso-overlays-cameras.md` (planned) |
+| Sprint 6 | **VIS-M15** — Physical-Fidelity Showcase (Sensor MFDs, Fog-of-War, X-Ray & Debrief) | Pending | — | `docs/sdk/vis-m15-avionics-showcase-debrief.md` (planned) |
+| Sprint 7 | **SIM-M12** — Whole-Program Fullscreen Visual Acceptance, CI & Calibration | Pending | — | `docs/sdk/sim-m12-program-acceptance.md` (planned) |

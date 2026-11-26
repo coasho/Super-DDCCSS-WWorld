@@ -38,6 +38,7 @@ These documents explain rationale, intended contracts and domain plans. A roadma
 | [Composite MA and training design](superpowers/specs/2026-10-12-ma-system-training-readiness-design.md) | Accepted upper-layer MA ownership, P2P/C2 boundaries, independent episode and training contracts |
 | [Claude MA implementation plan](superpowers/plans/2026-10-12-ma-system-training-readiness.md) | Claude vertical implementation packages, required inputs, verification and integration gates |
 | [Claude MA work allocation](superpowers/plans/2026-10-12-ma-system-training-work-allocation.md) | Complete Claude feature assignments, file allowlists, handoffs and first delivery package |
+| [Phase 2 VFX, destruction, showcase & perf roadmap](superpowers/plans/2026-11-26-phase2-vfx-destruction-performance-roadmap.md) | Approved Phase 2 milestone plan (`VIS-M11`..`VIS-M15`, `SIM-M11`..`SIM-M12`), sprint sequence, acceptance gates and physical-desktop visual verification loop |
 | [Backlog](backlog.md) | Measured findings, priorities and closure conditions |
 | [SDK missile engagement design](architecture/modules/simulation/native-engagement-design.md) | Dated implementation specification and its starting assumptions |
 | [Architecture A1 maintenance](architecture/migration/history/2026-10-11-architecture-maintenance-design.md) | Third-pass findings, initial boundary/domain refactor and prioritized remaining architecture work |
