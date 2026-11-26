@@ -1,6 +1,7 @@
 #pragma once
 #include "fsim/WeaponControls.h"
 #include "simulation/mission_systems/weapon/WeaponLink.h"
+#include "simulation/mission_systems/weapon/LaunchZone.h"
 #include "simulation/mission_systems/weapon/NavigationV1.h"
 #include "simulation/mission_systems/weapon/NavigationStrapdownV2.h"
 #include "simulation/mission_systems/weapon/NavigationCaptureV2.h"
@@ -569,6 +570,8 @@ public:
     std::vector<ms::DecoyState> decoys() const;
     std::vector<ms::EngagementEvent> engagementEvents(std::uint64_t since = 0) const;
     ms::LaunchZone launchZone(std::uint32_t vehicle, const std::string& store, std::uint32_t target) const;
+    ms::LaunchZoneV2 launchZoneV2(std::uint32_t vehicle, const std::string& store, std::uint32_t target) const;
+    ms::LaunchZoneWezV1 launchZoneWezV1(std::uint32_t vehicle, const std::string& store, std::uint32_t target) const;
     std::uint32_t seekerTarget(std::uint32_t vehicle, const std::string& store) const;
     /// The radio path between two entities, over the world's ground (the physics terrain, else sea level).
     std::optional<ms::RadioPath> radioPath(std::uint32_t from, std::uint32_t to, const ms::RadioPathOptions& options) const;
@@ -982,6 +985,8 @@ private:
     std::unordered_map<std::string,std::shared_ptr<const LiquidMaterialDatasetV1>> liquidMaterials_;
     std::unordered_map<std::string,std::string> liquidMaterialErrors_;
     std::map<std::string, std::shared_ptr<const ms::StoreCard>> storeCards_; ///< the store library, read when first needed
+    mutable std::unordered_map<std::string, std::shared_ptr<const ms::weapon::LaunchZoneTableV1>> launchZoneTables_;
+    std::shared_ptr<const ms::weapon::LaunchZoneTableV1> launchZoneTable(const ms::StoreCard& card) const;
     ms::components::BindingsV1 payloadBindings_;
     ms::components::ProviderRegistryV1 payloadProviders_=ms::components::builtInProvidersV1();
     std::shared_ptr<const ms::components::ProfileV1> payloadProfile(

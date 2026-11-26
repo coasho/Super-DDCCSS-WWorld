@@ -239,6 +239,8 @@ PyObject* world_weapon_controls(PyObject* o,PyObject* const* args,Py_ssize_t n);
 PyObject* world_dispense(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_countermeasures(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_launch_zone(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_launch_zone_v2(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_launch_zone_wez(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_seeker_target(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_engagement_events(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_decoys(PyObject* o, PyObject* const* args, Py_ssize_t n);

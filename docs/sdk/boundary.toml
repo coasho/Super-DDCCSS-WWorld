@@ -1313,6 +1313,7 @@ names = [
     "fsim_ms_reason_description", "fsim_ms_capability_type_id", "fsim_strike_command_init", "fsim_strike_phase_name",
     "fsim_strike_status_init", "fsim_world_options_init", "fsim_vehicle_spec_init", "fsim_vision_options_init",
     "fsim_weapon_fin_v1_init", "fsim_weapon_controls_v1_init",
+    "fsim_launch_zone_v2_init", "fsim_launch_zone_wez_v1_init",
     "fsim::control::activityBasisName", "fsim::control::activityCommandName", "fsim::control::activityStateName",
     "fsim::control::activityWaitName", "fsim::control::availabilityName", "fsim::control::characteristicName",
     "fsim::control::constraintName", "fsim::control::contingencyName", "fsim::control::endPointKindName",
@@ -1372,8 +1373,11 @@ principal = "agent"
 note = "Own-platform dispenser commands and inventory; launch zones require an own designation on agent handles"
 names = [
     "fsim_world_dispense", "fsim_world_countermeasures", "fsim_world_launch_zone",
+    "fsim_world_launch_zone_v2", "fsim_world_launch_zone_wez_v1",
     "fsim::Agent::dispense", "fsim::Agent::countermeasures", "fsim::Agent::launchZone",
+    "fsim::Agent::launchZoneV2", "fsim::Agent::launchZoneWezV1",
     "fsim.agent.Agent.dispense", "fsim.agent.Agent.countermeasures", "fsim.agent.Agent.launch_zone",
+    "fsim.agent.Agent.launch_zone_v2", "fsim.agent.Agent.launch_zone_wez",
 ]
 
 [[rule]]
@@ -1381,8 +1385,8 @@ principal = "range"
 note = "World engagement commands and advisory queries; on-rail entity observations are unavailable on agent handles"
 names = [
     "fsim_world_seeker_target",
-    "fsim::World::dispense", "fsim::World::countermeasures", "fsim::World::launchZone", "fsim::World::seekerTarget",
-    "fsim.world.World.dispense", "fsim.world.World.countermeasures", "fsim.world.World.launch_zone", "fsim.world.World.seeker_target",
+    "fsim::World::dispense", "fsim::World::countermeasures", "fsim::World::launchZone", "fsim::World::launchZoneV2", "fsim::World::launchZoneWezV1", "fsim::World::seekerTarget",
+    "fsim.world.World.dispense", "fsim.world.World.countermeasures", "fsim.world.World.launch_zone", "fsim.world.World.launch_zone_v2", "fsim.world.World.launch_zone_wez", "fsim.world.World.seeker_target",
 ]
 
 [[rule]]

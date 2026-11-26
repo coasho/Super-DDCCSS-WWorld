@@ -72,6 +72,38 @@ class EngagementTest(unittest.TestCase):
             carrier = world.create_vehicle("carrier", "jsbsim:f16c")
             with self.assertRaises(fsim.Error):
                 world.launch_zone(carrier, "aim-120c", 999999)
+            with self.assertRaises(fsim.Error):
+                world.launch_zone_v2(carrier, "aim-120c", 999999)
+            with self.assertRaises(fsim.Error):
+                world.launch_zone_wez(carrier, "aim-120c", 999999)
+
+    def test_flyout_launch_zone_v2_and_wez_for_aam(self):
+        with fsim.World(publish=False, workers=1, terrain=False) as world:
+            carrier = world.create_vehicle("carrier", "jsbsim:f16c", latitude_deg=40.0,
+                                           altitude_msl_m=10000.0, heading_deg=0.0, airspeed_ms=300.0)
+            target = world.create_vehicle("target", "jsbsim:f16c", latitude_deg=40.2,
+                                          altitude_msl_m=10000.0, heading_deg=180.0, airspeed_ms=265.0)
+            carrier.load_store(1, "aim-120c")
+            z2 = world.launch_zone_v2(carrier, "aim-120c", target)
+            self.assertIsInstance(z2, fsim.LaunchZoneV2)
+            self.assertTrue(z2.valid)
+            self.assertTrue(z2.flyout_derived)
+            self.assertEqual(z2.basis, "simulated")
+            self.assertEqual(len(z2.table_sha256), 64)
+            self.assertGreater(z2.maximum_m, 40000.0)
+            self.assertGreater(z2.no_escape_m, 10000.0)
+            self.assertLessEqual(z2.no_escape_m, z2.maximum_m)
+            self.assertGreater(z2.maximum_uncertainty_m, 0.0)
+            z1 = world.launch_zone(carrier, "aim-120c", target)
+            self.assertAlmostEqual(z1.maximum_m, z2.maximum_m, places=3)
+            self.assertAlmostEqual(z1.no_escape_m, z2.no_escape_m, places=3)
+            wez = world.launch_zone_wez(carrier, "aim-120c", target)
+            self.assertIsInstance(wez, fsim.LaunchZoneWezV1)
+            self.assertTrue(wez.valid)
+            self.assertTrue(wez.flyout_derived)
+            self.assertEqual(wez.table_sha256, z2.table_sha256)
+            self.assertGreaterEqual(len(wez.aspect_contour), 5)
+            self.assertGreater(wez.aspect_contour[0].maximum_m, wez.aspect_contour[-1].maximum_m)
 
     def test_released_decoy_outlives_its_carrier(self):
         with fsim.World(publish=False, workers=1, dt=0.05, frame_skip=1) as world:

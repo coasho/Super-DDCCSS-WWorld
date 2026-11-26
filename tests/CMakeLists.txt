@@ -78,6 +78,17 @@ fsim_set_warnings(fsim_weapon_operating_point_test)
 add_test(NAME weapon_operating_point COMMAND fsim_weapon_operating_point_test)
 set_tests_properties(weapon_operating_point PROPERTIES LABELS "payload-components;sim-m03;weapon-control" TIMEOUT 120)
 
+add_executable(fsim_launch_zone_test simulation/test_launch_zone.cpp)
+target_link_libraries(fsim_launch_zone_test PRIVATE fsim::sdk fsim::ms fsim::io Catch2::Catch2WithMain)
+target_compile_definitions(fsim_launch_zone_test PRIVATE
+    FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}"
+    FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores"
+    FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft")
+add_dependencies(fsim_launch_zone_test fsim_payload_cards)
+fsim_set_warnings(fsim_launch_zone_test)
+add_test(NAME launch_zone COMMAND fsim_launch_zone_test)
+set_tests_properties(launch_zone PROPERTIES LABELS "sim-m04;payload-components;native-engagement" TIMEOUT 180)
+
 # Enumerate cases at test time rather than at build time: the executables are
 # linked before `deploy` has staged the DLLs beside them, so running them to
 # list their tests during the build would fail.

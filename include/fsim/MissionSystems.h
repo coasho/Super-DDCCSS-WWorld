@@ -435,6 +435,59 @@ struct DecoyState {
 };
 struct LaunchZone { double maximumM = 0.0, noEscapeM = 0.0, minimumM = 900.0; };
 
+/// Flyout-derived dynamic launch zone with explicit uncertainty and provenance (SIM-M04 / MS-8).
+struct LaunchZoneV2 {
+    std::uint32_t version = 2;
+    double maximumM = 0.0;
+    double noEscapeM = 0.0;
+    double minimumM = 0.0;
+    double probabilityInterceptM = 0.0;
+    double slantRangeM = 0.0;
+    double closingSpeedMs = 0.0;
+    double aspectRad = 0.0;
+    double offBoresightRad = 0.0;
+    double timeOfFlightS = std::numeric_limits<double>::quiet_NaN();
+    double fPoleM = std::numeric_limits<double>::quiet_NaN();
+    double aPoleM = std::numeric_limits<double>::quiet_NaN();
+    double maximumUncertaintyM = 0.0;
+    double noEscapeUncertaintyM = 0.0;
+    double minimumUncertaintyM = 0.0;
+    double timeOfFlightUncertaintyS = std::numeric_limits<double>::quiet_NaN();
+    bool valid = false;
+    bool flyoutDerived = false;
+    bool inEnvelope = false;
+    bool inRange = false;
+    bool inNoEscape = false;
+    std::string basis;
+    std::string tableSha256;
+};
+
+/// One aspect sample along a flyout-derived WEZ contour (SIM-M04 / MS-8).
+struct LaunchZoneWezSampleV1 {
+    double aspectRad = 0.0;
+    double maximumM = 0.0;
+    double noEscapeM = 0.0;
+    double minimumM = 0.0;
+    double maximumUncertaintyM = 0.0;
+    double noEscapeUncertaintyM = 0.0;
+};
+
+/// Flyout-derived aspect-polar Weapon Engagement Zone contour (SIM-M04 / MS-8).
+struct LaunchZoneWezV1 {
+    std::uint32_t version = 1;
+    bool valid = false;
+    bool flyoutDerived = false;
+    bool inEnvelope = false;
+    double launchAltitudeM = 0.0;
+    double launchMach = 0.0;
+    double targetAltitudeM = 0.0;
+    double targetMach = 0.0;
+    double maxOffBoresightRad = 0.0;
+    std::string basis;
+    std::string tableSha256;
+    std::vector<LaunchZoneWezSampleV1> aspectContour;
+};
+
 /// Decoys - chaff clouds and flares (MS-9a) - are numbered from here in what a sensor's `truth` names: clear of the
 /// vehicles', the C2 nodes' and the designations'.
 inline constexpr std::uint32_t kDecoyIds = 0x70000000u;

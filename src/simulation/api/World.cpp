@@ -671,6 +671,12 @@ std::vector<ms::EngagementEvent> World::engagementEvents(std::uint64_t since) co
 ms::LaunchZone World::launchZone(std::uint32_t vehicle,const std::string& store,std::uint32_t target) const {
     return impl_->launchZone(vehicle,store,target);
 }
+ms::LaunchZoneV2 World::launchZoneV2(std::uint32_t vehicle,const std::string& store,std::uint32_t target) const {
+    return impl_->launchZoneV2(vehicle,store,target);
+}
+ms::LaunchZoneWezV1 World::launchZoneWezV1(std::uint32_t vehicle,const std::string& store,std::uint32_t target) const {
+    return impl_->launchZoneWezV1(vehicle,store,target);
+}
 
 std::optional<ms::RadioPath> World::radioPath(const Vehicle& from, const Vehicle& to, const ms::RadioPathOptions& options) const {
     return impl_->radioPath(from.id(), to.id(), options);

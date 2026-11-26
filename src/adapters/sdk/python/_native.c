@@ -441,6 +441,8 @@ static PyMethodDef world_methods[] = {
     FAST("engagement_events", world_engagement_events, "engagement_events(since) -> referee events"),
     FAST("decoys", world_decoys, "decoys() -> decoy states"),
     FAST("launch_zone", world_launch_zone, "launch_zone(vehicle, store, target) -> maximum, no_escape, minimum"),
+    FAST("launch_zone_v2", world_launch_zone_v2, "launch_zone_v2(vehicle, store, target) -> flyout-derived DLZ tuple"),
+    FAST("launch_zone_wez", world_launch_zone_wez, "launch_zone_wez(vehicle, store, target) -> flyout-derived WEZ contour tuple"),
     FAST("seeker_target", world_seeker_target, "seeker_target(vehicle, store) -> observation id or zero"),
     FAST("weapon_controls",world_weapon_controls,"weapon_controls(id) -> actual native fin diagnostics (Range only)"),
     FAST("weapons", world_weapons,

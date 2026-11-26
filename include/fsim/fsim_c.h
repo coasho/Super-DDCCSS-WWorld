@@ -2681,9 +2681,38 @@ typedef struct fsim_launch_zone {
     uint32_t struct_size;
     double maximum_m, no_escape_m, minimum_m;
 } fsim_launch_zone;
+/* Flyout-derived dynamic launch zone with uncertainty and provenance (SIM-M04 / MS-8). */
+typedef struct fsim_launch_zone_v2 {
+    uint32_t struct_size;
+    uint32_t version;
+    double maximum_m, no_escape_m, minimum_m, probability_intercept_m;
+    double slant_range_m, closing_speed_ms, aspect_rad, off_boresight_rad;
+    double time_of_flight_s, f_pole_m, a_pole_m;
+    double maximum_uncertainty_m, no_escape_uncertainty_m, minimum_uncertainty_m, time_of_flight_uncertainty_s;
+    int32_t valid, flyout_derived, in_envelope, in_range, in_no_escape;
+    char basis[32];
+    char table_sha256[65];
+} fsim_launch_zone_v2;
+typedef struct fsim_launch_zone_wez_sample_v1 {
+    double aspect_rad;
+    double maximum_m, no_escape_m, minimum_m;
+    double maximum_uncertainty_m, no_escape_uncertainty_m;
+} fsim_launch_zone_wez_sample_v1;
+typedef struct fsim_launch_zone_wez_v1 {
+    uint32_t struct_size;
+    uint32_t version;
+    int32_t valid, flyout_derived, in_envelope;
+    double launch_altitude_m, launch_mach, target_altitude_m, target_mach, max_off_boresight_rad;
+    char basis[32];
+    char table_sha256[65];
+    uint32_t sample_count;
+    fsim_launch_zone_wez_sample_v1 samples[16];
+} fsim_launch_zone_wez_v1;
 FSIM_API void fsim_engagement_event_init(fsim_engagement_event* event);
 FSIM_API void fsim_decoy_state_init(fsim_decoy_state* decoy);
 FSIM_API void fsim_launch_zone_init(fsim_launch_zone* zone);
+FSIM_API void fsim_launch_zone_v2_init(fsim_launch_zone_v2* zone);
+FSIM_API void fsim_launch_zone_wez_v1_init(fsim_launch_zone_wez_v1* wez);
 /* Referee stream: count snapshots the events newer than since. Repeated reads do not consume events. */
 FSIM_API uint32_t fsim_world_engagement_count(fsim_world* world, uint64_t since);
 FSIM_API int fsim_world_engagement(const fsim_world* world, uint32_t index, fsim_engagement_event* event);
@@ -2693,6 +2722,8 @@ FSIM_API int fsim_world_dispense(fsim_world* world, uint32_t vehicle, int32_t fl
 FSIM_API int fsim_world_seeker_target(const fsim_world* world, uint32_t vehicle, const char* store, uint32_t* target);
 FSIM_API int fsim_world_countermeasures(const fsim_world* world, uint32_t vehicle, uint32_t* chaff, uint32_t* flare);
 FSIM_API int fsim_world_launch_zone(const fsim_world* world, uint32_t vehicle, const char* store, uint32_t target, fsim_launch_zone* zone);
+FSIM_API int fsim_world_launch_zone_v2(const fsim_world* world, uint32_t vehicle, const char* store, uint32_t target, fsim_launch_zone_v2* zone);
+FSIM_API int fsim_world_launch_zone_wez_v1(const fsim_world* world, uint32_t vehicle, const char* store, uint32_t target, fsim_launch_zone_wez_v1* wez);
 
 typedef struct fsim_radio_path_options {
     uint32_t struct_size;          /* fsim_radio_path_options_init */

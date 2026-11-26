@@ -23,7 +23,9 @@ The [contact-fuze channel](weapon-contact-fuze.md) can initiate from an exact au
 | `world.countermeasures(vehicle)` | Remaining chaff and flare inventory |
 | `world.decoys()` | Decoy ID, owner, kind, age in seconds, ECEF position in metres |
 | `world.engagement_events(since=serial)` | Every event with serial strictly greater than the cursor |
-| `world.launch_zone(vehicle, store, target)` | Advisory maximum, no-escape and minimum distances in metres |
+| `world.launch_zone(vehicle, store, target)` | Advisory maximum, no-escape and minimum distances in metres (delegates to flyout-derived `launch_zone_v2` when available) |
+| `world.launch_zone_v2(vehicle, store, target)` | Flyout-derived `LaunchZoneV2` with `R_max`, `R_ne`, `R_min`, `R_pi`, `TOF`, F-pole, A-pole, propagated 1-sigma uncertainties, envelope flags, basis and SHA-256 provenance ([SIM-M04](sim-m04-dlz-wez.md)) |
+| `world.launch_zone_wez(vehicle, store, target)` | Flyout-derived aspect-polar `LaunchZoneWezV1` contour (`0..pi`) with per-aspect uncertainties and provenance ([SIM-M04](sim-m04-dlz-wez.md)) |
 | `world.seeker_target(vehicle, store)` | On-rail infrared observed entity, or zero |
 | `world.weapon_controls(weapon)` | Versioned actual-fin/controller Range diagnostics, or `None` for an unknown/terminal weapon; [availability and C++/C equivalents](weapon-controls.md) |
 
@@ -50,6 +52,8 @@ Agent equipment calls use the existing native operations on the Agent's own plat
 | `Agent::countermeasures()` | `agent.countermeasures()` | `fsim_world_countermeasures` on an Agent handle |
 | `Agent::dispense(flare)` | `agent.dispense("chaff" or "flare")` | `fsim_world_dispense` on an Agent handle |
 | `Agent::launchZone(store, designation)` | `agent.launch_zone(store, designation)` | `fsim_world_launch_zone` on an Agent handle |
+| `Agent::launchZoneV2(store, designation)` | `agent.launch_zone_v2(store, designation)` | `fsim_world_launch_zone_v2` on an Agent handle |
+| `Agent::launchZoneWezV1(store, designation)` | `agent.launch_zone_wez(store, designation)` | `fsim_world_launch_zone_wez_v1` on an Agent handle |
 
 Dispenser requests preserve native payload-state, inventory and shared cooldown checks. C++ returns the native
 `ms::Reason`; Python raises `fsim.Error` on refusal. Neither installs an automatic defensive response. A launch-zone
@@ -105,7 +109,7 @@ The following are game estimates (`basis: assumed`), not calibrated real-world m
 - The association cell is two degrees. Ordinary seekers require a decoy strength exceeding 1.6 times the held return; imaging seekers require five times. Fresh flare strength peaks at six, then decays with a two-second time constant, so imaging seekers resist moderate flares but are not immune. Chaff blooms over 0.3 s and decays over six seconds.
 - Installed dispensers begin with 30 chaff and 15 flares, share a 0.35 s release interval, and use analytic linear drag/gravity relative to each particle's local modeled mean wind. Chaff lasts six seconds and flares four seconds. Dispenser refusal consumes no inventory. Seeker observations precede propagation; owned trajectories retain the last partial living interval through fuze processing.
 - Active seeker emissions feed the existing receiver simulation with assumed transmitter power and antenna pattern. Clients display measured receiver contacts, without a geometric warning fallback.
-- Launch zones are advisory energy envelopes based on the card, launch altitude/speed and observed target velocity. The `no_escape_m` name expresses an estimate; it is neither an integrated intercept prediction nor a guaranteed hit.
+- Launch zones (`launchZoneV2` / `launchZoneWezV1` and the delegating legacy `launchZone`) evaluate 5-D multilinear tables (`aircraft/stores/<model>/<model>.dlz-v1.json`) derived offline from native 6-DOF JSBSim missile flyouts with immediate 7 g turn-and-run escape (`R_ne`), measured off-boresight attenuation, and propagated 1-sigma uncertainties (`basis: simulated`, `equipment_calibrated: false`). When no `.dlz-v1.json` table is present, an explicit legacy fallback (`flyoutDerived = false`, `basis: assumed`) is returned. See [SIM-M04 flyout-derived DLZ/WEZ](sim-m04-dlz-wez.md) and [published-performance comparison](../research/sim-m04/dlz-published-comparison.md). Query results remain advisory and do not grant release authority or guarantee a hit.
 
 This milestone does not calibrate fin aerodynamics, imaging classification, electronic counter-countermeasures or decoy cartridge aerodynamics/signatures. Decoy gust/turbulence fields remain unsupported. The [physical-chain audit](sim-m03-physical-chain-audit.md) records independent corrections and the remaining source-linked approximations and required inputs.
 

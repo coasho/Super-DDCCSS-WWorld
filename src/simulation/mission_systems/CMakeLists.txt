@@ -56,6 +56,7 @@ add_library(fsim_ms STATIC
     Model.cpp
     Names.cpp
     weapon/Guidance.cpp
+    weapon/LaunchZone.cpp
     weapon/WeaponLink.cpp
     weapon/NavigationV1.cpp
     weapon/NavigationStrapdownV2.cpp

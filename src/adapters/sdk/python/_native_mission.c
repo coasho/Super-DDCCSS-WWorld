@@ -441,6 +441,42 @@ PyObject* world_launch_zone(PyObject* o, PyObject* const* args, Py_ssize_t n) {
     if(fsim_world_launch_zone(self->world,id,store,target,&zone)!=FSIM_OK) return fail();
     return Py_BuildValue("(ddd)",zone.maximum_m,zone.no_escape_m,zone.minimum_m);
 }
+PyObject* world_launch_zone_v2(PyObject* o, PyObject* const* args, Py_ssize_t n) {
+    WorldObject* self=(WorldObject*)o; uint32_t id,target; const char* store;
+    if(!check_args(n,3,3,"launch_zone_v2") || !as_u32(args[0],&id) || !as_u32(args[2],&target)) return NULL;
+    store=PyUnicode_AsUTF8AndSize(args[1],NULL); if(!store) return NULL;
+    fsim_launch_zone_v2 z; fsim_launch_zone_v2_init(&z);
+    if(fsim_world_launch_zone_v2(self->world,id,store,target,&z)!=FSIM_OK) return fail();
+    return Py_BuildValue("(Idddddddddddddddiiiiiss)",
+        z.version, z.maximum_m, z.no_escape_m, z.minimum_m, z.probability_intercept_m,
+        z.slant_range_m, z.closing_speed_ms, z.aspect_rad, z.off_boresight_rad,
+        z.time_of_flight_s, z.f_pole_m, z.a_pole_m,
+        z.maximum_uncertainty_m, z.no_escape_uncertainty_m, z.minimum_uncertainty_m, z.time_of_flight_uncertainty_s,
+        z.valid, z.flyout_derived, z.in_envelope, z.in_range, z.in_no_escape,
+        z.basis, z.table_sha256);
+}
+PyObject* world_launch_zone_wez(PyObject* o, PyObject* const* args, Py_ssize_t n) {
+    WorldObject* self=(WorldObject*)o; uint32_t id,target; const char* store;
+    if(!check_args(n,3,3,"launch_zone_wez") || !as_u32(args[0],&id) || !as_u32(args[2],&target)) return NULL;
+    store=PyUnicode_AsUTF8AndSize(args[1],NULL); if(!store) return NULL;
+    fsim_launch_zone_wez_v1 w; fsim_launch_zone_wez_v1_init(&w);
+    if(fsim_world_launch_zone_wez_v1(self->world,id,store,target,&w)!=FSIM_OK) return fail();
+    PyObject* samples=PyTuple_New((Py_ssize_t)w.sample_count);
+    if(!samples) return NULL;
+    for(uint32_t i=0;i<w.sample_count;++i) {
+        PyObject* row=Py_BuildValue("(dddddd)",
+            w.samples[i].aspect_rad, w.samples[i].maximum_m, w.samples[i].no_escape_m, w.samples[i].minimum_m,
+            w.samples[i].maximum_uncertainty_m, w.samples[i].no_escape_uncertainty_m);
+        if(!row){Py_DECREF(samples); return NULL;}
+        if(PyTuple_SetItem(samples,(Py_ssize_t)i,row)<0){Py_DECREF(samples);return NULL;}
+    }
+    PyObject* out=Py_BuildValue("(IiiidddddssO)",
+        w.version, w.valid, w.flyout_derived, w.in_envelope,
+        w.launch_altitude_m, w.launch_mach, w.target_altitude_m, w.target_mach, w.max_off_boresight_rad,
+        w.basis, w.table_sha256, samples);
+    Py_DECREF(samples);
+    return out;
+}
 PyObject* world_seeker_target(PyObject* o, PyObject* const* args, Py_ssize_t n) {
     WorldObject* self=(WorldObject*)o; uint32_t id,target; const char* store;
     if(!check_args(n,2,2,"seeker_target") || !as_u32(args[0],&id)) return NULL;

@@ -561,6 +561,26 @@ std::optional<ms::LaunchZone> Agent::launchZone(std::string_view store, std::uin
     }
     return world_->impl().launchZone(vehicle_, std::string(store), target);
 }
+std::optional<ms::LaunchZoneV2> Agent::launchZoneV2(std::string_view store, std::uint32_t target) const {
+    FSIM_AGENT_AUDIT;
+    if (!world_ || !world_->impl().alive(vehicle_)) return std::nullopt;
+    const auto* designation = world_->impl().designation(target);
+    if (!designation || designation->owner != vehicle_ || !world_->impl().vehicleState(target)) {
+        FSIM_AGENT_REFUSED;
+        return std::nullopt;
+    }
+    return world_->impl().launchZoneV2(vehicle_, std::string(store), target);
+}
+std::optional<ms::LaunchZoneWezV1> Agent::launchZoneWezV1(std::string_view store, std::uint32_t target) const {
+    FSIM_AGENT_AUDIT;
+    if (!world_ || !world_->impl().alive(vehicle_)) return std::nullopt;
+    const auto* designation = world_->impl().designation(target);
+    if (!designation || designation->owner != vehicle_ || !world_->impl().vehicleState(target)) {
+        FSIM_AGENT_REFUSED;
+        return std::nullopt;
+    }
+    return world_->impl().launchZoneWezV1(vehicle_, std::string(store), target);
+}
 
 comm::SystemId Agent::system() const noexcept {
     FSIM_AGENT_AUDIT;

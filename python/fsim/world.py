@@ -1901,6 +1901,19 @@ CountermeasureInventory = collections.namedtuple("CountermeasureInventory", "cha
 DecoyState = collections.namedtuple("DecoyState", "id owner kind age_s position_ecef")
 EngagementEvent = collections.namedtuple("EngagementEvent", "serial time_s kind reason entity launcher target position_ecef velocity_ecef destroyed")
 LaunchZone = collections.namedtuple("LaunchZone", "maximum_m no_escape_m minimum_m")
+LaunchZoneV2 = collections.namedtuple(
+    "LaunchZoneV2",
+    "version maximum_m no_escape_m minimum_m probability_intercept_m slant_range_m closing_speed_ms "
+    "aspect_rad off_boresight_rad time_of_flight_s f_pole_m a_pole_m "
+    "maximum_uncertainty_m no_escape_uncertainty_m minimum_uncertainty_m time_of_flight_uncertainty_s "
+    "valid flyout_derived in_envelope in_range in_no_escape basis table_sha256")
+LaunchZoneWezSampleV1 = collections.namedtuple(
+    "LaunchZoneWezSampleV1",
+    "aspect_rad maximum_m no_escape_m minimum_m maximum_uncertainty_m no_escape_uncertainty_m")
+LaunchZoneWezV1 = collections.namedtuple(
+    "LaunchZoneWezV1",
+    "version valid flyout_derived in_envelope launch_altitude_m launch_mach target_altitude_m target_mach "
+    "max_off_boresight_rad basis table_sha256 aspect_contour")
 WeaponFinStateV1 = collections.namedtuple("WeaponFinStateV1",
     "id native_index valid failed_stuck failed_zero failed_hardover actual_rad demand_rad minimum_rad maximum_rad rate_rad_s")
 WeaponControlSnapshotV1 = collections.namedtuple("WeaponControlSnapshotV1",
@@ -3364,6 +3377,27 @@ class World:
         """Advisory launch envelope; pass an own-radar designation to avoid target truth."""
         return LaunchZone(*self._h.launch_zone(vehicle.id if isinstance(vehicle, Vehicle) else int(vehicle), store,
                                              target.id if isinstance(target, Vehicle) else int(target)))
+
+    def launch_zone_v2(self, vehicle, store, target):
+        """Flyout-derived dynamic launch zone with TOF, F-pole, A-pole, uncertainty and provenance (MS-8)."""
+        v = self._h.launch_zone_v2(vehicle.id if isinstance(vehicle, Vehicle) else int(vehicle), store,
+                                   target.id if isinstance(target, Vehicle) else int(target))
+        finite = lambda x: x if math.isfinite(x) else None
+        return LaunchZoneV2(
+            int(v[0]), v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8],
+            finite(v[9]), finite(v[10]), finite(v[11]),
+            v[12], v[13], v[14], finite(v[15]),
+            bool(v[16]), bool(v[17]), bool(v[18]), bool(v[19]), bool(v[20]),
+            str(v[21]), str(v[22]))
+
+    def launch_zone_wez(self, vehicle, store, target):
+        """Flyout-derived aspect-polar Weapon Engagement Zone contour (MS-8)."""
+        w = self._h.launch_zone_wez(vehicle.id if isinstance(vehicle, Vehicle) else int(vehicle), store,
+                                    target.id if isinstance(target, Vehicle) else int(target))
+        contour = tuple(LaunchZoneWezSampleV1(*row) for row in w[11])
+        return LaunchZoneWezV1(
+            int(w[0]), bool(w[1]), bool(w[2]), bool(w[3]),
+            w[4], w[5], w[6], w[7], w[8], str(w[9]), str(w[10]), contour)
 
     def radar_cross_section(self, observer, target, *, frequency_hz=9.5e9, polarization="vertical", receive=None):
         """The radar cross section of ``target`` as a radar on ``observer`` sees it (RadarCrossSection): its

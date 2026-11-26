@@ -264,6 +264,10 @@ public:
     /// Absent, foreign or lapsed designations return no value. Store eligibility remains the
     /// native query's: an unknown store can return default advisory values, which do not establish availability.
     std::optional<ms::LaunchZone> launchZone(std::string_view store, std::uint32_t target) const;
+    /// Flyout-derived dynamic launch zone (MS-8) using its own live designation, never another aircraft's true entity id.
+    std::optional<ms::LaunchZoneV2> launchZoneV2(std::string_view store, std::uint32_t target) const;
+    /// Flyout-derived aspect-polar WEZ contour (MS-8) using its own live designation.
+    std::optional<ms::LaunchZoneWezV1> launchZoneWezV1(std::string_view store, std::uint32_t target) const;
 
     // Messages (AB-4): its system's DMS - over the nets the range put it on, stamped with its own SystemID; other systems
     // named by theirs. Its own topics from comm::topic::kFreeForm (a native type's is the MA core's: AB-4b).

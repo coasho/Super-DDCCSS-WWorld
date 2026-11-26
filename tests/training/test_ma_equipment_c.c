@@ -93,6 +93,32 @@ int main(int argc, char** argv) {
     CHECK(fsim_world_dispense(blue, b, 0) == FSIM_NOT_ALLOWED);
     fsim_launch_zone_init(&zone);
     CHECK(fsim_world_launch_zone(blue, a, "mk82", b, &zone) == FSIM_NOT_ALLOWED);
+    {
+        fsim_launch_zone_v2 z2;
+        fsim_launch_zone_wez_v1 wez;
+        fsim_launch_zone_v2_init(&z2);
+        fsim_launch_zone_wez_v1_init(&wez);
+        CHECK(fsim_world_launch_zone_v2(blue, a, "mk82", b, &z2) == FSIM_NOT_ALLOWED);
+        CHECK(fsim_world_launch_zone_wez_v1(blue, a, "mk82", b, &wez) == FSIM_NOT_ALLOWED);
+        CHECK(fsim_vehicle_load_store(world, a, payload, 1, "aim-120c", 1, &reason) == FSIM_OK && reason == 0);
+        fsim_launch_zone_v2_init(&z2);
+        CHECK(fsim_world_launch_zone_v2(world, a, "aim-120c", b, &z2) == FSIM_OK);
+        CHECK(z2.valid == 1 && z2.version == 2 && z2.flyout_derived == 1 &&
+              z2.maximum_m > 0.0 && z2.no_escape_m <= z2.maximum_m && z2.maximum_uncertainty_m > 0.0);
+        {
+            struct { uint32_t struct_size; uint32_t version; double maximum_m; uint32_t sentinel; } short_z2;
+            short_z2.struct_size = (uint32_t)offsetof(fsim_launch_zone_v2, no_escape_m);
+            short_z2.version = 0;
+            short_z2.maximum_m = -1.0;
+            short_z2.sentinel = UINT32_C(0xCAFEBABE);
+            CHECK(fsim_world_launch_zone_v2(world, a, "aim-120c", b, (fsim_launch_zone_v2*)&short_z2) == FSIM_OK);
+            CHECK(short_z2.version == 2 && short_z2.maximum_m == z2.maximum_m && short_z2.sentinel == UINT32_C(0xCAFEBABE));
+        }
+        fsim_launch_zone_wez_v1_init(&wez);
+        CHECK(fsim_world_launch_zone_wez_v1(world, a, "aim-120c", b, &wez) == FSIM_OK);
+        CHECK(wez.valid == 1 && wez.version == 1 && wez.flyout_derived == 1 &&
+              wez.sample_count >= 5 && wez.samples[0].maximum_m > wez.samples[wez.sample_count - 1].maximum_m);
+    }
     CHECK(fsim_world_weapon_count(blue) == 0);
 
     fsim_c2_node_spec_init(&node);

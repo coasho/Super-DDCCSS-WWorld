@@ -161,6 +161,25 @@ TEST_CASE("ma equipment: launch zones use live own designations and preserve nat
     CHECK(reported->noEscapeM == native.noEscapeM);
     CHECK(reported->minimumM == native.minimumM);
     CHECK(reported->maximumM > 0.0);
+    // Flyout-derived V2 DLZ and WEZ preserve own-designation scope and match native evaluation.
+    CHECK_FALSE(own.launchZoneV2("aim-120c", opponent.id()));
+    CHECK_FALSE(own.launchZoneV2("aim-120c", foreign));
+    CHECK_FALSE(own.launchZoneWezV1("aim-120c", opponent.id()));
+    CHECK_FALSE(own.launchZoneWezV1("aim-120c", foreign));
+    const auto reportedV2 = own.launchZoneV2("aim-120c", target);
+    REQUIRE(reportedV2);
+    const auto nativeV2 = world.launchZoneV2(platform.id(), "aim-120c", target);
+    CHECK(reportedV2->valid == nativeV2.valid);
+    CHECK(reportedV2->flyoutDerived == nativeV2.flyoutDerived);
+    CHECK(reportedV2->maximumM == nativeV2.maximumM);
+    CHECK(reportedV2->noEscapeM == nativeV2.noEscapeM);
+    CHECK(reportedV2->minimumM == nativeV2.minimumM);
+    CHECK(reportedV2->tableSha256 == nativeV2.tableSha256);
+    const auto reportedWez = own.launchZoneWezV1("aim-120c", target);
+    REQUIRE(reportedWez);
+    const auto nativeWez = world.launchZoneWezV1(platform.id(), "aim-120c", target);
+    CHECK(reportedWez->valid == nativeWez.valid);
+    CHECK(reportedWez->aspectContour.size() == nativeWez.aspectContour.size());
     // The legacy query returns its default for an unknown store. Parity must not add release eligibility checks.
     const auto unknown = own.launchZone("no-such-store", target);
     REQUIRE(unknown);
@@ -168,6 +187,8 @@ TEST_CASE("ma equipment: launch zones use live own designations and preserve nat
     CHECK(unknown->minimumM == world.launchZone(platform.id(), "no-such-store", target).minimumM);
     REQUIRE(own.undesignate(target));
     CHECK_FALSE(own.launchZone("aim-120c", target));
+    CHECK_FALSE(own.launchZoneV2("aim-120c", target));
+    CHECK_FALSE(own.launchZoneWezV1("aim-120c", target));
 }
 
 TEST_CASE("ma equipment: store and strike reports preserve inventory and redact range truth targets", "[ma][equipment]") {

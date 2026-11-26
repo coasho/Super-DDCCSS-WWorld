@@ -1107,23 +1107,89 @@ void World::finishEngagements() {
     for (const auto id : ended) removeVehicle(id);
 }
 
-ms::LaunchZone World::launchZone(std::uint32_t vehicle,const std::string& store,std::uint32_t target) const {
-    ms::LaunchZone zone;
+std::shared_ptr<const ms::weapon::LaunchZoneTableV1> World::launchZoneTable(const ms::StoreCard& card) const {
+    if (card.model.empty()) return {};
+    std::string modelName = card.model;
+    if (modelName.rfind("jsbsim:", 0) == 0) modelName = modelName.substr(7);
+    if (modelName.empty()) return {};
+    const auto cached = launchZoneTables_.find(modelName);
+    if (cached != launchZoneTables_.end()) return cached->second;
+
+    io::AssetResolver resolver;
+    const auto directory = resolver.findAircraft(modelName, {});
+    if (directory.empty()) {
+        launchZoneTables_[modelName] = {};
+        return {};
+    }
+    const auto path = directory / modelName / (modelName + ".dlz-v1.json");
+    if (!std::filesystem::is_regular_file(path)) {
+        launchZoneTables_[modelName] = {};
+        return {};
+    }
+    auto table = std::make_shared<ms::weapon::LaunchZoneTableV1>();
+    std::string error;
+    if (!ms::weapon::loadLaunchZoneTableV1(path, *table, error)) {
+        LOG_WARN("session") << "ignoring invalid DLZ table " << path.string() << ": " << error;
+        launchZoneTables_[modelName] = {};
+        return {};
+    }
+    launchZoneTables_[modelName] = table;
+    return table;
+}
+
+ms::LaunchZoneV2 World::launchZoneV2(std::uint32_t vehicle,const std::string& store,std::uint32_t target) const {
+    ms::LaunchZoneV2 zone;
     const Entry* e=entry(vehicle); const auto* estimate=vehicleState(target);
     if (!e || !estimate) return zone;
     const ms::StoreCard* card=nullptr;
     for (const auto& s : e->ms.stores()) if (s.store==store) {card=e->ms.storeCard(s.index);break;}
     if (!card || card->storeClass!="aam" || card->model.empty()) return zone;
     const auto& own=pool_->states()[e->slot];
-    const V r=delta(point(estimate->positionEcef),point(own.positionEcef));
-    const double range=length(r); const V tv=velocity(*estimate);
-    const double closing=-dot(tv,r)/std::max(range,1.0);
-    // basis: assumed. Advisory energy envelope, not a second trajectory integrator or a hit guarantee.
-    const double reference=card->value("launch_zone_reference_m",infrared(card->seeker)?14000.0:60000.0);
-    const double altitude=std::clamp(.65+own.altitudeMslM/20000.0,.5,1.4);
-    const double speed=std::clamp(own.airspeedTrueMs/300.0,.5,1.5);
-    zone.maximumM=std::max(0.0,reference*altitude*speed+closing*25.0);
-    zone.noEscapeM=std::clamp(zone.maximumM*.55-length(tv)*12.0,0.0,zone.maximumM);
+    ms::weapon::LaunchZoneQueryV1 q;
+    std::copy_n(own.positionEcef,3,q.launchPosEcef);
+    ms::geom::velocityEcef(own,q.launchVelEcef);
+    q.launchForwardEcef[0]=own.rotationBodyToEcef[0];
+    q.launchForwardEcef[1]=own.rotationBodyToEcef[3];
+    q.launchForwardEcef[2]=own.rotationBodyToEcef[6];
+    q.launchAltitudeM=own.altitudeMslM;
+    q.launchAirspeedMs=own.airspeedTrueMs;
+    std::copy_n(estimate->positionEcef,3,q.targetPosEcef);
+    ms::geom::velocityEcef(*estimate,q.targetVelEcef);
+    q.targetAltitudeM=estimate->altitudeMslM;
+    if (const auto table=launchZoneTable(*card)) return ms::weapon::evaluateLaunchZoneV2(*table,q);
+    return ms::weapon::evaluateLegacyLaunchZoneV2(*card,q);
+}
+
+ms::LaunchZoneWezV1 World::launchZoneWezV1(std::uint32_t vehicle,const std::string& store,std::uint32_t target) const {
+    ms::LaunchZoneWezV1 wez;
+    const Entry* e=entry(vehicle); const auto* estimate=vehicleState(target);
+    if (!e || !estimate) return wez;
+    const ms::StoreCard* card=nullptr;
+    for (const auto& s : e->ms.stores()) if (s.store==store) {card=e->ms.storeCard(s.index);break;}
+    if (!card || card->storeClass!="aam" || card->model.empty()) return wez;
+    const auto& own=pool_->states()[e->slot];
+    ms::weapon::LaunchZoneQueryV1 q;
+    std::copy_n(own.positionEcef,3,q.launchPosEcef);
+    ms::geom::velocityEcef(own,q.launchVelEcef);
+    q.launchForwardEcef[0]=own.rotationBodyToEcef[0];
+    q.launchForwardEcef[1]=own.rotationBodyToEcef[3];
+    q.launchForwardEcef[2]=own.rotationBodyToEcef[6];
+    q.launchAltitudeM=own.altitudeMslM;
+    q.launchAirspeedMs=own.airspeedTrueMs;
+    std::copy_n(estimate->positionEcef,3,q.targetPosEcef);
+    ms::geom::velocityEcef(*estimate,q.targetVelEcef);
+    q.targetAltitudeM=estimate->altitudeMslM;
+    if (const auto table=launchZoneTable(*card)) return ms::weapon::evaluateLaunchZoneWezV1(*table,q);
+    return ms::weapon::evaluateLegacyLaunchZoneWezV1(*card,q);
+}
+
+ms::LaunchZone World::launchZone(std::uint32_t vehicle,const std::string& store,std::uint32_t target) const {
+    ms::LaunchZone zone;
+    const auto v2=launchZoneV2(vehicle,store,target);
+    if (!v2.valid) return zone;
+    zone.maximumM=v2.maximumM;
+    zone.noEscapeM=v2.noEscapeM;
+    zone.minimumM=v2.minimumM;
     return zone;
 }
 std::uint32_t World::seekerTarget(std::uint32_t vehicle,const std::string& store) const {

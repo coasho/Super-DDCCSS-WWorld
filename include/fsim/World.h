@@ -529,6 +529,10 @@ public:
     std::vector<ms::EngagementEvent> engagementEvents(std::uint64_t since = 0) const;
     /// Advisory envelope from a carried store and target estimate. Prefer a track designation as target.
     ms::LaunchZone launchZone(std::uint32_t vehicle, const std::string& store, std::uint32_t target) const;
+    /// Flyout-derived dynamic launch zone with TOF, F-pole, A-pole, uncertainty and provenance (MS-8).
+    ms::LaunchZoneV2 launchZoneV2(std::uint32_t vehicle, const std::string& store, std::uint32_t target) const;
+    /// Flyout-derived aspect-polar Weapon Engagement Zone contour (MS-8).
+    ms::LaunchZoneWezV1 launchZoneWezV1(std::uint32_t vehicle, const std::string& store, std::uint32_t target) const;
     /// The on-rail infrared seeker observation, or zero without a tone. No position/truth state is returned.
     std::uint32_t seekerTarget(std::uint32_t vehicle, const std::string& store) const;
     /// The radio path between two entities over the world's ground; empty for an unknown one.

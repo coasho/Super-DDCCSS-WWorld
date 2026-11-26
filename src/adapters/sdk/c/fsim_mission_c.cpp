@@ -457,6 +457,16 @@ FSIM_API void fsim_launch_zone_init(fsim_launch_zone* out) {
     if (!out) return;
     std::memset(out,0,sizeof *out); out->struct_size=sizeof *out;
 }
+FSIM_API void fsim_launch_zone_v2_init(fsim_launch_zone_v2* out) {
+    if (!out) return;
+    std::memset(out,0,sizeof *out); out->struct_size=sizeof *out; out->version=2;
+    const double qnan=std::numeric_limits<double>::quiet_NaN();
+    out->time_of_flight_s=qnan; out->f_pole_m=qnan; out->a_pole_m=qnan; out->time_of_flight_uncertainty_s=qnan;
+}
+FSIM_API void fsim_launch_zone_wez_v1_init(fsim_launch_zone_wez_v1* out) {
+    if (!out) return;
+    std::memset(out,0,sizeof *out); out->struct_size=sizeof *out; out->version=1;
+}
 FSIM_API uint32_t fsim_world_engagement_count(fsim_world* world,uint64_t since) {
     FSIM_NOT_AGENT(world,0);
     if (!world) return 0;
@@ -514,6 +524,59 @@ FSIM_API int fsim_world_launch_zone(const fsim_world* world,uint32_t vehicle,con
     if (!world->world.vehicleState(target)) return fail(FSIM_INVALID_ARGUMENT,"launch zone: unknown target");
     const auto zone=world->world.launchZone(vehicle,store,target); fsim_launch_zone c; fsim_launch_zone_init(&c);
     c.maximum_m=zone.maximumM; c.no_escape_m=zone.noEscapeM; c.minimum_m=zone.minimumM;
+    return copyOut(c,out)?FSIM_OK:FSIM_INVALID_ARGUMENT;
+}
+FSIM_API int fsim_world_launch_zone_v2(const fsim_world* world,uint32_t vehicle,const char* store,uint32_t target,fsim_launch_zone_v2* out) {
+    FSIM_AGENT_VEHICLE(world,vehicle,FSIM_NOT_ALLOWED);
+    if (!world || !store || !out || !world->world.alive(vehicle)) return fail(FSIM_INVALID_ARGUMENT,"launch zone v2: invalid launcher");
+    if (world->agent) {
+        const auto* designation=world->world.designation(target);
+        if (!designation || designation->owner!=vehicle) return fail(FSIM_NOT_ALLOWED,"launch zone v2: own designation required");
+    }
+    if (!world->world.vehicleState(target)) return fail(FSIM_INVALID_ARGUMENT,"launch zone v2: unknown target");
+    const auto z=world->world.launchZoneV2(vehicle,store,target);
+    fsim_launch_zone_v2 c; fsim_launch_zone_v2_init(&c);
+    c.version=z.version;
+    c.maximum_m=z.maximumM; c.no_escape_m=z.noEscapeM; c.minimum_m=z.minimumM;
+    c.probability_intercept_m=z.probabilityInterceptM;
+    c.slant_range_m=z.slantRangeM; c.closing_speed_ms=z.closingSpeedMs;
+    c.aspect_rad=z.aspectRad; c.off_boresight_rad=z.offBoresightRad;
+    c.time_of_flight_s=z.timeOfFlightS; c.f_pole_m=z.fPoleM; c.a_pole_m=z.aPoleM;
+    c.maximum_uncertainty_m=z.maximumUncertaintyM; c.no_escape_uncertainty_m=z.noEscapeUncertaintyM;
+    c.minimum_uncertainty_m=z.minimumUncertaintyM; c.time_of_flight_uncertainty_s=z.timeOfFlightUncertaintyS;
+    c.valid=z.valid?1:0; c.flyout_derived=z.flyoutDerived?1:0; c.in_envelope=z.inEnvelope?1:0;
+    c.in_range=z.inRange?1:0; c.in_no_escape=z.inNoEscape?1:0;
+    std::snprintf(c.basis,sizeof c.basis,"%s",z.basis.c_str());
+    std::snprintf(c.table_sha256,sizeof c.table_sha256,"%s",z.tableSha256.c_str());
+    return copyOut(c,out)?FSIM_OK:FSIM_INVALID_ARGUMENT;
+}
+FSIM_API int fsim_world_launch_zone_wez_v1(const fsim_world* world,uint32_t vehicle,const char* store,uint32_t target,fsim_launch_zone_wez_v1* out) {
+    FSIM_AGENT_VEHICLE(world,vehicle,FSIM_NOT_ALLOWED);
+    if (!world || !store || !out || !world->world.alive(vehicle)) return fail(FSIM_INVALID_ARGUMENT,"launch zone wez: invalid launcher");
+    if (world->agent) {
+        const auto* designation=world->world.designation(target);
+        if (!designation || designation->owner!=vehicle) return fail(FSIM_NOT_ALLOWED,"launch zone wez: own designation required");
+    }
+    if (!world->world.vehicleState(target)) return fail(FSIM_INVALID_ARGUMENT,"launch zone wez: unknown target");
+    const auto w=world->world.launchZoneWezV1(vehicle,store,target);
+    fsim_launch_zone_wez_v1 c; fsim_launch_zone_wez_v1_init(&c);
+    c.version=w.version;
+    c.valid=w.valid?1:0; c.flyout_derived=w.flyoutDerived?1:0; c.in_envelope=w.inEnvelope?1:0;
+    c.launch_altitude_m=w.launchAltitudeM; c.launch_mach=w.launchMach;
+    c.target_altitude_m=w.targetAltitudeM; c.target_mach=w.targetMach;
+    c.max_off_boresight_rad=w.maxOffBoresightRad;
+    std::snprintf(c.basis,sizeof c.basis,"%s",w.basis.c_str());
+    std::snprintf(c.table_sha256,sizeof c.table_sha256,"%s",w.tableSha256.c_str());
+    const std::size_t n=std::min<std::size_t>(w.aspectContour.size(),16);
+    c.sample_count=static_cast<uint32_t>(n);
+    for (std::size_t i=0;i<n;++i) {
+        c.samples[i].aspect_rad=w.aspectContour[i].aspectRad;
+        c.samples[i].maximum_m=w.aspectContour[i].maximumM;
+        c.samples[i].no_escape_m=w.aspectContour[i].noEscapeM;
+        c.samples[i].minimum_m=w.aspectContour[i].minimumM;
+        c.samples[i].maximum_uncertainty_m=w.aspectContour[i].maximumUncertaintyM;
+        c.samples[i].no_escape_uncertainty_m=w.aspectContour[i].noEscapeUncertaintyM;
+    }
     return copyOut(c,out)?FSIM_OK:FSIM_INVALID_ARGUMENT;
 }
 

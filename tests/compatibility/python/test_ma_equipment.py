@@ -132,6 +132,10 @@ class MAEquipmentTest(unittest.TestCase):
         with self.assertRaises(fsim.Error):
             agent.launch_zone("mk82", other.id)
         with self.assertRaises(fsim.Error):
+            agent.launch_zone_v2("mk82", other.id)
+        with self.assertRaises(fsim.Error):
+            agent.launch_zone_wez("mk82", other.id)
+        with self.assertRaises(fsim.Error):
             agent._world._h.countermeasures(other.id)
         with self.assertRaises(fsim.Error):
             agent._world._h.agent_report(other.id, 8, math.nan)

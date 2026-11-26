@@ -322,6 +322,14 @@ class Agent:
         """Advisory launch envelope for an own-platform designation; true entity identities are refused."""
         return self._world.launch_zone(self.vehicle_id, store, int(target))
 
+    def launch_zone_v2(self, store, target):
+        """Flyout-derived DLZ (MS-8) for an own-platform designation; true entity identities are refused."""
+        return self._world.launch_zone_v2(self.vehicle_id, store, int(target))
+
+    def launch_zone_wez(self, store, target):
+        """Flyout-derived WEZ contour (MS-8) for an own-platform designation; true entity identities are refused."""
+        return self._world.launch_zone_wez(self.vehicle_id, store, int(target))
+
     # --- lost communication and teams (AB-5c) ------------------------------------------------------------------------------
     def comms(self):
         """As an MA: the lost-communication contingency C2 configured and whether it is raised, and its team
