@@ -994,6 +994,9 @@ fsim_include_view_check(sdk fsim
     ALLOWED   training/native/vecenv/Registry.h training/native/episodes/runtime/MissionEpisode.h
               simulation/api/WorldOptions.h simulation/runtime/world/World.h
     FORBIDDEN adapters/sdk/c/Handles.h applications/demo/DemoSimulation.h visualization/scene/Interpolator.h)
+fsim_include_view_check(oms fsim_oms
+    ALLOWED   adapters/oms/OmsAdapter.h adapters/oms/OmsSchema.h adapters/oms/OmsTransport.h
+    FORBIDDEN simulation/runtime/world/World.h simulation/mission_systems/Model.h adapters/sdk/c/Handles.h)
 # ARCH-06: the demo composes the flight module and sees neither the runtime, training nor the SDK assembly; the
 # visualization targets (render builds) read contracts and read-only frames, never a simulation header. ARCH-08: the
 # demo is its own publisher process (flightsim-demo), seeing the world stream's publisher and control block.
@@ -1259,3 +1262,12 @@ target_link_libraries(fsim_source_wave_sum_v5_test PRIVATE fsim::ms)
 fsim_set_warnings(fsim_source_wave_sum_v5_test)
 add_test(NAME source_wave_sum_v5 COMMAND fsim_source_wave_sum_v5_test)
 set_tests_properties(source_wave_sum_v5 PROPERTIES LABELS "sim-m03;weapon-sensor-engineering" TIMEOUT 30 RUN_SERIAL TRUE)
+
+# SIM-M08 (MS-12): External OMS / A-GRA / UCI protocol adapter fixtures.
+add_executable(fsim_oms_adapter_test integration/test_oms_adapter.cpp)
+target_link_libraries(fsim_oms_adapter_test PRIVATE fsim::oms fsim::sdk fsim::core Catch2::Catch2WithMain)
+target_compile_definitions(fsim_oms_adapter_test PRIVATE FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
+add_dependencies(fsim_oms_adapter_test fsim_payload_cards)
+fsim_set_warnings(fsim_oms_adapter_test)
+add_test(NAME oms_adapter COMMAND fsim_oms_adapter_test)
+set_tests_properties(oms_adapter PROPERTIES LABELS "sim-m08;oms;adapter" TIMEOUT 180)

@@ -26,6 +26,7 @@
     "env": {"target": "fsim_env", "aliases": ["fsim::env"], "domain": "training", "kind": "implementation", "directories": [], "destinations": ["src/training/native/vecenv", "src/training/native/episodes/runtime"], "files": [], "headless": true, "allowed_dependencies": ["simulation_api", "session", "control", "sim", "io", "core"]},
     "mission": {"target": "fsim_training_mission", "aliases": ["fsim::mission"], "domain": "training", "kind": "implementation", "directories": [], "destinations": ["src/training/native/mission", "src/training/native/batch", "src/training/native/episodes/api"], "files": [], "headless": true, "allowed_dependencies": ["env", "simulation_api", "session", "core"]},
     "sdk": {"target": "fsim", "aliases": ["fsim::sdk"], "domain": "adapters", "kind": "assembly", "directories": [], "destinations": ["src/adapters/sdk/cpp", "src/adapters/sdk/c"], "files": [], "headless": true, "allowed_dependencies": ["mission", "env", "simulation_api", "session", "modeled_dms", "ms", "control", "effects", "comm", "ipc", "sim", "io", "core", "platform"]},
+    "oms": {"target": "fsim_oms", "aliases": ["fsim::oms"], "domain": "adapters", "kind": "assembly", "directories": [], "destinations": ["src/adapters/oms"], "files": [], "headless": true, "allowed_dependencies": ["sdk", "core"]},
     "render": {"target": "fsim_render", "aliases": ["fsim::render"], "domain": "visualization", "kind": "implementation", "directories": [], "destinations": ["src/visualization/render"], "files": [], "headless": false, "allowed_dependencies": ["core"]},
     "scene": {"target": "fsim_world", "aliases": ["fsim::world"], "domain": "visualization", "kind": "implementation", "directories": [], "destinations": ["src/visualization/scene", "src/visualization/vfx/effects"], "files": [], "headless": false, "allowed_dependencies": ["render", "core", "io", "flow", "ipc"]},
     "flow": {"target": "fsim_flow", "aliases": ["fsim::flow"], "domain": "visualization", "kind": "implementation", "directories": [], "destinations": ["src/visualization/vfx/flow"], "files": [], "headless": false, "allowed_dependencies": ["core"]},
@@ -40,7 +41,6 @@
     "demo": {"target": "flightsim-demo", "aliases": [], "domain": "applications", "kind": "application", "directories": [], "destinations": ["src/applications/demo"], "files": [], "headless": true, "allowed_dependencies": ["contracts", "ipc", "sim", "io", "core", "platform"]}
   },
   "planned_modules": {
-    "oms": {"domain": "adapters", "kind": "assembly", "destinations": ["src/adapters/oms"], "phase": "MS-12"},
     "training_vision": {"domain": "applications", "kind": "application", "destinations": ["src/applications/training_visualization"], "phase": "VIS-F"}
   },
   "exceptions": [],
