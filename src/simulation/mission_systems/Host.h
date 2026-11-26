@@ -104,6 +104,12 @@ public:
     void dispenseResult(ActivityId activity, bool flare, Reason reason, double simTime);
     /// Complete salvos whose final cartridge has been accepted after World::dispense processing.
     void finalizeSalvos(double simTime);
+    /// Drain bursts fired by gun models during the latest step (MS-9c / SIM-M10).
+    void takeBursts(std::vector<GunBurst>& out);
+    /// Drain shed ammunition mass from gun models and bump massRevision() (B-33 / SIM-M10).
+    void collectShedMass();
+    /// Cumulative ammunition mass shed by gun payloads since bind (kg, B-33).
+    double gunShedKg() const noexcept { return gunShedKg_; }
 
     // --- Stores (MS-7; HostStores.cpp) ---
     /// The installed stores, station by station (A-GRA's MA_StrikeCapability inventory).
@@ -163,9 +169,8 @@ public:
     double drawExternalFuel(double kg);
     /// A store's fuel left (kg; a tank's).
     double storeFuelKg(std::uint16_t store) const noexcept;
-    /// Bumped whenever a station's mass changes - its load, a release, a tank's fuel drawn: the world sets the flight
-    /// model's masses again.
-    std::uint64_t massRevision() const noexcept { return storeRevision_ + fuelRevision_; }
+    /// Bumped whenever a station's or gun magazine's mass changes: the world sets the flight model's masses again.
+    std::uint64_t massRevision() const noexcept { return storeRevision_ + fuelRevision_ + gunMassRevision_; }
     /// The stores on a station gone with the part of the aircraft it was on (MS-7g): Lost, no longer its mass; theirs.
     double loseStation(int station, double simTime);
     /// Mounting-hardware drag at a station, in body axes from the model origin.
@@ -288,6 +293,8 @@ private:
     std::vector<Release> releases_;
     std::uint64_t storeRevision_ = 0;
     std::uint64_t fuelRevision_ = 0; ///< bumped as its tanks give their fuel (massRevision)
+    std::uint64_t gunMassRevision_ = 0; ///< bumped as gun ammunition leaves (B-33, massRevision)
+    double gunShedKg_ = 0.0;            ///< cumulative gun ammunition mass shed since bind (kg)
     /// The stations that have held a store - their carriage on the aircraft from then on (carriageDrag) - and how it
     /// held it (a launcher rail, else a pylon and rack); and the stations gone with their part of the aircraft.
     enum class Mount : std::uint8_t { Pylon, Rail, Well };

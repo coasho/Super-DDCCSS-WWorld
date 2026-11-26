@@ -49,6 +49,8 @@ void Host::bind(std::uint32_t vehicle, std::shared_ptr<const Fit> fit, std::uint
     live_.clear(), ended_.clear();
     strikeCapability_.clear(), storeCapability_.clear(), stores_.clear(), storeInfo_.clear(), strikes_.clear(), endedStrikes_.clear(),
         releases_.clear(), carriage_.clear(), lostStations_.clear();
+    gunShedKg_ = 0.0;
+    gunMassRevision_ = 0;
     ++storeRevision_;
     if (!fit_) return;
     for (const auto& entry : fit_->payloads) {
@@ -118,6 +120,11 @@ void Host::bind(std::uint32_t vehicle, std::shared_ptr<const Fit> fit, std::uint
                 if (type == CapabilityType::WeatherRadar || type == CapabilityType::Sar || type == CapabilityType::Smti) {
                     taskCapability_[p.index] = static_cast<int>(capabilities_.size());
                 }
+            }
+            // Aircraft guns (MS-9c / SIM-M10): Strike capability backed by GunModel
+            if (models_[p.index] && type == CapabilityType::Strike && p.family == Family::Gun) {
+                c.support = control::Support::Supported, c.stage = 0;
+                taskCapability_[p.index] = static_cast<int>(capabilities_.size());
             }
             // Native store lifecycle, engagements and advisory launch zones exist. The original calibrated
             // weapon and launch-zone acceptance remains partial (MS-7/MS-8).
@@ -535,6 +542,26 @@ CommandResult Host::submit(const PayloadTask& command, const CommandOptions& opt
         r.activity = a.id;
         return r;
     }
+    if (command.kind == TaskKind::Fire) {
+        if (info.family != Family::Gun) return r.reason = Reason::NotSupported, r;
+        const int capability = taskCapability_[command.payload];
+        if (capability < 0 || !models_[command.payload]) return r.reason = Reason::NotImplemented, r;
+        if ((r.reason = admit(static_cast<std::size_t>(capability), options)) != Reason::None) return r;
+        Payload& p = state_[command.payload];
+        const Reason br = models_[command.payload]->begin(command, simTime);
+        if (br != Reason::None) return r.reason = br, r;
+        if (p.task) {
+            const ActivityId prev = p.task;
+            p.task = 0;
+            end(prev, control::ActivityState::Canceled, Reason::Superseded, simTime);
+        }
+        ActivityRecord& a = start(static_cast<std::size_t>(capability), command.payload, options, simTime);
+        a.percent = models_[command.payload]->percent();
+        p.task = a.id;
+        r.status = control::CommandStatus::Accepted;
+        r.activity = a.id;
+        return r;
+    }
     if (static_cast<unsigned>(command.kind) >= static_cast<unsigned>(TaskKind::Count)) {
         return r.reason = Reason::InvalidParameter, r;
     }
@@ -608,6 +635,30 @@ void Host::finalizeSalvos(double simTime) {
             const ActivityId id = s.id;
             end(id, control::ActivityState::Completed, Reason::GoalReached, simTime);
         }
+    }
+}
+
+void Host::takeBursts(std::vector<GunBurst>& out) {
+    for (std::size_t i = 0; i < models_.size(); ++i) {
+        if (!models_[i]) continue;
+        GunBurst burst;
+        if (models_[i]->takeBurst(burst) && burst.rounds > 0) {
+            burst.payload = static_cast<std::uint16_t>(i);
+            out.push_back(burst);
+        }
+    }
+}
+
+void Host::collectShedMass() {
+    double shed = 0.0;
+    for (std::size_t i = 0; i < models_.size(); ++i) {
+        if (!models_[i]) continue;
+        const double kg = models_[i]->takeShedKg();
+        if (kg > 0.0 && std::isfinite(kg)) shed += kg;
+    }
+    if (shed > 0.0) {
+        gunShedKg_ += shed;
+        ++gunMassRevision_;
     }
 }
 

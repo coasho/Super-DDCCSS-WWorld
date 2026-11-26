@@ -153,16 +153,16 @@ TEST_CASE("mission systems: the F-16C's payloads from its fit, discovered honest
     CHECK(caps[static_cast<std::size_t>(ea)].stage == 0);
     const int gun = host->find("fsim.ms.strike:gun");
     REQUIRE(gun >= 0);
-    CHECK(caps[static_cast<std::size_t>(gun)].support == control::Support::NotImplemented);
-    CHECK(caps[static_cast<std::size_t>(gun)].stage == 7);
+    CHECK(caps[static_cast<std::size_t>(gun)].support == control::Support::Supported); // (its gun: MS-9c / SIM-M10)
+    CHECK(caps[static_cast<std::size_t>(gun)].stage == 0);
 
-    // availability: the radar off; not implemented yet; a type the aircraft does not carry; nothing of the kind
+    // availability: the radar and gun off; a type the aircraft does not carry; nothing of the kind
     ms::CapabilityStatus s = w.missionCapabilityStatus(v, "fsim.ms.amti:radar");
     CHECK(s.availability == control::Availability::TemporarilyUnavailable);
     CHECK(s.reason == ms::Reason::PayloadOff);
     s = w.missionCapabilityStatus(v, "fsim.ms.strike:gun");
-    CHECK(s.availability == control::Availability::Unavailable);
-    CHECK(s.reason == ms::Reason::NotImplemented);
+    CHECK(s.availability == control::Availability::TemporarilyUnavailable);
+    CHECK(s.reason == ms::Reason::PayloadOff);
     s = w.missionCapabilityStatus(v, "fsim.ms.sar:radar");
     CHECK(s.reason == ms::Reason::NotSupported);
     s = w.missionCapabilityStatus(v, "fsim.ms.teleport:radar");
@@ -253,8 +253,9 @@ TEST_CASE("mission systems: grants through the control calls, by a capability's 
     o.controller = 2;
     REQUIRE(w.submit(v, on, o).accepted());
     CHECK(w.missionSystems(v)->payloads()[0].state == ms::PayloadState::Standby);
-    // a capability carried but not modelled: no grant for it yet
-    CHECK(w.requestControl(v, "fsim.ms.strike:gun", 2) == control::Reason::NotImplemented);
+    // gun strike is supported (SIM-M10) and can be granted; an unsupported capability is refused
+    CHECK(w.requestControl(v, "fsim.ms.strike:gun", 2) == control::Reason::None);
+    CHECK(w.releaseControl(v, "fsim.ms.strike:gun", 2) == control::Reason::None);
     CHECK(w.requestControl(v, "fsim.ms.sar:radar", 2) == control::Reason::NotSupported);
     // released: the grant ends
     CHECK(w.releaseControl(v, status, 2) == control::Reason::None);

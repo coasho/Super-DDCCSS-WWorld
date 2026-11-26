@@ -712,6 +712,147 @@ Impact assess(const Warhead& w, const Burst& burst, const Airframe& airframe, co
     return assess(w, burst, AttachedGeometryView(airframe), target, rng);
 }
 
+Impact assessProjectileSegment(const AttachedGeometryView& geometry, const Target& target,
+                               const V3& startRelEcef, const V3& endRelEcef,
+                               const V3& relVelocityEcef, double massKg, double areaM2,
+                               double explosiveKg) noexcept {
+    Impact out;
+    const double v0 = length(relVelocityEcef);
+    if (!(v0 > 1.0) || !(massKg > 0.0) || !(areaM2 > 0.0) ||
+        !std::isfinite(v0) || !std::isfinite(massKg) || !std::isfinite(areaM2)) {
+        return out;
+    }
+    const V3 pStart = toBody(target, startRelEcef);
+    const V3 pEnd = toBody(target, endRelEcef);
+    const V3 seg = pEnd - pStart;
+    const double segLen = length(seg);
+    if (!(segLen > 1e-9) || !std::isfinite(segLen)) return out;
+    const V3 u = seg * (1.0 / segLen);
+    const V3 velBody = toBody(target, relVelocityEcef);
+    const V3 uVel = normalized(velBody);
+    if (!(length(uVel) > 0.5)) return out;
+
+    const Airframe& af = geometry.airframe();
+    struct Event {
+        double s = 0.0;
+        bool skin = false;
+        int index = -1;
+        V3 normal;
+    };
+    std::vector<Event> events;
+    events.reserve(af.panels.size() + af.components.size());
+    double firstContactS = std::numeric_limits<double>::infinity();
+
+    for (const std::size_t k : geometry.panelIndices()) {
+        const auto& p = af.panels[k];
+        double s0 = 0.0, s1 = 0.0;
+        V3 n, exitNormal;
+        if (p.surface) {
+            if (quad(pStart, u, p.corners, s0, n)) {
+                const double eIn = std::max(s0 - 1e-3, 0.0);
+                firstContactS = std::min(firstContactS, eIn);
+                events.push_back({eIn, true, static_cast<int>(k), n});
+                events.push_back({s0 + 1e-3, true, static_cast<int>(k), n});
+            }
+        } else if (slab(pStart, u, p.centre, p.half, s0, s1, n, exitNormal)) {
+            if (s0 >= 0.0) {
+                firstContactS = std::min(firstContactS, s0);
+                events.push_back({s0, true, static_cast<int>(k), n});
+            }
+            if (s1 >= 0.0) {
+                firstContactS = std::min(firstContactS, s1);
+                events.push_back({s1, true, static_cast<int>(k), exitNormal});
+            }
+        }
+    }
+    for (const std::size_t k : geometry.componentIndices()) {
+        double s0 = 0.0, s1 = 0.0;
+        V3 n, exitNormal;
+        if (slab(pStart, u, af.components[k].centre, af.components[k].half, s0, s1, n, exitNormal) && s1 > 0.0) {
+            const double hitS = std::max(s0, 0.0);
+            firstContactS = std::min(firstContactS, hitS);
+            events.push_back({hitS, false, static_cast<int>(k), n});
+        }
+    }
+
+    if (events.empty() || !(firstContactS <= segLen)) return out;
+    std::stable_sort(events.begin(), events.end(), [](const Event& a, const Event& b) { return a.s < b.s; });
+
+    std::vector<Impact::ComponentHits> comp(af.components.size());
+    std::vector<Impact::PanelHits> pan(af.panels.size());
+    double v = v0;
+    double transferredMomentum = 0.0;
+    bool struck = false;
+
+    for (const Event& ev : events) {
+        if (!(v > 0.0)) break;
+        if (ev.skin) {
+            const auto& p = af.panels[static_cast<std::size_t>(ev.index)];
+            auto& h = pan[static_cast<std::size_t>(ev.index)];
+            h.panel = ev.index;
+            h.hits += 1;
+            const double obliquity = std::acos(std::min(std::abs(dot(uVel, ev.normal)), 1.0));
+            const double after = thorResidual(af.skinThicknessM(p.section), areaM2, massKg, v, obliquity);
+            if (after > 0.0) h.perforations += 1, h.holeAreaM2 += areaM2;
+            h.momentumNs += uVel * (massKg * (v - after));
+            transferredMomentum += massKg * (v - after);
+            v = after;
+            struck = true;
+        } else {
+            auto& c = comp[static_cast<std::size_t>(ev.index)];
+            c.component = ev.index;
+            c.hits += 1;
+            c.energyJ += 0.5 * massKg * v * v;
+            c.fastestMs = std::max(c.fastestMs, v);
+            c.areaM2 += areaM2;
+            transferredMomentum += massKg * v;
+            v = 0.0;
+            struck = true;
+        }
+    }
+    if (!struck) return out;
+
+    const V3 impactPt = pStart + u * firstContactS;
+    out.missM = length(impactPt);
+    out.fromBody = normalized(impactPt);
+    out.fragmentsThrown = 1;
+    out.fragmentsStriking = 1;
+    const V3 j = uVel * transferredMomentum;
+    out.impulseBody += j;
+    out.angularImpulseBody += cross(impactPt, j);
+
+    if (explosiveKg > 0.0 && std::isfinite(explosiveKg)) {
+        for (const std::size_t k : geometry.panelIndices()) {
+            const auto& p = af.panels[k];
+            const V3 m = p.middle();
+            const V3 to = impactPt - m;
+            const double r = std::max(length(to), 0.15);
+            const Blast b = blastAt(explosiveKg, r, target.airPressurePa, target.airTemperatureK);
+            if (b.overpressurePa < kBlastSeenPa && pan[k].hits == 0) continue;
+            double facing = 1.0;
+            if (p.surface) {
+                facing = std::abs(dot(normalized(cross(p.corners[2] - p.corners[0], p.corners[3] - p.corners[1])),
+                                      normalized(to)));
+            }
+            const double pr = reflected(b.overpressurePa, target.airPressurePa);
+            const double peak = b.overpressurePa + (pr - b.overpressurePa) * facing * facing;
+            auto& h = pan[k];
+            h.panel = static_cast<int>(k);
+            h.overpressurePa = std::max(h.overpressurePa, peak);
+            h.impulsePas += b.overpressurePa > 0.0 ? b.impulsePas * peak / b.overpressurePa : 0.0;
+            const V3 bj = panelBlastImpulse(p, impactPt, h.impulsePas);
+            out.impulseBody += bj;
+            out.angularImpulseBody += cross(m, bj);
+        }
+    }
+
+    for (auto& c : comp)
+        if (c.component >= 0) out.components.push_back(c);
+    for (auto& p : pan)
+        if (p.panel >= 0) out.panels.push_back(p);
+    return out;
+}
+
 namespace {
 bool finiteScene(V3 v) {return std::isfinite(v.x)&&std::isfinite(v.y)&&std::isfinite(v.z);}
 bool validSceneTarget(const Target& target) {

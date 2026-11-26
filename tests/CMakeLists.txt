@@ -1280,3 +1280,15 @@ add_dependencies(fsim_sim_m09_encounters_test fsim_payload_cards)
 fsim_set_warnings(fsim_sim_m09_encounters_test)
 add_test(NAME sim_m09_encounters COMMAND fsim_sim_m09_encounters_test)
 set_tests_properties(sim_m09_encounters PROPERTIES LABELS "sim-m09;native-engagement;performance" TIMEOUT 300 RUN_SERIAL TRUE)
+
+# SIM-M10: Aircraft guns, B-33 ammunition mass conservation, air-to-air ballistic damage, B-37 loaded-store RCS, and B-50 Mk 82 validation.
+add_executable(fsim_sim_m10_guns_rcs_ballistics_test simulation/test_sim_m10_guns_rcs_ballistics.cpp)
+target_link_libraries(fsim_sim_m10_guns_rcs_ballistics_test PRIVATE fsim::session fsim::ms Catch2::Catch2WithMain)
+target_compile_definitions(fsim_sim_m10_guns_rcs_ballistics_test PRIVATE
+    FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}"
+    FSIM_TEST_PAYLOAD_DIR="${CMAKE_SOURCE_DIR}/assets/payloads"
+    FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores")
+add_dependencies(fsim_sim_m10_guns_rcs_ballistics_test fsim_payload_cards)
+fsim_set_warnings(fsim_sim_m10_guns_rcs_ballistics_test)
+add_test(NAME sim_m10_guns_rcs_ballistics COMMAND fsim_sim_m10_guns_rcs_ballistics_test)
+set_tests_properties(sim_m10_guns_rcs_ballistics PROPERTIES LABELS "sim-m10;mission-systems;native-engagement" TIMEOUT 300 RUN_SERIAL TRUE)

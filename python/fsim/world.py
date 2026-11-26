@@ -2989,15 +2989,15 @@ class Vehicle:
                     azimuth_centre_rad=0.0, elevation_centre_rad=0.0, azimuth_half_width_rad=float("nan"),
                     elevation_half_width_rad=float("nan"), frequency_hz=float("nan"), bandwidth_hz=float("nan"),
                     duration_s=float("nan"), range_scale_m=float("nan"), latitude_rad=float("nan"),
-                    longitude_rad=float("nan"), resolution_m=float("nan"),
+                    longitude_rad=float("nan"), resolution_m=float("nan"), rounds=0,
                     source=Source.POLICY, controller=0, command_id=0):
-        """Submit a payload task (Jam, Dispense, Search, Track, or Image) on an operating payload."""
+        """Submit a payload task (Jam, Dispense, Fire, Search, Track, or Image) on an operating payload."""
         return _ms_checked(self._h.payload_task(
             self.id, self._payload_index(payload), int(kind), int(contact), int(chaff), int(flares), int(salvos),
             float(interval_s), float(azimuth_centre_rad), float(elevation_centre_rad), float(azimuth_half_width_rad),
             float(elevation_half_width_rad), float(frequency_hz), float(bandwidth_hz), float(duration_s),
             int(source), int(controller), int(command_id),
-            float(range_scale_m), float(latitude_rad), float(longitude_rad), float(resolution_m)))
+            float(range_scale_m), float(latitude_rad), float(longitude_rad), float(resolution_m), int(rounds)))
 
     def jam(self, payload, *, contact=0, frequency_hz=float("nan"), bandwidth_hz=float("nan"),
             azimuth_centre_rad=0.0, elevation_centre_rad=0.0, azimuth_half_width_rad=float("nan"),
@@ -3050,6 +3050,13 @@ class Vehicle:
         return self.submit_task(
             payload, TaskKind.IMAGE, latitude_rad=latitude_rad, longitude_rad=longitude_rad,
             resolution_m=resolution_m, duration_s=duration_s,
+            source=source, controller=controller, command_id=command_id)
+
+    def fire_gun(self, payload="gun", *, rounds=0, duration_s=float("nan"),
+                 source=Source.POLICY, controller=0, command_id=0):
+        """Command an operating gun payload to fire a burst (rounds > 0) or sustained fire (rounds == 0)."""
+        return self.submit_task(
+            payload, TaskKind.FIRE, rounds=rounds, duration_s=duration_s,
             source=source, controller=controller, command_id=command_id)
 
     def payload_report(self, payload):

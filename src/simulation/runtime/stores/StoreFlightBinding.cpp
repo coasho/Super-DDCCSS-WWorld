@@ -11,9 +11,9 @@ namespace fsim::session {
 
 void StoreFlightBinding::bind(const ms::Host& host, sim::FlightModel& model, const std::vector<std::string>* names) {
     // its stations' point masses (MS-7): hangar's "station N", found by name among its definition's
-    stationMass.clear(), massRevision = ~0ull;
+    stationMass.clear(), gunAmmoWeightLbs = {}, initialGunAmmoLbs = 0.0, massRevision = ~0ull;
     airframes.clear(); drag.clear(); dragRevision=~0ull; dragQbar={}; dragDensity={};
-    if (names)
+    if (names) {
         for (const auto& p : host.payloads()) {
             const ms::Card* card = host.card(p.index);
             if (p.family != ms::Family::StoreStation || !card) continue;
@@ -26,6 +26,18 @@ void StoreFlightBinding::bind(const ms::Host& host, sim::FlightModel& model, con
                 if (h.valid()) stationMass.push_back(StationMass{p.index, st.number, h});
             }
         }
+        // B-33: bind the "gun ammunition" point mass if present in the aircraft's JSBSim mass balance.
+        const auto gunIt = std::find(names->begin(), names->end(), std::string("gun ammunition"));
+        if (gunIt != names->end()) {
+            const std::size_t index = static_cast<std::size_t>(gunIt - names->begin());
+            PropertyHandle h = model.property(index ? "inertia/pointmass-weight-lbs[" + std::to_string(index) + "]"
+                                                    : std::string("inertia/pointmass-weight-lbs"));
+            if (h.valid()) {
+                gunAmmoWeightLbs = h;
+                initialGunAmmoLbs = std::max(0.0, h.get());
+            }
+        }
+    }
 }
 
 void StoreFlightBinding::applyMasses(const ms::Host& host, sim::FlightModel& model) {
@@ -66,8 +78,11 @@ void StoreFlightBinding::applyMasses(const ms::Host& host, sim::FlightModel& mod
             dragDensity = model.property("atmosphere/rho-slugs_ft3");
         }
     }
-    if (stationMass.empty() || massRevision == host.massRevision()) return;
+    if ((stationMass.empty() && !gunAmmoWeightLbs.valid()) || massRevision == host.massRevision()) return;
     for (auto& m : stationMass) m.weightLbs.set(host.stationMassKg(m.payload, m.station) * kLbPerKg);
+    if (gunAmmoWeightLbs.valid()) {
+        gunAmmoWeightLbs.set(std::max(0.0, initialGunAmmoLbs - host.gunShedKg() * kLbPerKg));
+    }
     massRevision = host.massRevision();
 }
 

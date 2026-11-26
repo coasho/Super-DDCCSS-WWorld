@@ -4,6 +4,7 @@
 #include "simulation/mission_systems/ea/Jammer.h"
 #include "simulation/mission_systems/esm/Receiver.h"
 #include "simulation/mission_systems/ground_map/GroundMapRadar.h"
+#include "simulation/mission_systems/gun/Gun.h"
 #include "simulation/mission_systems/optical/OpticalSensor.h"
 #include "simulation/mission_systems/pnt/PntReceiver.h"
 #include "simulation/mission_systems/sar/SarRadar.h"
@@ -34,7 +35,8 @@ std::unique_ptr<Model> makeModel(const Card& card, std::uint16_t count) {
     case Family::Pnt: return pnt::makePntReceiver(card, count);
     case Family::CommTerminal: return comm_payload::makeCommTerminal(card, count);
     case Family::GroundMapRadar: return ground_map::makeGroundMapRadar(card, count);
-    default: return nullptr; // (store stations, air radars handled separately; guns: SIM-M10)
+    case Family::Gun: return gun::makeGun(card, count);
+    default: return nullptr; // (store stations, air radars handled separately)
     }
 }
 

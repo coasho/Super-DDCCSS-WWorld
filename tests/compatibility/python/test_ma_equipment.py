@@ -210,6 +210,27 @@ class MAEquipmentTest(unittest.TestCase):
         self.assertAlmostEqual(sar_imgs[0].size_m, 1.0, places=3)
         self.assertEqual(u2_agent.mission_activity(sar_act).state, fsim.ActivityState.COMPLETED)
 
+    def test_sim_m10_gun_firing_and_b33_mass_conservation_through_python_agent(self):
+        world = fsim.World("py-ma-gun", publish=False, terrain=False, workers=1, pin_workers=False, seed=51)
+        f16 = world.create_vehicle("f16c", "jsbsim:f16c", latitude_deg=35.0, longitude_deg=-117.0,
+                                   altitude_msl_m=5000.0, heading_deg=90.0, airspeed_ms=220.0)
+        twin = world.create_vehicle("twin", "jsbsim:f16c", latitude_deg=35.05, longitude_deg=-117.0,
+                                    altitude_msl_m=5000.0, heading_deg=90.0, airspeed_ms=220.0)
+        agent = world.create_agent(f16, "f16-agent")
+        agent.set_payload_state("gun", "operate")
+        for _ in range(100):
+            if next(p for p in agent.payloads if p.name == "gun").state == "operate":
+                break
+            world.step(1)
+        world.step(5)
+        burst = agent.fire_gun("gun", rounds=100)
+        world.step(80)
+        self.assertEqual(agent.mission_activity(burst).state, fsim.ActivityState.COMPLETED)
+        rep = {kv.name: kv.value for kv in agent.payload_report("gun")}
+        self.assertEqual(rep["rounds_fired"], 100.0)
+        self.assertEqual(rep["rounds_remaining"], 400.0)
+        self.assertAlmostEqual(twin.mass_kg - f16.mass_kg, 15.5, delta=0.6)
+
 
 if __name__ == "__main__":
     unittest.main()

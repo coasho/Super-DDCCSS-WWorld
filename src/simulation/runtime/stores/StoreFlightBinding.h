@@ -36,6 +36,8 @@ private:
         PropertyHandle weightLbs;
     };
     std::vector<StationMass> stationMass;
+    PropertyHandle gunAmmoWeightLbs;    ///< JSBSim "gun ammunition" point mass (B-33 / SIM-M10)
+    double initialGunAmmoLbs = 0.0;
     std::uint64_t massRevision = ~0ull; ///< the store revision its point masses were last set for
     double storesKgAtStep = 0.0;        ///< what its stations held when its flight model last weighed itself (weightRoomKg)
     unsigned storesStamp = ~0u;         ///< the step that was taken at

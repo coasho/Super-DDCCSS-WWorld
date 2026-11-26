@@ -879,7 +879,7 @@ PyObject* world_contacts(PyObject* o, PyObject* const* args, Py_ssize_t n) {
 
 /* payload_task(id, payload, kind, contact, chaff, flares, salvos, interval_s, az_centre, el_centre, az_half, el_half,
  *              frequency_hz, bandwidth_hz, duration_s, source=0, controller=0, command_id=0,
- *              range_scale_m=nan, latitude_rad=nan, longitude_rad=nan, resolution_m=nan) -> result */
+ *              range_scale_m=nan, latitude_rad=nan, longitude_rad=nan, resolution_m=nan, rounds=0) -> result */
 PyObject* world_payload_task(PyObject* o, PyObject* const* args, Py_ssize_t n) {
     WorldObject* self = (WorldObject*)o;
     uint32_t id, payload;
@@ -887,7 +887,7 @@ PyObject* world_payload_task(PyObject* o, PyObject* const* args, Py_ssize_t n) {
     uint64_t contact;
     double d[8];
     fsim_ms_options opts;
-    if (!check_args(n, 15, 22, "payload_task") || !as_u32(args[0], &id) || !as_u32(args[1], &payload) ||
+    if (!check_args(n, 15, 23, "payload_task") || !as_u32(args[0], &id) || !as_u32(args[1], &payload) ||
         !as_int(args[2], &kind) || !as_u64(args[3], &contact) || !as_int(args[4], &chaff) || !as_int(args[5], &flares) ||
         !as_int(args[6], &salvos) || !as_doubles(args, 7, 8, d))
         return NULL;
@@ -912,12 +912,17 @@ PyObject* world_payload_task(PyObject* o, PyObject* const* args, Py_ssize_t n) {
     t.duration_s = d[7];
     if (n > 18) {
         double extra[4] = {Py_NAN, Py_NAN, Py_NAN, Py_NAN};
-        const Py_ssize_t extra_n = n - 18;
+        const Py_ssize_t extra_n = n > 22 ? 4 : (n - 18);
         if (!as_doubles(args, 18, extra_n, extra)) return NULL;
         t.range_scale_m = extra[0];
         t.latitude_rad = extra[1];
         t.longitude_rad = extra[2];
         t.resolution_m = extra[3];
+    }
+    if (n >= 23) {
+        int32_t rounds = 0;
+        if (!as_int(args[22], &rounds)) return NULL;
+        t.rounds = rounds;
     }
     fsim_ms_result r;
     fsim_ms_result_init(&r);

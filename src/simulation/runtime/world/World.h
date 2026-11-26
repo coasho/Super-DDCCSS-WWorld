@@ -1120,6 +1120,7 @@ private:
     std::unordered_map<std::string, std::vector<std::string>> pointMasses_; ///< (MS-7) each aircraft type's point masses' names, in order
     /// Each type's RCS table (MS-3), read when first asked for; null without one.
     mutable std::unordered_map<std::string, std::shared_ptr<const ms::rcs::Table>> rcsTables_;
+    mutable std::mutex rcsTablesMutex_; ///< guards rcsTables_ during parallel radar/store RCS lookups
     /// The radars' path losses beyond free space, by the two entities and the frequency: the radio path's (P.528, the
     /// terrain, the gases) is worked out once a second of simulation time, the free space each look. A path's loss is
     /// the same both ways (reciprocity): two radars looking at each other share it, always worked out from the lower id
@@ -1147,6 +1148,22 @@ private:
     std::vector<ms::Emission> emissions_; ///< what radiates this step: every vehicle's radars, jammers and datalink carriers
     std::vector<sim::VehicleState> c2EmissionStates_; ///< synthetic carrier states for C2 nodes emitting datalink traffic
     std::vector<ms::Decoy> activeFlares_; ///< active pyrotechnic flares visible to optical/IR sensors this step
+    /// Free-flying ballistic gun projectile (MS-9c / SIM-M10).
+    struct GunProjectile {
+        std::uint32_t shooter = 0;
+        std::uint64_t shooterGeneration = 0;
+        double positionEcef[3] = {0.0, 0.0, 0.0};
+        double velocityEcef[3] = {0.0, 0.0, 0.0};
+        double massKg = 0.1;
+        double areaM2 = 0.000314;
+        double explosiveKg = 0.0;
+        double dragK = 0.0;
+        double ageS = 0.0;
+        double maxAgeS = 8.0;
+    };
+    std::vector<GunProjectile> gunProjectiles_;
+    Rng gunRng_;
+    void stepGunProjectiles(double dt);
     std::unique_ptr<ipc::MissionRecord> missionScratch_; ///< publishMission's record, reused
     /// The sensors' looks after a step (MS-4).
     void sense();

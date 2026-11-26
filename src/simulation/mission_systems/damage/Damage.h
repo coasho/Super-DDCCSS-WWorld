@@ -236,6 +236,15 @@ Impact assess(const Warhead& warhead, const Burst& burst, const Airframe& airfra
 /// the same fragment-direction RNG draws as the full-source overload.
 Impact assess(const Warhead& warhead, const Burst& burst, const AttachedGeometryView& geometry, const Target& target, Rng& rng);
 
+/// Assess a single ballistic projectile traversing from `startRelEcef` to `endRelEcef`
+/// (relative to the target's model origin) with closing velocity `relVelocityEcef`,
+/// mass `massKg`, cross-sectional area `areaM2`, and optional HEI explosive fill `explosiveKg`.
+/// Returns an Impact with `fragmentsStriking == 0` when the swept segment misses the airframe.
+Impact assessProjectileSegment(const AttachedGeometryView& geometry, const Target& target,
+                               const V3& startRelEcef, const V3& endRelEcef,
+                               const V3& relVelocityEcef, double massKg, double areaM2,
+                               double explosiveKg = 0.0) noexcept;
+
 /// An immutable physical population shared by every victim of one burst. The
 /// additive scene path does not change the historical single-target assessor.
 struct FragmentFieldV1 {

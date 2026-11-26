@@ -92,6 +92,8 @@ add_library(fsim_ms STATIC
     comm/CommTerminal.cpp
     ground_map/GroundMapRadar.h
     ground_map/GroundMapRadar.cpp
+    gun/Gun.h
+    gun/Gun.cpp
     damage/Damage.h
     damage/Damage.cpp
     damage/WarheadAdapter.cpp
@@ -114,6 +116,8 @@ add_library(fsim_ms STATIC
     rf/Rain.cpp
     rcs/Table.h
     rcs/Table.cpp
+    rcs/StoreRcs.h
+    rcs/StoreRcs.cpp
     radar/Detection.h
     radar/Detection.cpp
     radar/Radar.h

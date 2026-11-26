@@ -20,6 +20,7 @@
 #include "simulation/flight/JsbsimModel.h"
 #include "simulation/mission_systems/ea/Jammer.h"
 #include "simulation/mission_systems/radar/Radar.h"
+#include "simulation/mission_systems/rcs/StoreRcs.h"
 #include "simulation/mission_systems/rf/Path.h"
 #include "simulation/mission_systems/weapon/LaunchEligibility.h"
 #include "simulation/mission_systems/weapon/TrackKinematics.h"
@@ -230,7 +231,8 @@ ms::weapon::NativePlantIdentityV1 World::nativePlantIdentity(sim::FlightModel& m
     return identity;
 }
 
-World::World(const WorldOptions& options) : options_(options), dmsRng_(Rng::forVehicle(options.seed, 0x444D53u, 0)), rng_(options.seed) {
+World::World(const WorldOptions& options)
+    : options_(options), gunRng_(Rng::forVehicle(options.seed, 0x47554Eu, 0)), dmsRng_(Rng::forVehicle(options.seed, 0x444D53u, 0)), rng_(options.seed) {
     options_.frameSkip = std::max(1, options_.frameSkip);
     io::AssetResolver assets;
     if (auto root = assets.jsbsimRoot(options_.jsbsimRoot)) jsbsimRoot_ = *root;
@@ -3336,6 +3338,7 @@ void World::step(unsigned n) {
                 }
             advanceWeaponNavigationBoundaryV2();
             sense();
+            stepGunProjectiles(options_.dt * options_.frameSkip);
             advanceWeaponNavigationV1();
             finishEngagements();
             // Boundary C: all engagement sources/contacts are collected. Their
@@ -3738,7 +3741,10 @@ std::optional<ms::RadioPath> World::radioPath(std::uint32_t from, std::uint32_t 
 }
 
 std::shared_ptr<const ms::rcs::Table> World::rcsTable(const std::string& aircraft) const {
-    if (const auto it = rcsTables_.find(aircraft); it != rcsTables_.end()) return it->second;
+    {
+        std::lock_guard<std::mutex> lock(rcsTablesMutex_);
+        if (const auto it = rcsTables_.find(aircraft); it != rcsTables_.end()) return it->second;
+    }
     std::shared_ptr<const ms::rcs::Table> table;
     std::vector<std::filesystem::path> candidates;
     const io::AssetResolver assets;
@@ -3764,8 +3770,10 @@ std::shared_ptr<const ms::rcs::Table> World::rcsTable(const std::string& aircraf
         if (!table) LOG_WARN("session") << "rcs: " << error;
         else break;
     }
-    rcsTables_[aircraft] = table;
-    return table;
+    std::lock_guard<std::mutex> lock(rcsTablesMutex_);
+    auto& slot = rcsTables_[aircraft];
+    if (!slot) slot = table;
+    return slot;
 }
 
 std::optional<ms::RadarCrossSection> World::radarCrossSection(std::uint32_t observer, std::uint32_t target, const ms::RcsQuery& q) const {
@@ -3814,8 +3822,246 @@ std::optional<ms::RadarCrossSection> World::radarCrossSection(std::uint32_t obse
     const double rx = angle(std::isfinite(q.receivePolarizationRad) ? q.receivePolarizationRad : q.transmitPolarizationRad);
     out.modelled = true;
     out.sigmaM2 = table->sigma(d, q.frequencyHz, tx, rx);
+    // B-37 (SIM-M10): add radar cross section of externally carried stores; skip closed stealth weapon bays.
+    for (const ms::StoreInfo& si : t->ms.stores()) {
+        if (si.status != ms::StoreStatus::Loaded && si.status != ms::StoreStatus::PoweringUp &&
+            si.status != ms::StoreStatus::Ready && si.status != ms::StoreStatus::PoweringDown) {
+            continue;
+        }
+        const ms::Card* stCard = t->ms.card(si.payload);
+        const ms::Station* stInfo = stCard ? stCard->station(si.station) : nullptr;
+        if (stInfo && !stInfo->bay.empty() && si.bayDoors <= 0.1) continue;
+        const ms::StoreCard* sc = t->ms.storeCard(si.index);
+        if (!sc) continue;
+        double storeSigma = 0.0;
+        if (sc->model.rfind("jsbsim:", 0) == 0) {
+            if (const auto storeTable = rcsTable(sc->model.substr(7))) {
+                storeSigma = storeTable->sigma(d, q.frequencyHz, tx, rx);
+            }
+        }
+        if (!(storeSigma > 0.0)) {
+            storeSigma = ms::rcs::externalStoreSigmaM2(*sc, d, q.frequencyHz);
+        }
+        if (std::isfinite(storeSigma) && storeSigma > 0.0) out.sigmaM2 += storeSigma;
+    }
     out.fluctuation = table->fluctuation(d, q.frequencyHz);
     return out;
+}
+
+void World::stepGunProjectiles(double dt) {
+    if (!(dt > 0.0) || !std::isfinite(dt)) return;
+    const auto states = pool_->states();
+
+    // 1. Collect newly shed gun ammunition mass (B-33) and newly fired bursts from all alive aircraft.
+    std::vector<ms::GunBurst> bursts;
+    std::vector<std::pair<GunProjectile, double>> spawned;
+    for (std::size_t s = 0; s < entries_.size(); ++s) {
+        Entry* e = entries_[s].get();
+        if (!e || e->info.role != ms::Role::Aircraft || s >= states.size()) continue;
+        const std::uint64_t prevRev = e->ms.massRevision();
+        e->ms.collectShedMass();
+        if (e->ms.massRevision() != prevRev) applyStoreMasses(*e);
+        bursts.clear();
+        e->ms.takeBursts(bursts);
+        if (bursts.empty()) continue;
+
+        const sim::VehicleState& st = states[s];
+        double carrierVel[3];
+        ms::geom::velocityEcef(st, carrierVel);
+        constexpr double kMuzzleOffsetM = 2.5;
+        const double noseBody[3] = {kMuzzleOffsetM, 0.0, 0.0};
+        double noseEcef[3];
+        ms::geom::toEcef(st, noseBody, noseEcef);
+        constexpr double kPi = 3.14159265358979323846;
+
+        for (const ms::GunBurst& b : bursts) {
+            if (b.rounds <= 0 || !(b.muzzleMs > 0.0) || !(b.projectileKg > 0.0)) continue;
+            const double areaM2 = 0.25 * kPi * b.calibreM * b.calibreM;
+            for (int r = 0; r < b.rounds; ++r) {
+                const double dAz = gunRng_.normal() * b.dispersionRad;
+                const double dEl = gunRng_.normal() * b.dispersionRad;
+                const double el = b.elevationRad + dEl;
+                const double ce = std::cos(el);
+                const double muzzleBody[3] = {
+                    b.muzzleMs * ce * std::cos(dAz),
+                    b.muzzleMs * ce * std::sin(dAz),
+                    -b.muzzleMs * std::sin(el)
+                };
+                double muzzleEcef[3];
+                ms::geom::toEcef(st, muzzleBody, muzzleEcef);
+                GunProjectile proj;
+                proj.shooter = e->info.id;
+                proj.shooterGeneration = e->info.generation;
+                for (int k = 0; k < 3; ++k) {
+                    proj.positionEcef[k] = st.positionEcef[k] + noseEcef[k];
+                    proj.velocityEcef[k] = carrierVel[k] + muzzleEcef[k];
+                }
+                proj.massKg = b.projectileKg;
+                proj.areaM2 = areaM2;
+                proj.explosiveKg = b.explosiveKg;
+                proj.dragK = b.dragK;
+                proj.ageS = 0.0;
+                proj.maxAgeS = 8.0;
+                const double subDt = dt * (1.0 - (static_cast<double>(r) + 0.5) / static_cast<double>(b.rounds));
+                spawned.emplace_back(proj, std::max(subDt, 1e-4));
+            }
+        }
+    }
+
+    if (gunProjectiles_.empty() && spawned.empty()) return;
+
+    // Helper: exact WGS-84 ECEF -> geodetic (lat, lon, altM) and local up unit vector.
+    auto ecefToGeodetic = [](const double p[3], double& lat, double& lon, double& altM, double up[3]) noexcept {
+        constexpr double a = 6378137.0;
+        constexpr double f = 1.0 / 298.257223563;
+        constexpr double e2 = f * (2.0 - f);
+        constexpr double b = a * (1.0 - f);
+        constexpr double ep2 = (a * a - b * b) / (b * b);
+        const double x = p[0], y = p[1], z = p[2];
+        const double r = std::hypot(x, y);
+        lon = std::atan2(y, x);
+        if (r < 1e-6) {
+            lat = z >= 0.0 ? 1.5707963267948966 : -1.5707963267948966;
+            altM = std::abs(z) - b;
+        } else {
+            const double th = std::atan2(z * a, r * b);
+            const double st = std::sin(th), ct = std::cos(th);
+            lat = std::atan2(z + ep2 * b * st * st * st, r - e2 * a * ct * ct * ct);
+            const double slat = std::sin(lat), clat = std::cos(lat);
+            const double N = a / std::sqrt(1.0 - e2 * slat * slat);
+            altM = (std::abs(clat) > 1e-6) ? (r / clat - N) : (std::abs(z) / std::abs(slat) - N * (1.0 - e2));
+        }
+        const double cl = std::cos(lat);
+        up[0] = cl * std::cos(lon);
+        up[1] = cl * std::sin(lon);
+        up[2] = std::sin(lat);
+    };
+
+    // Integrate and test one projectile over `stepDt`. Returns true if projectile remains alive.
+    auto advanceOne = [&](GunProjectile& proj, double stepDt) -> bool {
+        if (proj.ageS >= proj.maxAgeS) return false;
+        double lat = 0.0, lon = 0.0, altM = 0.0, up[3] = {0.0, 0.0, 1.0};
+        ecefToGeodetic(proj.positionEcef, lat, lon, altM, up);
+        const double rhoRatio = ms::geom::densityRatio(altM);
+        constexpr double kG0 = 9.80665;
+        const double vMag = ms::geom::norm3(proj.velocityEcef);
+        double acc[3];
+        for (int k = 0; k < 3; ++k) {
+            acc[k] = -proj.dragK * rhoRatio * vMag * proj.velocityEcef[k] - kG0 * up[k];
+        }
+        double p0[3], p1[3], v1[3];
+        for (int k = 0; k < 3; ++k) {
+            p0[k] = proj.positionEcef[k];
+            p1[k] = p0[k] + proj.velocityEcef[k] * stepDt + 0.5 * acc[k] * stepDt * stepDt;
+            v1[k] = proj.velocityEcef[k] + acc[k] * stepDt;
+        }
+        proj.ageS += stepDt;
+
+        // Check swept intersection against alive aircraft (excluding the shooter).
+        const double fracStart = std::clamp(1.0 - stepDt / dt, 0.0, 1.0);
+        for (std::size_t s = 0; s < entries_.size(); ++s) {
+            Entry* v = entries_[s].get();
+            if (!v || v->info.id == proj.shooter || v->info.role != ms::Role::Aircraft || s >= states.size()) continue;
+            const sim::VehicleState& stNow = states[s];
+            const sim::VehicleState& stPrev = (s < stepStates_.size()) ? stepStates_[s] : stNow;
+
+            // Broad-phase distance from target centre to segment p0 -> p1.
+            double dSeg[3], toTgt[3];
+            for (int k = 0; k < 3; ++k) {
+                dSeg[k] = p1[k] - p0[k];
+                toTgt[k] = stNow.positionEcef[k] - p0[k];
+            }
+            const double segLen2 = ms::geom::dot3(dSeg, dSeg);
+            const double tProj = segLen2 > 1e-9 ? std::clamp(ms::geom::dot3(toTgt, dSeg) / segLen2, 0.0, 1.0) : 0.0;
+            double closest[3];
+            for (int k = 0; k < 3; ++k) closest[k] = (p0[k] + dSeg[k] * tProj) - stNow.positionEcef[k];
+            if (ms::geom::dot3(closest, closest) > 40.0 * 40.0) continue;
+
+            if (!ensureDamage(*v) || !v->damage) continue;
+            double cg[3] = {0.0, 0.0, 0.0};
+            auto& vModel = pool_->vehicle(v->slot);
+            if (!vModel.cgFromOriginBodyM(cg)) continue;
+
+            const double* R = stNow.rotationBodyToEcef;
+            double cgEcef[3];
+            ms::geom::toEcef(stNow, cg, cgEcef);
+            double vStartPos[3], vEndPos[3];
+            for (int k = 0; k < 3; ++k) {
+                vStartPos[k] = stPrev.positionEcef[k] + fracStart * (stNow.positionEcef[k] - stPrev.positionEcef[k]) - cgEcef[k];
+                vEndPos[k] = stNow.positionEcef[k] - cgEcef[k];
+            }
+            double vVel[3];
+            ms::geom::velocityEcef(stNow, vVel);
+
+            ms::damage::Target target;
+            for (std::size_t k = 0; k < 3; ++k) target.bodyToEcef[k] = {R[k], R[3 + k], R[6 + k]};
+            target.at = {vEndPos[0], vEndPos[1], vEndPos[2]};
+            target.velocity = {vVel[0], vVel[1], vVel[2]};
+            const double rhoTgt = 1.225 * ms::geom::densityRatio(stNow.altitudeMslM);
+            const double tempTgt = std::max(216.65, 288.15 - 0.0065 * std::max(0.0, stNow.altitudeMslM));
+            target.airDensity = rhoTgt;
+            target.airTemperatureK = tempTgt;
+            target.airPressurePa = rhoTgt * 287.05 * tempTgt;
+
+            const ms::damage::V3 startRel = {p0[0] - vStartPos[0], p0[1] - vStartPos[1], p0[2] - vStartPos[2]};
+            const ms::damage::V3 endRel = {p1[0] - vEndPos[0], p1[1] - vEndPos[1], p1[2] - vEndPos[2]};
+            const ms::damage::V3 relVel = {proj.velocityEcef[0] - vVel[0], proj.velocityEcef[1] - vVel[1], proj.velocityEcef[2] - vVel[2]};
+
+            const ms::damage::Impact impact = ms::damage::assessProjectileSegment(
+                v->damage->attachedGeometry(), target, startRel, endRel, relVel,
+                proj.massKg, proj.areaM2, proj.explosiveKg);
+            if (impact.fragmentsStriking > 0) {
+                Detonation det;
+                det.store = "gun";
+                det.weapon = proj.shooter;
+                for (int k = 0; k < 3; ++k) {
+                    det.positionEcef[k] = p1[k];
+                    det.velocityEcef[k] = proj.velocityEcef[k];
+                }
+                const Entry* shooterEntry = entry(proj.shooter);
+                const std::optional<std::uint32_t> sourceSlot =
+                    shooterEntry ? std::optional<std::uint32_t>{static_cast<std::uint32_t>(shooterEntry->slot)} : std::nullopt;
+                auto events = applyDamagePreparedV1(*v, det, impact, stNow, cg, target.airPressurePa, {},
+                                                    sourceSlot, proj.shooterGeneration, false, false, nullptr);
+                for (const auto& ev : events) engage(ev);
+                if (shooterEntry) {
+                    recordEngagement("damage", *shooterEntry, v->info.id, "gun", v->crewLost);
+                } else {
+                    recordEngagement("damage", *v, v->info.id, "gun", v->crewLost);
+                }
+                return false; // projectile consumed on impact
+            }
+        }
+
+        // Commit updated projectile state and check ground/range expiry.
+        for (int k = 0; k < 3; ++k) {
+            proj.positionEcef[k] = p1[k];
+            proj.velocityEcef[k] = v1[k];
+        }
+        ecefToGeodetic(proj.positionEcef, lat, lon, altM, up);
+        const double groundM = ground_ ? ground_->heightAboveEllipsoidM(lat, lon) : 0.0;
+        if (altM <= groundM || proj.ageS >= proj.maxAgeS || ms::geom::norm3(proj.velocityEcef) < 50.0) {
+            return false;
+        }
+        return true;
+    };
+
+    // Advance existing projectiles by full `dt`.
+    std::size_t writeIdx = 0;
+    for (std::size_t i = 0; i < gunProjectiles_.size(); ++i) {
+        if (advanceOne(gunProjectiles_[i], dt)) {
+            if (writeIdx != i) gunProjectiles_[writeIdx] = gunProjectiles_[i];
+            ++writeIdx;
+        }
+    }
+    gunProjectiles_.resize(writeIdx);
+
+    // Advance newly spawned projectiles by their staggered sub-step and retain surviving ones.
+    for (auto& [proj, subDt] : spawned) {
+        if (advanceOne(proj, subDt)) {
+            gunProjectiles_.push_back(proj);
+        }
+    }
 }
 
 void World::recordVehicle(const Entry& e) {
