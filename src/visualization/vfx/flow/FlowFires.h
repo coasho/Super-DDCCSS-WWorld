@@ -101,5 +101,10 @@ constexpr double kWakeTurbulence = 0.05;      ///< a near wake's turbulence, rms
 /// A leak at its hole now (`at`), the hole moving at `velocity` through the air, `dt` s since the last call.
 void leak(double rateKgS, const double at[3], const double velocity[3], double pressurePa, double dt, std::uint64_t luid,
           std::vector<FlowSolver::Sphere>& out);
+/// Ground pool fire spreading from spilled fuel mass `spilledKg` at surface point `at` (B-53).
+/// Returns the physical pool radius (m) from spilled mass assuming 3 cm hydrocarbon slick thickness (clamped 2..14 m).
+double poolRadius(double spilledKg);
+void poolFire(double spilledKg, double rateKgS, const double at[3], double pressurePa, double age, std::uint64_t luid,
+              std::vector<FlowSolver::Sphere>& out);
 
 } // namespace fsim::world::flowfires

@@ -5,9 +5,13 @@
 
 #define fsimClampMax vec2(1.0)
 #include "fsim/prelude.glsl"
+#ifndef FLOW_NO_ATMOS
 #include "fsim/atmosphere.glsl"
+#endif
 
+#ifndef FLOW_COMPUTE
 layout(push_constant) uniform PushConstants { mat4 projection; mat4 modelView; } pc;
+#endif
 // [0] the solver's frame's origin from the eye (ECEF, m), its voxel (m); [1] - [3] its east, north, up (ECEF);
 // [4] the index (0, 0, 0)'s point (the solver's frame, m); [5] the soot's extinction per unit of the solver's smoke
 // (1/m), its albedo, the solver's unit of temperature (K) and the air's (K); [6] the flame's flicker (rms of its

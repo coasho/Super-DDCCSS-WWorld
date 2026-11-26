@@ -159,6 +159,59 @@ public:
     }
 };
 
+// Resolved full-res D32_SFLOAT depth copied out of the window's depth image between the main render pass and
+// betweenPass/overPass (for offscreen volumetric raymarching and depth-aware bilateral upsampling).
+class CopySceneDepth : public vsg::Inherit<vsg::Command, CopySceneDepth> {
+public:
+    CopySceneDepth(vsg::ref_ptr<vsg::Window> w, vsg::ref_ptr<vsg::Image> t, const bool* w2) :
+        window(w), target(std::move(t)), wanted(w2) {}
+    vsg::observer_ptr<vsg::Window> window;
+    vsg::ref_ptr<vsg::Image> target;
+    const bool* wanted;
+    mutable bool made = false;
+
+    void compile(vsg::Context& context) override { target->compile(context); }
+    void record(vsg::CommandBuffer& commandBuffer) const override {
+        auto w = window.ref_ptr();
+        if (!w || !target) return;
+        auto depthView = w->getDepthImageView();
+        if (!depthView || !depthView->image) return;
+        if (made && !*wanted) return;
+        made = true;
+        const VkImage source = depthView->image->vk(commandBuffer.deviceID);
+        const VkImage copy = target->vk(commandBuffer.deviceID);
+        const VkImageSubresourceRange range{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1};
+        const auto barrier = [&](VkImage image, VkAccessFlags from, VkAccessFlags to, VkImageLayout a, VkImageLayout b) {
+            return VkImageMemoryBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, nullptr, from, to, a, b,
+                                        VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, image, range};
+        };
+        const VkImageMemoryBarrier before[2] = {
+            barrier(source, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+                    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL),
+            barrier(copy, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
+                    VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)};
+        vkCmdPipelineBarrier(commandBuffer,
+                             VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                             VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 2, before);
+        const VkExtent2D extent = w->extent2D();
+        VkImageCopy region{};
+        region.srcSubresource = VkImageSubresourceLayers{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 0, 1};
+        region.dstSubresource = region.srcSubresource;
+        region.extent = VkExtent3D{std::min(extent.width, target->extent.width), std::min(extent.height, target->extent.height), 1};
+        vkCmdCopyImage(commandBuffer, source, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, copy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+        const VkImageMemoryBarrier after[2] = {
+            barrier(source, VK_ACCESS_TRANSFER_READ_BIT,
+                    VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL),
+            barrier(copy, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
+        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT |
+                                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                             0, 0, nullptr, 0, nullptr, 2, after);
+    }
+};
+
 } // namespace
 
 vsg::ref_ptr<vsg::ImageInfo> Viewer::sceneColour() {
@@ -180,6 +233,29 @@ vsg::ref_ptr<vsg::ImageInfo> Viewer::sceneColour() {
     sampler->addressModeU = sampler->addressModeV = sampler->addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     sceneColour_ = vsg::ImageInfo::create(sampler, vsg::ImageView::create(sceneCopy_, VK_IMAGE_ASPECT_COLOR_BIT), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     return sceneColour_;
+}
+
+vsg::ref_ptr<vsg::ImageInfo> Viewer::sceneDepth() {
+    if (sceneDepth_ || !window_) return sceneDepth_;
+    VkExtent2D extent = window_->extent2D();
+    unsigned sw = 0, sh = 0;
+    platform::screenSize(sw, sh);
+    sceneDepthCopy_ = vsg::Image::create();
+    sceneDepthCopy_->imageType = VK_IMAGE_TYPE_2D;
+    sceneDepthCopy_->format = window_->depthFormat();
+    sceneDepthCopy_->extent = VkExtent3D{std::max(extent.width, sw), std::max(extent.height, sh), 1};
+    sceneDepthCopy_->mipLevels = 1;
+    sceneDepthCopy_->arrayLayers = 1;
+    sceneDepthCopy_->samples = VK_SAMPLE_COUNT_1_BIT;
+    sceneDepthCopy_->tiling = VK_IMAGE_TILING_OPTIMAL;
+    sceneDepthCopy_->usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    auto sampler = vsg::Sampler::create();
+    sampler->minFilter = sampler->magFilter = VK_FILTER_NEAREST;
+    sampler->addressModeU = sampler->addressModeV = sampler->addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    sampler->maxLod = 0.0f;
+    sceneDepth_ = vsg::ImageInfo::create(sampler, vsg::ImageView::create(sceneDepthCopy_, VK_IMAGE_ASPECT_DEPTH_BIT),
+                                         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    return sceneDepth_;
 }
 
 vsg::ref_ptr<vsg::RenderPass> Viewer::overPass() {
@@ -250,7 +326,8 @@ void Viewer::selectOverFramebuffer() {
 }
 
 bool Viewer::setScene(vsg::ref_ptr<vsg::Node> scene, vsg::ref_ptr<vsg::EllipsoidModel> ellipsoid,
-                      vsg::ref_ptr<vsg::Node> imguiOverlay, vsg::ref_ptr<vsg::Node> beforePass, vsg::ref_ptr<vsg::Node> overScene) {
+                      vsg::ref_ptr<vsg::Node> imguiOverlay, vsg::ref_ptr<vsg::Node> beforePass,
+                      vsg::ref_ptr<vsg::Node> overScene, vsg::ref_ptr<vsg::Node> betweenPass) {
     if (!viewer_ || !window_) return false;
 
     root_ = vsg::Group::create();
@@ -290,9 +367,11 @@ bool Viewer::setScene(vsg::ref_ptr<vsg::Node> scene, vsg::ref_ptr<vsg::Ellipsoid
     if (settings_.headlight) view->addChild(vsg::createHeadlight());
     renderGraph->addChild(view);
     if (overScene) {
-        // the scene's colour copied, then the pass over it
+        // the scene's colour copied (and optional resolved depth + betweenPass compute), then the pass over it
         sceneColour();
         commandGraph->addChild(CopySceneColour::create(window_, sceneCopy_, &sceneCopied_));
+        if (sceneDepthCopy_) commandGraph->addChild(CopySceneDepth::create(window_, sceneDepthCopy_, &sceneDepthCopied_));
+        if (betweenPass) commandGraph->addChild(betweenPass);
         overGraph_ = vsg::RenderGraph::create();
         overGraph_->renderPass = overPass();
         window_->getOrCreateSwapchain(); // (its images now: the compile below makes the pass's pipelines for its framebuffers)

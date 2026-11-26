@@ -90,7 +90,9 @@ struct FlowSolver::Host {
     NvFlowGridSimulateLayerParams* simulatePtr = &simulate;
     std::vector<NvFlowEmitterSphereParams> spheres;
     std::vector<NvFlowEmitterSphereParams*> spherePtrs;
-    NvFlowDatabaseTypeSnapshot types[2]{};
+    NvFlowEmitterBoxParams groundBox = NvFlowEmitterBoxParams_default;
+    NvFlowEmitterBoxParams* groundBoxPtr = &groundBox;
+    NvFlowDatabaseTypeSnapshot types[3]{};
     NvFlowUint64 version = 1;
     double clock = 0.0;      ///< the solver's own time (s): only forwards
     double gpuSeconds = 0.0; ///< the profiler's last report
@@ -137,7 +139,8 @@ struct FlowSolver::Host {
         NvFlowGridSimulateLayerParams& p = simulate;
         p.densityCellSize = static_cast<float>(settings.cellM);
         p.stepsPerSecond = static_cast<float>(settings.stepsPerSecond);
-        p.maxStepsPerSimulate = 2u;
+        p.maxStepsPerSimulate = 2u; // (allows float-accumulator catch-up of 1/60 steps without dropping substeps)
+        // Note: Flow's default (low=FALSE, high=FALSE) is already FP16; low-precision uses 8-bit UNORM and clips fuel/smoke > 1.
         p.nanoVdbExport.enabled = NV_FLOW_TRUE;
         p.nanoVdbExport.readbackEnabled = NV_FLOW_TRUE;
         p.nanoVdbExport.temperatureEnabled = NV_FLOW_TRUE;
@@ -157,7 +160,9 @@ struct FlowSolver::Host {
         p.advection.smoke.fade = static_cast<float>(k.smokeFade);
         p.advection.smoke.damping = static_cast<float>(k.smokeDamping);
         p.advection.velocity.damping = static_cast<float>(k.velocityDamping);
-        p.summaryAllocate.speedThreshold = static_cast<float>(k.keepSpeed);
+        // Free empty clear-air blocks once velocity decays below 5 m/s (preserving high-speed detonation shock expansion
+        // while trimming slow post-burnout rising-air bloat, B-60).
+        p.summaryAllocate.speedThreshold = static_cast<float>(std::max(k.keepSpeed, 5.0));
         p.vorticity.forceScale = static_cast<float>(k.vorticity);
         return true;
     }
@@ -171,13 +176,28 @@ bool FlowSolver::start(const Settings& settings) {
     auto host = std::make_unique<Host>();
     if (!host->start(settings)) return false;
     host_ = std::move(host);
+    // Warm up Flow's compute pipelines during startup so the first explosion/fire never hits a ~20 ms compile spike (B-62).
+    Sphere warm;
+    warm.radius = 1.0;
+    warm.temperature = 0.5;
+    warm.smoke = 0.5;
+    warm.temperatureRate = 60.0;
+    warm.smokeRate = 60.0;
+    warm.luid = 0xffffffff00000001ull;
+    const double stepDt = 1.0 / std::max(settings_.stepsPerSecond, 1.0);
+    step(stepDt, {warm}, true, true, nullptr);
+    step(stepDt, {}, true, true, nullptr);
+    // Keep host_->clock monotonic (Flow's internal grid time must only advance forward; never rewind it to 0).
+    host_->gpuSeconds = 0.0;
+    fields_.leaves.clear();
+    fields_.bytes = 0;
     return true;
 }
 
 bool FlowSolver::running() const noexcept { return host_ != nullptr; }
 double FlowSolver::gpuMs() const noexcept { return host_ ? 1000.0 * host_->gpuSeconds : 0.0; }
 
-void FlowSolver::step(double dt, const std::vector<Sphere>& sources, bool clear, bool wait) {
+void FlowSolver::step(double dt, const std::vector<Sphere>& sources, bool clear, bool wait, const GroundPlane* ground) {
     if (!host_ || !(dt > 0.0)) return;
     Host& h = *host_;
     const auto F = [](double v) { return static_cast<float>(v); };
@@ -214,8 +234,35 @@ void FlowSolver::step(double dt, const std::vector<Sphere>& sources, bool clear,
                                             reinterpret_cast<NvFlowUint8**>(&h.simulatePtr), 1u};
     h.types[1] = NvFlowDatabaseTypeSnapshot{h.version, &NvFlowGridEmitterSphereParams_NvFlowReflectDataType,
                                             reinterpret_cast<NvFlowUint8**>(h.spherePtrs.data()), h.spherePtrs.size()};
+    NvFlowUint64 typeCount = 2u;
+    if (ground && ground->enabled) {
+        // Zero-allocation solid box collider below ground->z (B-53): clamps downward flow at the surface so fire/smoke
+        // spreads radially over the ground/sea rather than passing through it.
+        const float halfH = 12.0f;
+        const float ext = F(std::max(ground->halfExtent, 20.0));
+        NvFlowEmitterBoxParams& g = h.groundBox;
+        g = NvFlowEmitterBoxParams_default;
+        g.luid = 0xfffffffe00000001ull;
+        g.enabled = NV_FLOW_TRUE;
+        g.position = NvFlowFloat3{F(ground->centerX), F(ground->centerY), F(ground->z) - halfH};
+        g.halfSize = NvFlowFloat3{ext, ext, halfH};
+        g.allocationScale = 0.0f; // never allocates empty blocks on its own
+        g.velocity = NvFlowFloat3{0.0f, 0.0f, 0.0f};
+        g.divergence = 0.0f;
+        g.coupleRateVelocity = 500.0f;
+        g.coupleRateDivergence = 0.0f;
+        g.coupleRateTemperature = 0.0f;
+        g.coupleRateFuel = 0.0f;
+        g.coupleRateBurn = 0.0f;
+        g.coupleRateSmoke = 0.0f;
+        g.applyPostPressure = NV_FLOW_TRUE;
+        g.isPhysicsCollision = NV_FLOW_TRUE;
+        h.types[2] = NvFlowDatabaseTypeSnapshot{h.version, &NvFlowGridEmitterBoxParams_NvFlowReflectDataType,
+                                                reinterpret_cast<NvFlowUint8**>(&h.groundBoxPtr), 1u};
+        typeCount = 3u;
+    }
     h.clock += dt;
-    NvFlowGridParamsDescSnapshot snapshot{NvFlowDatabaseSnapshot{h.version, h.types, 2u}, h.clock, F(dt), forceClear, nullptr, 0u};
+    NvFlowGridParamsDescSnapshot snapshot{NvFlowDatabaseSnapshot{h.version, h.types, typeCount}, h.clock, F(dt), forceClear, nullptr, 0u};
     h.loader.gridParamsInterface.commitParams(h.params, &snapshot);
 
     NvFlowContext* c = h.loader.deviceInterface.getContext(h.queue);
@@ -251,7 +298,9 @@ void FlowSolver::step(double dt, const std::vector<Sphere>& sources, bool clear,
     fields_.frame = readback->globalFrameCompleted;
     fields_.voxel = smoke.voxel;
     std::copy(smoke.zero, smoke.zero + 3, fields_.zero);
-    // the leaves with anything in them (the grids' leaves alike: Flow writes them from one layout)
+    fields_.leaves.reserve(smoke.leaves);
+    // the leaves with visible density/heat (a leaf below 5e-4 smoke over 4 m is < 0.002 optical depth, invisible)
+    const float minVal = settings_.exportFuel ? 1e-4f : 5e-4f;
     for (std::uint32_t k = 0; k < smoke.leaves; ++k) {
         const pnanovdb_coord_t o = smoke.origin(k), oh = heat.origin(k);
         if (o.x != oh.x || o.y != oh.y || o.z != oh.z) continue;
@@ -259,7 +308,11 @@ void FlowSolver::step(double dt, const std::vector<Sphere>& sources, bool clear,
         const float* t = heat.values(k);
         const float* f = withFuel ? fuel.values(k) : nullptr;
         bool any = false;
-        for (std::uint32_t n = 0; n < 512u && !any; ++n) any = s[n] > 1e-4f || t[n] > 1e-4f || (f && f[n] > 1e-4f);
+        if (f) {
+            for (std::uint32_t n = 0; n < 512u && !any; ++n) any = s[n] > minVal || t[n] > minVal || f[n] > minVal;
+        } else {
+            for (std::uint32_t n = 0; n < 512u && !any; ++n) any = s[n] > minVal || t[n] > minVal;
+        }
         if (any) fields_.leaves.push_back(Leaf{{o.x, o.y, o.z}, s, t, f});
     }
 }
@@ -275,7 +328,7 @@ bool FlowSolver::start(const Settings& settings) {
 }
 bool FlowSolver::running() const noexcept { return false; }
 double FlowSolver::gpuMs() const noexcept { return 0.0; }
-void FlowSolver::step(double, const std::vector<Sphere>&, bool, bool) {}
+void FlowSolver::step(double, const std::vector<Sphere>&, bool, bool, const GroundPlane*) {}
 
 #endif
 

@@ -49,7 +49,8 @@ public:
     bool setScene(vsg::ref_ptr<vsg::Node> scene, vsg::ref_ptr<vsg::EllipsoidModel> ellipsoid,
                   vsg::ref_ptr<vsg::Node> imguiOverlay = {},
                   vsg::ref_ptr<vsg::Node> beforePass = {},
-                  vsg::ref_ptr<vsg::Node> overScene = {});
+                  vsg::ref_ptr<vsg::Node> overScene = {},
+                  vsg::ref_ptr<vsg::Node> betweenPass = {});
     /// The frame's colour as the scene left it, for `overScene` to read: the
     /// screen's size (the window's part used, from the top left), the
     /// swapchain's format, linear filtering; made on first call.
@@ -57,6 +58,11 @@ public:
     /// Whether this frame copies the scene's colour (on by default): off, the
     /// copy keeps the last one made - for frames where nothing reads it.
     void setSceneCopied(bool on) { sceneCopied_ = on; }
+    /// The resolved full-resolution scene depth (D32_SFLOAT, reverse Z) copied after the main render pass for
+    /// `betweenPass` volumetric raymarching and `overScene` depth-aware bilateral upsampling; made on first call.
+    vsg::ref_ptr<vsg::ImageInfo> sceneDepth();
+    /// Whether this frame copies the resolved scene depth (off by default: 0 ms when no offscreen volumetric pass runs).
+    void setSceneDepthCopied(bool on) { sceneDepthCopied_ = on; }
     /// Whether draws may be shaded at a coarser rate than their pixels (VK_KHR_fragment_shading_rate, the
     /// pipeline's own rate: what the contrails use at large window sizes); known once open() has made the window.
     bool coarseShading() const { return coarseShading_; }
@@ -148,6 +154,9 @@ private:
     vsg::ref_ptr<vsg::Image> sceneCopy_;
     vsg::ref_ptr<vsg::ImageInfo> sceneColour_;
     bool sceneCopied_ = true;
+    vsg::ref_ptr<vsg::Image> sceneDepthCopy_;
+    vsg::ref_ptr<vsg::ImageInfo> sceneDepth_;
+    bool sceneDepthCopied_ = false;
     bool coarseShading_ = false;
     vsg::ref_ptr<vsg::RenderPass> overPass_;
     vsg::ref_ptr<vsg::RenderGraph> overGraph_;

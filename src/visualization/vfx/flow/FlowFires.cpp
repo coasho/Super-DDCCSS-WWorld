@@ -216,4 +216,50 @@ void leak(double rateKgS, const double at[3], const double velocity[3], double p
     }
 }
 
+double poolRadius(double spilledKg) {
+    // Hydrocarbon ground pool slick (~3 cm equilibrium thickness, density ~800 kg/m^3 -> ~24 kg/m^2).
+    if (!(spilledKg > 0.0)) return 0.0;
+    const double area = spilledKg / (800.0 * 0.03);
+    return std::clamp(std::sqrt(area / kPi), 2.0, 14.0);
+}
+
+void poolFire(double spilledKg, double rateKgS, const double at[3], double pressurePa, double age, std::uint64_t luid,
+              std::vector<FlowSolver::Sphere>& out) {
+    if (!(spilledKg > 0.0) || !(rateKgS > 0.0)) return;
+    // Pool spreads rapidly over the first ~2.5 s after impact to its spill-mass radius.
+    const double targetR = poolRadius(spilledKg);
+    const double spread = 1.0 - std::exp(-std::max(age, 0.0) / 1.2);
+    const double R = std::max(1.5, targetR * (0.35 + 0.65 * spread));
+    const double products = kProductsM3PerKg * std::pow(thinner(pressurePa), 3.0) * rateKgS;
+    // Place a ring of shallow burning fuel patches just above the ground plane so buoyant flame rises off the pool.
+    const int ringCount = R > 4.5 ? 6 : 4;
+    const double patchR = std::clamp(R * 0.45, 1.25, 3.2);
+    const double totalVol = static_cast<double>(ringCount + 1) * sphereVolume(patchR);
+    const double smokeVal = 0.35 * soot(kSootYield * rateKgS, std::max(products, 1.0));
+    const double divVal = 0.30 * products / std::max(totalVol, 1.0);
+    for (int k = 0; k <= ringCount; ++k) {
+        FlowSolver::Sphere s;
+        s.radius = patchR;
+        const double ang = (k > 0) ? (2.0 * kPi * (k - 1) / ringCount) : 0.0;
+        const double rad = (k > 0) ? 0.55 * R : 0.0;
+        s.at[0] = at[0] + rad * std::cos(ang);
+        s.at[1] = at[1] + rad * std::sin(ang);
+        s.at[2] = at[2] + 0.45 * patchR;
+        s.velocity[0] = (k > 0) ? 1.5 * std::cos(ang) : 0.0;
+        s.velocity[1] = (k > 0) ? 1.5 * std::sin(ang) : 0.0;
+        s.velocity[2] = 1.5;
+        s.velocityRate = 15.0;
+        s.fuel = 0.65;
+        s.fuelRate = kRate;
+        s.temperature = 1.0;
+        s.temperatureRate = kRate;
+        s.smoke = smokeVal;
+        s.smokeRate = kRate;
+        s.divergence = divVal;
+        s.divergenceRate = kRate;
+        s.luid = luid * 16u + static_cast<std::uint64_t>(k);
+        out.push_back(s);
+    }
+}
+
 } // namespace fsim::world::flowfires

@@ -875,12 +875,20 @@ int main(int argc, char** argv) {
         viewer.quiesce();
         return 1;
     }
+    // Offscreen half-res front-to-back Flow raymarch + depth-aware bilateral composite (VIS-M12).
+    if (flow && !flow->buildOffscreen(viewer.sceneDepth(), viewer.window()->extent2D().width, viewer.window()->extent2D().height)) {
+        LOG_WARN("viewer") << "Flow offscreen half-res pass unavailable; using direct page rendering";
+    }
     auto beforePass = vsg::Group::create();
     // --stats: the GPU's time per pass too (timestamps between them)
     render::GpuTimer gpuTimer;
     if (opt.stats > 0.0) {
         beforePass->addChild(gpuTimer.reset());
         beforePass->addChild(gpuTimer.mark("start"));
+    }
+    if (flow) {
+        beforePass->addChild(flow->lightCompute());
+        if (opt.stats > 0.0) beforePass->addChild(gpuTimer.mark("flow light"));
     }
     beforePass->addChild(clouds.compute());
     if (opt.stats > 0.0) beforePass->addChild(gpuTimer.mark("clouds march"));
@@ -889,28 +897,39 @@ int main(int argc, char** argv) {
         beforePass->addChild(gpuTimer.mark("vapour march"));
         const std::vector<std::pair<vsg::ref_ptr<vsg::Node>, std::string>> named{
             {clouds.under(), "clouds under"}, {visuals.node(), "vehicles+exhaust"}, {clouds.over(), "clouds over"},
-            {trails.node(), "trails"}, {airflow.node(), "contrails"}};
+            {trails.node(), "trails"}, {airflow.node(), "contrails"}, {flow ? flow->node() : vsg::ref_ptr<vsg::Node>{}, "flow"}};
         auto marked = vsg::Group::create();
         marked->addChild(gpuTimer.mark("prepass, pass begin"));
         for (const auto& child : scene->children) {
             marked->addChild(child);
+            vsg::Node* inner = child.get();
+            if (auto* sw = dynamic_cast<vsg::Switch*>(inner); sw && sw->children.size() == 1) inner = sw->children[0].node.get();
             std::string label = "sky, earth, rest";
             for (const auto& [node, name] : named)
-                if (node && node == child) label = name;
+                if (node && (node.get() == child.get() || node.get() == inner)) label = name;
             marked->addChild(gpuTimer.mark(label));
         }
         scene = marked;
     }
-    // the gas round the aircraft, drawn over the scene (the scene's colour copied for its heat haze first)
-    vsg::ref_ptr<vsg::Node> over = vapour.node();
-    if (opt.stats > 0.0) {
-        auto marked = vsg::Group::create();
-        marked->addChild(over);
-        marked->addChild(gpuTimer.mark("pass end, scene copy, gas"));
-        over = marked;
+    // Between the main render pass (after scene colour & depth copy) and the over pass: half-res Flow compute raymarch.
+    auto betweenPass = vsg::Group::create();
+    if (opt.stats > 0.0) betweenPass->addChild(gpuTimer.mark("pass end, scene copy"));
+    if (flow) {
+        betweenPass->addChild(flow->marchCompute());
+        if (opt.stats > 0.0) betweenPass->addChild(gpuTimer.mark("flow march"));
     }
-    if (!viewer.setScene(scene, ellipsoid, imgui, beforePass, over)) return 1;
+    // Volumetric fire composite + gas round the aircraft, drawn over the scene (after colour/depth copy).
+    auto overGroup = vsg::Group::create();
+    if (flow) {
+        overGroup->addChild(flow->compositeNode());
+        if (opt.stats > 0.0) overGroup->addChild(gpuTimer.mark("flow composite"));
+    }
+    overGroup->addChild(vapour.node());
+    if (opt.stats > 0.0) overGroup->addChild(gpuTimer.mark("gas"));
+    vsg::ref_ptr<vsg::Node> over = overGroup;
+    if (!viewer.setScene(scene, ellipsoid, imgui, beforePass, over, betweenPass)) return 1;
     vapour.compiled();
+    if (flow) flow->compiled();
     try {
         clouds.build(viewer.window()->extent2D().width, viewer.window()->extent2D().height,
                      [&viewer](vsg::ref_ptr<vsg::Node> node) { return viewer.compile(node); });
@@ -1579,8 +1598,10 @@ int main(int argc, char** argv) {
                 airflow.setClock(drawnTime);
                 airflow.update(drawn, alive, visuals, viewer.camera()->projectionMatrix->transform(), viewer.lookAt()->eye, *ellipsoid, sunDir);
                 if (flow) {
+                    const vsg::dmat4 viewMat = viewer.camera()->viewMatrix->transform();
                     flow->update(drawnTime, drawn, alive, visuals, viewer.camera()->projectionMatrix->transform(), viewer.lookAt()->eye,
-                                 *ellipsoid, sunDir);
+                                 *ellipsoid, sunDir, &viewMat);
+                    viewer.setSceneDepthCopied(flow->active());
                     if (opt.stats > 0.0) {
                         const auto& c = flow->cost();
                         stats.flowGpu += c.solverGpuMs, stats.flowCpu += c.cpuMs, stats.flowPack += c.packMs;
@@ -1591,6 +1612,8 @@ int main(int argc, char** argv) {
                         stats.flowPages = std::max<std::uint64_t>(stats.flowPages, c.pages);
                         ++stats.flowFrames;
                     }
+                } else {
+                    viewer.setSceneDepthCopied(false);
                 }
                 vapour.update(drawn, alive, visuals, viewer.camera()->viewMatrix->transform(), viewer.camera()->projectionMatrix->transform(),
                               viewer.lookAt()->eye, sunDir, light);

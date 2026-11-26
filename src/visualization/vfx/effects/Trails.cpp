@@ -32,15 +32,28 @@ Trails::Trails(std::size_t vehicles, std::size_t points, double sampleIntervalS,
         group->addChild(t.draw);
         t.transform->addChild(group);
         root_->addChild(true, t.transform);
-        t.history.reserve(points_);
+        t.ring.resize(points_);
     }
+}
+
+void Trails::setBodyOffset(std::size_t index, const vsg::dvec3& bodyOffsetM) {
+    if (index < trails_.size()) trails_[index].bodyOffset = bodyOffsetM;
 }
 
 void Trails::update(Span<const sim::VehicleState> states, double simTime) {
     if (trails_.empty()) return;
-    if (lastSample_ >= 0.0 && simTime - lastSample_ < interval_) return;
+    if (lastSample_ >= 0.0 && simTime - lastSample_ < interval_) {
+        // Only update colors if the selected vehicle changed between samples.
+        const std::size_t n = std::min(states.size(), trails_.size());
+        for (std::size_t i = 0; i < n; ++i) {
+            Trail& t = trails_[i];
+            const bool sel = static_cast<int>(i) == selected_;
+            if (t.enabled && t.count >= 2 && t.lastSelected != sel) rewrite(t, sel);
+        }
+        return;
+    }
     if (simTime < lastSample_) { // simulation was reset: start over
-        for (auto& t : trails_) { t.history.clear(); t.originSet = false; }
+        for (auto& t : trails_) { t.head = 0; t.count = 0; t.originSet = false; t.draw->vertexCount = 0; }
     }
     lastSample_ = simTime;
 
@@ -49,28 +62,37 @@ void Trails::update(Span<const sim::VehicleState> states, double simTime) {
         Trail& t = trails_[i];
         if (!t.enabled) continue;
         if (states[i].diverged) {
-            t.history.clear();
+            t.head = 0;
+            t.count = 0;
             t.originSet = false;
             t.draw->vertexCount = 0;
             continue;
         }
-        const vsg::dvec3 p = positionEcef(states[i]);
+        vsg::dvec3 p = positionEcef(states[i]);
+        if (attachment_ != Attachment::Origin && vsg::length2(t.bodyOffset) > 0.0) p = bodyToEcef(states[i]) * t.bodyOffset;
         if (!t.originSet) {
             t.origin = p;
             t.originSet = true;
             t.transform->matrix = vsg::translate(p);
         }
-        if (t.history.size() == points_) t.history.erase(t.history.begin());
-        t.history.push_back(p);
+        if (t.count == points_) {
+            t.ring[t.head] = p;
+            t.head = (t.head + 1) % points_;
+        } else {
+            t.ring[(t.head + t.count) % points_] = p;
+            ++t.count;
+        }
         rewrite(t, static_cast<int>(i) == selected_);
     }
 }
 
 void Trails::rewrite(Trail& t, bool selected) {
-    const std::size_t count = t.history.size();
+    const std::size_t count = t.count;
+    t.lastSelected = selected;
     const vsg::vec3 base = selected ? vsg::vec3(1.0f, 0.65f, 0.2f) : vsg::vec3(0.55f, 0.85f, 1.0f);
     for (std::size_t k = 0; k < count; ++k) {
-        const vsg::dvec3 rel = t.history[k] - t.origin;
+        const vsg::dvec3& sample = t.ring[(t.head + k) % points_];
+        const vsg::dvec3 rel = sample - t.origin;
         t.vertices->set(static_cast<std::uint32_t>(k), vsg::vec3(static_cast<float>(rel.x), static_cast<float>(rel.y), static_cast<float>(rel.z)));
         const float age = count > 1 ? static_cast<float>(k) / static_cast<float>(count - 1) : 1.0f; // 0 oldest .. 1 newest
         t.colors->set(static_cast<std::uint32_t>(k), vsg::vec4(base.x, base.y, base.z, 0.08f + 0.85f * age * age));
@@ -86,7 +108,8 @@ void Trails::setEnabled(std::size_t index, bool enabled) {
     if (t.enabled == enabled) return;
     t.enabled = enabled;
     if (!enabled) {
-        t.history.clear();
+        t.head = 0;
+        t.count = 0;
         t.originSet = false;
         t.draw->vertexCount = 0;
     }

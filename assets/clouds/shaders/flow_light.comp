@@ -1,0 +1,54 @@
+// fsim: precomputed 3D sun & sky transmittance grid for NVIDIA Flow (world::FlowVolumes, VIS-M12).
+// One 5x5x5 workgroup per active Flow brick computes exp(-tauSun) and exp(-tauSky) once per solver update
+// (instead of 8 sparse hash+3D lookups per raymarch step per fragment in flow_march.comp / flow.frag).
+
+#version 450
+#define FLOW_COMPUTE
+#define FLOW_NO_ATMOS
+#include "flow.glsl"
+
+layout(local_size_x = FLOW_LIGHT_BRICK, local_size_y = FLOW_LIGHT_BRICK, local_size_z = FLOW_LIGHT_BRICK) in;
+
+layout(std430, set = 0, binding = 4) readonly buffer Bricks { ivec4 brickCoords[]; };
+layout(set = 0, binding = 10, rg16f) uniform writeonly image3D flowLightOut;
+
+const int SUN_STEPS = 5;
+const int SKY_STEPS = 3;
+const float SUN_REACH = 24.0;
+const float SKY_REACH = 12.0;
+
+void main() {
+  uint b = gl_WorkGroupID.x;
+  ivec3 L = brickCoords[b].xyz;
+  ivec3 local = ivec3(gl_LocalInvocationID.xyz);
+
+  float voxel = samples[0].w;
+  float extinction = samples[5].x;
+  mat3 axes = mat3(samples[1].xyz, samples[2].xyz, samples[3].xyz);
+  mat3 toLocal = transpose(axes);
+  vec3 sunL = normalize(toLocal * F_sun.xyz);
+  const vec3 upL = vec3(0.0, 0.0, 1.0);
+
+  // Sample grid at 0, 2, 4, 6, 8 voxels inside the 8^3 leaf so index 4 matches the neighbor brick's index 0 seamlessly.
+  flowLastLeaf = L;
+  flowLastBrick = int(b);
+  vec3 u0 = vec3(L * 8) + vec3(local) * 2.0;
+  float invVoxel = 1.0 / max(voxel, 1e-4);
+
+  float tauSun = 0.0;
+  for (int i = 0; i < SUN_STEPS; ++i) {
+    float dist = SUN_REACH * (float(i) + 0.5) / float(SUN_STEPS);
+    tauSun += extinction * max(flowAt(u0 + sunL * (dist * invVoxel)).r, 0.0);
+  }
+  tauSun *= SUN_REACH / float(SUN_STEPS);
+
+  float tauSky = 0.0;
+  for (int i = 0; i < SKY_STEPS; ++i) {
+    float dist = SKY_REACH * (float(i) + 0.5) / float(SKY_STEPS);
+    tauSky += extinction * max(flowAt(u0 + upL * (dist * invVoxel)).r, 0.0);
+  }
+  tauSky *= SKY_REACH / float(SKY_STEPS);
+
+  ivec3 base = ivec3(int(b) % FLOW_BRICKS, (int(b) / FLOW_BRICKS) % FLOW_BRICKS, int(b) / (FLOW_BRICKS * FLOW_BRICKS)) * FLOW_LIGHT_BRICK;
+  imageStore(flowLightOut, base + local, vec4(exp(-tauSun), exp(-tauSky), 0.0, 0.0));
+}

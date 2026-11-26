@@ -69,10 +69,19 @@ public:
     bool start(const Settings& settings);
     bool running() const noexcept;
     const Settings& settings() const noexcept { return settings_; }
-    /// One call of the solver: `dt` s (it steps at stepsPerSecond, up to two steps a call) with these sources;
+    /// Optional solid ground plane (B-53): a zero-allocation Flow box collider below `z` (local frame, m)
+    /// stopping gas penetration into terrain/sea and forcing radial outflow across the surface.
+    struct GroundPlane {
+        bool enabled = false;
+        double z = 0.0;
+        double centerX = 0.0, centerY = 0.0;
+        double halfExtent = 250.0;
+    };
+    /// One call of the solver: `dt` s (it steps at stepsPerSecond) with these sources;
     /// `clear`: the grid emptied first; `wait`: until the GPU is done, the step's own fields then read (else the
-    /// newest finished, a frame or two old).
-    void step(double dt, const std::vector<Sphere>& sources, bool clear = false, bool wait = false);
+    /// newest finished, a frame or two old); `ground`: optional surface collider below local z.
+    void step(double dt, const std::vector<Sphere>& sources, bool clear = false, bool wait = false,
+              const GroundPlane* ground = nullptr);
     /// The newest finished fields (valid until the next step).
     const Fields& fields() const noexcept { return fields_; }
     /// The solver's GPU time in its last finished frame (ms; its profiler's).

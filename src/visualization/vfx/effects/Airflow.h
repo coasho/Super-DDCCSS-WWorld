@@ -280,6 +280,9 @@ private:
     vsg::ref_ptr<vsg::vec4Array> samples_, frame_;
     SunlitBlackbody blackbody_; ///< a flame's light against the sun's (its table after the samples, for the shaders)
     std::vector<Source> sources_;
+    std::vector<std::pair<double, std::size_t>> orderScratch_;
+    std::vector<Sample> drawnScratch_;
+    std::size_t prevUsed_ = 0;
     std::vector<vsg::dvec2> aircraft_; ///< per slot: wingspan, mass without fuel
     double clock_ = std::numeric_limits<double>::quiet_NaN();
     std::vector<std::array<double, sim::VehicleState::kMaxEngines>> flows_; ///< per slot: each engine's fuel flow, kg/s

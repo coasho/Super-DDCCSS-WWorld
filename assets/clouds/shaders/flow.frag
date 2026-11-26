@@ -18,10 +18,19 @@ layout(location = 5) flat in vec3 v_inscatter;
 layout(location = 6) flat in vec3 v_solar;
 layout(location = 0) out vec4 outColor;
 
+layout(set = 0, binding = 4) uniform sampler3D flowLight;
+
 const int STEPS = 160;      // along the eye's ray through the page, at most (its leaves not drawn stepped over)
-const int SUN_STEPS = 5;    // towards the sun, over SUN_REACH m
-const int SKY_STEPS = 3;    // upwards (the sky's light comes mostly from above), over SKY_REACH m
-const float SUN_REACH = 24.0, SKY_REACH = 12.0;
+
+vec2 flowLightAt(vec3 u) {
+  int b = flowLastBrick;
+  if (b < 0) return vec2(1.0);
+  ivec3 L = flowLastLeaf;
+  ivec3 base = ivec3(b % FLOW_BRICKS, (b / FLOW_BRICKS) % FLOW_BRICKS, b / (FLOW_BRICKS * FLOW_BRICKS)) * FLOW_LIGHT_BRICK;
+  vec3 frac = clamp(u - vec3(L * 8), vec3(0.0), vec3(8.0));
+  vec3 texel = vec3(base) + frac * 0.5 + 0.5;
+  return texture(flowLight, texel / float(FLOW_BRICKS * FLOW_LIGHT_BRICK)).rg;
+}
 
 // three.js r180 tonemapping_pars_fragment: AgX (as detonation.frag's)
 vec3 agx(vec3 color) {
@@ -108,16 +117,9 @@ void main() {
     float k = extinction * max(v.x, 0.0);
     if (k > 1e-5) {
       float dtau = k * ds;
-      // the sun through the smoke towards it, the sky through the smoke above
-      float tauSun = 0.0;
-      for (int i = 0; i < SUN_STEPS; ++i)
-        tauSun += extinction * max(flowAt((p + sunL * (SUN_REACH * (float(i) + 0.5) / float(SUN_STEPS)) - zero) / voxel).r, 0.0);
-      tauSun *= SUN_REACH / float(SUN_STEPS);
-      float tauSky = 0.0;
-      for (int i = 0; i < SKY_STEPS; ++i)
-        tauSky += extinction * max(flowAt((p + upL * (SKY_REACH * (float(i) + 0.5) / float(SKY_STEPS)) - zero) / voxel).r, 0.0);
-      tauSky *= SKY_REACH / float(SKY_STEPS);
-      vec3 scattered = albedoRgb * (v_sunLight * phase * exp(-tauSun) + v_skyLight * exp(-tauSky));
+      // Precomputed sun & sky transmittance (flow_light.comp): 1 trilinear fetch instead of 8 shadow raymarch lookups.
+      vec2 trans = flowLightAt(u);
+      vec3 scattered = albedoRgb * (v_sunLight * phase * trans.x + v_skyLight * trans.y);
       // what absorbs, emits: Planck's light at the gas's temperature - where it burns, fluctuating about its mean
       // below the cells (two of the noise's reads drifting apart as the flame rises: its eddies evolving)
       float theta = max(v.y, 0.0);

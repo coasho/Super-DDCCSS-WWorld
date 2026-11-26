@@ -350,13 +350,15 @@ void Airflow::smokeFrom(std::size_t i, const sim::VehicleState& st, const Vehicl
     src->used = true;
     const vsg::dvec3 at = bodyToEcef(st) * exit;
     if (burning && (!src->forming || now - src->lastCommit >= kInterval)) {
-        if (src->samples.size() >= kSamples - 1) { // full: the oldest half thinned, as a contrail's
-            std::vector<Sample> kept;
-            kept.reserve(kSamples);
+        if (src->samples.size() >= kSamples - 1) { // full: the oldest half thinned in-place, as a contrail's
             const std::size_t half = src->samples.size() / 2;
+            std::size_t write = 0;
             for (std::size_t k = 0; k < src->samples.size(); ++k)
-                if (k >= half || k % 2 == 0) kept.push_back(src->samples[k]);
-            src->samples.swap(kept);
+                if (k >= half || k % 2 == 0) {
+                    if (write != k) src->samples[write] = src->samples[k];
+                    ++write;
+                }
+            src->samples.resize(write);
         }
         // (its propellant flow the simulation's, where it says it)
         const double burnt = i < flows_.size() && engine >= 0 && engine < sim::VehicleState::kMaxEngines ? flows_[i][static_cast<std::size_t>(engine)] : 0.0;
@@ -538,13 +540,13 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
     const double fromRad = vsg::radians(air_.windFromDeg);
 
     // nearest first: they get the trails when there are more than can be kept
-    std::vector<std::pair<double, std::size_t>> order;
+    orderScratch_.clear();
     for (std::size_t i = 0; i < n; ++i)
         if (alive[i] && visuals.visible(i) && !states[i].diverged && visuals.shape(i).valid)
-            order.emplace_back(vsg::length(positionEcef(states[i]) - eye), i);
-    std::sort(order.begin(), order.end());
+            orderScratch_.emplace_back(vsg::length(positionEcef(states[i]) - eye), i);
+    std::sort(orderScratch_.begin(), orderScratch_.end());
     for (auto& s : sources_) s.used = false;
-    for (const auto& [distance, i] : order) {
+    for (const auto& [distance, i] : orderScratch_) {
         if (distance >= kRange) break;
         const auto& st = states[i];
         const auto& shape = visuals.shape(i);
@@ -599,13 +601,15 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
         const vsg::dvec3 up = -bodyAxisEcef(st, 2);
         if (forms && (!src->forming || now - src->lastCommit >= kInterval)) {
             if (src->samples.size() >= kSamples - 1) { // (one left for the head)
-                // full: the oldest half thinned to every other sample (their stretch of trail drawn coarser)
-                std::vector<Sample> kept;
-                kept.reserve(kSamples);
+                // full: the oldest half thinned in-place to every other sample (their stretch of trail drawn coarser)
                 const std::size_t half = src->samples.size() / 2;
+                std::size_t write = 0;
                 for (std::size_t k = 0; k < src->samples.size(); ++k)
-                    if (k >= half || k % 2 == 0) kept.push_back(src->samples[k]);
-                src->samples.swap(kept);
+                    if (k >= half || k % 2 == 0) {
+                        if (write != k) src->samples[write] = src->samples[k];
+                        ++write;
+                    }
+                src->samples.resize(write);
             }
             Sample s = lay(Emitter{ac, altitude, 0.5 * (hi - lo), radius, shear}, air, at, now);
             s.flown = src->samples.empty() ? 0.0 : src->samples.back().flown + vsg::length(at - src->samples.back().at);
@@ -668,13 +672,15 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
         const vsg::dvec3 at = bodyToEcef(st) * part->at;
         const double V = finite(st.airspeedTrueMs), altitude = finite(st.altitudeMslM);
         if (!src->forming || now - src->lastCommit >= kInterval) {
-            if (src->samples.size() >= kSamples - 1) { // full: the oldest half thinned, as a contrail's
-                std::vector<Sample> kept;
-                kept.reserve(kSamples);
+            if (src->samples.size() >= kSamples - 1) { // full: the oldest half thinned in-place, as a contrail's
                 const std::size_t half = src->samples.size() / 2;
+                std::size_t write = 0;
                 for (std::size_t k = 0; k < src->samples.size(); ++k)
-                    if (k >= half || k % 2 == 0) kept.push_back(src->samples[k]);
-                src->samples.swap(kept);
+                    if (k >= half || k % 2 == 0) {
+                        if (write != k) src->samples[write] = src->samples[k];
+                        ++write;
+                    }
+                src->samples.resize(write);
             }
             const cocip::Shear shear{kShear, kShear * 2.0 / 3.14159265358979323846};
             Sample s = layFire(fire.rateKgS, V, altitude, shear, air, at, now);
@@ -704,10 +710,10 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
     }
     for (auto& src : sources_) {
         if (src.slot < 0) continue;
-        std::vector<Sample> kept;
-        kept.reserve(src.samples.size());
+        std::size_t write = 0;
         bool gap = false;
-        for (auto& s : src.samples) {
+        for (std::size_t k = 0; k < src.samples.size(); ++k) {
+            Sample& s = src.samples[k];
             const double age = now - s.birth;
             s.at += drift;
             Airflow::age(s, air, now);
@@ -725,9 +731,10 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
             }
             if (gap) s.gapBefore = true;
             gap = false;
-            kept.push_back(s);
+            if (write != k) src.samples[write] = s;
+            ++write;
         }
-        src.samples.swap(kept);
+        src.samples.resize(write);
         if (src.samples.empty() && !src.used) src = Source{};
     }
 
@@ -757,12 +764,12 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
     // between them: it was drawn between samples laid 0.25 s apart, whose ages moved on frame after frame until the
     // next was laid, and the trail behind the jets faded and filled again four times a second
     std::size_t used = 0;
-    std::vector<Sample> drawnSamples;
-    drawnSamples.reserve(kDrawn);
+    drawnScratch_.reserve(kDrawn);
     for (std::size_t k = 0; k < sources_.size(); ++k) {
         const Source& src = sources_[k];
+        if (src.slot < 0 && k >= prevUsed_) continue;
         double sequence = 0.0;
-        drawnSamples.clear();
+        drawnScratch_.clear();
         if (src.slot >= 0) {
             // the head: the newest sample again, at the jets now and just born
             const bool head = src.used && src.forming && !src.samples.empty();
@@ -779,14 +786,14 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
             const std::size_t laid = src.samples.size() + (head ? 1 : 0);
             for (std::size_t j = 0; j < laid; ++j) {
                 const Sample& a = j < src.samples.size() ? src.samples[j] : h;
-                drawnSamples.push_back(a);
+                drawnScratch_.push_back(a);
                 if (j + 1 >= laid) break;
                 const Sample& b = j + 1 < src.samples.size() ? src.samples[j + 1] : h;
                 const double ta = now - a.birth, tb = now - b.birth;
                 if (b.gapBefore || ta <= tb) continue;
                 for (std::size_t g = std::size(kYoungAges); g-- > 0;) { // (oldest first)
                     const double age = kYoungAges[g];
-                    if (age <= tb || age >= ta || drawnSamples.size() + (laid - j) >= kDrawn) continue;
+                    if (age <= tb || age >= ta || drawnScratch_.size() + (laid - j) >= kDrawn) continue;
                     const double w = (ta - age) / (ta - tb);
                     Sample v = a;
                     v.at = a.at + (b.at - a.at) * w;
@@ -795,18 +802,18 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
                     v.up = a.up + (b.up - a.up) * w;
                     v.birth = now - age;
                     v.gapBefore = false;
-                    drawnSamples.push_back(v);
+                    drawnScratch_.push_back(v);
                 }
             }
         }
-        const std::size_t count = drawnSamples.size();
+        const std::size_t count = drawnScratch_.size();
         for (std::size_t j = 0; j < kDrawn; ++j) {
             const auto at = static_cast<std::uint32_t>(kStride * (k * kDrawn + j));
             if (j >= count) {
                 samples_->set(at, vsg::vec4(0.0f, 0.0f, 0.0f, -1.0f));
                 continue;
             }
-            const Sample& s = drawnSamples[j];
+            const Sample& s = drawnScratch_[j];
             if (s.gapBefore) sequence += 1.0;
             const Drawn w = drawn(s, air, now);
             const vsg::dvec3 rel = s.at - eye;
@@ -824,7 +831,8 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
         }
         if (src.slot >= 0) used = k + 1;
     }
-    samples_->dirty();
+    if (used > 0 || prevUsed_ > 0) samples_->dirty();
+    prevUsed_ = used;
     ribbonDraw_->instanceCount = static_cast<std::uint32_t>(used * kDrawn);
     ribbonAt_->matrix = vsg::translate(eye);
 }
