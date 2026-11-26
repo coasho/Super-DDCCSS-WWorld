@@ -5,6 +5,7 @@
 #include "foundation/platform/SharedMemory.h"
 #include "foundation/transport/WeaponControlsSegment.h"
 #include "foundation/transport/FusionSegment.h"
+#include "foundation/transport/DebrisSegmentV1.h"
 
 #include <cstdint>
 #include <string>
@@ -43,6 +44,8 @@ public:
     /// A vehicle slot's Mission Systems record (its seq ignored): written whole, its revision bumped.
     void setMission(std::uint32_t index, const MissionRecord& record) noexcept;
     void setFusion(std::uint32_t index,const FusionRecordV1& record);
+    /// Additive VIS-M11 debris & per-vehicle destruction state published alongside the next snapshot.
+    void setDebris(const DebrisFrameV1& frame);
     /// Ask the viewers to follow this vehicle (its id); each request is followed once, then the user's choice stands.
     void requestFocus(std::uint32_t vehicleId) noexcept;
 
@@ -70,6 +73,8 @@ private:
     platform::SharedMemory memory_;
     WeaponControlsSegment finSegment_;
     FusionSegment fusionSegment_;
+    DebrisSegmentV1 debrisSegment_;
+    DebrisFrameV1 debrisFrame_;
     std::vector<std::unique_ptr<FusionRecordV1>> fusionRows_;
     WorldHeader* header_ = nullptr;
     unsigned char* base_ = nullptr;

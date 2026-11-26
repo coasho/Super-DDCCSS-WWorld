@@ -285,11 +285,13 @@ World::World(const WorldOptions& options)
         if(invalidated)weaponDiagnosticCaptureBindingReadyV1_=recorder_.open(options_.recordPath, rh);
         else LOG_ERROR("session")<<"recording refused: cannot invalidate previous diagnostic capture: "<<bindingError;
     }
+    debrisRng_ = Rng::forVehicle(options_.seed, 0x44454252ull, 0);
     LOG_INFO("session") << "world '" << options_.name << "': dt " << options_.dt << " s, frame skip " << options_.frameSkip << ", "
                         << workers << " worker(s)" << (published() ? ", published" : "");
 }
 
 World::~World() {
+    debrisRecorder_.close();
     if(weaponLinkAccess_){std::lock_guard<std::mutex> lock(weaponLinkAccess_->mutex);weaponLinkAccess_->world=nullptr;}
     ipc::WeaponDiagnosticCaptureCompletionV1 completion;
     completion.recordingBytes=recorder_.bytesWritten();
@@ -598,6 +600,9 @@ bool World::resetVehicle(std::uint32_t id, const sim::InitialConditions* ic, std
     // new release and does not rearm a consumed contact-initiation channel.
     e->engagementPath.clear();
     e->engagementStates.clear();
+    e->destruction = {};
+    e->slidePoseActive = false;
+    e->slideSparkAccumS = 0.0;
     e->engagementCg.clear();
     e->engagementMatter.clear();
     // A pose-bound terrain initiation cannot survive teleportation. This
@@ -962,7 +967,8 @@ const sim::VehicleState* World::vehicleState(std::uint32_t id) const noexcept {
         return d && d->valid ? &d->estimate : nullptr;
     }
     const Entry* e = entry(id);
-    return e ? &pool_->states()[e->slot] : nullptr;
+    if (!e) return nullptr;
+    return e->slidePoseActive ? &e->slideState : &pool_->states()[e->slot];
 }
 
 const sim::VehicleState* World::StepView::vehicleState(std::uint32_t id) const noexcept {
@@ -3372,12 +3378,28 @@ void World::step(unsigned n) {
                     if(e->weaponEnded)impacts.push_back(e->info.id);
                 }
             for (const std::uint32_t id : impacts) removeVehicle(id);
+            // B-54 early gear-overload / belly-scrape impact trigger in LightweightDebris mode (before 1.0 m penetration).
+            if (destructionMode_ == DestructionModeV1::LightweightDebris) {
+                for (std::size_t s = 0; s < entries_.size() && s < after.size() && s < stepStates_.size(); ++s) {
+                    Entry* e = entries_[s].get();
+                    if (!e || e->info.role == ms::Role::Weapon || after[s].crashed || stepStates_[s].crashed) continue;
+                    auto* contactSrc = dynamic_cast<sim::TerrainContactLoadSourceV1*>(&pool_->vehicle(s));
+                    sim::TerrainContactLoadV1 load;
+                    if (!contactSrc || !contactSrc->terrainContactLoadV1(load)) continue;
+                    if (ms::damage::exceedsGearOrBellyContact(load.maxGearSinkMs, load.maxBellyDepthM, load.tangentSpeedMs)) {
+                        contactSrc->arrestOnTerrainV1();
+                        pool_->refreshState(s);
+                        if (s < afterStates_.size()) afterStates_[s] = pool_->states()[s];
+                    }
+                }
+            }
             // an aircraft, or a piece of one, that struck the ground: what the strike does to it (MS-7g)
             for (std::size_t s = 0; s < entries_.size() && s < after.size() && s < stepStates_.size(); ++s)
                 if (Entry* e = entries_[s].get(); e && e->info.role != ms::Role::Weapon && after[s].crashed && !stepStates_[s].crashed)
                     impacted(*e, stepStates_[s], after[s]);
             flyReleases(); // (the stores the store management released this step)
             stepDamage();  // (the damaged: their leaks, fires and loads - MS-7g)
+            debrisField_.step(options_.dt * options_.frameSkip, ground_.get(), environment_, simTime_);
         }
         // Keep the tiles around every vehicle warm (background loaders) so the
         // workers seldom block on a download.
@@ -3400,7 +3422,12 @@ void World::step(unsigned n) {
             publisher_->addSteps(liveCount_ * static_cast<std::uint64_t>(options_.frameSkip), 1);
             if (publisher_->due()) { // (its vehicles' flight status worked out only as a snapshot is copied)
                 fillStatus();
-                if (publisher_->publish(simTime_, pool_->states(), Span<const sim::ControlInputs>(poolInputs_), false,
+                const auto rawStates = pool_->states();
+                std::vector<sim::VehicleState> pubStates(rawStates.begin(), rawStates.end());
+                for (std::size_t s = 0; s < entries_.size() && s < pubStates.size(); ++s)
+                    applySlidePose(s, pubStates[s]);
+                publisher_->setDebris(collectDebrisFrame());
+                if (publisher_->publish(simTime_, Span<const sim::VehicleState>(pubStates), Span<const sim::ControlInputs>(poolInputs_), false,
                                         Span<const ipc::FlightStatus>(poolStatus_),collectWeaponControls()))
                     {publishMission();publishWeaponDiagnosticsV1();}
             }
@@ -3413,7 +3440,12 @@ void World::publishNow() {
     for (std::size_t s = 0; s < entries_.size(); ++s)
         if (entries_[s]) poolInputs_[s] = entries_[s]->inputs;
     fillStatus();
-    publisher_->publish(simTime_, pool_->states(), Span<const sim::ControlInputs>(poolInputs_), true, Span<const ipc::FlightStatus>(poolStatus_),collectWeaponControls());
+    const auto rawStates = pool_->states();
+    std::vector<sim::VehicleState> pubStates(rawStates.begin(), rawStates.end());
+    for (std::size_t s = 0; s < entries_.size() && s < pubStates.size(); ++s)
+        applySlidePose(s, pubStates[s]);
+    publisher_->setDebris(collectDebrisFrame());
+    publisher_->publish(simTime_, Span<const sim::VehicleState>(pubStates), Span<const sim::ControlInputs>(poolInputs_), true, Span<const ipc::FlightStatus>(poolStatus_),collectWeaponControls());
     publishMission();
     publishWeaponDiagnosticsV1();
 }
@@ -4095,6 +4127,7 @@ void World::recordFrame() {
         if (!entries_[s]) continue;
         ipc::VehicleSample v;
         v.state = states[s];
+        applySlidePose(s, v.state);
         v.inputs = entries_[s]->inputs;
         std::copy(poolStatus_[s].derived, poolStatus_[s].derived + ipc::kDerivedCount, v.derived);
         samples.emplace_back(static_cast<std::uint32_t>(s), v);
@@ -4129,6 +4162,13 @@ void World::recordFrame() {
     }
     recorder_.writeWeaponControls(simTime_,collectWeaponControls());
     recorder_.writeSnapshot(simTime_, samples);
+    // Optional companion .debris sidecar (VIS-M11): opened lazily on first active debris/destruction frame.
+    const auto debrisFrame = collectDebrisFrame();
+    if (!debrisFrame.bodies.empty() || !debrisFrame.vehicles.empty() || debrisRecorder_.isOpen()) {
+        if (!debrisRecorder_.isOpen() && !options_.recordPath.empty())
+            debrisRecorder_.open(options_.recordPath.string() + ".debris");
+        if (debrisRecorder_.isOpen()) debrisRecorder_.write(debrisFrame);
+    }
 }
 
 void World::publishVehicle(const Entry& e) {

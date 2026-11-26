@@ -310,6 +310,7 @@ VehicleVisuals::VehicleVisuals(std::size_t count, const Settings& settings, vsg:
     highlight_.reserve(count);
     poses_.resize(count);
     visible_.assign(count, 1);
+    hullRetired_.assign(count, 0);
     onMask_.assign(count, vsg::MASK_ALL);
     slotModel_.assign(count, std::string());
     sectionsGone_.assign(count, {});
@@ -1100,6 +1101,26 @@ void VehicleVisuals::clearSections() {
 
 void VehicleVisuals::restoreSections(std::size_t index) {
     if (index < sectionsGone_.size()) sectionsGone_[index].clear();
+    if (index < hullRetired_.size() && hullRetired_[index] != 0) {
+        hullRetired_[index] = 0;
+        applySwitch(index);
+    }
+}
+
+void VehicleVisuals::setHullRetired(std::size_t index, bool retired) {
+    const unsigned char v = retired ? 1 : 0;
+    if (index >= hullRetired_.size() || hullRetired_[index] == v) return;
+    hullRetired_[index] = v;
+    applySwitch(index);
+}
+
+void VehicleVisuals::clearDestruction() {
+    for (std::size_t i = 0; i < hullRetired_.size(); ++i) {
+        if (hullRetired_[i] != 0) {
+            hullRetired_[i] = 0;
+            applySwitch(i);
+        }
+    }
 }
 
 void VehicleVisuals::setModel(std::size_t index, const std::string& modelPath, const std::string& typeIn) {
@@ -1360,7 +1381,7 @@ void VehicleVisuals::update(Span<const sim::VehicleState> states) {
                     ry = rz = 0.5 * at->second.exitDiameterM;
                 }
             }
-            const bool shows = visible_[i] && exhaust_->set(i, static_cast<std::size_t>(flame), ry, rz, states[i], joint.engine, kind);
+            const bool shows = visible(i) && exhaust_->set(i, static_cast<std::size_t>(flame), ry, rz, states[i], joint.engine, kind);
             // where it runs from: its node at rest in the body, the body in the world
             if (shows) shownFlames_.push_back({static_cast<std::uint32_t>(i * Exhaust::kPerSlot + static_cast<std::size_t>(flame)), m * joint.inModel});
             // (left out of the vehicles' depth pass: gas, and as costly again drawn there)
@@ -1390,11 +1411,12 @@ void VehicleVisuals::setExhaust(bool on) {
 
 void VehicleVisuals::applySwitch(std::size_t index) {
     auto& sw = highlight_[index];
+    const bool drawn = visible(index);
     const std::size_t on = static_cast<int>(index) == selected_ ? 1 : 0;
-    for (std::size_t i = 0; i < sw->children.size(); ++i) sw->children[i].mask = (visible_[index] && i == on) ? onMask_[index] : vsg::MASK_OFF;
-    if (index < storeSwitch_.size()) storeSwitch_[index]->children[0].mask = visible_[index] ? onMask_[index] : vsg::MASK_OFF;
+    for (std::size_t i = 0; i < sw->children.size(); ++i) sw->children[i].mask = (drawn && i == on) ? onMask_[index] : vsg::MASK_OFF;
+    if (index < storeSwitch_.size()) storeSwitch_[index]->children[0].mask = drawn ? onMask_[index] : vsg::MASK_OFF;
     // The segmentation copy is never highlighted, but it hides and masks alike.
-    if (index < segSwitch_.size()) segSwitch_[index]->children[0].mask = visible_[index] ? onMask_[index] : vsg::MASK_OFF;
+    if (index < segSwitch_.size()) segSwitch_[index]->children[0].mask = drawn ? onMask_[index] : vsg::MASK_OFF;
 }
 
 void VehicleVisuals::setMask(std::size_t index, vsg::Mask mask) {

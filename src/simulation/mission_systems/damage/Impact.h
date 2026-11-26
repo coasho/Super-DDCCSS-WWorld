@@ -69,6 +69,16 @@ constexpr double kCrushShare = 0.25;       ///< of its body's size (m / rho)^(1/
 constexpr double kGroundGiveM = 0.3;       ///< what soil gives under it (an estimate; rock none, water more)
 constexpr double kGroundFriction = 0.6;    ///< an airframe ploughing soil (an estimate: sliding metal on soil 0.4 - 0.8)
 constexpr double kRestitution = 0.1;       ///< a crumpling airframe's (an estimate: 0.05 - 0.2)
+constexpr double kWaterGiveM = 1.6;        ///< hydrodynamic water entry deceleration distance (NACA TN-2929 ditching)
+constexpr double kWaterFriction = 0.22;    ///< hydrodynamic planing/skimming drag ratio along water surface
+constexpr double kWaterRestitution = 0.04; ///< inelastic water-entry rebound share
+constexpr double kWaterPoolScale = 0.35;   ///< fraction of spilt fuel that sustains a surface slick fire on water
+constexpr double kWaterSplashShare = 0.85; ///< displaced water plume scaling factor relative to aircraft mass
+constexpr double kRockGiveM = 0.05;        ///< rigid rock surface compliance
+constexpr double kRockFriction = 0.75;     ///< metal scraping rock
+constexpr double kRockRestitution = 0.12;  ///< rigid surface rebound
+constexpr double kGearMaxSinkMs = 6.5;     ///< hard-landing gear collapse threshold (MIL-A-8863C / fighter limit ~4.5-6.5 m/s)
+constexpr double kBellyScrapeDepthM = 0.05;///< structural belly contact depth threshold (B-54, replaces 1.0 m wait)
 constexpr double kTankSafeMs = 12.8;       ///< MIL-STD-1290A's vertical design impact (42 ft/s): tanks hold to here
 constexpr double kTankBurstMs = 45.0;      ///< every tank burst (an estimate: some 3.5 times the design impact)
 constexpr double kSlideShare = 0.15;       ///< what a metre a second along the ground counts against one into it (an
@@ -77,10 +87,13 @@ constexpr double kMistMost = 0.4;          ///< of the spilt fuel, at most, that
 constexpr double kMistFullMs = 100.0;      ///< the severity at which that much does
 constexpr double kPoolBurnS = 90.0;        ///< what is left burns on this long at least (an estimate: a pool fire's minutes)
 
+enum class SurfaceKind : std::uint8_t { Soil = 0, Water = 1, Rock = 2 };
+
 /// How it came in: its velocity as it struck and the ground's unit normal (any one frame), its mass and its fuel.
 struct GroundStrike {
     V3 velocity, normal;
     double massKg = 0.0, fuelKg = 0.0;
+    SurfaceKind surface = SurfaceKind::Soil; ///< B-55 surface-specific compliance, friction & quench model (default Soil preserves legacy results)
 };
 
 struct StrikeOutcome {
@@ -96,9 +109,15 @@ struct StrikeOutcome {
     double spiltShare = 0.0;      ///< of its fuel: the tanks that burst
     double fireballKg = 0.0;      ///< burning at once, as mist
     double poolKg = 0.0, poolKgS = 0.0; ///< what burns on where it lies, and how fast
+    SurfaceKind surface = SurfaceKind::Soil;
+    double splashKg = 0.0;        ///< displaced water/dust plume mass proxy (B-55)
+    double slideDecelMs2 = 0.0;   ///< Coulomb surface deceleration mu * g for post-impact wreck slide (B-54)
 };
 
 /// What the strike does. A velocity leaving the ground (a touch, a bounce) is no strike: all zero but its speeds.
 StrikeOutcome groundStrike(const GroundStrike& in) noexcept;
+
+/// B-54 early gear-overload / belly-scrape contact trigger (fires before 1.0 m terrain penetration).
+bool exceedsGearOrBellyContact(double verticalSinkMs, double bellyDepthM, double tangentMs) noexcept;
 
 } // namespace fsim::ms::damage

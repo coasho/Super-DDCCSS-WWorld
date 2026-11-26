@@ -44,6 +44,8 @@ add_library(fsim_world STATIC
     SkyDome.cpp
     ../vfx/effects/Trails.h
     ../vfx/effects/Trails.cpp
+    ../vfx/effects/DebrisVisuals.h
+    ../vfx/effects/DebrisVisuals.cpp
     Terrain.h
     Terrain.cpp)
 add_library(fsim::world ALIAS fsim_world)

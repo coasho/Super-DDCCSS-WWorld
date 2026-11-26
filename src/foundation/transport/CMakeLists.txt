@@ -13,6 +13,7 @@ add_library(fsim_ipc STATIC
     VisionSegment.cpp)
 target_sources(fsim_ipc PRIVATE WeaponControlsSegment.h WeaponControlsSegment.cpp)
 target_sources(fsim_ipc PRIVATE FusionSegment.h FusionSegment.cpp)
+target_sources(fsim_ipc PRIVATE DebrisSegmentV1.h DebrisSegmentV1.cpp)
 target_sources(fsim_ipc PRIVATE WeaponDiagnosticsV1.h WeaponDiagnosticsV1.cpp)
 target_sources(fsim_ipc PRIVATE WeaponDiagnosticCaptureBindingV1.h WeaponDiagnosticCaptureBindingV1.cpp)
 target_include_directories(fsim_ipc SYSTEM PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/third_party/picosha2")

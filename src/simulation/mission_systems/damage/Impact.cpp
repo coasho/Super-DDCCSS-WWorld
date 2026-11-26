@@ -122,6 +122,7 @@ double smooth(double lo, double hi, double x) noexcept {
 
 StrikeOutcome groundStrike(const GroundStrike& in) noexcept {
     StrikeOutcome o;
+    o.surface = in.surface;
     const V3 n = normalized(in.normal);
     const double m = std::max(in.massKg, 0.0);
     o.speedMs = length(in.velocity);
@@ -133,18 +134,34 @@ StrikeOutcome groundStrike(const GroundStrike& in) noexcept {
     o.angleRad = std::atan2(o.normalMs, o.tangentMs);
     o.normalEnergyJ = 0.5 * m * o.normalMs * o.normalMs;
 
+    double giveM = kGroundGiveM;
+    double mu = kGroundFriction;
+    double e = kRestitution;
+    double poolScale = 1.0;
+    if (in.surface == SurfaceKind::Water) {
+        giveM = kWaterGiveM;
+        mu = kWaterFriction;
+        e = kWaterRestitution;
+        poolScale = kWaterPoolScale;
+    } else if (in.surface == SurfaceKind::Rock) {
+        giveM = kRockGiveM;
+        mu = kRockFriction;
+        e = kRockRestitution;
+    }
+
     // stopped across the surface within what it has to crush
-    o.crushM = kCrushShare * std::cbrt(m / kBulkDensityKgM3) + kGroundGiveM;
+    o.crushM = kCrushShare * std::cbrt(m / kBulkDensityKgM3) + giveM;
     o.decelMs2 = o.normalMs * o.normalMs / (2.0 * o.crushM);
     o.stopS = 2.0 * o.crushM / o.normalMs;
+    o.slideDecelMs2 = mu * 9.80665;
     // the ground's impulse: up its normal m (1 + e) v_n, against the motion along it mu times that - no more than
     // stops it
     const V3 t = o.tangentMs > 1e-9 ? along * (1.0 / o.tangentMs) : V3{};
-    const double drag = std::min(o.tangentMs, kGroundFriction * (1.0 + kRestitution) * o.normalMs);
-    o.after = t * (o.tangentMs - drag) + n * (kRestitution * o.normalMs);
+    const double drag = std::min(o.tangentMs, mu * (1.0 + e) * o.normalMs);
+    o.after = t * (o.tangentMs - drag) + n * (e * o.normalMs);
     // through the crush an accelerometer reads the ground's push: its share along the surface as its drag's is of the
     // impulse's normal part
-    const double share = drag / ((1.0 + kRestitution) * o.normalMs);
+    const double share = drag / ((1.0 + e) * o.normalMs);
     o.specificForce = n * o.decelMs2 - t * (share * o.decelMs2);
 
     // its fuel
@@ -152,9 +169,20 @@ StrikeOutcome groundStrike(const GroundStrike& in) noexcept {
     o.spiltShare = smooth(kTankSafeMs, kTankBurstMs, o.severityMs);
     const double spilt = std::max(in.fuelKg, 0.0) * o.spiltShare;
     o.fireballKg = spilt * kMistMost * smooth(kTankSafeMs, kMistFullMs, o.severityMs);
-    o.poolKg = spilt - o.fireballKg;
+    o.poolKg = (spilt - o.fireballKg) * poolScale;
     o.poolKgS = o.poolKg / kPoolBurnS;
+    if (in.surface == SurfaceKind::Water) {
+        o.splashKg = kWaterSplashShare * m * std::clamp(o.normalMs / 35.0, 0.15, 2.5);
+    } else if (in.surface == SurfaceKind::Soil) {
+        o.splashKg = 0.25 * m * std::clamp(o.normalMs / 45.0, 0.05, 1.5);
+    }
     return o;
+}
+
+bool exceedsGearOrBellyContact(double verticalSinkMs, double bellyDepthM, double tangentMs) noexcept {
+    if (!std::isfinite(verticalSinkMs) || !std::isfinite(bellyDepthM) || !std::isfinite(tangentMs)) return false;
+    if (verticalSinkMs > kGearMaxSinkMs) return true;
+    return bellyDepthM > kBellyScrapeDepthM && (verticalSinkMs > 1.5 || tangentMs > 15.0);
 }
 
 } // namespace fsim::ms::damage

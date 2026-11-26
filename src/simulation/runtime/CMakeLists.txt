@@ -9,6 +9,8 @@
 add_library(fsim_session STATIC
     world/World.h
     world/World.cpp
+    world/DebrisField.h
+    world/DebrisField.cpp
     world/WorldDamage.cpp
     world/WorldLiquidMaterials.cpp
     world/WorldEngagements.cpp

@@ -325,6 +325,7 @@ bool JsbsimModel::load(const AircraftSpec& aircraft, const InitialConditions& ic
     diverged_ = crashed_ = false;
     structuralContact_ = false;
     structuralObservedValid_ = false;
+    contactLoad_ = {};
     stepCount_ = 0;
 
     const SGPath root(aircraft.jsbsimRoot.string());
@@ -420,6 +421,7 @@ bool JsbsimModel::reset(const InitialConditions& ic) {
     diverged_ = crashed_ = false;
     structuralContact_ = false;
     structuralObservedValid_ = false;
+    contactLoad_ = {};
     stepCount_ = 0;
     try {
         // RunIC() reopens every output file; JSBSim only closes them when a
@@ -1198,6 +1200,7 @@ void JsbsimModel::step(const ControlInputs& in) {
     // Hold the SDK input for the complete fixed outer tick. The generated
     // internal step is constant for the model, including reset and coast.
     const int substeps = std::max(1, static_cast<int>(std::llround(dt_ / fdm_->GetDeltaT())));
+    contactLoad_ = {};
     for (int substep = 0; substep < substeps; ++substep) {
         const bool wasContact=structuralContact_;
         if(!advancePassivePlantV1()) {
@@ -1211,10 +1214,26 @@ void JsbsimModel::step(const ControlInputs& in) {
             observer.observe(observer.context,static_cast<unsigned>(substep+1),static_cast<unsigned>(substeps));
         if (substep == 0) ++stepCount_;
         const auto ground = fdm_->GetGroundReactions();
+        const auto prop = fdm_->GetPropagate();
+        const double vNorth = units::feetToMetres(prop->GetVel(1));
+        const double vEast = units::feetToMetres(prop->GetVel(2));
+        const double vDown = units::feetToMetres(prop->GetVel(3));
+        const double tangSpd = std::hypot(vNorth, vEast);
         structuralContact_ = false;
         for (int k = 0; k < ground->GetNumGearUnits(); ++k) {
             const auto contact = ground->GetGearUnit(k);
-            if (!contact->IsBogey() && contact->GetCompLen() > 0.0) { structuralContact_ = true; break; }
+            const double compM = units::feetToMetres(contact->GetCompLen());
+            if (!(compM > 0.0)) continue;
+            if (!contact->IsBogey()) {
+                structuralContact_ = true;
+                contactLoad_.structuralContact = true;
+                contactLoad_.maxBellyDepthM = std::max(contactLoad_.maxBellyDepthM, compM);
+                contactLoad_.tangentSpeedMs = std::max(contactLoad_.tangentSpeedMs, tangSpd);
+            } else if (vDown > 0.0) {
+                contactLoad_.maxGearSinkMs = std::max(contactLoad_.maxGearSinkMs, vDown);
+                contactLoad_.tangentSpeedMs = std::max(contactLoad_.tangentSpeedMs, tangSpd);
+                if (vDown > 6.5) contactLoad_.gearOverload = true;
+            }
         }
         if(structuralContact_ && !wasContact && !structuralObservedValid_) {
             state(structuralObserved_.state);

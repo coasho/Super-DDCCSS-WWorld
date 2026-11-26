@@ -19,7 +19,9 @@
 #include "simulation/flight_control/Catalog.h"
 #include "simulation/flight_control/ControlStack.h"
 #include "simulation/mission_systems/Host.h"
+#include "simulation/mission_systems/damage/Destruction.h"
 #include "simulation/mission_systems/damage/State.h"
+#include "simulation/runtime/world/DebrisField.h"
 #include "simulation/mission_systems/weapon/Guidance.h"
 #include "simulation/mission_systems/weapon/MotionHistory.h"
 #include "simulation/mission_systems/weapon/ContactFuze.h"
@@ -762,6 +764,20 @@ public:
     /// it leaves as a hit's would. False: no such vehicle, damage data or section, or it is gone already.
     bool separateSection(std::uint32_t id, const std::string& section);
 
+    /// VIS-M11 destruction & lightweight rigid-body debris configuration (B-54, B-55, B-58).
+    /// LegacyCompatible retains jsbsim:<piece> child vehicles for frozen SIM-M02/M03 tests while populating passive debris shards;
+    /// LightweightDebris spawns zero jsbsim:<piece> vehicles and activates multi-tier catastrophic ullage/cook-off, belly-slide & water impacts.
+    enum class DestructionModeV1 : std::uint8_t {
+        LegacyCompatible = 0,
+        LightweightDebris = 1,
+    };
+    void setDestructionModeV1(DestructionModeV1 mode) noexcept { destructionMode_ = mode; }
+    DestructionModeV1 destructionModeV1() const noexcept { return destructionMode_; }
+    void setImpactSurfaceV1(ms::damage::SurfaceKind surface) noexcept { impactSurfaceOverride_ = surface; }
+    void clearImpactSurfaceV1() noexcept { impactSurfaceOverride_.reset(); }
+    const DebrisField& debrisField() const noexcept { return debrisField_; }
+    const ms::damage::VehicleDestructionState* destructionState(std::uint32_t id) const noexcept;
+
 private:
     struct Entry {
         ms::track::Fusion fusion;
@@ -822,6 +838,14 @@ private:
         double wreckFireUntilS = 0.0;      ///< a ground strike's fire burns on until then (0: none)
         std::string wreckFireName;         ///< the component its Fire events name
         bool crewLost = false;             ///< its controls held where they were
+        ms::damage::VehicleDestructionState destruction;
+        Rng destructionRng;
+        bool slidePoseActive = false;
+        sim::VehicleState slideState{};
+        double slidePositionEcef[3] = {};
+        double slideVelocityEcef[3] = {};
+        double slideNormalEcef[3] = {};
+        double slideSparkAccumS = 0.0;
         ms::WeaponRecord origin;           ///< a weapon's: the store it was (MS-7; store, station, activity, target, jettisoned)
         std::uint32_t launchSeekerCue = 0; ///< actual on-rail observation, never a designation ID
         std::unique_ptr<ms::components::GuidanceProviderV1> guidance;
@@ -1247,6 +1271,17 @@ private:
 
 
     ipc::RecordWriter recorder_;
+    ipc::DebrisRecorderV1 debrisRecorder_;
+    DestructionModeV1 destructionMode_ = DestructionModeV1::LegacyCompatible;
+    std::optional<ms::damage::SurfaceKind> impactSurfaceOverride_;
+    DebrisField debrisField_;
+    Rng debrisRng_;
+    ipc::DebrisFrameV1 collectDebrisFrame() const;
+    void applySlidePose(std::size_t slot, sim::VehicleState& state) const noexcept;
+    ms::damage::SurfaceKind detectImpactSurface(const sim::VehicleState& state) const noexcept;
+    void evaluateEntryDestruction(Entry& e, const ms::damage::Impact* impact, double pressurePa, int newlySeparated,
+                                  double dtS, std::vector<ipc::EngagementEvent>* events);
+    void stepWreckSlidesAndFuel(double dt);
     bool weaponDiagnosticCaptureBindingReadyV1_=false;
     double lastRecordedTime_ = -1.0;
     /// Per slot, the stores as last recorded ('M' records written when they change; kept apart from Entry, whose

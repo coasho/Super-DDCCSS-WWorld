@@ -24,6 +24,7 @@
 #include "foundation/io/AircraftFile.h"
 #include "foundation/io/TerrainTiles.h"
 #include "fsim/MissionSystems.h"
+#include "foundation/transport/DebrisSegmentV1.h"
 #include "foundation/transport/Recording.h"
 #include "foundation/transport/WeaponDiagnosticsV1.h"
 #include "foundation/transport/WeaponDiagnosticCaptureBindingV1.h"
@@ -53,6 +54,7 @@
 #include "visualization/scene/Sky.h"
 #include "visualization/scene/SkyDome.h"
 #include "visualization/scene/Terrain.h"
+#include "visualization/vfx/effects/DebrisVisuals.h"
 #include "visualization/vfx/effects/Trails.h"
 #include "visualization/scene/VehicleVisuals.h"
 
@@ -570,6 +572,8 @@ int main(int argc, char** argv) {
 
     // --- Recording playback (--replay) ------------------------------------------------
     ipc::Recording recording;
+    ipc::DebrisReplayV1 debrisReplay;
+    ipc::DebrisFrameV1 activeDebrisFrame;
     ipc::BoundWeaponDiagnosticsReplayV1 weaponDiagnosticsReplay;
     bool weaponDiagnosticsReplayLoaded = false;
     std::unique_ptr<ipc::WeaponDiagnosticFrameV1> weaponDiagnosticsReplayScratch;
@@ -606,6 +610,15 @@ int main(int argc, char** argv) {
         if (!opt.weaponDiagnosticsReplayPath.empty() && !weaponDiagnosticsReplayLoaded) {
             LOG_ERROR("app") << "the explicitly requested weapon diagnostic companion could not be validated";
             return 1;
+        }
+        const auto debrisCompanion = opt.replayPath + ".debris";
+        if (std::filesystem::is_regular_file(debrisCompanion, companionError)) {
+            std::string debrisError;
+            if (debrisReplay.load(debrisCompanion, &debrisError)) {
+                LOG_INFO("app") << "debris companion '" << debrisCompanion << "' (" << debrisReplay.frameCount() << " frames)";
+            } else {
+                LOG_WARN("app") << "could not load debris companion '" << debrisCompanion << "': " << debrisError;
+            }
         }
     }
     const bool replay = !recording.frames().empty();
@@ -773,6 +786,8 @@ int main(int argc, char** argv) {
     world::VehicleVisuals visuals(slots, visualSettings, viewer.options());
     visuals.setCompiler([&viewer](vsg::ref_ptr<vsg::Node> node) { return viewer.compile(node); });
     scene->addChild(visuals.node());
+    world::DebrisVisuals debris(viewer.options(), cloudFiles ? *cloudFiles / "shaders" : std::filesystem::path{});
+    addBackdrop(debris.solidNode());
     addBackdrop(clouds.over());
     world::Trails trails(slots, 900, 0.25, viewer.options());
     addBackdrop(trails.node());
@@ -803,6 +818,7 @@ int main(int argc, char** argv) {
         if (flow) flow->setAircraft(slot, m ? m->wingspanM : 0.0, m ? m->emptyMassKg + m->pointMassKg : 0.0);
     };
     addBackdrop(airflow.node());
+    addBackdrop(debris.trailNode());
     // the engagement's detonations and fires (MS-7h), solved as a fluid by NVIDIA Flow: the one way they are drawn
     flow = std::make_unique<world::FlowVolumes>(viewer.options(), cloudFiles ? *cloudFiles / "shaders" : std::filesystem::path{},
                                                 clouds.atmosphere(), viewer.coarseShading());
@@ -896,8 +912,9 @@ int main(int argc, char** argv) {
     if (opt.stats > 0.0) {
         beforePass->addChild(gpuTimer.mark("vapour march"));
         const std::vector<std::pair<vsg::ref_ptr<vsg::Node>, std::string>> named{
-            {clouds.under(), "clouds under"}, {visuals.node(), "vehicles+exhaust"}, {clouds.over(), "clouds over"},
-            {trails.node(), "trails"}, {airflow.node(), "contrails"}, {flow ? flow->node() : vsg::ref_ptr<vsg::Node>{}, "flow"}};
+            {clouds.under(), "clouds under"}, {visuals.node(), "vehicles+exhaust"}, {debris.solidNode(), "debris solid"},
+            {clouds.over(), "clouds over"}, {trails.node(), "trails"}, {airflow.node(), "contrails"},
+            {debris.trailNode(), "debris trails"}, {flow ? flow->node() : vsg::ref_ptr<vsg::Node>{}, "flow"}};
         auto marked = vsg::Group::create();
         marked->addChild(gpuTimer.mark("prepass, pass begin"));
         for (const auto& child : scene->children) {
@@ -1026,7 +1043,7 @@ int main(int argc, char** argv) {
             visuals.hideSection(e.slot, std::string(e.name, ::strnlen(e.name, sizeof e.name)));
     };
     const auto forgetEvents = [&] {
-        airflow.clearFires(), visuals.clearSections();
+        airflow.clearFires(), visuals.clearSections(), visuals.clearDestruction(), debris.clear();
         if (flow) flow->clear();
     };
     std::vector<ipc::EngagementEvent> liveEvents;
@@ -1285,6 +1302,8 @@ int main(int argc, char** argv) {
                     LOG_INFO("app") << "leaving world '" << mirror.name() << "' for '" << opt.worldName << "'";
                     mirror.close();
                     visuals.clearWeaponControls();
+                    visuals.clearDestruction();
+                    debris.clear();
                     cameraPreview->detach();
                     batch = nullptr;
                     std::fill(alive.begin(), alive.end(), 0);
@@ -1425,6 +1444,8 @@ int main(int argc, char** argv) {
                     }
                     mirror.close();
                     visuals.clearWeaponControls();
+                    visuals.clearDestruction();
+                    debris.clear();
                     cameraPreview->detach();
                     batch = nullptr;
                     std::fill(alive.begin(), alive.end(), 0);
@@ -1492,10 +1513,25 @@ int main(int argc, char** argv) {
 
         // Sim -> scene
         const bool anyAlive = std::any_of(alive.begin(), alive.end(), [](unsigned char a) { return a != 0; });
+        const ipc::DebrisFrameV1* debrisFramePtr = nullptr;
+        double debrisClock = 0.0;
         if (batch) {
             if (shotsOnReplay) interpolator.updateAt(replayTime);
             else interpolator.update(viewer.frameSeconds(), timeFactor, paused);
             const auto& states = opt.interpolate ? interpolator.states() : batch->states;
+            debrisClock = shotsOnReplay ? replayTime
+                                        : (opt.interpolate && std::isfinite(interpolator.renderSimTime()) ? interpolator.renderSimTime() : batch->simTime);
+            if (replay && !debrisReplay.empty()) {
+                if (debrisReplay.atTime(debrisClock, activeDebrisFrame, opt.interpolate)) debrisFramePtr = &activeDebrisFrame;
+            } else if (mirror.valid()) {
+                debrisFramePtr = &mirror.debris();
+            }
+            std::vector<unsigned char> retiredNow(slots, 0);
+            if (debrisFramePtr) {
+                for (const auto& vd : debrisFramePtr->vehicles)
+                    if (vd.slot < slots && alive[vd.slot] && vd.hullRetired != 0) retiredNow[vd.slot] = 1;
+            }
+            for (std::size_t i = 0; i < slots; ++i) visuals.setHullRetired(i, retiredNow[i] != 0);
             visuals.setWeaponControlsTime(interpolator.renderSimTime(),opt.interpolate);
             visuals.setExhaust(true);
             visuals.update(Span<const sim::VehicleState>(states));
@@ -1597,6 +1633,14 @@ int main(int argc, char** argv) {
                 airflow.setFuelFlows(fuelFlows);
                 airflow.setClock(drawnTime);
                 airflow.update(drawn, alive, visuals, viewer.camera()->projectionMatrix->transform(), viewer.lookAt()->eye, *ellipsoid, sunDir);
+                if (debrisFramePtr) {
+                    const vsg::dvec3 camFwd = vsg::normalize(viewer.lookAt()->center - viewer.lookAt()->eye);
+                    const vsg::dvec3 camRight = vsg::normalize(vsg::cross(camFwd, viewer.lookAt()->up));
+                    const vsg::dvec3 camUp = vsg::normalize(vsg::cross(camRight, camFwd));
+                    debris.update(*debrisFramePtr, viewer.lookAt()->eye, camRight, camUp, sunDir, light, debrisClock);
+                } else {
+                    debris.clear();
+                }
                 if (flow) {
                     const vsg::dmat4 viewMat = viewer.camera()->viewMatrix->transform();
                     flow->update(drawnTime, drawn, alive, visuals, viewer.camera()->projectionMatrix->transform(), viewer.lookAt()->eye,

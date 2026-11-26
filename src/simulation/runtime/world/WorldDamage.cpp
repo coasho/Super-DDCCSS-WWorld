@@ -741,6 +741,7 @@ std::vector<ipc::EngagementEvent> World::applyDamagePreparedV1(Entry& e, const D
             changes.insert(changes.end(),later.begin(),later.end());
         }
     }
+    int newlySeparated = 0;
     for (std::size_t changeIndex=0;changeIndex<changes.size();++changeIndex) {
         const auto& c=changes[changeIndex];
         const auto* donor=changeDonors.empty()?nullptr:changeDonors[changeIndex];
@@ -769,12 +770,22 @@ std::vector<ipc::EngagementEvent> World::applyDamagePreparedV1(Entry& e, const D
                 // the tank, out of its far side - on top of the aircraft's own motion: the fireball is laid along
                 // the aircraft's path, and off it to the side away from the burst
                 double fastest = 0.0;
+                double hitEnergy = 0.0;
                 const auto& sourceImpact=donor?donor->impact:impact;
                 for (const auto& h : sourceImpact.components)
-                    if (h.component == c.component) fastest = std::max(fastest, h.fastestMs);
+                    if (h.component == c.component) {
+                        fastest = std::max(fastest, h.fastestMs);
+                        hitEnergy += h.energyJ;
+                    }
                 const auto actualBurst=donor?sourceImpact.fromBody*sourceImpact.missM:burstBody;
+                const double tankFuelNow = (c.tank >= 0 && static_cast<std::size_t>(c.tank) < f.tankKg.size())
+                                               ? f.tankKg[static_cast<std::size_t>(c.tank)]
+                                               : std::max(c.spillKg * 20.0, 20.0);
+                const double spraySpeed = destructionMode_ == DestructionModeV1::LightweightDebris
+                                              ? ms::damage::hydrodynamicRamSpraySpeedMs(hitEnergy, fastest, tankFuelNow)
+                                              : (kRamSprayShare * fastest);
                 const ms::damage::V3 through = ms::damage::normalized(a.components[static_cast<std::size_t>(c.component)].centre - actualBurst) *
-                                               (kRamSprayShare * fastest);
+                                               spraySpeed;
                 const auto* sourceR=donor?donor->encounter.rotationBodyToEcef:R;
                 for (int r = 0; r < 3; ++r) ev.velocityEcef[r] += sourceR[3 * r] * through.x + sourceR[3 * r + 1] * through.y + sourceR[3 * r + 2] * through.z;
             }
@@ -822,6 +833,7 @@ std::vector<ipc::EngagementEvent> World::applyDamagePreparedV1(Entry& e, const D
                 for (int k = 0; k < 3; ++k) thrown.sharedBody[k] = (&currentImpulse.x)[k] / hitKg;
             for (int k=0;k<3;++k) thrown.sharedAngularBody[k]=afterImpulse.angularRateBodyRadS[k]-currentState.angularRateBodyRadS[k];
             separatedAt(e, c.section, nullptr, &thrown, &out);
+            ++newlySeparated;
             break;
         }
         case K::PanelTorn: {
@@ -834,6 +846,7 @@ std::vector<ipc::EngagementEvent> World::applyDamagePreparedV1(Entry& e, const D
             break;
         }
     }
+    evaluateEntryDestruction(e, &impact, pressurePa, newlySeparated, 0.0, &out);
     pool_->refreshState(e.slot);
     // Optional read-only native application witness. Its phase is post-apply,
     // not an assumed pre-release label; an actual release event/serial proves
@@ -1543,9 +1556,11 @@ void World::advanceDetonationEffects() {
 void World::stepDamage() {
     advanceDetonationEffects();
     const double dt = options_.dt * options_.frameSkip;
-    // a ground strike's fire, burnt out
+    // a ground strike's fire, burnt out (legacy fixed timer when LightweightDebris fuel draw-down is inactive)
     for (auto& entry : entries_)
-        if (Entry* e = entry.get(); e && e->wreckFireUntilS > 0.0 && simTime_ >= e->wreckFireUntilS) {
+        if (Entry* e = entry.get(); e && e->wreckFireUntilS > 0.0 &&
+            !(destructionMode_ == DestructionModeV1::LightweightDebris && e->destruction.wreckBurnRateKgS > 0.0) &&
+            simTime_ >= e->wreckFireUntilS) {
             engage(engagementEvent(*e, ipc::EngagementKind::Fire, e->wreckFireName)); // (its rate 0: it is out)
             e->wreckFireUntilS = 0.0;
         }
@@ -1558,6 +1573,7 @@ void World::stepDamage() {
         ms::damage::Flight f;
         damageFlight(*e, f);
         // the holed tanks leak; a burning one's rate recorded as it changes, its end when it is dry
+        bool hasBurningTank = false;
         for (const auto& [tank, state] : e->damage->tanks()) {
             if (tank < 0 || static_cast<std::size_t>(tank) >= f.tankKg.size()) continue;
             const double kg = f.tankKg[static_cast<std::size_t>(tank)];
@@ -1568,6 +1584,7 @@ void World::stepDamage() {
                     e->damageReads.tanks[static_cast<std::size_t>(tank)].set(std::max(kg-leak*dt,0.0)/kLbsToKg);
             }
             if (!state.burning) continue;
+            if (kg > 0.0) hasBurningTank = true;
             const auto last = e->fireRates.find(tank);
             const double before = last == e->fireRates.end() ? 0.0 : last->second;
             if (std::abs(leak - before) > kRateReported * std::max(before, 1e-3) && !(before == 0.0 && leak == 0.0)) {
@@ -1591,8 +1608,17 @@ void World::stepDamage() {
             synchronizeDetachedFuel(model,*e->damage);
         }
         // each section's root against its strength left: one that fails leaves, with its mass and its tanks' fuel
-        for (const auto& c : e->damage->loads(f)) separated(*e, c.section);
+        int stepSeparated = 0;
+        for (const auto& c : e->damage->loads(f)) {
+            separated(*e, c.section);
+            ++stepSeparated;
+        }
+        if (destructionMode_ == DestructionModeV1::LightweightDebris && e->info.role == ms::Role::Aircraft &&
+            (hasBurningTank || stepSeparated > 0)) {
+            evaluateEntryDestruction(*e, nullptr, f.airPressurePa, stepSeparated, dt, nullptr);
+        }
     }
+    stepWreckSlidesAndFuel(dt);
 }
 
 bool World::ensureDamage(Entry& e) {
@@ -1606,6 +1632,7 @@ bool World::ensureDamage(Entry& e) {
     if(e.damageOwnedSection)for(const auto& tank:af->second->sections[static_cast<std::size_t>(*e.damageOwnedSection)].tanks)
         e.damage->setDetachedFuelKg(tank.index,0); // Native physical reset restores the empty piece model.
     e.damageRng = Rng::forVehicle(options_.seed, kDamageStream, e.info.id);
+    e.destructionRng = Rng::forVehicle(options_.seed, 0x4453'5452ull, e.info.id); // "DSTR": independent stream
     auto& r = e.damageReads;
     const char* axes[3] = {"x", "y", "z"};
     for (std::size_t k = 0; k < 3; ++k) {
@@ -1656,78 +1683,142 @@ void World::separatedAt(Entry& e, int section, const sim::VehicleState* as, cons
             if(inherited)inherited->setDetachedFuelKg(t.index,kg);
             contents.set(0.0);
         }
-    for (const int station : sec.stations) part.stations.emplace_back(station, e.ms.loseStation(station, simTime_));
+    double storesKg = 0.0;
+    for (const int station : sec.stations) {
+        const double stKg = e.ms.loseStation(station, simTime_);
+        part.stations.emplace_back(station, stKg);
+        storesKg += stKg;
+    }
     applyStoreMasses(e);
     model.endMassChange(sec.inertia.data(), nullptr);
-    // Load the real departing model before applying the internal impulse. Fuel
-    // and stores move its CG away from the dry section centre; both bodies must
-    // receive their equal/opposite impulses at that same final loaded point.
-    const auto pieceId=launchPiece(e,section,part);
-    if(auto* piece=entry(pieceId);piece&&inherited) {
-        piece->damageOwnedSection=section;
-        piece->damage=std::move(inherited);piece->damageRng=Rng::forVehicle(options_.seed,kDamageStream,pieceId);
-        if(damageContinuation_&&!damageContinuation_->pending.empty()) {
-            ms::damage::MaterialOwnerHandoffV3 handoff;
-            handoff.from=e.info.id;handoff.fromGeneration=e.info.generation;
-            handoff.to=piece->info.id;handoff.toGeneration=piece->info.generation;
-            if(!ms::damage::prepareMaterialOwnerHandoffV3(handoff,a,piece->damage->attachedGeometry()))
-                throw std::runtime_error("material contact ownership preparation refused");
-            damageContinuation_->materialHandoffsV3.push_back(std::move(handoff));
-        }
-        piece->liquidMaterials=e.liquidMaterials;
-        piece->liquidOriginShiftBodyM=e.liquidOriginShiftBodyM+sec.cg;
-        piece->crewLost=piece->damage->crewLost();
-        airframes_[piece->info.aircraft]=std::make_shared<ms::damage::Airframe>(piece->damage->airframe());
-        auto& pieceModel=pool_->vehicle(piece->slot);auto& reads=piece->damageReads;
-        const char* axes[]={"x","y","z"};
-        for(std::size_t i=0;i<3;++i) {
-            reads.aero[i]=pieceModel.property(std::string("forces/fb")+axes[i]+"-aero-lbs");
-            reads.total[i]=pieceModel.property(std::string("forces/fb")+axes[i]+"-total-lbs");
-        }
-        reads.weight=pieceModel.property("inertia/weight-lbs");reads.qbar=pieceModel.property("aero/qbar-psf");
-        synchronizeDetachedFuel(pieceModel,*piece->damage);
-        // The parent no longer owns this emitter. The child's next physical
-        // leak update publishes the inherited fire at its translated component.
-        for(const auto& [tank,state]:piece->damage->tanks())if(state.burning) {
-            const auto component=static_cast<std::size_t>(std::max(state.component,0));
-            if(component<a.components.size()) {
-                const auto stop=engagementEvent(e,ipc::EngagementKind::Fire,a.components[component].name);
-                if(events)events->push_back(stop);else engage(stop);
-            }
-            e.fireRates[tank]=0;
-        }
-    }
-    if (const auto* piece=entry(pieceId)) {
-        auto& pieceModel=pool_->vehicle(piece->slot);
-        auto& restModel=pool_->vehicle(e.slot);
-        sim::VehicleState pieceState,restState;
-        pieceModel.state(pieceState); restModel.state(restState);
-        const double partKg=pieceModel.energy().massKg;
-        if (std::isfinite(partKg) && partKg>0) {
-            const auto loadedArm=unrotate(part.before,v3(pieceState.positionEcef)-v3(part.before.positionEcef));
-            const auto loadedCg=v3(part.cgFromOrigin)+loadedArm;
-            ms::damage::V3 push=ms::damage::normalized(sec.cg-sec.root)*kSeparationMs;
-            if (thrown) {
-                const auto referenceCg=thrown->sharedCgFromOriginBodyM.value_or(v3(part.cgFromOrigin));
-                auto extra=v3(thrown->impulseBody)*(1/partKg)-v3(thrown->sharedBody)-
-                    ms::damage::cross(v3(thrown->sharedAngularBody),loadedCg-referenceCg);
-                if (const double speed=ms::damage::length(extra); speed>kThrownMostMs) extra=extra*(kThrownMostMs/speed);
-                push+=extra;
-            }
-            const auto impulseEcef=rotate(part.before,push*partKg);
-            const auto pieceImpulse=unrotate(pieceState,impulseEcef);
-            const auto restImpulse=unrotate(restState,impulseEcef*(-1));
-            const auto restArm=unrotate(restState,v3(pieceState.positionEcef)-v3(restState.positionEcef));
-            const auto restAngular=ms::damage::cross(restArm,restImpulse);
-            const double pieceNs[]={pieceImpulse.x,pieceImpulse.y,pieceImpulse.z};
-            const double restNs[]={restImpulse.x,restImpulse.y,restImpulse.z};
-            const double restNms[]={restAngular.x,restAngular.y,restAngular.z};
-            pieceModel.applyImpulse(pieceNs,nullptr);
-            restModel.applyImpulse(restNs,restNms);
-            pool_->refreshState(piece->slot);
-        } else LOG_WARN("session") << e.info.name << ": departing section mass unavailable for its internal impulse";
-    }
+
     const auto emit=[&](ipc::EngagementEvent event){ if (events) events->push_back(event); else engage(event); };
+    bool sectionBurning = false;
+    if (inherited) {
+        for (const auto& [tank, state] : inherited->tanks())
+            if (state.burning) sectionBurning = true;
+    }
+
+    // Build shared breakup geometry for DebrisField (used in both LightweightDebris and passive shard emission).
+    const double partTotalKg = std::max(sec.massKg + part.fuelKg + storesKg, 1.0);
+    const ms::damage::V3 relCg = sec.cg - v3(part.cgFromOrigin);
+    const ms::damage::V3 relRoot = sec.root - v3(part.cgFromOrigin);
+    const ms::damage::V3 secPosEcef = v3(part.before.positionEcef) + rotate(part.before, relCg);
+    const ms::damage::V3 rootPosEcef = v3(part.before.positionEcef) + rotate(part.before, relRoot);
+    ms::damage::V3 pushBody = ms::damage::normalized(sec.cg - sec.root) * kSeparationMs;
+    if (thrown) {
+        const auto referenceCg = thrown->sharedCgFromOriginBodyM.value_or(v3(part.cgFromOrigin));
+        auto extra = v3(thrown->impulseBody) * (1.0 / partTotalKg) - v3(thrown->sharedBody) -
+                     ms::damage::cross(v3(thrown->sharedAngularBody), sec.cg - referenceCg);
+        if (const double speed = ms::damage::length(extra); speed > kThrownMostMs) extra = extra * (kThrownMostMs / speed);
+        pushBody += extra;
+    }
+    const ms::damage::V3 secVelEcef =
+        rotate(part.before, v3(part.before.velocityBodyMs) + ms::damage::cross(v3(part.before.angularRateBodyRadS), relCg) + pushBody);
+
+    SectionBreakupSpawn debrisSpawn;
+    debrisSpawn.ownerVehicleId = e.info.id;
+    debrisSpawn.rootPositionEcef[0] = rootPosEcef.x; debrisSpawn.rootPositionEcef[1] = rootPosEcef.y; debrisSpawn.rootPositionEcef[2] = rootPosEcef.z;
+    debrisSpawn.sectionPositionEcef[0] = secPosEcef.x; debrisSpawn.sectionPositionEcef[1] = secPosEcef.y; debrisSpawn.sectionPositionEcef[2] = secPosEcef.z;
+    debrisSpawn.sectionVelocityEcef[0] = secVelEcef.x; debrisSpawn.sectionVelocityEcef[1] = secVelEcef.y; debrisSpawn.sectionVelocityEcef[2] = secVelEcef.z;
+    std::copy_n(part.before.rotationBodyToEcef, 9, debrisSpawn.rotationBodyToEcef);
+    std::copy_n(part.before.angularRateBodyRadS, 3, debrisSpawn.angularRateBodyRadS);
+    debrisSpawn.sectionMassKg = partTotalKg;
+    debrisSpawn.fuelKg = part.fuelKg;
+    debrisSpawn.spanM = std::max(ms::damage::length(sec.cg - sec.root) * 2.0, 1.5);
+    debrisSpawn.isWing = sec.name.find("wing") != std::string::npos || sec.name.find("tail") != std::string::npos;
+    debrisSpawn.burning = sectionBurning;
+
+    if (destructionMode_ == DestructionModeV1::LightweightDebris) {
+        // VIS-M11: Zero jsbsim:<piece> child vehicles spawned! Equal/opposite separation impulse is
+        // applied directly to the remaining parent airframe and the departing section + ragged shards
+        // enter the lightweight 6-DOF DebrisField.
+        if (inherited) {
+            for (const auto& [tank, state] : inherited->tanks()) {
+                if (!state.burning) continue;
+                const auto component = static_cast<std::size_t>(std::max(state.component, 0));
+                if (component < a.components.size()) emit(engagementEvent(e, ipc::EngagementKind::Fire, a.components[component].name));
+                e.fireRates[tank] = 0.0;
+            }
+        }
+        sim::VehicleState restState;
+        model.state(restState);
+        const auto impulseEcef = rotate(part.before, pushBody * partTotalKg);
+        const auto restImpulse = unrotate(restState, impulseEcef * (-1.0));
+        const auto restArm = unrotate(restState, secPosEcef - v3(restState.positionEcef));
+        const auto restAngular = ms::damage::cross(restArm, restImpulse);
+        const double restNs[] = {restImpulse.x, restImpulse.y, restImpulse.z};
+        const double restNms[] = {restAngular.x, restAngular.y, restAngular.z};
+        model.applyImpulse(restNs, restNms);
+        debrisSpawn.spawnPrimaryChunk = true;
+        debrisField_.spawnSectionBreakup(debrisSpawn, debrisRng_);
+    } else {
+        // LegacyCompatible mode: retain jsbsim:<piece> child vehicles & MaterialOwnerHandoffV3 for SIM-M02/M03 tests,
+        // while also populating passive fracture shards in DebrisField.
+        const auto pieceId=launchPiece(e,section,part);
+        if(auto* piece=entry(pieceId);piece&&inherited) {
+            piece->damageOwnedSection=section;
+            piece->damage=std::move(inherited);piece->damageRng=Rng::forVehicle(options_.seed,kDamageStream,pieceId);
+            if(damageContinuation_&&!damageContinuation_->pending.empty()) {
+                ms::damage::MaterialOwnerHandoffV3 handoff;
+                handoff.from=e.info.id;handoff.fromGeneration=e.info.generation;
+                handoff.to=piece->info.id;handoff.toGeneration=piece->info.generation;
+                if(!ms::damage::prepareMaterialOwnerHandoffV3(handoff,a,piece->damage->attachedGeometry()))
+                    throw std::runtime_error("material contact ownership preparation refused");
+                damageContinuation_->materialHandoffsV3.push_back(std::move(handoff));
+            }
+            piece->liquidMaterials=e.liquidMaterials;
+            piece->liquidOriginShiftBodyM=e.liquidOriginShiftBodyM+sec.cg;
+            piece->crewLost=piece->damage->crewLost();
+            airframes_[piece->info.aircraft]=std::make_shared<ms::damage::Airframe>(piece->damage->airframe());
+            auto& pieceModel=pool_->vehicle(piece->slot);auto& reads=piece->damageReads;
+            const char* axes[]={"x","y","z"};
+            for(std::size_t i=0;i<3;++i) {
+                reads.aero[i]=pieceModel.property(std::string("forces/fb")+axes[i]+"-aero-lbs");
+                reads.total[i]=pieceModel.property(std::string("forces/fb")+axes[i]+"-total-lbs");
+            }
+            reads.weight=pieceModel.property("inertia/weight-lbs");reads.qbar=pieceModel.property("aero/qbar-psf");
+            synchronizeDetachedFuel(pieceModel,*piece->damage);
+            for(const auto& [tank,state]:piece->damage->tanks())if(state.burning) {
+                const auto component=static_cast<std::size_t>(std::max(state.component,0));
+                if(component<a.components.size()) emit(engagementEvent(e,ipc::EngagementKind::Fire,a.components[component].name));
+                e.fireRates[tank]=0;
+            }
+        }
+        if (const auto* piece=entry(pieceId)) {
+            auto& pieceModel=pool_->vehicle(piece->slot);
+            auto& restModel=pool_->vehicle(e.slot);
+            sim::VehicleState pieceState,restState;
+            pieceModel.state(pieceState); restModel.state(restState);
+            const double partKg=pieceModel.energy().massKg;
+            if (std::isfinite(partKg) && partKg>0) {
+                const auto loadedArm=unrotate(part.before,v3(pieceState.positionEcef)-v3(part.before.positionEcef));
+                const auto loadedCg=v3(part.cgFromOrigin)+loadedArm;
+                ms::damage::V3 push=ms::damage::normalized(sec.cg-sec.root)*kSeparationMs;
+                if (thrown) {
+                    const auto referenceCg=thrown->sharedCgFromOriginBodyM.value_or(v3(part.cgFromOrigin));
+                    auto extra=v3(thrown->impulseBody)*(1/partKg)-v3(thrown->sharedBody)-
+                        ms::damage::cross(v3(thrown->sharedAngularBody),loadedCg-referenceCg);
+                    if (const double speed=ms::damage::length(extra); speed>kThrownMostMs) extra=extra*(kThrownMostMs/speed);
+                    push+=extra;
+                }
+                const auto impulseEcef=rotate(part.before,push*partKg);
+                const auto pieceImpulse=unrotate(pieceState,impulseEcef);
+                const auto restImpulse=unrotate(restState,impulseEcef*(-1));
+                const auto restArm=unrotate(restState,v3(pieceState.positionEcef)-v3(restState.positionEcef));
+                const auto restAngular=ms::damage::cross(restArm,restImpulse);
+                const double pieceNs[]={pieceImpulse.x,pieceImpulse.y,pieceImpulse.z};
+                const double restNs[]={restImpulse.x,restImpulse.y,restImpulse.z};
+                const double restNms[]={restAngular.x,restAngular.y,restAngular.z};
+                pieceModel.applyImpulse(pieceNs,nullptr);
+                restModel.applyImpulse(restNs,restNms);
+                pool_->refreshState(piece->slot);
+            } else LOG_WARN("session") << e.info.name << ": departing section mass unavailable for its internal impulse";
+        }
+        debrisSpawn.spawnPrimaryChunk = false;
+        debrisField_.spawnSectionBreakup(debrisSpawn, debrisRng_);
+    }
+
     for (const auto& change : e.damage->detachComponents(section)) {
         const auto& component=a.components[static_cast<std::size_t>(change.component)];
         using K=ms::damage::Change::Kind;
@@ -1740,6 +1831,8 @@ void World::separatedAt(Entry& e, int section, const sim::VehicleState* as, cons
         }
     }
     emit(engagementEvent(e, ipc::EngagementKind::Separated, sec.name));
+    if (e.destruction.tier < ms::damage::DestructionTier::StructuralBreakup)
+        e.destruction.tier = ms::damage::DestructionTier::StructuralBreakup;
     pool_->refreshState(e.slot);
     LOG_INFO("session") << e.info.name << ": its " << sec.name << " failed at its root and left";
 }
@@ -1880,6 +1973,8 @@ void World::impacted(Entry& e, const sim::VehicleState& fallback, const sim::Veh
     const bool stays = e.info.role != ms::Role::Weapon;
     if (!stays)
         if (const auto fuel = model.property("inertia/pointmass-weight-lbs"); fuel.valid()) strike.fuelKg = std::max(fuel.get() * kLbsToKg, 0.0);
+    if (destructionMode_ == DestructionModeV1::LightweightDebris)
+        strike.surface = detectImpactSurface(after);
     const dmg::StrikeOutcome o = dmg::groundStrike(strike);
 
     // its sections against the strike's load, as against a flight's: what an accelerometer read through the crush, in
@@ -1913,7 +2008,8 @@ void World::impacted(Entry& e, const sim::VehicleState& fallback, const sim::Veh
         }
     }
 
-    ipc::EngagementEvent ev = engagementEvent(e, ipc::EngagementKind::Impact, "ground");
+    ipc::EngagementEvent ev = engagementEvent(e, ipc::EngagementKind::Impact,
+                                              o.surface == dmg::SurfaceKind::Water ? "water" : "ground");
     for (int k = 0; k < 3; ++k) {
         ev.velocityEcef[k] = (&strike.velocity.x)[k];
         ev.normalEcef[k] = (&normal.x)[k];
@@ -1926,9 +2022,63 @@ void World::impacted(Entry& e, const sim::VehicleState& fallback, const sim::Veh
     ev.amountKg = o.fireballKg;
     ev.rateKgS = stays ? std::min(o.poolKgS, dmg::kBurnMostKgS) : 0.0;
     engage(ev);
-    LOG_INFO("session") << e.info.name << " struck the ground at " << o.speedMs << " m/s, " << o.angleRad * 57.29577951308232
+    LOG_INFO("session") << e.info.name << " struck the " << (o.surface == dmg::SurfaceKind::Water ? "water" : "ground")
+                        << " at " << o.speedMs << " m/s, " << o.angleRad * 57.29577951308232
                         << " deg below it: " << ev.loadG << " g across it, " << broke << " section(s) broke off, " << o.fireballKg
                         << " kg of fuel burnt at once, " << o.poolKg << " kg burns on";
+
+    if (stays && e.info.role == ms::Role::Aircraft) {
+        const bool lw = (destructionMode_ == DestructionModeV1::LightweightDebris);
+        dmg::applyGroundOrWaterDestruction(e.destruction, o, strike.fuelKg, lw);
+        if (lw) {
+            // B-54 fuel conservation: deduct immediate fireball fuel from actual JSBSim tanks now;
+            // residual pool fuel burns down step-by-step in stepWreckSlidesAndFuel().
+            if (o.fireballKg > 0.0 && ensureDamage(e)) {
+                double rem = o.fireballKg;
+                for (auto& tankProp : e.damageReads.tanks) {
+                    if (!(rem > 0.0) || !tankProp.valid()) continue;
+                    const double curKg = std::max(0.0, tankProp.get() * kLbsToKg);
+                    const double take = std::min(curKg, rem);
+                    tankProp.set((curKg - take) / kLbsToKg);
+                    rem -= take;
+                }
+            }
+            // B-54 post-impact belly slide along terrain/water surface.
+            if (e.destruction.groundSliding) {
+                const dmg::V3 tangVel = o.after - normal * dmg::dot(o.after, normal);
+                e.slidePoseActive = true;
+                e.slideState = after;
+                for (int k = 0; k < 3; ++k) {
+                    e.slidePositionEcef[k] = after.positionEcef[k];
+                    e.slideVelocityEcef[k] = (&tangVel.x)[k];
+                    e.slideNormalEcef[k] = (&normal.x)[k];
+                }
+                e.slideState.velocityNedMs[0] = dmg::dot(tangVel, north);
+                e.slideState.velocityNedMs[1] = dmg::dot(tangVel, east);
+                e.slideState.velocityNedMs[2] = dmg::dot(tangVel, down);
+                e.slideState.airspeedTrueMs = dmg::length(tangVel);
+                e.slideState.fuelKg = std::max(0.0, strike.fuelKg - o.fireballKg);
+                e.slideSparkAccumS = 0.0;
+            }
+        }
+        // B-55 debris & water-splash cloud.
+        if (o.normalMs > 2.0) {
+            ImpactCloudSpawn cloud;
+            cloud.ownerVehicleId = e.info.id;
+            for (int k = 0; k < 3; ++k) {
+                cloud.positionEcef[k] = after.positionEcef[k];
+                cloud.afterVelocityEcef[k] = (&o.after.x)[k];
+                cloud.incomingVelocityEcef[k] = (&strike.velocity.x)[k];
+                cloud.normalEcef[k] = (&normal.x)[k];
+            }
+            cloud.massKg = strike.massKg;
+            cloud.fireballKg = o.fireballKg;
+            cloud.poolKg = o.poolKg;
+            cloud.surface = o.surface;
+            cloud.hullDisintegrated = e.destruction.hullRetired;
+            debrisField_.spawnImpactCloud(cloud, debrisRng_);
+        }
+    }
 
     // its fuel's fire: the mist's fireball, moving as what left the strike does, and what burns on where it lies - from
     // a tank of its own where its damage data names one (the viewer hangs the flame there)
@@ -1992,6 +2142,366 @@ std::optional<std::uint32_t> World::vehicleStreamSlot(std::uint32_t id) const no
 const ms::damage::VehicleDamage* World::damage(std::uint32_t id) const noexcept {
     const Entry* e = entry(id);
     return e ? e->damage.get() : nullptr;
+}
+
+const ms::damage::VehicleDestructionState* World::destructionState(std::uint32_t id) const noexcept {
+    const Entry* e = entry(id);
+    return e ? &e->destruction : nullptr;
+}
+
+ms::damage::SurfaceKind World::detectImpactSurface(const sim::VehicleState& state) const noexcept {
+    if (impactSurfaceOverride_) return *impactSurfaceOverride_;
+    if (terrain_ && ground_) {
+        const double h = ground_->heightAboveEllipsoidM(state.latitudeRad, state.longitudeRad);
+        if (std::isfinite(h) && h <= 0.25) return ms::damage::SurfaceKind::Water;
+    }
+    return ms::damage::SurfaceKind::Soil;
+}
+
+void World::applySlidePose(std::size_t slot, sim::VehicleState& state) const noexcept {
+    if (slot >= entries_.size()) return;
+    const Entry* e = entries_[slot].get();
+    if (!e || !e->slidePoseActive) return;
+    state = e->slideState;
+}
+
+ipc::DebrisFrameV1 World::collectDebrisFrame() const {
+    ipc::DebrisFrameV1 frame;
+    frame.simTime = simTime_;
+    debrisField_.fillWire(frame.bodies);
+    for (std::size_t s = 0; s < entries_.size(); ++s) {
+        const Entry* e = entries_[s].get();
+        if (!e || !e->info.alive) continue;
+        if (e->destruction.tier == ms::damage::DestructionTier::Intact && !e->destruction.hullRetired &&
+            e->destruction.overallDamage <= 0.0 && e->destruction.scorchIntensity <= 0.0)
+            continue;
+        double liveFuel = e->destruction.wreckFuelKg;
+        if (e->slidePoseActive) {
+            liveFuel = e->slideState.fuelKg;
+        } else if (pool_ && s < pool_->states().size()) {
+            liveFuel = pool_->states()[s].fuelKg;
+        }
+        frame.vehicles.push_back(ms::damage::toWire(e->destruction, static_cast<std::uint32_t>(s), e->info.id, e->info.generation, liveFuel));
+    }
+    return frame;
+}
+
+void World::evaluateEntryDestruction(Entry& e, const ms::damage::Impact* impact, double pressurePa, int newlySeparated,
+                                     double dtS, std::vector<ipc::EngagementEvent>* events) {
+    if (!e.damage || e.info.role != ms::Role::Aircraft) return;
+    const auto& a = e.damage->airframe();
+    auto& model = pool_->vehicle(e.slot);
+    ms::damage::DestructionStepInput stepIn;
+    stepIn.damage = e.damage.get();
+    stepIn.airPressurePa = std::isfinite(pressurePa) && pressurePa > 0.0 ? pressurePa : 101325.0;
+    stepIn.newlySeparatedCount = newlySeparated;
+    stepIn.dtS = dtS;
+
+    // Max blast overpressure across struck panels and per-section hit energy.
+    std::vector<double> sectionBlastPa(a.sections.size(), 0.0);
+    std::vector<double> sectionEnergyJ(a.sections.size(), 0.0);
+    if (impact) {
+        for (const auto& p : impact->panels) {
+            stepIn.maxBlastOverpressurePa = std::max(stepIn.maxBlastOverpressurePa, p.overpressurePa);
+            if (p.panel >= 0 && static_cast<std::size_t>(p.panel) < a.panels.size()) {
+                const int sec = a.panels[static_cast<std::size_t>(p.panel)].section;
+                if (sec >= 0 && static_cast<std::size_t>(sec) < sectionBlastPa.size())
+                    sectionBlastPa[static_cast<std::size_t>(sec)] = std::max(sectionBlastPa[static_cast<std::size_t>(sec)], p.overpressurePa);
+            }
+        }
+        for (const auto& c : impact->components) {
+            if (c.component >= 0 && static_cast<std::size_t>(c.component) < a.components.size()) {
+                const int sec = a.components[static_cast<std::size_t>(c.component)].section;
+                if (sec >= 0 && static_cast<std::size_t>(sec) < sectionEnergyJ.size())
+                    sectionEnergyJ[static_cast<std::size_t>(sec)] += c.energyJ;
+            }
+        }
+    }
+
+    // Populate actual fuel-tank ullage state (B-58).
+    double totalFuelKg = 0.0;
+    std::set<int> burningSections;
+    for (const auto& [tankIdx, tankState] : e.damage->tanks()) {
+        if (tankState.burning && tankState.component >= 0 && static_cast<std::size_t>(tankState.component) < a.components.size())
+            burningSections.insert(a.components[static_cast<std::size_t>(tankState.component)].section);
+    }
+    for (std::size_t compIdx = 0; compIdx < a.components.size(); ++compIdx) {
+        const auto& comp = a.components[compIdx];
+        if (comp.kind != "fuel" || comp.tank < 0) continue;
+        if (comp.section >= 0 && static_cast<std::size_t>(comp.section) < e.damage->sections().size() &&
+            e.damage->sections()[static_cast<std::size_t>(comp.section)].separated)
+            continue;
+        ms::damage::TankUllageInput ti;
+        ti.tankIndex = comp.tank;
+        ti.section = comp.section;
+        ti.capacityKg = comp.fuelKg;
+        if (static_cast<std::size_t>(comp.tank) < e.damageReads.tanks.size() && e.damageReads.tanks[static_cast<std::size_t>(comp.tank)].valid())
+            ti.fuelKg = std::max(0.0, e.damageReads.tanks[static_cast<std::size_t>(comp.tank)].get() * kLbsToKg);
+        else
+            ti.fuelKg = 0.5 * comp.fuelKg;
+        if (ti.capacityKg < ti.fuelKg) ti.capacityKg = ti.fuelKg;
+        totalFuelKg += ti.fuelKg;
+        const auto tankIt = e.damage->tanks().find(comp.tank);
+        ti.burning = tankIt != e.damage->tanks().end() && tankIt->second.burning;
+        if (comp.section >= 0 && static_cast<std::size_t>(comp.section) < sectionBlastPa.size())
+            ti.blastOverpressurePa = sectionBlastPa[static_cast<std::size_t>(comp.section)];
+        if (impact) {
+            for (const auto& ch : impact->components) {
+                if (ch.component == static_cast<int>(compIdx)) {
+                    ti.hitEnergyJ += ch.energyJ;
+                    ti.fastestFragmentMs = std::max(ti.fastestFragmentMs, ch.fastestMs);
+                }
+            }
+        }
+        stepIn.tanks.push_back(ti);
+    }
+    if (totalFuelKg <= 0.0) {
+        const double aboardFuel = model.energy().fuelKg;
+        if (std::isfinite(aboardFuel) && aboardFuel > 0.0) totalFuelKg = aboardFuel;
+    }
+    stepIn.totalRemainingFuelKg = totalFuelKg;
+
+    // Populate actual carried HE ordnance & gun HEI ammunition for sympathetic cook-off (B-58).
+    if (!storeCards_.empty()) {
+        for (const auto& st : e.ms.stores()) {
+            if (st.status != ms::StoreStatus::Loaded || !st.store || !st.store[0]) continue;
+            const auto cardIt = storeCards_.find(std::string(st.store));
+            if (cardIt == storeCards_.end() || !cardIt->second) continue;
+            const auto wh = ms::damage::warheadOf(*cardIt->second);
+            if (!wh || !(wh->explosiveKg > 0.01)) continue;
+            int sec = -1;
+            for (std::size_t si = 0; si < a.sections.size(); ++si) {
+                if (std::find(a.sections[si].stations.begin(), a.sections[si].stations.end(), st.station) != a.sections[si].stations.end()) {
+                    sec = static_cast<int>(si);
+                    break;
+                }
+            }
+            ms::damage::CarriedOrdnanceInput ord;
+            ord.section = sec;
+            ord.explosiveKg = wh->explosiveKg;
+            ord.onFireSection = (sec >= 0 && burningSections.count(sec) > 0) || !burningSections.empty();
+            if (sec >= 0 && static_cast<std::size_t>(sec) < sectionBlastPa.size()) {
+                ord.blastOverpressurePa = sectionBlastPa[static_cast<std::size_t>(sec)];
+                ord.hitEnergyJ = sectionEnergyJ[static_cast<std::size_t>(sec)];
+            } else {
+                ord.blastOverpressurePa = stepIn.maxBlastOverpressurePa;
+            }
+            stepIn.ordnance.push_back(ord);
+        }
+    }
+
+    const bool allowCatastrophic = (destructionMode_ == DestructionModeV1::LightweightDebris);
+    const auto outcome = ms::damage::evaluateDestruction(e.destruction, stepIn, allowCatastrophic, e.destructionRng);
+    if (!outcome.catastrophicTriggered) return;
+
+    // --- Catastrophic mid-air disintegration (Tier 3, B-58) ---
+    sim::VehicleState st;
+    model.state(st);
+    const double massKg = std::isfinite(model.energy().massKg) && model.energy().massKg > 100.0 ? model.energy().massKg : 8000.0;
+    const ms::damage::V3 velEcef = rotate(st, v3(st.velocityBodyMs));
+
+    const auto emit = [&](const ipc::EngagementEvent& ev) {
+        if (events) events->push_back(ev);
+        else engage(ev);
+    };
+    if (outcome.explosionTntKg > 0.1) {
+        auto det = engagementEvent(e, ipc::EngagementKind::Detonation,
+                                   outcome.cause == ms::damage::CatastrophicCause::SympatheticCookoff ? "cookoff" : "ullage");
+        det.amountKg = outcome.explosionTntKg;
+        det.massKg = outcome.explosionTntKg * 2.0;
+        for (int k = 0; k < 3; ++k) {
+            det.positionEcef[k] = st.positionEcef[k];
+            det.velocityEcef[k] = (&velEcef.x)[k];
+        }
+        emit(det);
+    }
+    if (outcome.fireballFuelKg > 0.5) {
+        auto fire = engagementEvent(e, ipc::EngagementKind::Fire, "fuel");
+        // Immediate aerosolised vapour fireball mass; the remainder burns on the tumbling chunks in DebrisField.
+        fire.amountKg = std::min(outcome.fireballFuelKg, 220.0);
+        fire.rateKgS = 0.0;
+        fire.massKg = 0.0;
+        for (int k = 0; k < 3; ++k) {
+            fire.positionEcef[k] = st.positionEcef[k];
+            fire.velocityEcef[k] = (&velEcef.x)[k];
+        }
+        emit(fire);
+    }
+
+    CatastrophicSpawn spawn;
+    spawn.ownerVehicleId = e.info.id;
+    std::copy_n(st.positionEcef, 3, spawn.positionEcef);
+    spawn.velocityEcef[0] = velEcef.x; spawn.velocityEcef[1] = velEcef.y; spawn.velocityEcef[2] = velEcef.z;
+    std::copy_n(st.rotationBodyToEcef, 9, spawn.rotationBodyToEcef);
+    std::copy_n(st.angularRateBodyRadS, 3, spawn.angularRateBodyRadS);
+    spawn.airframeMassKg = massKg;
+    spawn.remainingFuelKg = totalFuelKg;
+    spawn.explosionTntKg = std::max(outcome.explosionTntKg, 3.0);
+    spawn.radiusM = 5.0;
+    debrisField_.spawnCatastrophicKill(spawn, debrisRng_);
+
+    // Track the live debris cloud centroid as the retired vehicle's ballistic pose so viewer cameras stay on the wreckage.
+    e.slidePoseActive = true;
+    e.slideState = st;
+    e.slideState.fuelKg = 0.0;
+    for (int k = 0; k < 3; ++k) {
+        e.slidePositionEcef[k] = st.positionEcef[k];
+        e.slideVelocityEcef[k] = (&velEcef.x)[k];
+    }
+
+    // Drain remaining fuel tanks, seize engines, mark crew lost, and record native kill event.
+    for (auto& tankProp : e.damageReads.tanks)
+        if (tankProp.valid()) tankProp.set(0.0);
+    for (int eng = 0; eng < std::max(st.engineCount, 1); ++eng) model.seizeEngine(eng);
+    if (!e.crewLost) {
+        e.crewLost = true;
+        emit(engagementEvent(e, ipc::EngagementKind::CrewLost, "crew"));
+    }
+    const char* reason = outcome.cause == ms::damage::CatastrophicCause::SympatheticCookoff
+                             ? "cookoff"
+                             : (outcome.cause == ms::damage::CatastrophicCause::UllageOverpressure ? "ullage_explosion"
+                                                                                                  : "catastrophic_breakup");
+    recordEngagement("damage", e, e.info.id, reason, true);
+    LOG_INFO("session") << e.info.name << ": catastrophic mid-air kill (" << reason << ", " << outcome.explosionTntKg
+                        << " kg TNT eq, " << outcome.fireballFuelKg << " kg fireball fuel, " << debrisField_.activeCount()
+                        << " active debris bodies)";
+}
+
+void World::stepWreckSlidesAndFuel(double dt) {
+    if (destructionMode_ != DestructionModeV1::LightweightDebris || !(dt > 0.0)) return;
+    for (std::size_t s = 0; s < entries_.size(); ++s) {
+        Entry* e = entries_[s].get();
+        if (!e || !e->info.alive) continue;
+        auto& dst = e->destruction;
+        // 1. B-54 fuel burn-down on burning ground/water wrecks.
+        if (dst.wreckBurnRateKgS > 0.0 && dst.wreckFuelKg > 0.0) {
+            const double burnKg = std::min(dst.wreckFuelKg, dst.wreckBurnRateKgS * dt);
+            dst.wreckFuelKg -= burnKg;
+            dst.totalFuelBurnedKg += burnKg;
+            if (e->damage && !e->damageReads.tanks.empty()) {
+                double rem = burnKg;
+                for (auto& tankProp : e->damageReads.tanks) {
+                    if (!(rem > 0.0) || !tankProp.valid()) continue;
+                    const double curKg = std::max(0.0, tankProp.get() * kLbsToKg);
+                    const double take = std::min(curKg, rem);
+                    tankProp.set((curKg - take) / kLbsToKg);
+                    rem -= take;
+                }
+            }
+            if (e->slidePoseActive) e->slideState.fuelKg = std::max(0.0, e->slideState.fuelKg - burnKg);
+            if (dst.wreckFuelKg <= 1e-6) {
+                dst.wreckFuelKg = 0.0;
+                dst.wreckBurnRateKgS = 0.0;
+                if (e->wreckFireUntilS > 0.0) {
+                    engage(engagementEvent(*e, ipc::EngagementKind::Fire, e->wreckFireName));
+                    e->wreckFireUntilS = 0.0;
+                }
+            }
+        }
+        // 2. Mid-air catastrophic debris-cloud centroid tracking (keeps retired hull's camera pose on live wreckage).
+        if (e->slidePoseActive && dst.tier == ms::damage::DestructionTier::CatastrophicKill && dst.hullRetired) {
+            ms::damage::V3 posSum{}, momSum{};
+            double massSum = 0.0;
+            for (const auto& b : debrisField_.slots()) {
+                if (!b.alive || b.ownerVehicleId != e->info.id || b.archetype == ipc::DebrisArchetypeV1::SparkEmber) continue;
+                posSum += v3(b.positionEcef) * b.massKg;
+                momSum += v3(b.velocityEcef) * b.massKg;
+                massSum += b.massKg;
+            }
+            if (massSum > 1.0) {
+                const ms::damage::V3 cPos = posSum * (1.0 / massSum);
+                const ms::damage::V3 cVel = momSum * (1.0 / massSum);
+                double lat = 0.0, lon = 0.0, h = 0.0;
+                ms::damage::geodetic(cPos, lat, lon, h);
+                const double groundH = ground_ ? ground_->heightAboveEllipsoidM(lat, lon) : 0.0;
+                const double sl = std::sin(lat), cl = std::cos(lat), so = std::sin(lon), co = std::cos(lon);
+                const ms::damage::V3 up{cl * co, cl * so, sl};
+                const ms::damage::V3 north{-sl * co, -sl * so, cl}, east{-so, co, 0.0}, down = up * (-1.0);
+                for (int k = 0; k < 3; ++k) {
+                    e->slidePositionEcef[k] = (&cPos.x)[k];
+                    e->slideVelocityEcef[k] = (&cVel.x)[k];
+                    e->slideState.positionEcef[k] = (&cPos.x)[k];
+                }
+                e->slideState.latitudeRad = lat;
+                e->slideState.longitudeRad = lon;
+                e->slideState.altitudeMslM = h;
+                e->slideState.altitudeAglM = std::max(0.0, h - groundH);
+                e->slideState.velocityNedMs[0] = ms::damage::dot(cVel, north);
+                e->slideState.velocityNedMs[1] = ms::damage::dot(cVel, east);
+                e->slideState.velocityNedMs[2] = ms::damage::dot(cVel, down);
+                e->slideState.airspeedTrueMs = ms::damage::length(cVel);
+                e->slideState.fuelKg = 0.0;
+                e->slideState.simTime = simTime_;
+            }
+            continue;
+        }
+        // 3. B-54 Coulomb belly-slide deceleration along surface (with physical belly CG clearance above ground/water).
+        if (!e->slidePoseActive || !dst.groundSliding) continue;
+        ms::damage::V3 pos = v3(e->slidePositionEcef);
+        ms::damage::V3 vel = v3(e->slideVelocityEcef);
+        const ms::damage::V3 normal = ms::damage::normalized(v3(e->slideNormalEcef));
+        const double speed = ms::damage::length(vel);
+        const double mu = dst.surface == ms::damage::SurfaceKind::Water
+                              ? ms::damage::kWaterFriction
+                              : (dst.surface == ms::damage::SurfaceKind::Rock ? ms::damage::kRockFriction : ms::damage::kGroundFriction);
+        const double bellyClearM = (dst.surface == ms::damage::SurfaceKind::Water) ? 0.55 : 1.15;
+        if (speed > 0.5) {
+            const double nextSpeed = std::max(0.0, speed - mu * kG * dt);
+            vel = vel * (nextSpeed / speed);
+            pos += vel * dt;
+            double lat = 0.0, lon = 0.0, h = 0.0;
+            ms::damage::geodetic(pos, lat, lon, h);
+            const double groundH = ground_ ? ground_->heightAboveEllipsoidM(lat, lon) : 0.0;
+            const double sl = std::sin(lat), cl = std::cos(lat), so = std::sin(lon), co = std::cos(lon);
+            const ms::damage::V3 up{cl * co, cl * so, sl};
+            const ms::damage::V3 north{-sl * co, -sl * so, cl}, east{-so, co, 0.0}, down = up * (-1.0);
+            pos += up * (groundH + bellyClearM - h);
+            // Align sliding fuselage level with surface along its skid heading (body +X forward, +Y right, +Z down).
+            const ms::damage::V3 fwd = ms::damage::normalized(vel - up * ms::damage::dot(vel, up));
+            if (ms::damage::length(fwd) > 0.5) {
+                const ms::damage::V3 right = ms::damage::normalized(ms::damage::cross(down, fwd));
+                e->slideState.rotationBodyToEcef[0] = fwd.x;   e->slideState.rotationBodyToEcef[1] = right.x; e->slideState.rotationBodyToEcef[2] = down.x;
+                e->slideState.rotationBodyToEcef[3] = fwd.y;   e->slideState.rotationBodyToEcef[4] = right.y; e->slideState.rotationBodyToEcef[5] = down.y;
+                e->slideState.rotationBodyToEcef[6] = fwd.z;   e->slideState.rotationBodyToEcef[7] = right.z; e->slideState.rotationBodyToEcef[8] = down.z;
+                e->slideState.eulerRad[0] = 0.0;
+                e->slideState.eulerRad[1] = 0.0;
+            }
+            for (int k = 0; k < 3; ++k) {
+                e->slidePositionEcef[k] = (&pos.x)[k];
+                e->slideVelocityEcef[k] = (&vel.x)[k];
+                e->slideState.positionEcef[k] = (&pos.x)[k];
+            }
+            e->slideState.latitudeRad = lat;
+            e->slideState.longitudeRad = lon;
+            e->slideState.altitudeMslM = groundH + bellyClearM;
+            e->slideState.altitudeAglM = bellyClearM;
+            e->slideState.velocityNedMs[0] = ms::damage::dot(vel, north);
+            e->slideState.velocityNedMs[1] = ms::damage::dot(vel, east);
+            e->slideState.velocityNedMs[2] = ms::damage::dot(vel, down);
+            e->slideState.airspeedTrueMs = nextSpeed;
+            e->slideState.simTime = simTime_;
+            dst.slideSpeedMs = nextSpeed;
+            e->slideSparkAccumS += dt;
+            if (nextSpeed > 8.0 && e->slideSparkAccumS >= 0.065) {
+                e->slideSparkAccumS = 0.0;
+                SlideSparkSpawn sp;
+                sp.ownerVehicleId = e->info.id;
+                std::copy_n(e->slidePositionEcef, 3, sp.positionEcef);
+                std::copy_n(e->slideVelocityEcef, 3, sp.velocityEcef);
+                sp.normalEcef[0] = normal.x; sp.normalEcef[1] = normal.y; sp.normalEcef[2] = normal.z;
+                sp.surface = dst.surface;
+                debrisField_.spawnSlideSparks(sp, debrisRng_);
+            }
+        } else {
+            for (int k = 0; k < 3; ++k) {
+                e->slideVelocityEcef[k] = 0.0;
+                e->slideState.velocityNedMs[k] = 0.0;
+            }
+            e->slideState.airspeedTrueMs = 0.0;
+            dst.groundSliding = false;
+            dst.slideSpeedMs = 0.0;
+        }
+    }
 }
 
 } // namespace fsim::session

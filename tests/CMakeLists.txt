@@ -1292,3 +1292,15 @@ add_dependencies(fsim_sim_m10_guns_rcs_ballistics_test fsim_payload_cards)
 fsim_set_warnings(fsim_sim_m10_guns_rcs_ballistics_test)
 add_test(NAME sim_m10_guns_rcs_ballistics COMMAND fsim_sim_m10_guns_rcs_ballistics_test)
 set_tests_properties(sim_m10_guns_rcs_ballistics PROPERTIES LABELS "sim-m10;mission-systems;native-engagement" TIMEOUT 300 RUN_SERIAL TRUE)
+
+# VIS-M11: Multi-tier vehicle destruction (B-58), lightweight 6-DOF tumbling debris pool, early belly-slide/fuel burn-down (B-54), and surface-aware Soil/Water/Rock impacts (B-55).
+add_executable(fsim_destruction_debris_test simulation/test_destruction_debris.cpp)
+target_link_libraries(fsim_destruction_debris_test PRIVATE fsim::session fsim::ms fsim::ipc Catch2::Catch2WithMain)
+target_compile_definitions(fsim_destruction_debris_test PRIVATE
+    FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}"
+    FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores"
+    FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft")
+add_dependencies(fsim_destruction_debris_test fsim_m03_native_runtime)
+fsim_set_warnings(fsim_destruction_debris_test)
+add_test(NAME destruction_debris COMMAND fsim_destruction_debris_test)
+set_tests_properties(destruction_debris PROPERTIES LABELS "vis-m11;damage;debris;native-engagement" TIMEOUT 300 RUN_SERIAL TRUE)

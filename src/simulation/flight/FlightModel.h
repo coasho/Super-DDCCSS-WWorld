@@ -90,6 +90,22 @@ public:
     virtual bool terrainContactSnapshotV1(TerrainContactSnapshotV1&) const noexcept = 0;
 };
 
+/// Optional gear/belly structural contact load observation (VIS-M11, B-54).
+/// Separate from FlightModel so existing vtables and legacy terrain-strike snapshots stay frozen.
+struct TerrainContactLoadV1 {
+    double maxBellyDepthM = 0.0; ///< deepest non-bogey structural contact compression (m)
+    double maxGearSinkMs = 0.0;  ///< peak downward velocity while a bogey gear unit is compressed (m/s)
+    double tangentSpeedMs = 0.0; ///< horizontal ground-relative speed at contact (m/s)
+    bool structuralContact = false;
+    bool gearOverload = false;
+};
+class TerrainContactLoadSourceV1 {
+public:
+    virtual ~TerrainContactLoadSourceV1() = default;
+    virtual bool terrainContactLoadV1(TerrainContactLoadV1& out) const noexcept = 0;
+    virtual void arrestOnTerrainV1() noexcept = 0;
+};
+
 /// Optional native mass properties, independent of FlightModel's primary vtable.
 /// Capture at the same epoch as state/CG; inertia is the full tensor about CG
 /// in body axes, row-major kg m^2. Unsupported models remain unavailable.

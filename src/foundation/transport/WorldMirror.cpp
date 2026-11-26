@@ -49,6 +49,9 @@ bool WorldMirror::open(const std::string& name) {
 }
 
 void WorldMirror::close() {
+    debrisSegment_.close();
+    debris_.bodies.clear();
+    debris_.vehicles.clear();
     fusionSegment_.close();
     finSegment_.close(); weaponControls_.clear();
     if (attached_ && header_) const_cast<WorldHeader*>(header_)->readers.fetch_sub(1, std::memory_order_relaxed);
@@ -182,6 +185,10 @@ bool WorldMirror::pollSnapshot(sim::SnapshotBatch& out) {
                 vehicles_[control.slot].id!=control.entity || vehicles_[control.slot].generation!=control.generation ||
                 control.sampleTimeS!=simTime;
         }),weaponControls_.end());
+        if (!debrisSegment_.read(sequence, debris_)) {
+            if (debrisSegment_.open(name_, header_->publisherPid, incarnation_))
+                debrisSegment_.read(sequence, debris_);
+        }
         out.simTime = simTime;
         out.wallNs = wallNs;
         lastSequence_ = sequence;

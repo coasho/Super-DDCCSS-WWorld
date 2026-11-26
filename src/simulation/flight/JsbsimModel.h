@@ -21,7 +21,7 @@ class PassiveRolleronV1;
 /// JSBSim adapter: one FGFDMExec per vehicle, JSBSim used as-is (design 7,
 /// ADR-3). Construct and load on one thread; step() may run on any thread as
 /// long as no two threads touch the same instance concurrently.
-class JsbsimModel final : public FlightModel, public TerrainStrikeSourceV1, public TerrainContactSourceV1, public RigidMassSourceV1, public NativePositionSourceV1, public NativeThermalSourceV1 {
+class JsbsimModel final : public FlightModel, public TerrainStrikeSourceV1, public TerrainContactSourceV1, public TerrainContactLoadSourceV1, public RigidMassSourceV1, public NativePositionSourceV1, public NativeThermalSourceV1 {
 public:
     /// @param dt fixed step in seconds (design 6.4)
     /// @param ground terrain source for gear contact and AGL; shared by all vehicles
@@ -61,6 +61,13 @@ public:
     bool terrainContactSnapshotV1(TerrainContactSnapshotV1& out) const noexcept override {
         if(!structuralObservedValid_)return false;
         out=structuralObserved_;return true;
+    }
+    bool terrainContactLoadV1(TerrainContactLoadV1& out) const noexcept override {
+        out = contactLoad_;
+        return contactLoad_.structuralContact || contactLoad_.gearOverload || contactLoad_.maxGearSinkMs > 0.0;
+    }
+    void arrestOnTerrainV1() noexcept override {
+        if (loaded_ && !crashed_) stopOnTerrain(0.0);
     }
     bool rigidMassPropertiesV1(RigidMassPropertiesV1& out) const noexcept override;
     /// Native control-only airframe acceleration, excluding rotor reaction and
@@ -116,6 +123,7 @@ private:
     bool structuralObservedValid_ = false;
     double structuralIncomingMassKg_ = std::numeric_limits<double>::quiet_NaN();
     bool structuralContact_ = false; ///< contiguous STRUCTURE contact, never gear-only landing contact
+    TerrainContactLoadV1 contactLoad_{};
     std::uint32_t stepCount_ = 0;
     struct LastGood {
         double latDeg = 0, lonDeg = 0, altM = 0, aglM = 0, speedMs = 0;

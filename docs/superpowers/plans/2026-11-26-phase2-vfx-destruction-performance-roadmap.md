@@ -273,9 +273,9 @@ To maximize immediate user-visible quality and unblock visual inspection early, 
 
 | Sprint | Milestone | Status | Delivery Commit | Evidence Document |
 | --- | --- | --- | --- | --- |
-| Sprint 1 | **VIS-M12 + VIS-M12b** — Volumetric Fire/Explosion, Contrail, Cloud, Ocean & Vapour GPU Optimization | Delivered (2026-11-26; 4K 160 fps locked) | `d40f1b6b` + `VIS-M12b` on `main` | [vis-m12-volumetric-vfx-perf.md](../../sdk/vis-m12-volumetric-vfx-perf.md) |
-| Sprint 2 | **VIS-M11** — Vehicle Destruction & Lightweight `DebrisField` Redesign | Ready (Next) | — | `docs/sdk/vis-m11-destruction-debris.md` (planned) |
-| Sprint 3 | **VIS-M13** — Unified GPU Particle Engine & Missing Combat VFX | Pending | — | `docs/sdk/vis-m13-gpu-particles-combat-vfx.md` (planned) |
+| Sprint 1 | **VIS-M12 + VIS-M12b** — Volumetric Fire/Explosion, Contrail, Cloud, Ocean & Vapour GPU Optimization | Delivered (2026-11-26; 4K 160 fps locked) | `d40f1b6b` + `0795eedc` on `main` | [vis-m12-volumetric-vfx-perf.md](../../sdk/vis-m12-volumetric-vfx-perf.md) |
+| Sprint 2 | **VIS-M11** — Vehicle Destruction & Lightweight `DebrisField` Redesign | Delivered (2026-11-26; 4K 156–161 fps) | `VIS-M11` on `main` | [vis-m11-destruction-debris.md](../../sdk/vis-m11-destruction-debris.md) |
+| Sprint 3 | **VIS-M13** — Unified GPU Particle Engine & Missing Combat VFX | Ready (Next) | — | `docs/sdk/vis-m13-gpu-particles-combat-vfx.md` (planned) |
 | Sprint 4 | **SIM-M11** — HC-45 Parallel `WeaponSensor` & On-Rail IR Acceleration | Pending | — | `docs/sdk/sim-m11-weapon-sensor-perf.md` (planned) |
 | Sprint 5 | **VIS-M14** — Tactical & EMSO 3-D Overlays, Multi-Camera & Fleet VFX | Pending | — | `docs/sdk/vis-m14-emso-overlays-cameras.md` (planned) |
 | Sprint 6 | **VIS-M15** — Physical-Fidelity Showcase (Sensor MFDs, Fog-of-War, X-Ray & Debrief) | Pending | — | `docs/sdk/vis-m15-avionics-showcase-debrief.md` (planned) |

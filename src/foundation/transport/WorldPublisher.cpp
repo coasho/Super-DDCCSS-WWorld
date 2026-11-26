@@ -72,6 +72,7 @@ WorldPublisher::WorldPublisher(const Options& options) : options_(options) {
     h->magic = kMagic;
     finSegment_.create(options_.name,options_.capacity,h->publisherPid,h->incarnation.load(std::memory_order_acquire));
     fusionSegment_.create(options_.name,options_.capacity,h->publisherPid,incarnation);
+    debrisSegment_.create(options_.name,kMaxDebrisV1,options_.capacity,h->publisherPid,incarnation);
     fusionRows_.resize(options_.capacity);
     header_ = h;
     writeSlot_ = 1;
@@ -181,6 +182,11 @@ void WorldPublisher::setFusion(std::uint32_t index,const FusionRecordV1& record)
     *fusionRows_[index]=record;
 }
 
+void WorldPublisher::setDebris(const DebrisFrameV1& frame) {
+    if (!header_) return;
+    debrisFrame_ = frame;
+}
+
 bool WorldPublisher::publish(double simTime, Span<const sim::VehicleState> states, Span<const sim::ControlInputs> inputs,
                              bool force, Span<const FlightStatus> status,
                              const std::vector<ms::WeaponControlSnapshotV1>& controls) noexcept {
@@ -202,6 +208,7 @@ bool WorldPublisher::publish(double simTime, Span<const sim::VehicleState> state
     s->sequence = header_->publishSequence.load(std::memory_order_relaxed) + 1;
     finSegment_.publish(s->sequence,controls);
     fusionSegment_.publish(s->sequence,fusionRows_);
+    debrisSegment_.publish(s->sequence,debrisFrame_);
     s->simTime = simTime;
     s->wallNs = now;
     for (std::uint32_t i = 0; i < n; ++i) {

@@ -201,11 +201,17 @@ public:
     void clearSections();
     /// One vehicle's sections back on it (it was reset: whole again).
     void restoreSections(std::size_t index);
+    /// Retire or restore a vehicle's intact hull mesh (VIS-M11 catastrophic kill: DebrisVisuals draws its breakup cloud).
+    void setHullRetired(std::size_t index, bool retired);
+    bool hullRetired(std::size_t index) const noexcept { return index < hullRetired_.size() && hullRetired_[index] != 0; }
+    void clearDestruction();
 
     /// Traversal mask of a visible vehicle (default MASK_ALL): a vsg::View whose
     /// mask does not overlap it skips the vehicle (a camera hiding its own aircraft).
     void setMask(std::size_t index, vsg::Mask mask);
-    bool visible(std::size_t index) const noexcept { return index < visible_.size() && visible_[index]; }
+    bool visible(std::size_t index) const noexcept {
+        return index < visible_.size() && visible_[index] != 0 && !(index < hullRetired_.size() && hullRetired_[index] != 0);
+    }
     int selected() const noexcept { return selected_; }
 
     std::size_t count() const { return transforms_.size(); }
@@ -426,6 +432,7 @@ private:
     std::vector<vsg::ref_ptr<vsg::Switch>> highlight_;
     int selected_ = -1;
     std::vector<unsigned char> visible_;
+    std::vector<unsigned char> hullRetired_;
     std::vector<std::map<std::uint32_t,double>> finAngles_;
     struct FinFrame {
         double clock=0;
