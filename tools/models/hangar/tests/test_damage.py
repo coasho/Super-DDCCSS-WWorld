@@ -118,7 +118,16 @@ class Current(unittest.TestCase):
                 damage.write(a, out, MassModel(a).empty()["cg"])
                 with open(out, encoding="utf-8") as f, \
                         open(os.path.join(pipeline.repo_root(), "aircraft", name, name + ".damage.json"), encoding="utf-8") as g:
-                    self.assertEqual(f.read(), g.read(), "%s.damage.json is stale: fsim hangar %s --stage model" % (name, name))
+                    written = json.load(f)
+                    committed = json.load(g)
+                liquid_decl = committed.pop("liquid_geometry_v1", None)
+                if liquid_decl is not None:
+                    self.assertEqual(liquid_decl, {
+                        "file": name + ".liquid-v1.json",
+                        "schema": "fsim.liquid-occupancy.v1",
+                        "required": True,
+                    })
+                self.assertEqual(written, committed, "%s.damage.json is stale: fsim hangar %s --stage model" % (name, name))
                 self.assertTrue(np.isfinite(MassModel(a).empty()["mass"]))
 
 

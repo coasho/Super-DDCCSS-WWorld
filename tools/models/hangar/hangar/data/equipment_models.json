@@ -269,7 +269,7 @@
         "fuze": {
           "availability": "available",
           "selector": "equipment.aim-120d.fuze",
-          "mechanism_id": "native.fuze.swept_path.v1",
+          "mechanism_id": "native.fuze.turning_cpa.v1",
           "name": "AIM-120D fuze model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -2283,7 +2283,7 @@
         "autopilot": {
           "availability": "available",
           "selector": "equipment.pl-8.autopilot",
-          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "mechanism_id": "fsim.control.actuator_aware_cascade.v1",
           "name": "PL-8 flight-control model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
@@ -2307,7 +2307,7 @@
         "fuze": {
           "availability": "available",
           "selector": "equipment.pl-8.fuze",
-          "mechanism_id": "native.fuze.swept_path.v1",
+          "mechanism_id": "native.fuze.turning_cpa.v1",
           "name": "PL-8 fuze model",
           "hardware_model_name": null,
           "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."

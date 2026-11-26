@@ -87,6 +87,7 @@ struct Settings {
     bool reportAmbiguities = false; ///< retain equally supported range/rate aliases for temporal resolution
     bool velocityOnly = false;   ///< associate Doppler only; never unfold ambiguous range into a track
     bool knownNoiseThreshold = false; ///< exponential threshold using modeled receiver/clutter power, not range CA-CFAR
+    bool passiveBistatic = false; ///< passive bistatic receiver: no local transmitter blanking or transmit-window eclipse
     double pfaInterval = 1e-6;    ///< a cell's false-alarm probability in one interval (before the M of N)
     int cfarCells = 16;           ///< reference cells (half each side)
     int cfarGuard = 2;            ///< guard cells each side

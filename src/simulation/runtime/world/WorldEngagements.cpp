@@ -560,7 +560,13 @@ void World::prepareEngagements() {
                 output=controller->updateMeasured(guidanceFrame,result);
             }
             // Truth attribution is outside the sensor and guidance contracts.
-            const auto scene=e->seekerAttributionsV3.find(result.measurementTimeS.value_or(simTime_));
+            const double attributionEpoch=result.measurementTimeS.value_or(simTime_);
+            auto scene=e->seekerAttributionsV3.find(attributionEpoch);
+            if(scene==e->seekerAttributionsV3.end()&&reticle) {
+                const double span=std::max(options_.dt*options_.frameSkip,seeker.engineering.samplePeriodS)+1e-9;
+                const auto candidate=e->seekerAttributionsV3.lower_bound(attributionEpoch);
+                if(candidate!=e->seekerAttributionsV3.end()&&candidate->first-attributionEpoch<=span)scene=candidate;
+            }
             output.holding=result.attributionIndex&&scene!=e->seekerAttributionsV3.end()&&*result.attributionIndex<scene->second.size()
                 ?scene->second[*result.attributionIndex]:result.tracking?0:old.holding;
             const double retention=std::max(3.,seeker.engineering.processingDelayS+seeker.engineering.memoryS+2*seeker.engineering.samplePeriodS);
@@ -1302,9 +1308,30 @@ const World::Entry::OnRailSeekerV2* World::sampleOnRailSeeker(const Entry& launc
         aligned.position=frame.position;aligned.velocity=frame.velocity;aligned.bodyToEcef=*frame.bodyAxes;
         thermalScene.navigation=aligned;
         if(reticle) {
-            if(auto* detector=dynamic_cast<ms::components::ThermalReticleSeekerExecutionV1*>(cached.provider.get()))
+            if(auto* detector=dynamic_cast<ms::components::ThermalReticleSeekerExecutionV1*>(cached.provider.get())) {
                 cached.result=detector->sampleThermalReticleV1(frame,thermalScene);
-            else cached.result={};
+                // Scalar reticle raw features carry no referee attribution; World
+                // performs referee-only attribution after the seeker returns.
+                if(cached.result.tracking&&cached.result.track&&!cached.result.attributionIndex&&
+                   thermalScene.patches.size()==thermalScene.refereeAttributionIndices.size()) {
+                    using namespace ms::components::measured;
+                    const double dtMid=simTime_-cached.result.measurementTimeS.value_or(simTime_);
+                    const double gate=std::max(reticle->policy.detector.associationGateRad,
+                        std::sqrt(std::max(0.,cached.result.angularVarianceRad2.value_or(0.))));
+                    double bestScore=0;std::optional<std::size_t> bestId;
+                    for(std::size_t i=0;i<thermalScene.patches.size();++i) {
+                        if(!thermalScene.refereeAttributionIndices[i])continue;
+                        const auto& patch=thermalScene.patches[i];
+                        const V dir=unit(subtract(patch.direction,scale(patch.directionRate,dtMid)));
+                        const double halfPatch=.5*std::hypot(patch.widthRad,patch.heightRad);
+                        const double sep=std::acos(std::clamp(dot(dir,cached.result.track->direction),-1.,1.));
+                        if(sep>gate+halfPatch)continue;
+                        const double score=std::max(0.,patch.radianceWm2Sr)*std::max(1e-12,patch.widthRad*patch.heightRad)/(sep+1e-6);
+                        if(score>bestScore){bestScore=score;bestId=thermalScene.refereeAttributionIndices[i];}
+                    }
+                    cached.result.attributionIndex=bestId;
+                }
+            } else cached.result={};
         } else if(dualThermal) {
             secondThermalScene.navigation=aligned;
             if(auto* detector=dynamic_cast<ms::components::ThermalDualBandSeekerExecutionV1*>(cached.provider.get()))
@@ -1314,7 +1341,13 @@ const World::Entry::OnRailSeekerV2* World::sampleOnRailSeeker(const Entry& launc
         else cached.result={};
     } else if(!descriptor->bindings.count("receiver_model"))cached.result=sensor->sample(frame);
     else cached.result={};
-    const auto original=cached.sceneAttributionsV3.find(cached.result.measurementTimeS.value_or(simTime_));
+    const double attributionEpoch=cached.result.measurementTimeS.value_or(simTime_);
+    auto original=cached.sceneAttributionsV3.find(attributionEpoch);
+    if(original==cached.sceneAttributionsV3.end()&&reticle) {
+        const double span=std::max(options_.dt*options_.frameSkip,config.engineering.samplePeriodS)+1e-9;
+        const auto candidate=cached.sceneAttributionsV3.lower_bound(attributionEpoch);
+        if(candidate!=cached.sceneAttributionsV3.end()&&candidate->first-attributionEpoch<=span)original=candidate;
+    }
     cached.attributions=original==cached.sceneAttributionsV3.end()?std::vector<std::uint32_t>{}:original->second;
     const double retention=std::max(3.,config.engineering.processingDelayS+config.engineering.memoryS+2*config.engineering.samplePeriodS);
     while(!cached.sceneAttributionsV3.empty()&&(cached.sceneAttributionsV3.begin()->first<simTime_-retention||cached.sceneAttributionsV3.size()>2048))

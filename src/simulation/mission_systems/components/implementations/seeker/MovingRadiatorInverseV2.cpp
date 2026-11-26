@@ -14,6 +14,12 @@
 #include <cstring>
 #include <sstream>
 #include <iomanip>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <system_error>
+#include <exception>
+#include <unordered_map>
 #if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
 #include <xmmintrin.h>
 #endif
@@ -31,6 +37,7 @@ struct LocalProfileV2 {
     std::size_t subsetChecks=0,subsetRefusals=0,subsetFallbacks=0,phaseHits=0;
     std::size_t regionalAccelerated=0,regionalNative=0;double groundAttemptUs=0,groundOriginalUs=0;
     std::size_t conicRequests=0,conicBanks=0,conicFields=0,conicFallbacks=0;
+    std::size_t parallelBatches=0,parallelFields=0,parallelWorkersPeak=0;
     double conicSetupUs=0,conicRenderUs=0,conicMaximumError=0;
     unsigned conicVersion=4;
     std::array<std::size_t,8> fallbackReasons{};
@@ -43,7 +50,7 @@ struct LocalProfileV2 {
         const double us=std::chrono::duration<double,std::micro>(Clock::now()-began).count();
         char costJson[64];if(std::isfinite(cost))std::snprintf(costJson,sizeof(costJson),"%.17g",cost);else std::snprintf(costJson,sizeof(costJson),"null");
         std::fprintf(stderr,"MOVING_RETICLE_PROFILE {\"stage\":\"%s\",\"read\":%.17g,\"capture\":%.17g,\"elapsed_us\":%.3f,\"cost\":%s,\"coarse\":%d,\"basis_calls\":%zu,\"regions\":%zu,\"lookup_probes\":%zu,\"qp_calls\":%zu,\"qp_faces\":%zu,\"iterations\":%zu,\"trials\":%zu,\"modes\":%zu,\"admitted_modes\":%zu,\"ground_us\":%.3f,\"regional_us\":%.3f,\"qp_us\":%.3f,\"information_us\":%.3f,\"lookup_us\":%.3f,\"prepare_us\":%.3f,\"ground_hits\":%zu,\"prepare_hits\":%zu,\"subset_checks\":%zu,\"subset_refusals\":%zu,\"subset_fallbacks\":%zu,\"phase_hits\":%zu}\n",
-            stage,readTime,captureTime,us,costJson,coarse?1:0,calls[BasisWork],calls[Regional],probes,calls[Qp],faces,iterations,trials,modes,admittedModes,
+            stage,readTime,captureTime,us,costJson,coarse?1:0,calls[BasisWork],calls[Regional]-parallelBatches+parallelFields,probes,calls[Qp],faces,iterations,trials,modes,admittedModes,
             micros[FullGround],micros[Regional],micros[Qp],micros[Information],micros[Lookup],micros[Prepare],groundHits,prepareHits,subsetChecks,subsetRefusals,subsetFallbacks,phaseHits);
         std::fprintf(stderr,"MOVING_GROUND_PROFILE {\"stage\":\"%s\",\"read\":%.17g,\"accelerated\":%zu,\"native\":%zu,\"attempt_us\":%.3f,\"original_us\":%.3f,\"at\":%zu,\"at_repeats\":%zu,\"rules\":%zu,\"recursions\":%zu,\"max_depth\":%u,\"active_rows\":%zu,\"memo_queries\":%zu,\"memo_hits\":%zu,\"memo_capacity_misses\":%zu,\"memo_max_nodes\":%zu,\"roots_built\":%zu,\"y_hits\":%zu,\"y_evaluations\":%zu,\"probability_hits\":%zu,\"probability_evaluations\":%zu,\"fallback_reasons\":[%zu,%zu,%zu,%zu,%zu,%zu,%zu,%zu]}\n",
             stage,readTime,regionalAccelerated,regionalNative,groundAttemptUs,groundOriginalUs,groundWork.atEvaluations,groundWork.repeatedAtSamples,
@@ -53,6 +60,9 @@ struct LocalProfileV2 {
             fallbackReasons[0],fallbackReasons[1],fallbackReasons[2],fallbackReasons[3],fallbackReasons[4],fallbackReasons[5],fallbackReasons[6],fallbackReasons[7]);
         std::fprintf(stderr,"MOVING_CONIC_V%u_PROFILE {\"stage\":\"%s\",\"read\":%.17g,\"requests\":%zu,\"banks\":%zu,\"fields\":%zu,\"fallbacks\":%zu,\"setup_us\":%.3f,\"render_us\":%.3f,\"maximum_error\":%.17g}\n",
             conicVersion,stage,readTime,conicRequests,conicBanks,conicFields,conicFallbacks,conicSetupUs,conicRenderUs,conicMaximumError);
+        if(conicVersion==5)std::fprintf(stderr,
+            "MOVING_PARALLEL_PHASE_PROFILE {\"stage\":\"%s\",\"read\":%.17g,\"batches\":%zu,\"fields\":%zu,\"peak_workers\":%zu,\"render_us_kind\":\"sum_of_worker_elapsed_us\",\"detailed_ground_work\":\"serial_requests_only\"}\n",
+            stage,readTime,parallelBatches,parallelFields,parallelWorkersPeak);
         std::fflush(stderr);
     }
     void captureGround(const ThermalGroundWorkV2& work,bool accelerated,const ThermalImageConfigV1& policy,
@@ -535,6 +545,70 @@ struct Fit {double cost=infinity,background=0,source=0;};
 struct SourceWave {std::array<double,6> shape{};unsigned branch=0;std::vector<double> raw;};
 enum class RegionalOperator {LegacyV2,ConicV4,ConicFastV5};
 
+// Private per-Inverse worker pool for pure-optics V5 phase batches.
+// Eliminates repeated OS thread creation/join across thousands of batches
+// while preserving caller-environment inheritance and exact per-phase order.
+class PhasePoolV5 {
+public:
+    ~PhasePoolV5() {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            stop_=true;
+        }
+        wake_.notify_all();
+        for(auto& thread:threads_)if(thread.joinable())thread.join();
+    }
+    template<typename Fn>
+    void run(unsigned workers,Fn& fn) {
+        if(workers<=1){fn(0);return;}
+        const unsigned helpers=workers-1;
+        while(threads_.size()<helpers) {
+            const unsigned id=static_cast<unsigned>(threads_.size()+1);
+            try {threads_.emplace_back(&PhasePoolV5::loop,this,id);}
+            catch(const std::system_error&){break;}
+        }
+        if(threads_.empty()){fn(0);return;}
+        const auto invoke=[](const void* context,unsigned id) noexcept {(*static_cast<const Fn*>(context))(id);};
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            fn_=invoke;context_=&fn;
+            active_=static_cast<unsigned>(threads_.size());
+            ++generation_;
+        }
+        wake_.notify_all();
+        fn(0);
+        std::unique_lock<std::mutex> lock(mutex_);
+        done_.wait(lock,[&]{return active_==0;});
+    }
+private:
+    void loop(unsigned id) noexcept {
+        std::size_t seen=0;
+        for(;;) {
+            void (*fn)(const void*,unsigned)=nullptr;
+            const void* context=nullptr;
+            {
+                std::unique_lock<std::mutex> lock(mutex_);
+                wake_.wait(lock,[&]{return stop_||generation_!=seen;});
+                if(stop_)return;
+                seen=generation_;fn=fn_;context=context_;
+            }
+            if(fn)fn(context,id);
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                if(--active_==0)done_.notify_one();
+            }
+        }
+    }
+    std::mutex mutex_;
+    std::condition_variable wake_,done_;
+    std::vector<std::thread> threads_;
+    void (*fn_)(const void*,unsigned)=nullptr;
+    const void* context_=nullptr;
+    std::size_t generation_=0;
+    unsigned active_=0;
+    bool stop_=false;
+};
+
 class Inverse {
 public:
     const Optics& optics;const ThermalReticleConfigV1& c;const ThermalImageConfigV1& p;
@@ -548,7 +622,9 @@ public:
     double dataNorm,ut,tt,uu,det;
     struct Ground {double cutoff=0,cost=infinity,amplitude=0;std::vector<double> raw,wave;};
     std::vector<Ground> grounds;
-    std::optional<double> lastGroundCutoff;std::vector<double> lastGroundField;
+    std::unordered_map<std::uint64_t,std::size_t> groundIndex;
+    struct GroundFieldEntry {double cutoff=0;std::vector<double> field;};
+    std::vector<GroundFieldEntry> groundFieldCache;
     std::optional<double> nativeGroundCutoff;std::vector<double> nativeGroundField;
     std::optional<Shape> lastShape;unsigned lastBranch=0;std::optional<Basis> lastBasis;
     std::optional<Shape> regionalShape;unsigned regionalBranch=0;
@@ -556,6 +632,20 @@ public:
     // At most one fixed-optics bank; signed cutoff identity controls reset.
     std::optional<double> conicCutoff;bool conicBankAttempted=false;
     std::unique_ptr<conic_moments_v4::Bank> conicBank;
+    // Private pure-optics concurrency, independent of World stepping/RNG.
+    static constexpr unsigned maximumPhaseWorkersV5=16;
+    static constexpr std::size_t maximumPhaseBanksV5=16;
+    struct CachedPhaseBankV5 {double cutoff=0;std::shared_ptr<conic_moments_v4::Bank> bank;};
+    std::vector<CachedPhaseBankV5> phaseBankCacheV5;
+    PhasePoolV5 phasePoolV5;
+    std::array<conic_moments_v4::FieldWorkspaceV5,maximumPhaseWorkersV5> phaseWorkspacesV5;
+    conic_moments_v4::FieldWorkspaceV5 serialWorkspaceV5;
+    bool sparseMaskReadyV5=false,powerOfTwoExposureV5=false;
+    double invExposureV5=0;
+    std::vector<std::size_t> sparseOffsetV5;
+    std::vector<std::uint16_t> sparsePixelV5;
+    std::vector<double> sparseSolidV5,sparseWeightV5;
+    std::unique_ptr<conic_moments_v4::GaussianMemoV5> gaussianMemoV5;
     bool subsetPrepared=false;std::vector<SubsetMapV2> subsetMaps;
     double backgroundPhaseBound=infinity,polePhaseBound=infinity,backgroundNormBound=infinity,projectionRoundFactor=infinity;
     bool modeCache=false;std::vector<SourceWave> sources;
@@ -567,10 +657,14 @@ public:
         std::vector<double> rawSource;
     };
     std::optional<Trajectory> trajectory;
+    static constexpr std::size_t maximumModeTrajectoriesV5=16;
+    std::vector<std::unique_ptr<Trajectory>> modeTrajectories;
+    std::optional<Shape> priorStart;
     double nullCost=infinity,nullCutoff=0,nullAmplitude=0;
     std::size_t maximumGrounds;
     struct Null {double cutoff,cost,amplitude;};std::vector<Null> nullMinima;
-    Inverse(const Optics& o,const ThermalReticleResultV1& input,V pointing,V ownUp,RegionalOperator operation):
+    Inverse(const Optics& o,const ThermalReticleResultV1& input,V pointing,V ownUp,RegionalOperator operation,
+            const ThermalReticleMeasuredPriorV2* prior=nullptr):
         optics(o),c(o.policy),p(c.detector),measured(input),regionalOperator(operation),forward(unit(pointing)),up(unit(ownUp)),count(c.samplesPerScan),
         pixels(static_cast<std::size_t>(p.width)*p.height),alpha(-std::expm1(-1/(c.frequencyHz*count*p.pixelResponseTimeS))),
         pixelArea(p.pixelPitchRad*p.pixelPitchRad),variance(input.varianceBoundElectrons2),
@@ -580,8 +674,36 @@ public:
         profile.conicVersion=regionalOperator==RegionalOperator::ConicFastV5?5u:
             regionalOperator==RegionalOperator::ConicV4?4u:2u;
         // Explicit V5 only. LegacyV2 and ConicV4 keep the old dense source operator.
-        if(regionalOperator==RegionalOperator::ConicFastV5)
+        if(regionalOperator==RegionalOperator::ConicFastV5) {
             sourceWaveOpticsV5.emplace(optics.solidAngles,optics.timeWeights,p.width,p.height,count,p.exposureSamples,pixelArea);
+            powerOfTwoExposureV5=p.exposureSamples>0&&(p.exposureSamples&(p.exposureSamples-1u))==0;
+            invExposureV5=powerOfTwoExposureV5?(1.0/static_cast<double>(p.exposureSamples)):0.0;
+            if(pixels<=65535u&&
+               std::all_of(optics.solidAngles.begin(),optics.solidAngles.end(),[](double v){return std::isfinite(v)&&v>=0;})&&
+               std::all_of(optics.timeWeights.begin(),optics.timeWeights.end(),[](double v){return std::isfinite(v)&&v>=0;})) {
+                const std::size_t subexposures=static_cast<std::size_t>(count)*p.exposureSamples;
+                sparseOffsetV5.resize(subexposures+1,0);
+                std::size_t totalNonzero=0;
+                for(std::size_t ti=0;ti<subexposures;++ti) {
+                    const double* w=optics.timeWeights.data()+ti*pixels;
+                    for(std::size_t i=0;i<pixels;++i)if(w[i]!=0.0)++totalNonzero;
+                }
+                sparsePixelV5.reserve(totalNonzero);
+                sparseSolidV5.reserve(totalNonzero);
+                sparseWeightV5.reserve(totalNonzero);
+                for(std::size_t ti=0;ti<subexposures;++ti) {
+                    sparseOffsetV5[ti]=sparsePixelV5.size();
+                    const double* w=optics.timeWeights.data()+ti*pixels;
+                    for(std::size_t i=0;i<pixels;++i)if(w[i]!=0.0) {
+                        sparsePixelV5.push_back(static_cast<std::uint16_t>(i));
+                        sparseSolidV5.push_back(optics.solidAngles[i]);
+                        sparseWeightV5.push_back(w[i]);
+                    }
+                }
+                sparseOffsetV5[subexposures]=sparsePixelV5.size();
+                sparseMaskReadyV5=true;
+            }
+        }
         right=unit(cross(forward,up));if(norm(right)<.5)right=unit(cross(forward,std::abs(forward.z)<.9?V{0,0,1}:V{0,1,0}));
         vertical=unit(cross(right,forward));
         const double margin=9*p.psfSigmaRad;
@@ -598,13 +720,40 @@ public:
         for(unsigned j=0;j<count;++j){transient[j]=std::pow(1-alpha,j+1);state+=alpha*(darkInput-state);dark[j]=state;}
         ut=inner(uniform,transient);tt=inner(transient,transient);uu=inner(uniform,uniform);det=uu*tt-ut*ut;
         const auto coarse=static_cast<std::size_t>(p.height)+1,minima=coarse-coarse/3;
+        if(prior&&std::isfinite(prior->captureTimeS)&&prior->captureTimeS>=0&&
+           std::isfinite(prior->availableTimeS)&&prior->availableTimeS>=prior->captureTimeS&&
+           prior->captureTimeS<input.measurementTimeS&&prior->availableTimeS<=input.exposureStartTimeS&&
+           finite(prior->direction)&&norm(prior->direction)>0&&finite(prior->directionRate)&&
+           std::isfinite(prior->widthRad)&&prior->widthRad>0&&prior->widthRad<=2*halfX&&
+           std::isfinite(prior->heightRad)&&prior->heightRad>0&&prior->heightRad<=2*halfY&&
+           std::isfinite(prior->cutoff)&&prior->cutoff>=low&&prior->cutoff<=high) {
+            const auto projectRay=[&](double epochS)->std::optional<std::array<double,2>> {
+                const auto predicted=add(prior->direction,scale(prior->directionRate,epochS-prior->captureTimeS));
+                if(!finite(predicted)||!(norm(predicted)>0))return std::nullopt;
+                const auto dir=unit(predicted);const double front=dot(forward,dir);
+                const double px=std::atan2(dot(right,dir),front),py=std::atan2(dot(vertical,dir),front);
+                if(!(front>0)||std::abs(px)>halfX||std::abs(py)>halfY)return std::nullopt;
+                return std::array<double,2>{{px,py}};
+            };
+            const auto pFirst=projectRay(first),pLast=projectRay(last);
+            if(pFirst&&pLast) {
+                const Shape candidate=quantize({{(*pFirst)[0],(*pFirst)[1],(*pLast)[0],(*pLast)[1],
+                    prior->widthRad,prior->heightRad,prior->cutoff}});
+                if(path(candidate,0))priorStart=candidate;
+            }
+        }
         // One retained measured static proposal plus2branches*5null basins;
         //64iterations*2cut derivatives+12trials per independent start.
         // Selected plus at most11local-basin covariances add2each before a finite snapshot. Every snapshot
         // cutoff can add its two neighbours, shared by all branch/reflections.
         // Up to5explicit initial cutoffs may need their canonical lattice
         // representation in addition to the source static-proposal value.
-        maximumGrounds=3*(coarse+36*minima+5+11*(1+64*(2+12))+2*(1+11));
+        // A valid causal measured prior adds at most 3 roll-rotated extent
+        // starts across 2 cutoffs (priorCutoff and nullCutoff: 6 independent
+        // starts) and 1 explicit initial cutoff; no-prior count is exact old.
+        const std::size_t extraStarts=priorStart?6u:0u;
+        const std::size_t extraCutoffs=priorStart?1u:0u;
+        maximumGrounds=3*(coarse+36*minima+(5+extraCutoffs)+(11+extraStarts)*(1+64*(2+12))+2*(1+11+extraStarts));
         profile.readTime=input.timeS;profile.captureTime=input.measurementTimeS;profile.checkpoint("start");
         diagnostic.attempted=true;diagnostic.readTimeS=input.timeS;diagnostic.captureTimeS=input.measurementTimeS;
         diagnostic.firstStateTimeS=first;diagnostic.lastStateTimeS=last;
@@ -619,9 +768,18 @@ public:
     }
     const std::vector<double>* groundField(double cutoff) {
         LocalTimerV2 timer(&profile,LocalProfileV2::FullGround);
-        if(lastGroundCutoff&&*lastGroundCutoff==cutoff&&std::signbit(*lastGroundCutoff)==std::signbit(cutoff)){if(profile.enabled)++profile.groundHits;return &lastGroundField;}
+        for(std::size_t idx=0;idx<groundFieldCache.size();++idx) {
+            if(exactScalar(groundFieldCache[idx].cutoff,cutoff)) {
+                if(idx!=0)std::rotate(groundFieldCache.begin(),groundFieldCache.begin()+static_cast<std::ptrdiff_t>(idx),
+                    groundFieldCache.begin()+static_cast<std::ptrdiff_t>(idx+1));
+                if(profile.enabled)++profile.groundHits;
+                return &groundFieldCache[0].field;
+            }
+        }
         auto field=ThermalReticleReceiverV1::unitGroundFieldV1(p,forward,up,cutoff);if(!field)return nullptr;
-        lastGroundCutoff=cutoff;lastGroundField=std::move(*field);return &lastGroundField;
+        if(groundFieldCache.size()>=4)groundFieldCache.pop_back();
+        groundFieldCache.insert(groundFieldCache.begin(),GroundFieldEntry{cutoff,std::move(*field)});
+        return &groundFieldCache[0].field;
     }
     const std::vector<double>* originalGround(double cutoff) {
         if(nativeGroundCutoff&&*nativeGroundCutoff==cutoff&&std::signbit(*nativeGroundCutoff)==std::signbit(cutoff))return &nativeGroundField;
@@ -635,8 +793,13 @@ public:
     std::vector<double> wave(const std::vector<double>& field) const {
         LocalTimerV2 timer(&profile,LocalProfileV2::GroundWave);
         std::vector<double> result(count,0);
-        for(std::size_t i=0;i<field.size();++i)for(unsigned j=0;j<count;++j)
-            result[j]+=field[i]*optics.solidAngles[i]*optics.weights[i*count+j]/pixelArea;
+        for(std::size_t i=0;i<field.size();++i) {
+            const double f=field[i];
+            if(f==0)continue;
+            const double s=f*optics.solidAngles[i]/pixelArea;
+            const double* w=optics.weights.data()+i*count;
+            for(unsigned j=0;j<count;++j)result[j]+=s*w[j];
+        }
         return filter(std::move(result),alpha);
     }
     std::optional<std::array<double,2>> rawSky(const std::vector<double>& component) const {
@@ -646,12 +809,18 @@ public:
         const auto coefficient=[&](const std::vector<double>& y){return tt>0?(inner(y,uniform)*tt-inner(y,transient)*ut)/det:inner(y,uniform)/uu;};
         return std::array<double,2>{{coefficient(remaining),coefficient(component)}};
     }
+    static std::uint64_t cutoffBits(double cutoff) noexcept {
+        std::uint64_t bits=0;std::memcpy(&bits,&cutoff,sizeof(bits));return bits;
+    }
     const Ground* calibration(double cutoff) {
+        const auto key=cutoffBits(cutoff);
         {LocalTimerV2 timer(&profile,LocalProfileV2::Lookup);
-        for(const auto& item:grounds){if(profile.enabled)++profile.probes;if(exactScalar(item.cutoff,cutoff)){if(profile.enabled)++profile.hits;return &item;}}}
+        if(profile.enabled)++profile.probes;
+        if(const auto found=groundIndex.find(key);found!=groundIndex.end()){if(profile.enabled)++profile.hits;return &grounds[found->second];}}
         if(grounds.size()>=maximumGrounds){diagnostic.refusal=21;return nullptr;}
         const auto* field=groundField(cutoff);if(!field){diagnostic.refusal=22;return nullptr;}
         Ground item;item.cutoff=cutoff;item.raw=wave(*field);item.wave=item.raw;project(item.wave,optics.nuisance);
+        groundIndex.emplace(key,grounds.size());
         grounds.push_back(std::move(item));auto& added=grounds.back();diagnostic.calibrations=grounds.size();
         const double norm2=inner(added.wave,added.wave);
         if(norm2>128*epsilon)if(const auto sky=rawSky(added.raw)) {
@@ -713,6 +882,18 @@ public:
         LocalTimerV2 timer(&profile,LocalProfileV2::Prepare);
         const std::array<double,6> key{{q[0],q[1],q[2],q[3],q[4],q[5]}};
         if(trajectory&&exactCoordinates(trajectory->shape,key)&&trajectory->branch==branch){if(profile.enabled)++profile.prepareHits;return &*trajectory;}
+        if(modeCache) {
+            for(std::size_t idx=0;idx<modeTrajectories.size();++idx) {
+                if(exactCoordinates(modeTrajectories[idx]->shape,key)&&modeTrajectories[idx]->branch==branch) {
+                    if(idx>0) {
+                        const auto offset=static_cast<std::ptrdiff_t>(idx);
+                        std::rotate(modeTrajectories.begin(),modeTrajectories.begin()+offset,modeTrajectories.begin()+offset+1);
+                    }
+                    if(profile.enabled)++profile.prepareHits;
+                    return modeTrajectories.front().get();
+                }
+            }
+        }
         const auto ray=path(q,branch);if(!ray)return nullptr;
         const SourceWave* cachedSource=nullptr;
         if(modeCache)for(const auto& entry:sources)if(exactCoordinates(entry.shape,key)&&entry.branch==branch){cachedSource=&entry;break;}
@@ -726,41 +907,92 @@ public:
             return extent==0?.5*(std::erfc((centre-hi)/(std::sqrt(2.)*sigma))-std::erfc((centre-lo)/(std::sqrt(2.)*sigma))):
                 ThermalImageReceiverV1::gaussianIntervalV1(centre-.5*extent,centre+.5*extent,lo,hi,sigma)/extent;
         };
-        for(unsigned j=0;j<count;++j)for(unsigned k=0;k<p.exposureSamples;++k) {
-            const auto timeIndex=static_cast<std::size_t>(j)*p.exposureSamples+k;
-            const double time=measured.exposureStartTimeS+(j+.5)/(c.frequencyHz*count)+
-                p.integrationTimeS*((k+.5)/p.exposureSamples-.5)+.5*p.integrationTimeS/p.exposureSamples;
-            const auto direction=photonAtState(*ray,time-measured.timeS);if(!(direction.x>0))return nullptr;
-            const double x=std::atan2(direction.y,direction.x),y=std::atan2(direction.z,direction.x);
-            item.x[timeIndex]=x;item.y[timeIndex]=y;
-            const auto levels=levelBounds(x,y,q[4],q[5]);
-            item.minimumLevel=std::min(item.minimumLevel,levels[0]);item.maximumLevel=std::max(item.maximumLevel,levels[1]);
-            if(cachedSource)continue;
-            for(unsigned col=0;col<p.width;++col) {
-                const double lo=(col-.5*p.width)*p.pixelPitchRad,hi=lo+p.pixelPitchRad;
-                if(lo>x+.5*q[4]+9*sigma||hi<x-.5*q[4]-9*sigma)continue;
-                item.xProbability[timeIndex*p.width+col]=probability(lo,hi,x,q[4]);
-            }
-            for(unsigned row=0;row<p.height;++row) {
-                const double lo=(row-.5*p.height)*p.pixelPitchRad,hi=lo+p.pixelPitchRad;
-                if(lo>y+.5*q[5]+9*sigma||hi<y-.5*q[5]-9*sigma)continue;
-                item.yProbability[timeIndex*p.height+row]=probability(lo,hi,y,q[5]);
-            }
-            const bool sparseV5=sourceWaveOpticsV5&&sourceWaveOpticsV5->addSample(
-                item.rawSource[j],item.xProbability,item.yProbability,timeIndex);
-            if(!sparseV5) {
-                for(unsigned row=0;row<p.height;++row)for(unsigned col=0;col<p.width;++col) {
-                    const auto index=static_cast<std::size_t>(row)*p.width+col;
-                    const double value=item.yProbability[timeIndex*p.height+row]*item.xProbability[timeIndex*p.width+col]*optics.solidAngles[index]/pixelArea;
-                    item.rawSource[j]+=value*optics.timeWeights[timeIndex*pixels+index]/p.exposureSamples;
+        const auto processPhase=[&](unsigned j,double& localMin,double& localMax)->bool {
+            for(unsigned k=0;k<p.exposureSamples;++k) {
+                const auto timeIndex=static_cast<std::size_t>(j)*p.exposureSamples+k;
+                const double time=measured.exposureStartTimeS+(j+.5)/(c.frequencyHz*count)+
+                    p.integrationTimeS*((k+.5)/p.exposureSamples-.5)+.5*p.integrationTimeS/p.exposureSamples;
+                const auto direction=photonAtState(*ray,time-measured.timeS);if(!(direction.x>0))return false;
+                const double x=std::atan2(direction.y,direction.x),y=std::atan2(direction.z,direction.x);
+                item.x[timeIndex]=x;item.y[timeIndex]=y;
+                const auto levels=levelBounds(x,y,q[4],q[5]);
+                localMin=std::min(localMin,levels[0]);localMax=std::max(localMax,levels[1]);
+                if(cachedSource)continue;
+                for(unsigned col=0;col<p.width;++col) {
+                    const double lo=(col-.5*p.width)*p.pixelPitchRad,hi=lo+p.pixelPitchRad;
+                    if(lo>x+.5*q[4]+9*sigma||hi<x-.5*q[4]-9*sigma)continue;
+                    item.xProbability[timeIndex*p.width+col]=probability(lo,hi,x,q[4]);
+                }
+                for(unsigned row=0;row<p.height;++row) {
+                    const double lo=(row-.5*p.height)*p.pixelPitchRad,hi=lo+p.pixelPitchRad;
+                    if(lo>y+.5*q[5]+9*sigma||hi<y-.5*q[5]-9*sigma)continue;
+                    item.yProbability[timeIndex*p.height+row]=probability(lo,hi,y,q[5]);
+                }
+                const bool sparseV5=sourceWaveOpticsV5&&sourceWaveOpticsV5->addSample(
+                    item.rawSource[j],item.xProbability,item.yProbability,timeIndex);
+                if(!sparseV5) {
+                    for(unsigned row=0;row<p.height;++row)for(unsigned col=0;col<p.width;++col) {
+                        const auto index=static_cast<std::size_t>(row)*p.width+col;
+                        const double value=item.yProbability[timeIndex*p.height+row]*item.xProbability[timeIndex*p.width+col]*optics.solidAngles[index]/pixelArea;
+                        item.rawSource[j]+=value*optics.timeWeights[timeIndex*pixels+index]/p.exposureSamples;
+                    }
                 }
             }
+            return true;
+        };
+        const unsigned prepWorkers=regionalOperator==RegionalOperator::ConicFastV5&&!cachedSource&&!ray->stationary&&certifiedArithmeticV2()
+            ?std::min({maximumPhaseWorkersV5,std::thread::hardware_concurrency(),count}):1u;
+        if(prepWorkers>=2) {
+            std::fenv_t prepEnv{};
+            if(std::fegetenv(&prepEnv)==0) {
+#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
+                const unsigned prepCsr=_mm_getcsr();
+#endif
+#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
+                unsigned short prepCw=0;__asm__ __volatile__("fnstcw %0":"=m"(prepCw));
+#endif
+                std::array<double,maximumPhaseWorkersV5> wMin,wMax;
+                wMin.fill(infinity);wMax.fill(-infinity);
+                std::atomic<unsigned> nextJ{0};std::atomic<bool> failed{false};
+                const auto prepWork=[&](unsigned worker) noexcept {
+                    if(worker!=0) {
+                        if(std::fesetenv(&prepEnv)!=0){failed.store(true,std::memory_order_relaxed);return;}
+#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
+                        _mm_setcsr(prepCsr);
+#endif
+#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
+                        __asm__ __volatile__("fldcw %0"::"m"(prepCw));
+#endif
+                    }
+                    double lMin=infinity,lMax=-infinity;
+                    while(!failed.load(std::memory_order_relaxed)) {
+                        const unsigned j=nextJ.fetch_add(1,std::memory_order_relaxed);
+                        if(j>=count)break;
+                        if(!processPhase(j,lMin,lMax)){failed.store(true,std::memory_order_relaxed);break;}
+                    }
+                    wMin[worker]=lMin;wMax[worker]=lMax;
+                };
+                phasePoolV5.run(prepWorkers,prepWork);
+                if(failed.load(std::memory_order_relaxed))return nullptr;
+                for(unsigned w=0;w<prepWorkers;++w){item.minimumLevel=std::min(item.minimumLevel,wMin[w]);item.maximumLevel=std::max(item.maximumLevel,wMax[w]);}
+            } else {
+                for(unsigned j=0;j<count;++j)if(!processPhase(j,item.minimumLevel,item.maximumLevel))return nullptr;
+            }
+        } else {
+            for(unsigned j=0;j<count;++j)if(!processPhase(j,item.minimumLevel,item.maximumLevel))return nullptr;
         }
         if(!cachedSource)item.rawSource=filter(std::move(item.rawSource),alpha);
         if(ray->stationary)item.rawSource=optics.staticSourceRaw({{q[0],q[1],q[4],q[5]}});
         // The128-entry source memo bounds payload only; further exact
         // geometries are recomputed and remain in the hypothesis bank.
         if(modeCache&&!cachedSource&&sources.size()<128)sources.push_back({key,branch,item.rawSource});
+        if(modeCache) {
+            auto stored=std::make_unique<Trajectory>(std::move(item));
+            Trajectory* ptr=stored.get();
+            if(modeTrajectories.size()>=maximumModeTrajectoriesV5)modeTrajectories.pop_back();
+            modeTrajectories.insert(modeTrajectories.begin(),std::move(stored));
+            return ptr;
+        }
         trajectory=std::move(item);return &*trajectory;
     }
     std::optional<double> regionalPhase(const Shape& q,unsigned branch,unsigned j,
@@ -830,12 +1062,20 @@ public:
                         if(conicBank) {
                             LocalProfileV2::Clock::time_point started{};
                             if(profile.enabled)started=LocalProfileV2::Clock::now();
-                            auto rendered=regionalOperator==RegionalOperator::ConicFastV5?
-                                conicBank->evaluateFastMoments(region):conicBank->evaluate(region);
-                            if(profile.enabled)profile.conicRenderUs+=std::chrono::duration<double,std::micro>(LocalProfileV2::Clock::now()-started).count();
-                            if(rendered&&rendered->field.size()==pixels&&rendered->absoluteError.size()==pixels) {
-                                if(profile.enabled){++profile.conicFields;profile.conicMaximumError=std::max(profile.conicMaximumError,*std::max_element(rendered->absoluteError.begin(),rendered->absoluteError.end()));}
-                                occulted=std::move(rendered->field);
+                            if(regionalOperator==RegionalOperator::ConicFastV5) {
+                                const bool ok=conicBank->evaluateFastIntoV5(region,serialWorkspaceV5);
+                                if(profile.enabled)profile.conicRenderUs+=std::chrono::duration<double,std::micro>(LocalProfileV2::Clock::now()-started).count();
+                                if(ok&&serialWorkspaceV5.field.size()==pixels) {
+                                    if(profile.enabled){++profile.conicFields;profile.conicMaximumError=std::max(profile.conicMaximumError,serialWorkspaceV5.maxError);}
+                                    occulted=serialWorkspaceV5.field;
+                                }
+                            } else {
+                                auto rendered=conicBank->evaluate(region);
+                                if(profile.enabled)profile.conicRenderUs+=std::chrono::duration<double,std::micro>(LocalProfileV2::Clock::now()-started).count();
+                                if(rendered&&rendered->field.size()==pixels&&rendered->absoluteError.size()==pixels) {
+                                    if(profile.enabled){++profile.conicFields;profile.conicMaximumError=std::max(profile.conicMaximumError,*std::max_element(rendered->absoluteError.begin(),rendered->absoluteError.end()));}
+                                    occulted=std::move(rendered->field);
+                                }
                             }
                         }
                     }
@@ -859,6 +1099,217 @@ public:
             }
         }
         regionalKnown[j]=true;regionalPhases[j]=value;return value;
+    }
+    std::optional<bool> parallelRegionalPhasesV5(const Shape& q,unsigned branch,
+        const Trajectory& source,const std::vector<double>& full,
+        const std::vector<unsigned>* subset=nullptr) {
+        if(regionalOperator!=RegionalOperator::ConicFastV5||!certifiedArithmeticV2())return false;
+        if(!regionalShape||!exactCoordinates(*regionalShape,q)||regionalBranch!=branch) {
+            regionalShape=q;regionalBranch=branch;regionalPhases.assign(count,0);regionalKnown.assign(count,false);
+        }
+        std::vector<unsigned> jobs;
+        if(subset) {
+            jobs.reserve(subset->size());
+            for(const unsigned j:*subset)if(j<count&&!regionalKnown[j])jobs.push_back(j);
+        } else {
+            jobs.reserve(count);
+            for(unsigned j=0;j<count;++j)if(!regionalKnown[j])jobs.push_back(j);
+        }
+        if(jobs.empty())return true;
+        const unsigned workers=std::min({maximumPhaseWorkersV5,std::thread::hardware_concurrency(),static_cast<unsigned>(jobs.size())});
+        if(workers<2)return false;
+        std::fenv_t environment{};if(std::fegetenv(&environment)!=0)return false;
+#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
+        const unsigned csr=_mm_getcsr();
+#endif
+#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
+        unsigned short control=0;__asm__ __volatile__("fnstcw %0":"=m"(control));
+#endif
+        struct Statistics {
+            std::size_t phases=0,regions=0,requests=0,fields=0,fallbacks=0,accelerated=0,native=0;
+            double maximumError=0,renderUs=0;
+        };
+        std::array<Statistics,maximumPhaseWorkersV5> statistics{};
+        std::array<std::exception_ptr,maximumPhaseWorkersV5> errors{};
+        std::atomic<std::size_t> next{0};std::atomic<bool> refused{false};
+        const auto nativeForward=unit(forward),nativeUp=unit(up);
+        auto nativeRight=unit(cross(nativeForward,nativeUp));
+        if(norm(nativeRight)<.5)nativeRight=unit(cross(nativeForward,std::abs(nativeForward.z)<.9?V{0,0,1}:V{0,1,0}));
+        const auto nativeVertical=unit(cross(nativeRight,nativeForward));
+        const double a=dot(nativeForward,nativeUp),b=dot(nativeRight,nativeUp),cc=dot(nativeVertical,nativeUp);
+        const double margin=9*p.psfSigmaRad,hx=.5*p.width*p.pixelPitchRad,hy=.5*p.height*p.pixelPitchRad;
+        const auto eligible=[&](const std::array<double,4>& region) {
+            const double left=std::max(std::max(-1.55,-hx-margin),region[0]);
+            const double rightEdge=std::min(std::min(1.55,hx+margin),region[1]);
+            const double bottom=std::max(std::max(-1.55,-hy-margin),region[2]);
+            const double top=std::min(std::min(1.55,hy+margin),region[3]);
+            if(!(rightEdge>left)||!(top>bottom))return true;
+            const double maxTx=std::max(std::abs(std::tan(left)),std::abs(std::tan(rightEdge)));
+            const double maxTy=std::max(std::abs(std::tan(bottom)),std::abs(std::tan(top)));
+            const double maxN=std::nextafter(std::abs(a)+std::nextafter(std::abs(b)*maxTx,infinity),infinity);
+            return std::nextafter(cc,-infinity)>std::nextafter(maxN*maxTy,infinity);
+        };
+        std::shared_ptr<conic_moments_v4::Bank> activeBankV5;
+        bool bankFound=false;
+        for(std::size_t idx=0;idx<phaseBankCacheV5.size();++idx) {
+            if(exactScalar(phaseBankCacheV5[idx].cutoff,q[6])) {
+                if(idx>0) {
+                    const auto offset=static_cast<std::ptrdiff_t>(idx);
+                    std::rotate(phaseBankCacheV5.begin(),phaseBankCacheV5.begin()+offset,phaseBankCacheV5.begin()+offset+1);
+                }
+                activeBankV5=phaseBankCacheV5.front().bank;
+                bankFound=true;
+                break;
+            }
+        }
+        if(!bankFound) {
+            conic_moments_v4::Request request;request.width=p.width;request.height=p.height;
+            request.pixelPitchRad=p.pixelPitchRad;request.psfSigmaRad=p.psfSigmaRad;request.cutoff=q[6];
+            request.pointing={{forward.x,forward.y,forward.z}};request.up={{up.x,up.y,up.z}};
+            const auto began=profile.enabled?LocalProfileV2::Clock::now():LocalProfileV2::Clock::time_point{};
+            activeBankV5=std::shared_ptr<conic_moments_v4::Bank>(conic_moments_v4::Bank::prepareSharedV5(request));
+            if(phaseBankCacheV5.size()>=maximumPhaseBanksV5)phaseBankCacheV5.pop_back();
+            phaseBankCacheV5.insert(phaseBankCacheV5.begin(),CachedPhaseBankV5{q[6],activeBankV5});
+            if(profile.enabled) {
+                ++profile.conicBanks;
+                profile.conicSetupUs+=std::chrono::duration<double,std::micro>(LocalProfileV2::Clock::now()-began).count();
+            }
+        }
+        const conic_moments_v4::Bank* phaseBankPtr=activeBankV5.get();
+        // Pre-warm touched degree-3 bank columns concurrently across all phase
+        // workers so threads never serialize in lockstep on column 0..N-1.
+        unsigned warmColBegin=p.width,warmColEnd=0;
+        if(phaseBankPtr) {
+            double minX=infinity,maxX=-infinity;
+            for(const unsigned j:jobs) {
+                for(unsigned k=0;k<p.exposureSamples;++k) {
+                    const auto ti=static_cast<std::size_t>(j)*p.exposureSamples+k;
+                    if(source.x[ti]<minX)minX=source.x[ti];
+                    if(source.x[ti]>maxX)maxX=source.x[ti];
+                }
+            }
+            if(minX<=maxX) {
+                const double rLeft=std::max(std::max(-1.55,-hx-margin),minX-.5*q[4]);
+                const double rRight=std::min(std::min(1.55,hx+margin),maxX+.5*q[4]);
+                for(unsigned col=0;col<p.width;++col) {
+                    const double px0=(col-.5*p.width)*p.pixelPitchRad,px1=px0+p.pixelPitchRad;
+                    const double cLeft=std::max(rLeft,std::max(-1.55,px0-margin));
+                    const double cRight=std::min(rRight,std::min(1.55,px1+margin));
+                    if(cRight>cLeft){if(col<warmColBegin)warmColBegin=col;warmColEnd=col+1;}
+                }
+            }
+        }
+        std::atomic<unsigned> nextWarmCol{warmColBegin};
+        const auto work=[&](unsigned worker) noexcept {
+            try {
+                if(worker!=0) {
+                    if(std::fesetenv(&environment)!=0)return;
+#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
+                    _mm_setcsr(csr);
+#endif
+#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
+                    __asm__ __volatile__("fldcw %0"::"m"(control));
+#endif
+                    if(!certifiedArithmeticV2())return;
+                }
+                if(phaseBankPtr&&warmColBegin<warmColEnd) {
+                    while(true) {
+                        const unsigned col=nextWarmCol.fetch_add(1,std::memory_order_relaxed);
+                        if(col>=warmColEnd)break;
+                        phaseBankPtr->ensureColumnV5(col);
+                    }
+                }
+                auto& stats=statistics[worker];
+                auto& workspace=phaseWorkspacesV5[worker];
+                while(!refused.load(std::memory_order_relaxed)) {
+                    const auto index=next.fetch_add(1,std::memory_order_relaxed);if(index>=jobs.size())break;
+                    ++stats.phases;
+                    const unsigned j=jobs[index];double value=0;
+                    for(unsigned k=0;k<p.exposureSamples;++k) {
+                        const auto ti=static_cast<std::size_t>(j)*p.exposureSamples+k;
+                        const auto levels=levelBounds(source.x[ti],source.y[ti],q[4],q[5]);
+                        const double* occultedPtr=nullptr;
+                        std::optional<std::vector<double>> fallbackOcculted;
+                        if(levels[0]<q[6]) {
+                            ++stats.regions;++stats.requests;
+                            const std::array<double,4> region{{source.x[ti]-.5*q[4],source.x[ti]+.5*q[4],source.y[ti]-.5*q[5],source.y[ti]+.5*q[5]}};
+                            if(phaseBankPtr&&eligible(region)) {
+                                const auto began=profile.enabled?LocalProfileV2::Clock::now():LocalProfileV2::Clock::time_point{};
+                                const bool ok=phaseBankPtr->evaluateFastIntoV5(region,workspace);
+                                if(profile.enabled)stats.renderUs+=std::chrono::duration<double,std::micro>(LocalProfileV2::Clock::now()-began).count();
+                                if(ok&&workspace.field.size()==pixels) {
+                                    ++stats.fields;stats.maximumError=std::max(stats.maximumError,workspace.maxError);
+                                    occultedPtr=workspace.field.data();
+                                }
+                            }
+                            if(!occultedPtr) {
+                                ++stats.fallbacks;
+                                bool accelerated=false;
+                                fallbackOcculted=ThermalReticleReceiverV1::unitGroundFieldMemoV2(p,forward,up,q[6],region,[&](){return &full;},&accelerated);
+                                if(accelerated)++stats.accelerated;else ++stats.native;
+                                if(fallbackOcculted)occultedPtr=fallbackOcculted->data();
+                            }
+                            if(!occultedPtr){refused.store(true,std::memory_order_relaxed);break;}
+                        }
+                        // Identical chronological subexposure and row-major
+                        // accumulation inside this phase. Skipping exact-zero
+                        // mask weights and multiplying by exact binary powers
+                        // of two preserves FE_TONEAREST bits.
+                        const double* fullPtr=full.data();
+                        if(sparseMaskReadyV5&&powerOfTwoExposureV5) {
+                            const std::size_t beginIdx=sparseOffsetV5[ti],endIdx=sparseOffsetV5[ti+1];
+                            const std::uint16_t* pixPtr=sparsePixelV5.data();
+                            const double* solPtr=sparseSolidV5.data();
+                            const double* wgtPtr=sparseWeightV5.data();
+                            if(occultedPtr) {
+                                for(std::size_t idx=beginIdx;idx<endIdx;++idx) {
+                                    const auto pix=pixPtr[idx];
+                                    const double field=fullPtr[pix]-occultedPtr[pix];
+                                    value+=field*solPtr[idx]*wgtPtr[idx]/pixelArea*invExposureV5;
+                                }
+                            } else {
+                                for(std::size_t idx=beginIdx;idx<endIdx;++idx) {
+                                    value+=fullPtr[pixPtr[idx]]*solPtr[idx]*wgtPtr[idx]/pixelArea*invExposureV5;
+                                }
+                            }
+                        } else {
+                            const double* weightsPtr=optics.timeWeights.data()+ti*pixels;
+                            const double* solidPtr=optics.solidAngles.data();
+                            if(occultedPtr) {
+                                for(std::size_t i=0;i<pixels;++i) {
+                                    const double field=fullPtr[i]-occultedPtr[i];
+                                    value+=field*solidPtr[i]*weightsPtr[i]/pixelArea/p.exposureSamples;
+                                }
+                            } else {
+                                for(std::size_t i=0;i<pixels;++i) {
+                                    value+=fullPtr[i]*solidPtr[i]*weightsPtr[i]/pixelArea/p.exposureSamples;
+                                }
+                            }
+                        }
+                    }
+                    regionalPhases[j]=value;
+                }
+            } catch(...) {errors[worker]=std::current_exception();refused.store(true,std::memory_order_relaxed);}
+        };
+        LocalTimerV2 timer(&profile,LocalProfileV2::Regional);
+        phasePoolV5.run(workers,work);
+        for(const auto& error:errors)if(error)std::rethrow_exception(error);
+        std::size_t activeWorkers=0;
+        for(const auto& stats:statistics) {
+            if(stats.phases)++activeWorkers;
+            diagnostic.regionalFields+=stats.regions;
+            if(profile.enabled) {
+                profile.conicRequests+=stats.requests;
+                profile.conicFields+=stats.fields;profile.conicFallbacks+=stats.fallbacks;
+                profile.parallelFields+=stats.regions;profile.conicRenderUs+=stats.renderUs;
+                profile.regionalAccelerated+=stats.accelerated;profile.regionalNative+=stats.native;
+                profile.conicMaximumError=std::max(profile.conicMaximumError,stats.maximumError);
+            }
+        }
+        if(profile.enabled){++profile.parallelBatches;profile.parallelWorkersPeak=std::max(profile.parallelWorkersPeak,activeWorkers);}
+        if(refused.load(std::memory_order_relaxed)){diagnostic.refusal=22;return std::nullopt;}
+        for(const auto j:jobs)regionalKnown[j]=true;
+        return true;
     }
     void prepareSubsetMaps() {
         if(subsetPrepared)return;
@@ -908,6 +1359,10 @@ public:
         const double sourceNorm=vectorUpper(sourceProjected);
         for(const auto& map:subsetMaps) {
             if(profile.enabled)++profile.subsetChecks;
+            if(regionalOperator==RegionalOperator::ConicFastV5) {
+                const auto parallel=parallelRegionalPhasesV5(q,branch,*source,*full,&map.phases);
+                if(!parallel)return false;
+            }
             const auto rows=map.phases.size();std::vector<double> input(rows),sourceInput(rows);
             for(std::size_t row=0;row<rows;++row) {
                 const auto j=map.phases[row];const auto value=regionalPhase(q,branch,j,*source,*full);if(!value)return false;
@@ -948,7 +1403,14 @@ public:
     }
     std::optional<Basis> basis(const Shape& q,unsigned branch) {
         LocalTimerV2 timer(&profile,LocalProfileV2::BasisWork);
-        if(profile.enabled&&profile.calls[LocalProfileV2::BasisWork]%256==0)profile.checkpoint("basis.progress");
+        if(profile.enabled&&profile.calls[LocalProfileV2::BasisWork]%256==0) {
+            profile.checkpoint("basis.progress");
+            if(gaussianMemoV5) {
+                const auto work=gaussianMemoV5->work();
+                std::fprintf(stderr,"MOVING_GAUSSIAN_MEMO {\"basis_calls\":%zu,\"hits\":%zu,\"misses\":%zu,\"entries\":%zu,\"charged_bytes\":%zu}\n",
+                    profile.calls[LocalProfileV2::BasisWork],work.hits,work.misses,work.entries,work.chargedBytes);
+            }
+        }
         if(!valid(q))return std::nullopt;
         if(lastBasis&&lastShape&&exactCoordinates(*lastShape,q)&&lastBranch==branch)return lastBasis;
         const auto* ground=calibration(q[6]);if(!ground)return std::nullopt;
@@ -970,10 +1432,12 @@ public:
         } else {
             const auto* full=groundField(q[6]);if(!full)return std::nullopt;
             answer.raw[0].assign(count,0);
-            for(unsigned j=0;j<count;++j) {
-                const auto value=regionalPhase(q,branch,j,*source,*full);if(!value)return std::nullopt;
-                answer.raw[0][j]=*value;
-            }
+            const auto parallel=parallelRegionalPhasesV5(q,branch,*source,*full);if(!parallel)return std::nullopt;
+            if(*parallel)answer.raw[0]=regionalPhases;
+            else for(unsigned j=0;j<count;++j) {
+                    const auto value=regionalPhase(q,branch,j,*source,*full);if(!value)return std::nullopt;
+                    answer.raw[0][j]=*value;
+                }
             answer.raw[0]=filter(std::move(answer.raw[0]),alpha);
         }
         answer.projected=answer.raw;for(auto& column:answer.projected)project(column,optics.nuisance);
@@ -1177,6 +1641,31 @@ public:
                 if(diagnostic.refusal==21)return selected;
             }
         }
+        // Run every original cold-start continuation first. Only a remaining
+        // failed residual can request independent causal measured-history
+        // continuations; physical budgets, null updates, 7D curvature, finite
+        // mirrors, domain/profile screens and admission remain unchanged below.
+        if(priorStart&&(!std::isfinite(selected.fit.cost)||selected.fit.cost/variance>diagnostic.residualBound)) {
+            std::vector<double> priorCutoffs{(*priorStart)[6]};
+            if(!exactScalar(nullCutoff,(*priorStart)[6]))priorCutoffs.push_back(nullCutoff);
+            std::vector<std::array<double,2>> priorExtents{{(*priorStart)[4],(*priorStart)[5]}};
+            if((*priorStart)[4]!=(*priorStart)[5]) {
+                if((*priorStart)[5]<=2*halfX&&(*priorStart)[4]<=2*halfY)
+                    priorExtents.push_back({(*priorStart)[5],(*priorStart)[4]});
+                const double side=std::max((*priorStart)[4],(*priorStart)[5]);
+                if(side<=2*halfX&&side<=2*halfY)priorExtents.push_back({side,side});
+            }
+            for(const double cutoff:priorCutoffs) {
+                for(const auto& extent:priorExtents) {
+                    auto initial=*priorStart;
+                    initial[4]=extent[0];initial[5]=extent[1];initial[6]=cutoff;
+                    continuation(initial,0);
+                    if(diagnostic.refusal==21)return selected;
+                    if(std::isfinite(selected.fit.cost)&&selected.fit.cost/variance<=diagnostic.residualBound)break;
+                }
+                if(std::isfinite(selected.fit.cost)&&selected.fit.cost/variance<=diagnostic.residualBound)break;
+            }
+        }
         return selected;
     }
     struct Information {double capture=0,first=0,last=0,readRate=0,firstState=0,lastState=0;};
@@ -1320,16 +1809,23 @@ public:
         diagnostic.domainBoundary=route->domainBoundary;
         // Fixed trajectory source waveforms are independent of cutoff. Cache
         // at most104mode/derivative geometries, not spatial fields.
-        modeCache=true;sources.clear();sources.reserve(128);lastShape.reset();lastBasis.reset();
+        modeCache=true;sources.clear();sources.reserve(128);modeTrajectories.clear();lastShape.reset();lastBasis.reset();
         std::vector<std::array<double,5>> modes;
         bool unresolved=searchUnresolved||std::any_of(diagnostic.rawBudget.begin(),diagnostic.rawBudget.end(),[](double x){return x<=0;});
-        if(const auto own=mode(selected.shape,selected.branch,selected.fit))modes.push_back(*own);else unresolved=true;
+        if(!unresolved) {
+            if(const auto own=mode(selected.shape,selected.branch,selected.fit))modes.push_back(*own);else unresolved=true;
+        }
+        if(!unresolved&&!ThermalReticleReceiverV1::finiteMirrorEnvelopeV1(c,modes))unresolved=true;
         // Each independently optimized physical basin participates, including
         // basins that were initially worse than the global selected fit.
         for(const auto& local:localModes) {
+            if(unresolved)break;
             if(local.branch==selected.branch&&exactCoordinates(local.shape,selected.shape))continue;
             if(local.fit.cost>selected.fit.cost+threshold2*variance)continue;
-            if(const auto candidate=mode(local.shape,local.branch,local.fit))modes.push_back(*candidate);else unresolved=true;
+            if(const auto candidate=mode(local.shape,local.branch,local.fit)) {
+                modes.push_back(*candidate);
+                if(!ThermalReticleReceiverV1::finiteMirrorEnvelopeV1(c,modes))unresolved=true;
+            } else unresolved=true;
         }
         // Canonical identity, including branch and all six geometry values,
         // is the only deduplication rule. Different cutoffs share a geometry
@@ -1350,17 +1846,60 @@ public:
                     profileSeeds.push_back({q,local.branch});
             }
         };
-        addGeometry(selected);for(const auto& local:localModes)addGeometry(local);
+        if(!unresolved){addGeometry(selected);for(const auto& local:localModes)addGeometry(local);}
+        // A moving endpoint/domain or an unseen support-edge continuation is
+        // an unresolved family, even if one fitted local covariance is finite.
+        // Check these finite endpoint continuations before scanning the full
+        // cutoff bank: once unresolved, no mirror envelope can be admitted.
+        const auto profileContinuation=[&](Shape q) {
+            if(unresolved)return;
+            q=quantize(q);
+            for(unsigned branch=0;branch<2&&!unresolved;++branch) {
+                if(certifiedModeRefusal(q,branch,selected.fit.cost+threshold2*variance))continue;
+                const auto alternative=solve(q,branch);
+                if(alternative&&alternative->cost<=selected.fit.cost+threshold2*variance&&physical(q,branch,*alternative))unresolved=true;
+            }
+        };
+        for(const auto& seed:profileSeeds) {
+            if(unresolved)break;
+            for(unsigned coordinate=0;coordinate<4&&!unresolved;++coordinate)for(const double sign:{-1.,1.}) {
+                if(unresolved)break;
+                auto q=seed.shape;q[coordinate]=sign*(coordinate%2?halfY:halfX);
+                if(q[coordinate]!=seed.shape[coordinate])profileContinuation(q);
+            }
+            for(unsigned axis=0;axis<2&&!unresolved;++axis)for(const double sign:{-1.,1.}) {
+                if(unresolved)break;
+                const double half=axis?halfY:halfX,extent=seed.shape[axis+4];
+                const double firstShift=std::max({-half-seed.shape[axis],-half-seed.shape[axis+2],sign>0?-.5*extent:.5*(extent-2*half)});
+                const double lastShift=std::min({half-seed.shape[axis],half-seed.shape[axis+2],sign>0?.5*(2*half-extent):.5*extent});
+                if(firstShift>lastShift)continue;
+                for(const double shift:{firstShift,lastShift})if(!unresolved&&std::abs(shift)>angularLattice) {
+                    auto q=seed.shape;q[axis]+=shift;q[axis+2]+=shift;q[axis+4]+=2*sign*shift;profileContinuation(q);
+                }
+            }
+        }
         // Snapshot values are immutable: curvature adds cutoff neighbours but
         // never recursively grows the mode bank. All independent local basins
         // and all their reflected geometries visit the SAME complete cutoff
-        // set, including rejected optimizer trials. There is no coarse-only
-        // placeholder for an unvisited admitted local-basin continuation.
-        std::vector<double> cutoffs;cutoffs.reserve(grounds.size());for(const auto& item:grounds)cutoffs.push_back(item.cutoff);
+        // set, including rejected optimizer trials. Because finiteMirrorEnvelopeV1
+        // is monotone-decreasing under added modes, scanning stops once
+        // unresolved or once the mirror envelope is already refuted.
+        std::vector<double> cutoffs;
+        if(!unresolved){cutoffs.reserve(grounds.size());for(const auto& item:grounds)cutoffs.push_back(item.cutoff);}
+        if(profile.enabled)std::fprintf(stderr,
+            "MOVING_MODE_BANK {\"read\":%.17g,\"geometries\":%zu,\"cutoffs\":%zu,\"initial_modes\":%zu,\"unresolved\":%d,\"initial_envelope\":%d}\n",
+            measured.timeS,geometries.size(),cutoffs.size(),modes.size(),unresolved,
+            ThermalReticleReceiverV1::finiteMirrorEnvelopeV1(c,modes).has_value());
         profile.checkpoint("modes.begin",selected.fit.cost/variance,unresolved);
-        for(const auto& candidateGeometry:geometries) {
-            auto q=candidateGeometry.shape;
-            for(const double cutoff:cutoffs) {
+        // Iterate cutoffs outer, geometries inner so each cutoff's conic bank
+        // and full ground field are built at most once across all reflected
+        // geometries. modes.front() stays selected; finiteMirrorEnvelopeV1 is
+        // order-invariant across all additional modes.
+        for(const double cutoff:cutoffs) {
+            if(unresolved)break;
+            for(const auto& candidateGeometry:geometries) {
+                if(unresolved)break;
+                auto q=candidateGeometry.shape;
                 if(profile.enabled){++profile.modes;if(profile.modes%32==0)profile.checkpoint("modes.progress",selected.fit.cost/variance,unresolved);}
                 q[6]=cutoff;
                 if(candidateGeometry.branch==selected.branch&&exactCoordinates(q,selected.shape))continue;
@@ -1369,36 +1908,18 @@ public:
                 if(!alternative||alternative->cost>selected.fit.cost+threshold2*variance)continue;
                 if(profile.enabled)++profile.admittedModes;
                 std::array<double,3> budget{};if(!physical(q,candidateGeometry.branch,*alternative,&budget))continue;
-                if(std::any_of(budget.begin(),budget.end(),[](double x){return x<=0;}))unresolved=true;
-                if(const auto candidate=mode(q,candidateGeometry.branch,*alternative))modes.push_back(*candidate);else unresolved=true;
+                if(std::any_of(budget.begin(),budget.end(),[](double x){return x<=0;})){unresolved=true;break;}
+                if(const auto candidate=mode(q,candidateGeometry.branch,*alternative)) {
+                    modes.push_back(*candidate);
+                    if(!ThermalReticleReceiverV1::finiteMirrorEnvelopeV1(c,modes))unresolved=true;
+                } else unresolved=true;
+                if(profile.enabled)std::fprintf(stderr,
+                    "MOVING_MODE_ENVELOPE {\"read\":%.17g,\"visited\":%zu,\"admitted\":%zu,\"modes\":%zu,\"unresolved\":%d,\"finite\":%d}\n",
+                    measured.timeS,profile.modes,profile.admittedModes,modes.size(),unresolved,
+                    ThermalReticleReceiverV1::finiteMirrorEnvelopeV1(c,modes).has_value());
             }
         }
         profile.checkpoint("modes.end",selected.fit.cost/variance,unresolved);
-        // A moving endpoint/domain or an unseen support-edge continuation is
-        // an unresolved family, even if one fitted local covariance is finite.
-        const auto profileContinuation=[&](Shape q) {
-            q=quantize(q);
-            for(unsigned branch=0;branch<2;++branch) {
-                if(certifiedModeRefusal(q,branch,selected.fit.cost+threshold2*variance))continue;
-                const auto alternative=solve(q,branch);
-                if(alternative&&alternative->cost<=selected.fit.cost+threshold2*variance&&physical(q,branch,*alternative))unresolved=true;
-            }
-        };
-        for(const auto& seed:profileSeeds) {
-            for(unsigned coordinate=0;coordinate<4;++coordinate)for(const double sign:{-1.,1.}) {
-                auto q=seed.shape;q[coordinate]=sign*(coordinate%2?halfY:halfX);
-                if(q[coordinate]!=seed.shape[coordinate])profileContinuation(q);
-            }
-            for(unsigned axis=0;axis<2;++axis)for(const double sign:{-1.,1.}) {
-                const double half=axis?halfY:halfX,extent=seed.shape[axis+4];
-                const double firstShift=std::max({-half-seed.shape[axis],-half-seed.shape[axis+2],sign>0?-.5*extent:.5*(extent-2*half)});
-                const double lastShift=std::min({half-seed.shape[axis],half-seed.shape[axis+2],sign>0?.5*(2*half-extent):.5*extent});
-                if(firstShift>lastShift)continue;
-                for(const double shift:{firstShift,lastShift})if(std::abs(shift)>angularLattice) {
-                    auto q=seed.shape;q[axis]+=shift;q[axis+2]+=shift;q[axis+4]+=2*sign*shift;profileContinuation(q);
-                }
-            }
-        }
         diagnostic.nullResidual=nullCost/variance;
         if(diagnostic.refusal==21||diagnostic.refusal==22)return;
         // Score cap makes the2D Gaussian-projection bound explicit even when
@@ -1436,6 +1957,10 @@ bool certifiedSubsetRefusalV2(const std::vector<double>& target,
     return certifiedTwoColumnRefusal(target,columns,targetError,columnErrors,allowedResidualNorm);
 }
 void infer(const Optics& optics,ThermalReticleResultV1& result,V pointing,V up,ThermalReticleMovingDiagnosticV2* output) {
+    infer(optics,result,pointing,up,output,nullptr);
+}
+void infer(const Optics& optics,ThermalReticleResultV1& result,V pointing,V up,ThermalReticleMovingDiagnosticV2* output,
+    const ThermalReticleMeasuredPriorV2* prior) {
     ThermalReticleMovingDiagnosticV2 diagnostic;diagnostic.refusal=1;
     const auto& c=optics.policy;
     const auto validTime=[](double x){return std::isfinite(x)&&x>=0;};
@@ -1448,7 +1973,7 @@ void infer(const Optics& optics,ThermalReticleResultV1& result,V pointing,V up,T
         if(output)*output=diagnostic;
         return;
     }
-    Inverse inverse(optics,result,pointing,up,RegionalOperator::ConicFastV5);inverse.run(result);if(output)*output=inverse.diagnostic;
+    Inverse inverse(optics,result,pointing,up,RegionalOperator::ConicFastV5,prior);inverse.run(result);if(output)*output=inverse.diagnostic;
 }
 std::optional<std::array<std::vector<double>,2>> calibrateBasis(const Optics& optics,
     const ThermalReticleResultV1& clock,V pointing,V up,const Shape& q,unsigned branch) {

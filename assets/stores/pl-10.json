@@ -1324,7 +1324,7 @@
     },
     "hangar-vlm": {
       "title": "Shared Hangar aircraft VLM tables",
-      "url": "aero/vlm-carriage-2326f368580a237582ac61502afd79aa939e20e5fc252a1bede5d1db429a7ba6.json",
+      "url": "aero/vlm-carriage-8926a76ae669fcbae7beba258bcceb09754afa76e7c49b8d803333d1a004e5c9.json",
       "evidence_kind": "game_reference",
       "note": "Same base, rate and Mach data as the released JSBSim model; no equipment calibration claim.",
       "simulation": {
@@ -1337,8 +1337,8 @@
           "diameter_m": 0.16,
           "mass_kg": 89.0
         },
-        "table_inputs_hash": "71c7e1002a512297",
-        "table_sha256": "2326f368580a237582ac61502afd79aa939e20e5fc252a1bede5d1db429a7ba6",
+        "table_inputs_hash": "844b8d54772c4c2a",
+        "table_sha256": "8926a76ae669fcbae7beba258bcceb09754afa76e7c49b8d803333d1a004e5c9",
         "input_geometry": "aircraft/pl10/pl10.toml",
         "domain": {
           "mach": [
@@ -1358,7 +1358,7 @@
           "Katz and Plotkin, Low-Speed Aerodynamics, vortex lattice",
           "Shared aero/model.py, tables.py and mach.py; engineering extensions are not equipment measurements"
         ],
-        "solver_sha256": "1fe905d01b307fc9398dda9ddd1b78ab2960d66c80ffd7346a2baf5e255f78bf",
+        "solver_sha256": "c3c6c4ea54c61e3f461287dfb4f0bf1d9b83e6ba685a3352fab2a434639d0670",
         "generic_validation": {
           "schema": "fsim.generic-vlm-validation.v1",
           "basis": "simulated",
@@ -1457,7 +1457,7 @@
     "vector-capability": {
       "title": "PL-10 thrust-vector control integration assumption",
       "publisher": "Project engineering synthesis",
-      "evidence_kind": "assumed",
+      "evidence_kind": "unclassified",
       "note": "The fitted mechanism is explicitly inferred from published PL-10 discussions; numerical actuator data are not manufacturer-admitted. The native nozzle response is nevertheless executed."
     }
   },

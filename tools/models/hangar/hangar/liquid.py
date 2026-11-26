@@ -109,7 +109,7 @@ def _process_owner_jobs(jobs,worker,budget,cpus):
     try:
         if not isinstance(jobs,list) or not 1<=len(jobs)<=128:raise ValueError('Invalid owner jobs')
         encoded=json.dumps(jobs,allow_nan=False,separators=(',',':'))
-        if len(encoded.encode())>32768:raise ValueError('Oversized owner recipe')
+        if len(encoded.encode())>262144:raise ValueError('Oversized owner recipe')
     except (ValueError,TypeError,OverflowError) as error:raise LiquidError('Invalid plain owner job recipe') from error
     processes={};next_job=0;results=[None]*len(jobs);failure=None
     root='D:/ENV/tmp' if os.name=='nt' else None
@@ -791,17 +791,19 @@ def pack(design, hull, tanks, *, excluded=None, limits=None, authority=None, occ
         screened += 1
         child_domain = None
         if not contained:
+            from . import liquid_vessels as _lv
             box = _box(lo, hi)
             if domain is not None: _cache_metrics['reused'] += 1
             candidate_domain = available if domain is None else _cache_records[domain][0]
-            contained = _valid(box-candidate_domain, 'Cell/interior difference').is_empty()
+            overlap = _valid(box ^ candidate_domain, 'Cell/interior intersection')
+            if overlap.is_empty():
+                candidate_domain = None; overlap = None
+                cache_release(domain); discard_volume(volume); continue
+            contained, _ = _lv._cell_contained(box, candidate_domain, overlap, lo, hi,
+                                               _execution.check if _execution is not None else None)
             if not contained:
-                overlap = _valid(box ^ candidate_domain, 'Cell/interior intersection')
-                if overlap.is_empty():
-                    candidate_domain = None; overlap = None
-                    cache_release(domain); discard_volume(volume); continue
                 child_domain = cache_admit(overlap)
-                overlap = None
+            overlap = None
             candidate_domain = None
         if contained and ownership == 1 and volume <= target_volume*(1+1e-12) and max(hi-lo) <= max_edge*(1+1e-12):
             pool.append([lo, hi]); accepted_volume = math.fsum([accepted_volume, volume])
@@ -1000,7 +1002,7 @@ def _pack_owned(design, hull, sections, tanks, excluded, limits, *, aircraft=Non
         from . import liquid_vessels
         if _recipe is not None: _recipe['_deadline'] = deadline
         return liquid_vessels._pack_shared(design, hull, tanks, excluded, limits, vessel_policy,
-                                          exclusion_boxes=exclusion_boxes, deadline=deadline)
+                                          exclusion_boxes=exclusion_boxes, deadline=deadline, _recipe=_recipe)
     owners = sorted({t['section'] for t in tanks}); occupied = None
     classifier = vessel_policy.classifier if vessel_policy is not None else _OwnerClassifier(aircraft, origin) if aircraft is not None else None
     combined = None; cells = []; checks = []; ledgers = []; screened = 0; edges = 0
@@ -1162,10 +1164,17 @@ def produce(aircraft, origin, *, glb, limits=None):
                        Path(aircraft.path).with_suffix('.liquid-geometry-v1.json')]
         binding_paths += [path for _,path in source_paths+execution_sources]
         binding_paths += [Path(vulnerability.__file__),Path(breakup.__file__),here/'geometry/surface.py',here/'geometry/airfoil.py']
+        if vessel_policy is not None:
+            from .shape import airframe as shape_airframe, meshkit
+            binding_paths += [Path(liquid_vessels.__file__), Path(shape_airframe.__file__),
+                              Path(meshkit.__file__), Path(aircraft.path).parent/'lrn1015.dat',
+                              Path(meshkit.library()._name)]
         recipe=dict(design=aircraft.name,design_path=str(Path(aircraft.path).absolute()),glb=str(Path(glb).absolute()),
             origin=origin.tolist(),boundary_receipt=receipt,exclusions=exclusions,
             effective_spec=next(row['sha256'] for row in sources if row['role']=='effective_design_spec'),
             bindings=[_execution_binding(path) for path in binding_paths])
+        if vessel_policy is not None:
+            recipe['source_receipt'] = vessel_policy.source_receipt
         for role,path in [('design',Path(aircraft.path))]+source_paths+execution_sources:
             expected=next(row['sha256'] for row in sources if row['role']==role)
             if _execution_binding(path)['sha256']!=expected:raise LiquidError('Mixed source epoch before owner dispatch')

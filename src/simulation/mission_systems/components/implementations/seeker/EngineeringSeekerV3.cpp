@@ -221,7 +221,7 @@ bool EngineeringSeekerV3::seedLaunchNavigationV1(const weapon::Observation& esti
 void EngineeringSeekerV3::resetTracking() noexcept {
     family_->resetTracking();pending_.clear();filtered_.reset();filteredQuadrantUnresolved_=false;quadrantCentering_.reset();quadrantBounds_={};cached_={};
     pointing_={};lastTimeS_=-1;nextSampleS_=0;firstTimeS_=0;seeded_=false;previousAxes_.reset();
-    thermal_.reset();thermalDual_.reset();reticle_.reset();opticalPoseHistory_.clear();
+    thermal_.reset();thermalDual_.reset();reticle_.reset();lastPreciseReticle_.reset();opticalPoseHistory_.clear();
     radio_.reset();
     radioActiveSinceS_.reset();
     radarNavigation_.reset();radarNavigationTrack_=0;
@@ -424,7 +424,7 @@ SeekerResultV2 EngineeringSeekerV3::sampleImpl(const SeekerFrameV2& f,const Ther
     previousAxes_=f.bodyAxes;
     if(reticleConfig_&&navigation) {
         opticalPoseHistory_.push_back({f.timeS,*navigation,*f.bodyAxes,pointing_,f.up});
-        const double oldest=f.timeS-std::max(.25,2*p.samplePeriodS);
+        const double oldest=f.timeS-std::max({.25,2*p.samplePeriodS,p.memoryS+p.samplePeriodS});
         while(opticalPoseHistory_.size()>2&&opticalPoseHistory_[1].timeS<oldest)opticalPoseHistory_.pop_front();
         while(opticalPoseHistory_.size()>4096)opticalPoseHistory_.pop_front();
     }
@@ -439,6 +439,7 @@ SeekerResultV2 EngineeringSeekerV3::sampleImpl(const SeekerFrameV2& f,const Ther
         bool receiverCaptureReady=true;
         double captureTimeS=f.timeS,processingStartS=f.timeS;
         std::optional<OpticalPose> reticlePose;
+        std::optional<LastPreciseReticleV2> candidatePreciseReticle;
         std::optional<V> quadrantCentering;
         const bool heat=spec_.seeker=="infrared"||spec_.seeker=="imaging_infrared";
         const bool semi=spec_.seeker=="semi_active_radar";
@@ -518,9 +519,10 @@ SeekerResultV2 EngineeringSeekerV3::sampleImpl(const SeekerFrameV2& f,const Ther
                 if(reticlePose)scene.up=reticlePose->up;
                 std::optional<ThermalReticleMeasuredPriorV2> measuredPrior;
                 const auto* previous=reticle_.latest();
+                const auto* priorRecord=lastPreciseReticle_?&*lastPreciseReticle_:nullptr;
                 const char* joinFlag=std::getenv("FSIM_RETICLE_PRIOR_JOIN_TRACE_V2");
-                const bool traceJoin=joinFlag&&joinFlag[0]=='1'&&joinFlag[1]==0&&window&&previous&&
-                    previous->measurementTimeS<(*window)[1];
+                const bool traceJoin=joinFlag&&joinFlag[0]=='1'&&joinFlag[1]==0&&window&&
+                    ((priorRecord&&priorRecord->captureTimeS<(*window)[1])||(previous&&previous->measurementTimeS<(*window)[1]));
                 MeasuredPriorJoinTraceV2 joinTrace;
                 const auto observeJoinGate=[&](std::optional<bool>& observed,bool value) {
                     if(traceJoin)observed=value;
@@ -530,35 +532,62 @@ SeekerResultV2 EngineeringSeekerV3::sampleImpl(const SeekerFrameV2& f,const Ther
                 // A raw fit alone is not an accepted receiver track. The unique
                 // precise raw feature and filtered result must share the EXACT
                 // capture epoch; never join current tracking to another scan.
-                if(window&&reticlePose&&previous&&previous->complete&&previous->preciseBearing&&
-                   previous->features.size()==1&&previous->horizonDiagnostic.fitAvailable&&
-                   filtered_&&!filteredQuadrantUnresolved_&&filtered_->localId&&filtered_->rateAvailable&&
-                   filtered_->sampleTimeS==previous->measurementTimeS&&
-                   previous->measurementTimeS<(*window)[1]&&previous->timeS<=f.timeS&&
-                   observeJoinGate(joinTrace.memory,f.timeS-filtered_->sampleTimeS<=p.memoryS)&&
-                   observeJoinGate(joinTrace.trackValid,validTrack(*filtered_,config().minimumRangeM))) {
-                    const auto previousPose=opticalPoseAt(previous->measurementTimeS);
-                    const double available=std::max(previous->timeS,previous->exposureEndTimeS+p.processingDelayS);
+                // Retaining the last admitted precise reticle record together
+                // with its exact-epoch inertial direction/rate preserves
+                // MovingV2's accepted cutoff and survives a transient missed or
+                // coarse dwell while the same track remains valid within
+                // authored memory.
+                if(window&&reticlePose&&priorRecord&&
+                   filtered_&&priorRecord->localId&&priorRecord->rateAvailable&&
+                   filtered_->localId==priorRecord->localId&&
+                   priorRecord->captureTimeS<(*window)[1]&&priorRecord->readTimeS<=f.timeS&&
+                   observeJoinGate(joinTrace.memory,f.timeS-priorRecord->captureTimeS<=p.memoryS)&&
+                   observeJoinGate(joinTrace.trackValid,validTrack(*filtered_,config().minimumRangeM)&&
+                       finite(priorRecord->direction)&&norm(priorRecord->direction)>0&&finite(priorRecord->directionRate))) {
+                    const auto previousPose=opticalPoseAt(priorRecord->captureTimeS);
+                    const double available=std::max(priorRecord->readTimeS,priorRecord->exposureEndTimeS+p.processingDelayS);
                     if(traceJoin){joinTrace.previousPose=previousPose.has_value();joinTrace.available=available;}
+                    const auto previousPointing=previousPose?unit(previousPose->pointing):V{};
+                    const auto priorPointing=unit(priorRecord->pointing);
                     if(previousPose&&observeJoinGate(joinTrace.ready,available<=(*window)[0])&&
-                       observeJoinGate(joinTrace.pointing,previous->pointing.x==previousPose->pointing.x&&
-                           previous->pointing.y==previousPose->pointing.y&&previous->pointing.z==previousPose->pointing.z)) {
-                        // filtered_ is already in the navigation Cartesian
-                        // frame, mapped from the matching previous capture at
-                        // admission above. Map that inertial vector ONCE into
-                        // the current capture's physical coordinate frame.
-                        // Applying old body axes again would add ego motion.
-                        const auto direction=rotateFrame(filtered_->direction,reticlePose->navigation.bodyToEcef,reticlePose->physicalAxes);
+                       observeJoinGate(joinTrace.pointing,priorPointing.x==previousPointing.x&&
+                           priorPointing.y==previousPointing.y&&priorPointing.z==previousPointing.z)) {
+                        // priorRecord->direction/directionRate are the exact
+                        // admitted navigation-frame vectors from that precise
+                        // capture epoch. Map once into the current capture's
+                        // physical coordinate frame; never mix coarse updates.
+                        const auto direction=rotateFrame(priorRecord->direction,reticlePose->navigation.bodyToEcef,reticlePose->physicalAxes);
                         // rotateFrame() normalizes a RAY; never use it for a
                         // derivative. This linear map retains zero/magnitude.
                         V rate{};for(unsigned axis=0;axis<3;++axis)
-                            rate=add(rate,scale(reticlePose->physicalAxes[axis],dot(filtered_->directionRate,reticlePose->navigation.bodyToEcef[axis])));
-                        const auto& shape=previous->horizonDiagnostic.shape;
+                            rate=add(rate,scale(reticlePose->physicalAxes[axis],dot(priorRecord->directionRate,reticlePose->navigation.bodyToEcef[axis])));
                         // Previous axis-aligned support and cutoff are finite
-                        // initial guesses only. Ego rotation can change the
-                        // current support; all five coordinates are re-fit.
-                        const auto& support=previous->features.front().extent;
-                        measuredPrior=ThermalReticleMeasuredPriorV2{previous->measurementTimeS,available,direction,rate,support.widthRad,support.heightRad,shape[4]};
+                        // initial guesses only; all parameters are re-fit from
+                        // measured photons. For a closing body, the rotation-
+                        // invariant angular diameter D = hypot(w, h) scales as
+                        // 1/R (1/D linear in time) without roll-axis distortion.
+                        // Apply strictly closing isotropic scaling only when
+                        // established by two prior same-track precise captures.
+                        double priorWidth=priorRecord->widthRad,priorHeight=priorRecord->heightRad;
+                        if(priorRecord->closingRateAvailable&&reticleConfig_) {
+                            const double dtAhead=(*window)[1]-priorRecord->captureTimeS;
+                            const double diam=std::hypot(priorRecord->widthRad,priorRecord->heightRad);
+                            if(dtAhead>0&&std::isfinite(diam)&&diam>0) {
+                                const double invD0=1/diam;
+                                const double invD=invD0+priorRecord->invDiameterRatePerS*dtAhead;
+                                if(std::isfinite(invD)&&invD>0) {
+                                    const double closingScale=invD0/invD;
+                                    if(std::isfinite(closingScale)&&closingScale>1&&closingScale<=2) {
+                                        const double maxW=reticleConfig_->detector.width*reticleConfig_->detector.pixelPitchRad;
+                                        const double maxH=reticleConfig_->detector.height*reticleConfig_->detector.pixelPitchRad;
+                                        priorWidth=std::min(maxW,priorRecord->widthRad*closingScale);
+                                        priorHeight=std::min(maxH,priorRecord->heightRad*closingScale);
+                                    }
+                                }
+                            }
+                        }
+                        measuredPrior=ThermalReticleMeasuredPriorV2{priorRecord->captureTimeS,available,direction,rate,
+                            priorWidth,priorHeight,priorRecord->cutoff};
                     }
                 }
 
@@ -567,22 +596,30 @@ SeekerResultV2 EngineeringSeekerV3::sampleImpl(const SeekerFrameV2& f,const Ther
                     // receiver-owned value. Unreached gate values stay null.
                     joinTrace.seed=f.receiverSeed;joinTrace.newRead=f.timeS;joinTrace.newStart=(*window)[0];
                     joinTrace.newCapture=(*window)[1];joinTrace.newEnd=(*window)[2];
-                    joinTrace.oldRead=previous->timeS;
-                    if(previous->complete)joinTrace.oldCapture=previous->measurementTimeS;
-                    joinTrace.rawComplete=previous->complete;joinTrace.rawPrecise=previous->preciseBearing;
-                    joinTrace.rawUnique=previous->features.size()==1;joinTrace.rawFit=previous->horizonDiagnostic.fitAvailable;
+                    if(priorRecord) {
+                        joinTrace.oldRead=priorRecord->readTimeS;joinTrace.oldCapture=priorRecord->captureTimeS;
+                        joinTrace.rawComplete=true;joinTrace.rawPrecise=true;joinTrace.rawUnique=true;joinTrace.rawFit=true;
+                        joinTrace.readInOrder=priorRecord->readTimeS<=f.timeS;
+                    } else if(previous) {
+                        joinTrace.oldRead=previous->timeS;
+                        if(previous->complete)joinTrace.oldCapture=previous->measurementTimeS;
+                        joinTrace.rawComplete=previous->complete;joinTrace.rawPrecise=previous->preciseBearing;
+                        joinTrace.rawUnique=previous->features.size()==1;joinTrace.rawFit=previous->horizonDiagnostic.fitAvailable;
+                        joinTrace.readInOrder=previous->timeS<=f.timeS;
+                    }
                     joinTrace.currentPose=reticlePose.has_value();joinTrace.trackPresent=filtered_.has_value();
-                    joinTrace.readInOrder=previous->timeS<=f.timeS;
                     if(filtered_) {
                         joinTrace.localId=filtered_->localId;joinTrace.trackCapture=filtered_->sampleTimeS;
                         joinTrace.trackIdentity=filtered_->localId!=0;joinTrace.trackRate=filtered_->rateAvailable;
                         joinTrace.trackPrecise=!filteredQuadrantUnresolved_;
-                        if(previous->complete)joinTrace.epochMatch=filtered_->sampleTimeS==previous->measurementTimeS;
+                        if(priorRecord)joinTrace.epochMatch=filtered_->sampleTimeS==priorRecord->captureTimeS;
+                        else if(previous&&previous->complete)joinTrace.epochMatch=filtered_->sampleTimeS==previous->measurementTimeS;
                     }
                     joinTrace.constructed=measuredPrior.has_value();joinTrace.prior=measuredPrior;
                 }
+                ThermalReticleMovingDiagnosticV2 movingDiagnostic;
                 const auto signal=reticle_.exposeWithMeasuredPriorV2(scene,reticlePose?reticlePose->pointing:pointing_,
-                    f.receiverSeed,measuredPrior?&*measuredPrior:nullptr);
+                    f.receiverSeed,measuredPrior?&*measuredPrior:nullptr,&movingDiagnostic);
                 // A completed newer capture updates latest(), naturally
                 // preventing duplicate records for rereads of the same scan.
                 // Refused/incomplete exposures emit no join/admission claim.
@@ -600,6 +637,17 @@ SeekerResultV2 EngineeringSeekerV3::sampleImpl(const SeekerFrameV2& f,const Ther
                     // grant LOS-rate authority; keep coarse detections usable
                     // for association/centering with their actual error bound.
                     features=signal.features;quadrantUnresolved=!signal.preciseBearing;
+                    if(signal.preciseBearing&&signal.features.size()==1&&
+                       (!lastPreciseReticle_||lastPreciseReticle_->captureTimeS!=signal.measurementTimeS)) {
+                        const bool movingCutoff=movingDiagnostic.accepted&&std::isfinite(movingDiagnostic.endpointsWidthHeightCutoff[6]);
+                        const bool staticCutoff=signal.horizonDiagnostic.fitAvailable&&std::isfinite(signal.horizonDiagnostic.shape[4]);
+                        if(movingCutoff||staticCutoff) {
+                            const auto& support=signal.features.front().extent;
+                            candidatePreciseReticle=LastPreciseReticleV2{signal.timeS,signal.measurementTimeS,
+                                signal.exposureEndTimeS,signal.pointing,support.widthRad,support.heightRad,
+                                movingCutoff?movingDiagnostic.endpointsWidthHeightCutoff[6]:signal.horizonDiagnostic.shape[4]};
+                        }
+                    }
                 }
             } else if(dualFrame) {
                 const auto image=thermalDual_.expose(*dualFrame,pointing_,f.receiverSeed);
@@ -732,7 +780,7 @@ SeekerResultV2 EngineeringSeekerV3::sampleImpl(const SeekerFrameV2& f,const Ther
         // association, never the authorized navigation or active-radar phase.
         if(filtered_) {
             if(f.timeS-filtered_->sampleTimeS<=p.memoryS)family_->seedTrack(*filtered_);
-            else {family_->forgetTrack();filtered_.reset();filteredQuadrantUnresolved_=false;}
+            else {family_->forgetTrack();filtered_.reset();filteredQuadrantUnresolved_=false;lastPreciseReticle_.reset();}
         }
         auto result=receiverCaptureReady?family_->sample(exposure):SeekerResultV2{};
         if(!receiverCaptureReady){cached_={};cached_.valid=true;}
@@ -751,6 +799,7 @@ SeekerResultV2 EngineeringSeekerV3::sampleImpl(const SeekerFrameV2& f,const Ther
             }
             if(result.tracking&&result.track) {
                 auto track=*result.track;
+                bool rateBracketedFromPrecise=false;
                 if(!quadrantUnresolved&&!filteredQuadrantUnresolved_&&filtered_&&track.localId==filtered_->localId&&track.sampleTimeS>filtered_->sampleTimeS) {
                     const double elapsed=track.sampleTimeS-filtered_->sampleTimeS;
                     const double alpha=1-std::exp(-elapsed/p.trackLagS),beta=alpha*alpha;
@@ -760,8 +809,28 @@ SeekerResultV2 EngineeringSeekerV3::sampleImpl(const SeekerFrameV2& f,const Ther
                     track.directionRate=add(filtered_->directionRate,scale(residual,beta/elapsed));
                     track.directionRate=subtract(track.directionRate,scale(track.direction,dot(track.direction,track.directionRate)));
                     track.rateAvailable=true;
+                    rateBracketedFromPrecise=true;
+                } else if(!quadrantUnresolved&&filteredQuadrantUnresolved_&&lastPreciseReticle_&&
+                          track.localId==lastPreciseReticle_->localId&&
+                          track.sampleTimeS>lastPreciseReticle_->captureTimeS&&
+                          track.sampleTimeS-lastPreciseReticle_->captureTimeS<=p.memoryS&&
+                          finite(lastPreciseReticle_->direction)&&norm(lastPreciseReticle_->direction)>0&&
+                          finite(lastPreciseReticle_->directionRate)) {
+                    // Two resolved precise exposures bracket the rate across an
+                    // intervening coarse dwell without differencing the coarse
+                    // capture itself.
+                    const double elapsed=track.sampleTimeS-lastPreciseReticle_->captureTimeS;
+                    const double alpha=1-std::exp(-elapsed/p.trackLagS),beta=alpha*alpha;
+                    const auto baseRate=lastPreciseReticle_->rateAvailable?lastPreciseReticle_->directionRate:V{};
+                    const auto predicted=unit(add(lastPreciseReticle_->direction,scale(baseRate,elapsed)));
+                    const auto residual=subtract(track.direction,predicted);
+                    track.direction=unit(add(predicted,scale(residual,alpha)));
+                    track.directionRate=add(baseRate,scale(residual,beta/elapsed));
+                    track.directionRate=subtract(track.directionRate,scale(track.direction,dot(track.direction,track.directionRate)));
+                    track.rateAvailable=true;
+                    rateBracketedFromPrecise=true;
                 }
-                if(quadrantUnresolved||filteredQuadrantUnresolved_) {
+                if(quadrantUnresolved||(filteredQuadrantUnresolved_&&!rateBracketedFromPrecise)) {
                     // Saturated quadrant ratios constrain a centering region,
                     // not a resolved angular position. Differencing their
                     // inverse-erf clamp would turn servo motion into target
@@ -790,9 +859,29 @@ SeekerResultV2 EngineeringSeekerV3::sampleImpl(const SeekerFrameV2& f,const Ther
                     // Keep the family's current finite detector state, but do
                     // not publish a failed derived estimate or retain it for
                     // the next prediction. No target truth supplies a repair.
-                    filtered_.reset();filteredQuadrantUnresolved_=false;result.tracking=false;result.track.reset();result.attributionIndex.reset();
+                    filtered_.reset();filteredQuadrantUnresolved_=false;lastPreciseReticle_.reset();result.tracking=false;result.track.reset();result.attributionIndex.reset();
                 } else {
                     filtered_=track;filteredQuadrantUnresolved_=quadrantUnresolved;family_->seedTrack(track);result.track=track;
+                    if(!quadrantUnresolved&&candidatePreciseReticle&&track.sampleTimeS==candidatePreciseReticle->captureTimeS) {
+                        candidatePreciseReticle->localId=track.localId;
+                        candidatePreciseReticle->rateAvailable=track.rateAvailable;
+                        candidatePreciseReticle->direction=track.direction;
+                        candidatePreciseReticle->directionRate=track.directionRate;
+                        if(lastPreciseReticle_&&lastPreciseReticle_->localId==track.localId&&
+                           candidatePreciseReticle->captureTimeS>lastPreciseReticle_->captureTimeS) {
+                            const double dtExt=candidatePreciseReticle->captureTimeS-lastPreciseReticle_->captureTimeS;
+                            const double prevDiam=std::hypot(lastPreciseReticle_->widthRad,lastPreciseReticle_->heightRad);
+                            const double currDiam=std::hypot(candidatePreciseReticle->widthRad,candidatePreciseReticle->heightRad);
+                            if(dtExt>0&&std::isfinite(prevDiam)&&prevDiam>0&&std::isfinite(currDiam)&&currDiam>prevDiam) {
+                                const double dInv=(1/currDiam-1/prevDiam)/dtExt;
+                                if(std::isfinite(dInv)&&dInv<0) {
+                                    candidatePreciseReticle->closingRateAvailable=true;
+                                    candidatePreciseReticle->invDiameterRatePerS=dInv;
+                                }
+                            }
+                        }
+                        lastPreciseReticle_=candidatePreciseReticle;
+                    }
                     if(radioFrame&&!semi&&spec_.inertialMidcourse) {
                         if(radarNavigationTrack_!=track.localId) {
                             radarNavigation_.reset();radarNavigationTrack_=track.localId;

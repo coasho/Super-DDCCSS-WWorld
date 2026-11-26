@@ -28,7 +28,14 @@ class Expressions:
         self.actuators = {n.findtext("output"): n for n in model.findall(".//actuator")}
         self.lag_filters = {n.findtext("output"): n for n in model.findall(".//lag_filter")}
         self.gains = {n.findtext("output"): n for n in model.findall(".//pure_gain")}
-        self.properties = dict(properties)
+        self.properties = {}
+        for node in model.findall("./flight_control/property"):
+            if node.text and node.get("value") is not None:
+                try:
+                    self.properties[node.text.strip()] = float(node.get("value"))
+                except ValueError:
+                    pass
+        self.properties.update(properties)
 
     def property(self, name):
         if name in self.properties:
@@ -147,7 +154,7 @@ class StoreControlTest(unittest.TestCase):
     def test_operating_point_exports_unchanged_complete_fin_loads_and_native_lag_state(self):
         from hangar import components
         selected=card('r-77m')
-        self.assertEqual(selected['component_models']['components']['autopilot']['implementation_id'],components.OPERATING_POINT_AUTOPILOT)
+        self.assertEqual(components.resolve(selected,'autopilot')['implementation_id'],components.OPERATING_POINT_AUTOPILOT)
         # Exercise the normal full generator, not a hand-built control fragment.
         files=storebodies.files(selected);name=selected['model'].removeprefix('jsbsim:')
         model=ET.fromstring(files[name+'.xml'])

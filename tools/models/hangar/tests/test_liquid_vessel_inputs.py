@@ -6,7 +6,10 @@ from unittest.mock import patch
 
 from hangar import engineering
 from hangar import method_backends
-import test_generation_input_epoch as existing_fixtures
+try:
+    from . import test_generation_input_epoch as existing_fixtures
+except ImportError:
+    import test_generation_input_epoch as existing_fixtures
 
 
 class VesselInputEpochTests(unittest.TestCase):

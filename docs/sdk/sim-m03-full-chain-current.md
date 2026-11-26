@@ -1,5 +1,146 @@
 # SIM-M03 current all-model full-chain diagnosis
 
+## Closure status — 2026-11-25 (non-visual gates & transition to SIM-M04)
+
+At `main` HEAD `57a42c67f7dc1e1376f5a006b6f94bd8f23b2fc9` (preserving unrelated `assets/stores/cj-10a.json`):
+
+- **All-design production & liquid population:**
+  - `complete-production` (`campaign.py --jobs 4`): **88 / 88** designs complete, **0 blocked** (`4,992.9 s`), including `rq4b` (`rq4b.liquid-v1.json`: `46,984 <= 65,536` cells, `168,161 <= 1,048,576` screened, `0.0` capacity error across 4 tanks), `u2s`, `kc135r`, and refreshed `aircraft/uh1h/tail-damping.json`.
+  - `liquid-population.py`: **35 / 35** airframes passed (`9.8 s`, 32 liquid models / 149 native tanks, 3 no-liquid models).
+  - Hangar unit suite (`-L hangar`): **98 / 98** passed.
+- **Installed packages & LGPL-2.1 notices:**
+  - `equipment_package_consumer` passed on **both** `ucrt64-headless` (`108.5 s`) and `ucrt64-release` (`108.4 s`), including `FGEngine.h`, `FGEngine.cpp`, and `FGTurbine.cpp` notices in `cmake/Install.cmake` and `THIRD_PARTY_NOTICES.md`.
+  - `dist_components` passed (`1.65 s`) after aligning `cmake/TestDistComponents.cmake`.
+- **Native AAM full-chain & reticle/component verification (`ucrt64-headless`):**
+  - `thermal_reticle_receiver`: **56 / 56** cases (`325,635 / 325,635` assertions) passed (`263.97 s`).
+  - `payload_components` (`0.13 s`), `representative_weapon_models` (`5.79 s`), `sensor_native.AIM-9M` (`475.78 s`), and `sensor_native.*countermeasure*{aim-9m, r-27t}` passed after adding `ThermalReticleSeekerExecutionV1` forwarding to `test_weapon_sensor_native.cpp`, switching `test_weapon_seeker_models.cpp` to `receiverConfigurationV3`, canonicalizing `fuze_*` keys in `aim-120d.json`/`pl-8.json`, and adding World-side post-return on-rail referee attribution in `WorldEngagements.cpp`.
+  - `aam_full_chain`: **23 / 24** passed in full (`18/18` during `ucrt64-headless-full` + `r-27t`, `r-37m`, `r-73`, `r-77m`, `super-530d` in follow-up). `aam_full_chain.r-60m` passed **47,154 / 47,155** assertions (`terminal=detonated` at `16.3 s`, `actualDamage=true`, 62 fragments, all 10 component slots executed), with `component_energy_j = 0.0` (pending after `f16c.liquid-v1.json` regeneration; native outcome preserved unchanged).
+- **Retained pending items (honestly unclosed; `engineering_acceptance` stays `false`):**
+  - **Visual presentation (`full-native-and-visual`, `explosives-visual`, actual pixel review):** explicitly **skipped/pending** per user instruction on 2026-11-25 because the Antigravity Windows runner isolates child processes onto `WinSta0\exebox-*`, preventing primary-display fullscreen Viewer presentation; must be run directly on the host desktop outside the sandbox.
+  - **Pre-existing non-M03 full-regression items** observed in `ucrt64-headless-full` (`1,100` passed / `43` failed before `10,800 s` timeout, of which 33 M03 items were repaired above): `architecture_boundary` / `architecture_configured` (`tests/reference/` and `tools/maintenance/` from commit `3f1f5f9`), `testing_scope_checker` (`weapon_diagnostics_ui` missing `render` label), `resource_rcs_binding` (`aircraft/a10c/rcs.bin` vs regenerated `a10c.glb`), `liquid_population_native.{uh1h, uh60}` (rotorcraft fuel tolerance), `weapon_employment_core` (`aim-9x` on-rail step-0), `test_damage.cpp:1979`, `mission_episode` (1–2 ULP cross-worker diff), and `control_alloc`.
+
+Raw artifacts: `build/architecture-reviews/sim-m03-current-20261125/campaign/`.
+
+## Resumption status — 2026-11-24
+
+Pass 2 of the private V5 conic/parallel throughput window (region-hoisted edge
+roots with midpoint IVT certification, certified early-stop V5 trig/horizon,
+pure binary64 SSE2 `Ball`/error bounds, fused `fastNormalPair`, adjacent
+row/column edge reuse, zero-allocation `FieldWorkspaceV5`, persistent 8-worker
+`PhasePoolV5`, parallel `certifiedModeRefusal` and sparse nonzero-mask
+accumulation) resolves the 180-second captured-moving timeout and yields a fresh
+unchanged **PL-8** full-chain pass:
+
+- Focused Release thermal checks (`focused.xml`, 15 JUnit sections):
+  **97,116 assertions, 0 failures, 0 errors, 0 skipped in 1.360 s** (including
+  additive `FieldWorkspaceV5` bit-identity checks).
+- Original unchanged 180-second three-scene captured-moving gate
+  (`[thermal-reticle-captured-moving-v2]`, `captured-moving.xml`):
+  **PASS — 3/3 scenes, 48 assertions, 0 failures, 0 errors in 103.627 s**
+  (scene 1: 15.084 s; scene 2: 9.764 s; scene 3: 78.779 s).
+- Serial 9,216-region `compare.cpp` check: 0.469 s (down from 0.982 s), 9,216
+  accepted, 0 refused.
+- Original unchanged **PL-8** Release full-chain fixture (`pl8-current/run.json`):
+  **PASS — 1 case, 59,820 assertions, 0 failures, 0 errors in 951.308 s**.
+  Actual detonation at 16.3667 s (burst 16.3430 s), 2,998 fragments, 7 damage
+  records, **77,504.81 J** cumulative internal component energy, `destroyed=1`.
+  JUnit SHA-256: `341ca9a3a7e6ac3b7aaa4f094730b04653689e87cce7397016bc9599abfca953`.
+- Causal measured-prior moving-inference + roll-aware aspect start + Hangar
+  cruciform wing-body dihedral symmetry repair (`tools/models/hangar/hangar/aero/model.py`
+  guarding `_wing_body_dihedral()` on `wing.kind == "wing"`, verified RED/GREEN
+  by `CruciformWingBodySymmetry`):
+  - R-60M measured-prior unit tests (`r60m-prior-green/green-prior2.xml`):
+    **4 cases, 84 assertions, 0 failures, 0 errors**.
+  - Original unchanged **R-60M** Release full-chain fixture (`r60m-dihedral-fix/run.json`):
+    **PASS — 1 case, 47,162 assertions, 0 failures, 0 errors in 883.069 s**.
+    Actual detonation at 16.3000 s (burst 16.2974 s), 62 fragments, 1 damage
+    record, **36,800.79 J** cumulative internal component energy; peak roll rate
+    reduced from 15.66 rad/s to 7.50 rad/s.
+    JUnit SHA-256: `119e543e33ed5952122872e55c25b06577d1b4b1dd329f8d6f19169c28e178f3`.
+
+Raw receipts are under `build/architecture-reviews/sim-m03-current-20261124/`.
+All previous dated complete-roster denominators (16/24) remain historical;
+separate individual passes (AIM-120D, MICA-IR, PL-8, R-60M) do not update that
+denominator until a fresh complete 24-model roster runs. Remaining unclosed
+models are **R-73**, **R-27R**, **R-27ET** and **R-27T**. All
+program acceptance flags remain false.
+
+## Resumption status — 2026-11-11
+
+The latest complete roster below is the dated 16/24 population. Separate later
+original-scene passes for AIM-120D and MICA-IR do not update that denominator.
+The remaining known failures, pending a new complete roster run, are:
+
+| Native boundary | Models | Last relevant observation |
+| --- | --- | --- |
+| Scalar thermal inverse and tracking | PL-8 | The original three captured moving scenes still exceed 180 seconds with the shared conic bank. The World chain has no new pass. |
+| Scalar thermal inverse, tracking and fuze encounter | R-60M | The current World run recovers the first previously rejected capture. Subsequent rejection and track loss persist near closest approach. The run ends in flight without a burst. |
+| Fuze to finite fragment transport | R-73 | Contact detonation and skin perforations; no internal-component work. |
+| Fuze to connected-ring transport | R-27R, R-27ET, R-27T | Detonation with no internal-component work. R-27R now reaches the original energy assertion after the owner/canonical-pose repairs. The ET/T ring paths have no observed material intersections; rigid carrier contact does not establish penetrative work. |
+
+The current Release thermal method checks pass 97,080 assertions in 15
+JUnit sections. Shared conic column preparation reduces work at each cutoff.
+The original three moving scenes still exceed the unchanged 180-second limit,
+with the third scene at mode 4,269 of 7,800. See the
+[method and runtime evidence](../research/sim-m03/thermal-reticle-method.md#exact-padding-and-shared-column-preparation).
+
+The current unchanged R-60M Release fixture executes one model-identified
+case with 72,321 assertions, four failures and zero errors in 738.880 s. It
+ends `in_flight` after 1,201 decision samples. Warhead execution, detonation,
+actual damage and positive internal work all fail. At capture
+15.860016352382711 s, all 128 ADC samples equal the previous rejected packet.
+The measured-history fit returns a precise bearing at residual 139.31908034,
+versus the previous 1,895.43167967 and original limit 214.49834435. The next
+capture at 15.890175641857173 s also has all 128 ADC samples equal and still
+rejects at residual 5,046.60029716. Two later precise packets briefly restore
+tracking. The remaining near-approach captures fail and the armed geometric
+fuze reports no burst. The minimum sampled range is 13.170579 m, versus
+26.858906 m in the earlier complete roster. Piecewise-linear interpolation
+of the current decision samples gives 12.818388 m. This estimate is distinct
+from the native substep trigger calculation.
+
+The R-60M receipt is under
+`build/architecture-reviews/sim-m03-current-20261111/r60m-current/`.
+The JUnit SHA-256 is
+`f7f60c96a4c40f245ca127b1636500959b47b00576e54bc8e83b2d1166c92510`.
+The model trace SHA-256 is
+`7c1af12eb42a478dcc123d2faa8d1290f4efb75ff85075df352f4a7eb7f3224c`.
+
+The theory, parameter source and fidelity matrices each contain 216 rows;
+the component ledger admits zero completed cells. Model-specific theory,
+source and sensitivity, executed family comparisons, equivalence arguments
+and complete per-model native/public/visual proof are still required. Both
+preset regressions, installed consumers, the 53-store/35-airframe fleet,
+fullscreen primary-resolution 1x presentation and replay remain unaccepted.
+
+## Resumed native material repair — 2026-11-05
+
+At main checkpoint `57a42c67f7dc1e1376f5a006b6f94bd8f23b2fc9`, the mixed
+finite-surface/closed-mesh detached-owner control first fails two assertions.
+The trusted producer now projects actual mesh-backed panels and preserves
+consumer rejection of malformed maps. The original R-27R World fixture then
+runs to its original terminal predicate: one case, 56277 assertions, one
+`energy>0` failure, zero errors; 18.618 seconds. The previous ownership handoff
+exception is removed; this is still a full-chain failure.
+
+The separate canonical-origin regression exposes two exact-origin failures
+for ordinary affine and captured motion. Re-evaluating the original anchor at
+the boundary age corrects these without loosening exact comparisons. Current
+contact-history/partition controls pass 371 assertions. The source-owned
+damage CTest selection executes all 94 discovered non-hidden cases with zero
+failures, errors, skips or missing cases in 116.653 seconds. Later additive
+one-sided-map assertions require their own execution; they do not change the
+original damage assertions.
+
+The unchanged R-27R chain after both repairs still fails `energy>0`: one case,
+56277 assertions, one failure, zero errors, 18.450 seconds. Its contact trace
+contains 39 processed material responses instead of 45, including removal of
+the observed same-epoch repeat for source rod 51. The remaining zero internal
+work is not reclassified as a hit. Current raw runs are under
+`build/architecture-reviews/sim-m03-current-20261105/material-owner/` with
+separate executable, input, log and JUnit hashes. This is neither current 24/24
+nor 216-cell admission; all program acceptance flags remain false.
+
 > Development checkpoint, 2026-11-04: see
 > [the current restart record](sim-m03-checkpoint-2026-11-04.md).
 > The newest R-27R run aborts on native material-ownership handoff, and the
@@ -261,6 +402,80 @@ numerical-method checks, not216 admitted coupled-model cells.
 Everything below retains its own source/output epoch and describes an earlier
 execution. Its numbers, pending statements and old failure labels do not
 override the current24-model table above.
+
+### Original twenty failures by native boundary
+
+The first Release receipt records 4/24 passing at source baseline
+`e7ea9abe9dd9a148a42b1f6174353115bc9c8f5f`. The source epoch and raw results
+are under `build/architecture-reviews/sim-m03-production-20261103/aam-full-chain/`.
+`first-receipt.json` has SHA-256
+`c3a4f159661677164699d6d74fe3ced4d1529c58ef788f011f9d78a6db8e31ee`.
+The failure predicates come from `first-LastTest.log`. The rows below also
+recheck the archived per-model component, summary and trace files against
+their receipt hashes.
+
+The fin readback failure occurred in the AIM-9M actuator diagnostic for
+`fsim.actuator.jsbsim_lag_rate_stops`. The first fin did not advertise a valid
+measurement (`fin.flags & 1u` was zero), and the fixture stopped after 141
+assertions. This left the encounter outcome unobserved.
+
+All nineteen other cases reached the end still in flight. Their armed fuze
+never reported a burst. The fixture consequently recorded no warhead
+execution, no target damage and zero internal component work. The table
+groups those cases by seeker family feeding `fsim.guidance.measured_pn.v2`
+and the legacy `native.fuze.swept_path.v1` boundary. The tracking count is a
+sampled measurement over 1,201 decisions. Exact closest approach and a causal
+guidance or seeker defect cannot be inferred from that count.
+
+| Seeker family | Model | Tracking decisions | Earliest observed failing boundary |
+| --- | --- | ---: | --- |
+| Active RF | AIM-120D | 72 | Legacy swept-path initiation. A separate same-scenario geometry observation places the untracked closest approach at 1.172 m inside the legacy 11.472 m capacity radius. The legacy branch required seeker tracking. |
+| Active RF | Meteor | 82 | Armed swept path produced no initiation. |
+| Active RF | MICA-EM | 61 | Armed swept path produced no initiation. |
+| Active RF | PL-12 | 89 | Armed swept path produced no initiation. |
+| Active RF | PL-15 | 99 | Armed swept path produced no initiation. |
+| Active RF | R-37M | 155 | Armed swept path produced no initiation. |
+| Active RF | R-77M | 96 | Armed swept path produced no initiation. |
+| Semi-active RF | AIM-7M | 160 | Armed swept path produced no initiation. |
+| Semi-active RF | R-27ER | 155 | Armed swept path produced no initiation. |
+| Semi-active RF | R-27R | 160 | Armed swept path produced no initiation. |
+| Semi-active RF | Super 530D | 156 | Armed swept path produced no initiation. |
+| Imaging IR | ASRAAM | 131 | Armed swept path produced no initiation. |
+| Imaging IR | PL-10 | 148 | Armed swept path produced no initiation. |
+| Non-imaging IR | Magic 2 | 33 | Armed swept path produced no initiation. |
+| Non-imaging IR | PL-8 | 15 | Armed swept path produced no initiation. |
+| Non-imaging IR | R-27ET | 6 | Armed swept path produced no initiation. |
+| Non-imaging IR | R-27T | 5 | Armed swept path produced no initiation. |
+| Non-imaging IR | R-60M | 22 | Armed swept path produced no initiation. |
+| Non-imaging IR | R-73 | 8 | Armed swept path produced no initiation. |
+
+The AIM-120D geometry observation is recorded in `proximity-counterexample.json`
+with its input trace hashes. The other original traces do not locate exact
+native trigger intervals. Later per-model observations in this document
+identify where the remaining failures occur on their respective source epochs.
+
+The archived follow-up with geometric V0 fuze evaluation produced detonation
+for ten of these cases with identical sampled pre-burst guidance phase,
+tracking, speed, aerodynamic state, forces, moments, fuel and thrust. Its
+per-model `capture.json` files bind the checked input traces and native event
+records under `current24-second-output/`. Nine original traces report tracking
+off at both sampled times bracketing the follow-up burst. This isolates the
+legacy track-dependent fuze boundary as the candidate for those rows. It also
+distinguishes ASRAAM, whose bracketing tracking samples were both on. The
+sampled comparison does not recover the unrecorded original subframe state.
+
+| Model | Equal sampled pre-burst rows | Follow-up burst time (s) | Original bracketing tracking |
+| --- | ---: | ---: | --- |
+| AIM-120D | 162 | 16.788517054 | 0, 0 |
+| AIM-7M | 164 | 17.320706241 | 0, 0 |
+| ASRAAM | 128 | 15.657410111 | 1, 1 |
+| Meteor | 175 | 17.233333333 | 0, 0 |
+| PL-12 | 158 | 16.649941784 | 0, 0 |
+| PL-15 | 160 | 16.732315181 | 0, 0 |
+| R-27ER | 167 | 17.433333333 | 0, 0 |
+| R-27R | 175 | 17.685501697 | 0, 0 |
+| R-37M | 178 | 17.330966946 | 0, 0 |
+| Super 530D | 160 | 17.185212643 | 0, 0 |
 
 ## Initial unchanged-source baseline
 

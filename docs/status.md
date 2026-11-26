@@ -1,5 +1,10 @@
 # Current capabilities and milestone status
 
+<!-- SIM-M03 2026-11-25 non-visual checkpoint begin -->
+SIM-M03 non-visual checkpoint (2026-11-25, `main` HEAD `57a42c67f7dc1e1376f5a006b6f94bd8f23b2fc9`, uncommitted working tree):
+`complete-production` passes **88/88** designs (`0 blocked`, `4,992.9 s`, closing `rq4b`, `u2s`, `kc135r`, `uh1h`), `liquid-population.py` passes **35/35** airframes (`9.8 s`), `equipment_package_consumer` passes on both `ucrt64-headless` (`108.5 s`) and `ucrt64-release` (`108.4 s`) with aligned JSBSim LGPL-2.1 notices, `thermal_reticle_receiver` passes **56/56** cases (`325,635` assertions, `263.97 s`), and `payload_components`, `representative_weapon_models`, `dist_components`, and `sensor_native.AIM-9M` pass. Native `aam_full_chain` passes **23/24** in full (`r-60m` passes `47,154/47,155` assertions with `detonated` and `actualDamage=true`, `component_energy_j=0.0` pending after `f16c.liquid-v1.json` regeneration). Fullscreen primary-display visual acceptance (`full-native-and-visual`, `explosives-visual`, actual pixel review) is explicitly **skipped/pending** per user instruction due to the Antigravity Windows isolated-desktop (`WinSta0\exebox-*`) bug; `engineering_acceptance` remains `false`. See [SIM-M03 current status](sdk/sim-m03-full-chain-current.md) for the complete breakdown of verified gates and retained pre-existing full-regression items before transitioning to **SIM-M04 (MS-8 flyout-derived DLZ/WEZ)**.
+<!-- SIM-M03 2026-11-25 non-visual checkpoint end -->
+
 <!-- SIM-M03 diagnostic display continuation begin -->
 The 2026-11-02 diagnostic display continuation adds an optional live thermal
 channel selector while preserving WorldLayout v9, diagnostic V1 and fsrec v8.

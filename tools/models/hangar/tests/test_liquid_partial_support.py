@@ -393,5 +393,44 @@ class CurrentOverlapPartialTests(unittest.TestCase):
             vessels._cell_contained(box,candidate,overlap,lo,hi)
         self.assertEqual(box.subtractions,1)
 
+    def test_missing_corner_opposite_diagonal_crease_proves_partial_exactly(self):
+        # Captured RQ4B 9-vertex/14-triangle overlap where two bottom-front
+        # box corners are shifted by 1 ULP (3.55e-15 m) along +Y and triangulated
+        # across the opposite diagonal so no single triangle face is supporting.
+        lo = np.array([-1.3091289881178454, 16.52099971473217, -0.301276432984913])
+        hi = np.array([-1.3023507978861706, 16.598929952830076, -0.2925814620948415])
+        ov_v = np.array([
+            [-1.3091289881178454, 16.520999714732174, -0.301276432984913],
+            [-1.3091289881178454, 16.52099971473217, -0.2925814620948415],
+            [-1.3091289881178454, 16.598929952830076, -0.301276432984913],
+            [-1.3091289881178454, 16.598929952830076, -0.2925814620948415],
+            [-1.3023507978861706, 16.520999714732174, -0.301276432984913],
+            [-1.3023507978861706, 16.52099971473217, -0.29547978572486533],
+            [-1.3023507978861706, 16.52099971473217, -0.2925814620948415],
+            [-1.3023507978861706, 16.598929952830076, -0.301276432984913],
+            [-1.3023507978861706, 16.598929952830076, -0.2925814620948415],
+        ], dtype=float)
+        ov_t = np.array([
+            [1, 0, 4], [5, 1, 4], [1, 2, 0], [2, 7, 0], [2, 3, 7],
+            [1, 3, 2], [1, 8, 3], [7, 4, 0], [6, 1, 5], [1, 6, 8],
+            [5, 4, 8], [6, 5, 8], [7, 8, 4], [3, 8, 7],
+        ], dtype=np.uint64)
+        overlap = SimpleNamespace(
+            num_vert=lambda: len(ov_v),
+            num_tri=lambda: len(ov_t),
+            volume=lambda: 1e-6,
+            to_mesh64=lambda: SimpleNamespace(vert_properties=ov_v, tri_verts=ov_t),
+        )
+        candidate = SimpleNamespace(
+            num_vert=lambda: 100,
+            num_tri=lambda: 200,
+            to_mesh64=lambda: self.fail('Oversized candidate should skip mesh export'),
+        )
+        box = self.Box()
+        self.assertTrue(vessels._strict_partial_box(overlap, lo, hi))
+        contained, _ = vessels._cell_contained(box, candidate, overlap, lo, hi)
+        self.assertFalse(contained)
+        self.assertEqual(box.subtractions, 0)
+
 
 if __name__=='__main__': unittest.main(verbosity=2)

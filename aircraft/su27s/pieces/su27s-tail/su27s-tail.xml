@@ -14,26 +14,26 @@
         <htailarm unit="FT"> 0 </htailarm>
         <vtailarea unit="FT2"> 0 </vtailarea>
         <vtailarm unit="FT"> 0 </vtailarm>
-        <location name="AERORP" unit="IN"> <x> 680.997 </x> <y> 0.000 </y> <z> -8.307 </z> </location>
-        <location name="EYEPOINT" unit="IN"> <x> 680.997 </x> <y> 0.000 </y> <z> -8.307 </z> </location>
-        <location name="VRP" unit="IN"> <x> 680.997 </x> <y> 0.000 </y> <z> -8.307 </z> </location>
+        <location name="AERORP" unit="IN"> <x> 681.021 </x> <y> 0.000 </y> <z> -9.669 </z> </location>
+        <location name="EYEPOINT" unit="IN"> <x> 681.021 </x> <y> 0.000 </y> <z> -9.669 </z> </location>
+        <location name="VRP" unit="IN"> <x> 681.021 </x> <y> 0.000 </y> <z> -9.669 </z> </location>
     </metrics>
     <mass_balance negated_crossproduct_inertia="false">
-        <ixx unit="SLUG*FT2"> 14323.872252835135 </ixx>
-        <iyy unit="SLUG*FT2"> 18413.454314220206 </iyy>
-        <izz unit="SLUG*FT2"> 23418.224407691054 </izz>
-        <ixy unit="SLUG*FT2"> -0.13169909737494856 </ixy>
-        <ixz unit="SLUG*FT2"> -176.92120117985658 </ixz>
-        <iyz unit="SLUG*FT2"> -0.16646040147038607 </iyz>
-        <emptywt unit="LBS"> 14226.946542332711 </emptywt>
-        <location name="CG" unit="IN"> <x> 680.99685039370081 </x> <y> 0.00039370078740157485 </y> <z> -8.3066929133858274 </z> </location>
+        <ixx unit="SLUG*FT2"> 14602.44433084388 </ixx>
+        <iyy unit="SLUG*FT2"> 18861.217157532541 </iyy>
+        <izz unit="SLUG*FT2"> 23587.415169256132 </izz>
+        <ixy unit="SLUG*FT2"> -0.13172831105509422 </ixy>
+        <ixz unit="SLUG*FT2"> -139.95473335565293 </ixz>
+        <iyz unit="SLUG*FT2"> -0.16482951726730685 </iyz>
+        <emptywt unit="LBS"> 14410.470245969434 </emptywt>
+        <location name="CG" unit="IN"> <x> 681.02090513902772 </x> <y> 0.00038416712256751379 </y> <z> -9.6691815244646939 </z> </location>
         <pointmass name="fuel">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 613.77952755905517 </x> <y> 0 </y> <z> -5.0539370078740156 </z> </location>
+            <location unit="IN"> <x> 613.77952755905505 </x> <y> 0.00015589679014062151 </y> <z> -5.0543307086614151 </z> </location>
         </pointmass>
         <pointmass name="station 6">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 564.56692913385825 </x> <y> 0 </y> <z> -57.086614173228348 </z> </location>
+            <location unit="IN"> <x> 564.56692913385825 </x> <y> 0.00015589679014062151 </y> <z> -57.086614173228348 </z> </location>
         </pointmass>
     </mass_balance>
     <ground_reactions>
@@ -41,15 +41,15 @@
             <location unit="IN"> <x> 863.583 </x> <y> -188.976 </y> <z> 151.378 </z> </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.5 </dynamic_friction>
-            <spring_coeff unit="LBS/FT"> 284539 </spring_coeff>
-            <damping_coeff unit="LBS/FT/SEC"> 28454 </damping_coeff>
+            <spring_coeff unit="LBS/FT"> 288209 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 28821 </damping_coeff>
         </contact>
         <contact type="STRUCTURE" name="end 2">
-            <location unit="IN"> <x> 389.764 </x> <y> 188.976 </y> <z> -59.055 </z> </location>
+            <location unit="IN"> <x> 389.764 </x> <y> 188.977 </y> <z> -59.055 </z> </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.5 </dynamic_friction>
-            <spring_coeff unit="LBS/FT"> 284539 </spring_coeff>
-            <damping_coeff unit="LBS/FT/SEC"> 28454 </damping_coeff>
+            <spring_coeff unit="LBS/FT"> 288209 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 28821 </damping_coeff>
         </contact>
     </ground_reactions>
     <propulsion/>
@@ -64,16 +64,16 @@
                     <table>
                       <independentVar>aero/alpha-deg</independentVar>
                       <tableData>
-                         -180.0000    0.00000
-                         -175.0000    0.26549
-                         -170.0000    0.53099
-                         -165.0000    0.79648
-                         -160.0000    0.84958
-                         -150.0000    0.60000
-                         -135.0000    0.84853
-                         -120.0000    1.03923
-                         -105.0000    1.15911
-                          -90.0000    1.20000
+                         -180.0000   -0.00000
+                         -175.0000   -0.26549
+                         -170.0000   -0.53099
+                         -165.0000   -0.79648
+                         -160.0000   -0.84958
+                         -150.0000   -0.60000
+                         -135.0000   -0.84853
+                         -120.0000   -1.03923
+                         -105.0000   -1.15911
+                          -90.0000   -1.20000
                           -75.0000   -1.15911
                           -60.0000   -1.03923
                           -45.0000   -0.84853
@@ -91,16 +91,16 @@
                            45.0000    0.84853
                            60.0000    1.03923
                            75.0000    1.15911
-                           90.0000   -1.20000
-                          105.0000   -1.15911
-                          120.0000   -1.03923
-                          135.0000   -0.84853
-                          150.0000   -0.60000
-                          160.0000   -0.84958
-                          165.0000   -0.79648
-                          170.0000   -0.53099
-                          175.0000   -0.26549
-                          180.0000   -0.00000
+                           90.0000    1.20000
+                          105.0000    1.15911
+                          120.0000    1.03923
+                          135.0000    0.84853
+                          150.0000    0.60000
+                          160.0000    0.84958
+                          165.0000    0.79648
+                          170.0000    0.53099
+                          175.0000    0.26549
+                          180.0000    0.00000
                       </tableData>
                     </table>
                 </product>
@@ -139,16 +139,16 @@
                     <table>
                       <independentVar>aero/alpha-deg</independentVar>
                       <tableData>
-                         -180.0000    0.00000
-                         -175.0000    0.26549
-                         -170.0000    0.53099
-                         -165.0000    0.79648
-                         -160.0000    0.84958
-                         -150.0000    0.60000
-                         -135.0000    0.84853
-                         -120.0000    1.03923
-                         -105.0000    1.15911
-                          -90.0000    1.20000
+                         -180.0000   -0.00000
+                         -175.0000   -0.26549
+                         -170.0000   -0.53099
+                         -165.0000   -0.79648
+                         -160.0000   -0.84958
+                         -150.0000   -0.60000
+                         -135.0000   -0.84853
+                         -120.0000   -1.03923
+                         -105.0000   -1.15911
+                          -90.0000   -1.20000
                           -75.0000   -1.15911
                           -60.0000   -1.03923
                           -45.0000   -0.84853
@@ -166,16 +166,16 @@
                            45.0000    0.84853
                            60.0000    1.03923
                            75.0000    1.15911
-                           90.0000   -1.20000
-                          105.0000   -1.15911
-                          120.0000   -1.03923
-                          135.0000   -0.84853
-                          150.0000   -0.60000
-                          160.0000   -0.84958
-                          165.0000   -0.79648
-                          170.0000   -0.53099
-                          175.0000   -0.26549
-                          180.0000   -0.00000
+                           90.0000    1.20000
+                          105.0000    1.15911
+                          120.0000    1.03923
+                          135.0000    0.84853
+                          150.0000    0.60000
+                          160.0000    0.84958
+                          165.0000    0.79648
+                          170.0000    0.53099
+                          175.0000    0.26549
+                          180.0000    0.00000
                       </tableData>
                     </table>
                     <table>

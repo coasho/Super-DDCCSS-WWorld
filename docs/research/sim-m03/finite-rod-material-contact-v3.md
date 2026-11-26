@@ -27,3 +27,22 @@ Existing V2 custom providers retain zero=unknown and duplicate ordinal labels. W
 If boundary provenance cannot be proved identical to the native polygon, that facet retains the original visited-face exclusion path. It does not enter active-branch suppression/reentry processing or repeat a zero-time debit. This is a conservative compatibility fallback, not acceptance of an unproved material-domain join.
 
 The first feasible time can contain a finite interval of rod material coordinates even when it is strictly positive. Provenance therefore retains all physical-edge bounds on the entire earliest-time slice, not only the lexicographic first point or an initial-time slice. This makes a coplanar triangle diagonal independent of the small positive native reconstruction time, without tolerance or merged-face-only suppression.
+
+The native handoff producer now projects the detached view onto its actual
+closed-mesh panel representations. Finite surface quads are still transferred
+as damage geometry; they have no V3 mesh-facet state to rebind. Source and child
+panel kinds must agree, and each selected body panel must have both source and
+child immutable meshes. Preparation publishes its geometry/panel fields only
+after all validation succeeds. The consumer still rejects raw mixed lists,
+out-of-range indices and one-sided mesh maps. An actual F-16C nose contains
+16 attached panels: six finite surfaces and ten closed meshes. The uncorrected
+producer fails two assertions in the new native detachedState control.
+
+Active boundary origins now use the same captured-anchor expression and
+absolute local age as the next scene query. They do not advance a previously
+rounded position by another relative displacement. Held facet axes and the
+existing exact pose comparison remain unchanged; captured attitude changes
+still expire incompatible history. Independent stationary-velocity and
+captured-affine controls first expose two bitwise-origin failures, then pass
+without a position tolerance. This restores represented motion consistency,
+not a continuous rotational contact model.

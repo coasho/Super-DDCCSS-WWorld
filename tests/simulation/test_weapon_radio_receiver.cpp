@@ -342,3 +342,42 @@ TEST_CASE("ARH standby preserves authorized launch estimate and consumes no rece
     sample(immediate,.02);const auto* control=immediate.radioSpectrumV1();REQUIRE(control);if(!control)return;
     CHECK(power==control->spectrum.power); // Standby did not consume any RF random draws.
 }
+
+TEST_CASE("Passive bistatic SARH detects inside illuminator monostatic blanking while monostatic ARH keeps blanking", "[weapon-radio-receiver][sarh-passive-bistatic]") {
+    auto c=policy();
+    // 8-PRF medium-PRF illuminator with 10% duty: monostatic blanked ranges are
+    // 1500..750 m across the 8 PRFs (7 of 8 PRFs blanked at 850 m, leaving < M=3).
+    auto native=radar::signal::mediumPrf(c.frequencyHz,.09,8,3,150,.1);
+    REQUIRE(RadioReceiverV1::validIlluminationProgram(native));
+    RadioReceiverV1 sarh;std::string error;REQUIRE(sarh.configure(c,error));
+    auto s=scene();s.illuminationAvailable=true;s.illuminationWaveform=native;
+    s.illuminationClock=radar::IlluminationClockV1{true,0,.09};
+    SeekerNavigationPoseV1 nav;nav.valid=true;nav.bodyToEcef=axes;s.navigation=nav;
+    auto& echo=s.echoes.at(0);echo.receiverRangeM=300;echo.transmitterRangeM=1400;
+    echo.transmitterPowerW=5000;echo.transmitterGainLinear=1000;echo.fluctuation=0;
+    bool detected=false;
+    for(unsigned i=0;i<=9;++i) {
+        s.timeS=i*.012;s.navigation->timeS=s.timeS;
+        // 850 m down to 828 m: inside monostatic blanking for 7 of 8 PRFs.
+        echo.delayRangeM=850-200*s.timeS;
+        const auto result=sarh.expose(s,{1,0,0},axes,31,true);REQUIRE(result.valid);
+        if(!result.measurements.empty()) {
+            detected=true;CHECK(result.coincidenceIntervals>=3);
+            for(const auto& m:result.measurements) {
+                CHECK_FALSE(m.rangeM);CHECK_FALSE(m.rangeRateMs);
+                CHECK(m.direction.y>0);
+            }
+        }
+    }
+    CHECK(detected);
+
+    // Negative control: monostatic ARH retains its own T/R duplexer blanking
+    // across all 3 PRFs at 200 m (< 375 m minimum blanked gate).
+    RadioReceiverV1 arh;auto monostatic=c;
+    monostatic.waveform=radar::signal::mediumPrf(c.frequencyHz,.012,3,3,150,.05);
+    REQUIRE(arh.configure(monostatic,error));
+    auto ms=scene();ms.echoes.at(0).receiverRangeM=200;ms.echoes.at(0).delayRangeM=200;ms.echoes.at(0).fluctuation=0;
+    const auto blocked=arh.expose(ms,{1,0,0},axes,31,false);REQUIRE(blocked.valid);
+    CHECK(std::none_of(blocked.measurements.begin(),blocked.measurements.end(),
+        [](const auto& m){return m.refereeAttributionIndex==9;}));
+}

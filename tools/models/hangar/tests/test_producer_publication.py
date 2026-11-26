@@ -15,7 +15,10 @@ from unittest import mock
 
 from hangar import damage, files, model3d, pieces, pipeline, rotorcraft
 from hangar.rotorcraft import heli
-from test_glb_publication import mapped_reader
+try:
+    from .test_glb_publication import mapped_reader
+except ImportError:
+    from test_glb_publication import mapped_reader
 
 SOURCE = Path(__file__).resolve().parents[1]/'hangar'
 OWNERS = {

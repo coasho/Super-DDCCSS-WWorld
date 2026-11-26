@@ -1701,6 +1701,20 @@ static SceneAssessmentV1 assessSceneImpl(const FragmentFieldV1& field,const std:
         auto activeMaterialV3=contactHistoryV3?contactHistoryV3->particles[particleIndexV3].active:std::vector<MaterialFacetKeyV3>{};
         const std::set<std::array<std::uint64_t,5>> originalVisitedV3(p.crossedFaces.begin(),p.crossedFaces.end());
         double age=0;bool absorbed=false,anyStrike=false;
+        const auto canonicalMaterialBoundaryV3=[&](MaterialFacetKeyV3& key) {
+            const auto owner=std::find_if(victims.begin(),victims.end(),[&](const auto* victim) {
+                return victim->identity==key.victim&&victim->generation==key.generation;
+            });
+            if(owner==victims.end())return false;
+            Target boundary;double nextBoundary=environment.maxFlightTimeS;
+            if(!sceneTargetAt(**owner,age,nextBoundary,boundary))return false;
+            // Re-evaluate the represented captured anchor at the new absolute
+            // local age. Incremental regrouping can differ by one ULP and
+            // invalidate a genuinely fresh contact at the identical epoch.
+            // Retain the facet's held axes: no rotation sweep is supplied.
+            key.boundaryTarget.at=boundary.at;
+            return true;
+        };
         const double materialLength=p.materialLengthM>0?p.materialLengthM:p.segment&&p.expansionPerS>0?
             length(p.end-p.at)*(1+p.expansionPerS*p.breakupAgeS):0;
         p.materialLengthM=materialLength;
@@ -1988,7 +2002,8 @@ static SceneAssessmentV1 assessSceneImpl(const FragmentFieldV1& field,const std:
             }),activeMaterialV3.end());
             for(auto& key:activeMaterialV3) {
                 const auto node=std::find_if(materialNodesV3.begin(),materialNodesV3.end(),[&](const auto& item){return item.key==key;});
-                key.boundaryTarget=node->key.boundaryTarget;key.boundaryTarget.at+=key.boundaryTarget.velocity*elapsed;
+                key.boundaryTarget=node->key.boundaryTarget;
+                if(!canonicalMaterialBoundaryV3(key))return {};
                 key.freshBoundary=elapsed==0&&key.freshBoundary;
             }
             if(!first)continue;
@@ -1998,7 +2013,8 @@ static SceneAssessmentV1 assessSceneImpl(const FragmentFieldV1& field,const std:
                 crossing.liquidTank>=0?static_cast<std::uint64_t>(crossing.liquidTank):crossing.index,static_cast<std::uint64_t>(crossing.side)});
             if(crossing.paidContinuationV3) {
                 auto key=materialNodesV3[crossing.materialNodeV3].key;
-                key.boundaryTarget.at+=key.boundaryTarget.velocity*elapsed;key.freshBoundary=true;
+                if(!canonicalMaterialBoundaryV3(key))return {};
+                key.freshBoundary=true;
                 activeMaterialV3.push_back(std::move(key));
                 continue; // Existing paid lumped contact branch; no second THOR/impulse/hit/RNG.
             }
@@ -2024,14 +2040,15 @@ static SceneAssessmentV1 assessSceneImpl(const FragmentFieldV1& field,const std:
             if(!(speed>0)) {
                 if(crossing.materialNodeV3!=std::numeric_limits<std::size_t>::max()) {
                     auto key=materialNodesV3[crossing.materialNodeV3].key;
-                    key.boundaryTarget.at+=key.boundaryTarget.velocity*elapsed;
+                    if(!canonicalMaterialBoundaryV3(key))return {};
                     key.freshBoundary=true;key.paid=false;activeMaterialV3.push_back(std::move(key));
                 }
                 continue;
             }
             if(crossing.materialNodeV3!=std::numeric_limits<std::size_t>::max()) {
                 auto key=materialNodesV3[crossing.materialNodeV3].key;
-                key.boundaryTarget.at+=key.boundaryTarget.velocity*elapsed;key.freshBoundary=true;
+                if(!canonicalMaterialBoundaryV3(key))return {};
+                key.freshBoundary=true;
                 activeMaterialV3.push_back(std::move(key));
             }
             if(!result.firstStrikeAgeS||field.ageS+age<*result.firstStrikeAgeS)result.firstStrikeAgeS=field.ageS+age;
@@ -2223,6 +2240,23 @@ void revalidateMaterialOwnersV3(MaterialContactHistoryV3& history,const std::vec
             !detail::materialPoseEqualV3(key.boundaryTarget,victim->target);
     }),particle.active.end());
 }
+}
+bool prepareMaterialOwnerHandoffV3(MaterialOwnerHandoffV3& handoff,const Airframe& from,const AttachedGeometryView& to) {
+    const auto& child=to.airframe();
+    if(!from.contactGeometry||!child.contactGeometry)return false;
+    std::vector<std::size_t> panels;
+    for(const auto index:to.panelIndices()) {
+        if(index>=from.panels.size()||index>=child.panels.size()||
+           from.panels[index].surface!=child.panels[index].surface)return false;
+        // Only authored closed meshes own V3 facet episodes. Finite surface
+        // quads remain transferred damage geometry, but have no mesh history.
+        if(child.panels[index].surface)continue;
+        if(!from.contactGeometry->panel(index)||!child.contactGeometry->panel(index))return false;
+        panels.push_back(index);
+    }
+    handoff.fromGeometry=from.contactGeometry;handoff.toGeometry=child.contactGeometry;
+    handoff.panels=std::move(panels);
+    return true;
 }
 bool rebindMaterialContactOwnerV3(MaterialContactHistoryV3& history,const MaterialOwnerHandoffV3& handoff,const Target& target) {
     if(!handoff.from||!handoff.fromGeneration||!handoff.to||!handoff.toGeneration||

@@ -273,7 +273,7 @@ class ComponentsTest(unittest.TestCase):
                 for node in list(control):
                     if node.tag == "property" and (node.text or "").startswith("fsim/components/"):
                         control.remove(node)
-                    elif node.tag == "property" and node.text == "fsim/missile-control/actuator-version" and node.text not in old_properties:
+                    elif node.tag == "property" and node.text in ("fsim/missile-control/actuator-version", "fsim/rocket-feed-v1/engine[0]/version") and node.text not in old_properties:
                         control.remove(node)
             for node in model.iter():
                 if node.tag in ("lag", "rate_limit") and (node.text or "").strip() in properties:
@@ -332,19 +332,26 @@ class ComponentsTest(unittest.TestCase):
                 if autopilot.get('bindings',{}).get('thrust_vector'):
                     del autopilot['bindings']['thrust_vector']
                     for role in ('tvc_limit_rad','tvc_rate_rad_s'):del autopilot['parameter_refs'][role]
-                if autopilot.get('implementation_id') in (components.ACTUATOR_AWARE_AUTOPILOT,components.OPERATING_POINT_AUTOPILOT):
+                autopilot_mech = (components.equipment_mechanism(selected, 'autopilot', autopilot['implementation_id'])
+                                  if autopilot.get('availability') == 'available' else '')
+                if autopilot_mech in (components.ACTUATOR_AWARE_AUTOPILOT,components.OPERATING_POINT_AUTOPILOT):
                     autopilot['implementation_id']=components.AUTOPILOT
-                if rows['propulsion'].get('implementation_id')==components.DUCTED_PROPULSION:
+                propulsion=rows['propulsion']
+                prop_mech = (components.equipment_mechanism(selected, 'propulsion', propulsion['implementation_id'])
+                             if propulsion.get('availability') == 'available' else '')
+                if prop_mech in (components.DUCTED_PROPULSION,components.DUCTED_PROPULSION_V2):
                     from hangar import ductedrocket
-                    rows['propulsion']['implementation_id']=components.PROPULSION
-                    for role in ductedrocket.ROLES:del rows['propulsion']['parameter_refs'][role]
-                commanded=rows['propulsion'].get('implementation_id')==components.COMMANDED_PULSE
+                    propulsion['implementation_id']=components.PROPULSION
+                    for role in ductedrocket.ROLES:del propulsion['parameter_refs'][role]
+                    if prop_mech==components.DUCTED_PROPULSION_V2:
+                        for role in ductedrocket.ROLES_V2_EXTRA:del propulsion['parameter_refs'][role]
+                commanded=prop_mech==components.COMMANDED_PULSE
                 if commanded:
                     # This equivalence case selects the retained timed model,
                     # not the new commanded mode masquerading as legacy.
-                    rows['propulsion']['implementation_id']=components.PROPULSION
+                    propulsion['implementation_id']=components.PROPULSION
                     for role in ('pulse_hold_limit_s','pulse_reserve_speed_m_s','pulse_terminal_lead_s'):
-                        del rows['propulsion']['parameter_refs'][role]
+                        del propulsion['parameter_refs'][role]
                 legacy = copy.deepcopy(selected)
                 legacy.pop("component_models")
                 card_bytes=path.read_bytes()

@@ -131515,5 +131515,10 @@
     ]
    }
   ]
+ },
+ "liquid_geometry_v1": {
+  "file": "rq4b.liquid-v1.json",
+  "schema": "fsim.liquid-occupancy.v1",
+  "required": true
  }
 }

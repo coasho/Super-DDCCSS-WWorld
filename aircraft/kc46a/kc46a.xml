@@ -2,7 +2,7 @@
 <fdm_config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" name="kc46a" version="2.0" release="ALPHA" xsi:noNamespaceSchemaLocation="http://jsbsim.sourceforge.net/JSBSim.xsd">
     <!-- Written by hangar; shared geometry/card aerodynamic pipeline; integration metadata v2. --><fileheader>
         <author>hangar</author>
-        <filecreationdate>2026-11-01</filecreationdate>
+        <filecreationdate>2026-11-25</filecreationdate>
         <version>0.1.0</version>
         <description>Boeing KC-46A Pegasus (hangar build)</description>
         <note>Aerodynamics: vortex lattice with viscous section polars, full-envelope
@@ -38,21 +38,21 @@
         <location name="VRP" unit="M">
             <x> 23.300000000000001 </x>
             <y> -5.5741229604343534e-06 </y>
-            <z> 4.0999999999999988 </z>
+            <z> 4.0999999999999996 </z>
         </location>
     </metrics>
     <mass_balance negated_crossproduct_inertia="false">
-        <ixx unit="KG*M2"> 2912676.8273015623 </ixx>
-        <iyy unit="KG*M2"> 7190054.5419562496 </iyy>
-        <izz unit="KG*M2"> 10027285.195479888 </izz>
-        <ixy unit="KG*M2"> -1.7512643866567545 </ixy>
-        <ixz unit="KG*M2"> 337084.88828925748 </ixz>
-        <iyz unit="KG*M2"> 2.2592979990949464 </iyz>
+        <ixx unit="KG*M2"> 3639640.9118156335 </ixx>
+        <iyy unit="KG*M2"> 8504225.5637226813 </iyy>
+        <izz unit="KG*M2"> 11709130.395994008 </izz>
+        <ixy unit="KG*M2"> -1.7512643866478019 </ixy>
+        <ixz unit="KG*M2"> 395356.16838407668 </ixz>
+        <iyz unit="KG*M2"> 2.2592979990368742 </iyz>
         <emptywt unit="KG"> 82377 </emptywt>
         <location name="CG" unit="M">
             <x> 23.300000000000001 </x>
             <y> -5.5741229604343534e-06 </y>
-            <z> 4.0999999999999988 </z>
+            <z> 4.0999999999999996 </z>
         </location>
         <pointmass name="pilots">
             <weight unit="KG"> 200.00 </weight>
@@ -128,9 +128,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 7821409 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 260714 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 260714 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 9075972 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 302532 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 302532 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="fin rear">
             <location unit="M">
@@ -140,9 +140,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 7512001 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 250400 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 250400 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 8723463 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 290782 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 290782 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="fuselage front">
             <location unit="M">
@@ -152,9 +152,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 3422723 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 114091 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 114091 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 3948366 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 131612 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 131612 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="fuselage front 2">
             <location unit="M">
@@ -164,9 +164,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 4108388 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 136946 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 136946 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 4716006 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 157200 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 157200 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="fuselage front 3">
             <location unit="M">
@@ -176,9 +176,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 3354400 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 111813 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 111813 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 3840467 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 128016 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 128016 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="htail left rear">
             <location unit="M">
@@ -188,9 +188,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 7321383 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 244046 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 244046 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 8617808 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 287260 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 287260 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="htail right rear">
             <location unit="M">
@@ -200,9 +200,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 7321374 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 244046 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 244046 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 8617799 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 287260 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 287260 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="nacelle left front">
             <location unit="M">
@@ -212,9 +212,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 19524104 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 650803 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 650803 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 22692436 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 756415 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 756415 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="nacelle right front">
             <location unit="M">
@@ -224,9 +224,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 19524086 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 650803 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 650803 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 22692415 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 756414 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 756414 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="wing left rear">
             <location unit="M">
@@ -236,9 +236,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 2041694 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 68056 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 68056 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 2509082 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 83636 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 83636 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="wing left rear 2">
             <location unit="M">
@@ -248,9 +248,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 2087044 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 69568 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 69568 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 2567058 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 85569 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 85569 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="wing right rear">
             <location unit="M">
@@ -260,9 +260,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 2087041 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 69568 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 69568 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 2567055 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 85569 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 85569 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="wing right rear 2">
             <location unit="M">
@@ -272,9 +272,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 2041691 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 68056 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 68056 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 2509080 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 83636 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 83636 </damping_coeff_rebound>
         </contact>
     </ground_reactions>
     <propulsion>
@@ -1775,15 +1775,15 @@
                         <table>
                             <independentVar lookup="row">aero/qbar-psf</independentVar>
                             <tableData>
-                  10.0   -0.20000
-                  20.0   -2.20000
-                  40.0   -3.00000
+                  10.0    0.00000
+                  20.0   -2.00000
+                  40.0   -2.95000
                   80.0   -3.00000
-                 150.0   -1.08527
-                 300.0   -0.26223
-                 600.0   -0.10085
-                1200.0   -0.06428
-                2400.0   -0.06888
+                 150.0   -1.35000
+                 300.0   -0.31974
+                 600.0   -0.11739
+                1200.0   -0.07560
+                2400.0   -0.07956
                 </tableData>
                         </table>
                         <property>fcs/yaw-damper-washout</property>

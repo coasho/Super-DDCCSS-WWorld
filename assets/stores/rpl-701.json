@@ -91,7 +91,7 @@
           "mass_kg": 125.0,
           "fuel_kg": 1000.0
         },
-        "table_inputs_hash": "ca3bab1df45b2510",
+        "table_inputs_hash": "04f18dd99c0539c6",
         "table_sha256": "e200554c68df410858645449e1252f4b7afe77fe2c80a820803a55f3a09b9baf",
         "input_geometry": "aircraft/rpl701/rpl701.toml",
         "domain": {
@@ -112,7 +112,7 @@
           "Katz and Plotkin, Low-Speed Aerodynamics, vortex lattice",
           "Shared aero/model.py, tables.py and mach.py; engineering extensions are not equipment measurements"
         ],
-        "solver_sha256": "1fe905d01b307fc9398dda9ddd1b78ab2960d66c80ffd7346a2baf5e255f78bf",
+        "solver_sha256": "c3c6c4ea54c61e3f461287dfb4f0bf1d9b83e6ba685a3352fab2a434639d0670",
         "generic_validation": {
           "schema": "fsim.generic-vlm-validation.v1",
           "basis": "simulated",

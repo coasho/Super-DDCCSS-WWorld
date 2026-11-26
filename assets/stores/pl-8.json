@@ -502,33 +502,69 @@
       "basis": "assumed",
       "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
     },
-    "component_fuze_model_version": {
-      "value": 0,
-      "unit": "1",
-      "uncertainty": 0,
-      "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
-    },
-    "component_fuze_algorithm": {
-      "value": 0,
-      "unit": "1",
-      "uncertainty": 0,
-      "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
-    },
-    "component_fuze_arming_s": {
+    "fuze_model_version": {
       "value": 1,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Explicit ideal simulator initiation schema 1, distinct from hardware safe/arm/TDD identity.",
+      "source": "mil-hdbk-1211"
+    },
+    "fuze_proximity_algorithm": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Actual captured turning-point CPA inside the admitted radius, not an approaching endpoint clamped to a decision boundary.",
+      "source": "mil-hdbk-1211"
+    },
+    "fuze_arming_s": {
+      "value": 1,
+      "unit": "s",
+      "uncertainty": 1,
+      "basis": "assumed",
+      "note": "Retained generic one-second arming assumption; no published PL-8/Python-3 fuze timing is asserted.",
+      "source": "mil-hdbk-1211"
+    },
+    "fuze_radius_m": {
+      "value": 10.3166247903554,
+      "unit": "m",
+      "uncertainty": 6,
+      "basis": "assumed",
+      "note": "Retained generic point-reference detection radius from the prior 7+sqrt(warhead_kg) rule, now explicit. It is not a published laser proximity sensitivity or lethality radius.",
+      "source": "mil-hdbk-1211"
+    },
+    "fuze_delay_s": {
+      "value": 0,
       "unit": "s",
       "uncertainty": 0,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Selected zero-delay ideal simulator model. Hardware detection-to-burst latency is uncalibrated; no delay was fitted to these scenes.",
+      "source": "mil-hdbk-1211"
     },
-    "component_fuze_radius_m": {
-      "value": 10.3166247903554,
+    "fuze_station_x_m": {
+      "value": 0.985,
       "unit": "m",
-      "uncertainty": 0,
+      "uncertainty": 0.15,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Assumed axisymmetric body sensor station co-located near the authored warhead station from the nose; no published PL-8 internal station drawing is asserted.",
+      "source": "mil-hdbk-1211"
+    },
+    "fuze_station_y_m": {
+      "value": 0,
+      "unit": "m",
+      "uncertainty": 0.02,
+      "basis": "assumed",
+      "note": "Axisymmetric ideal sensor reference, structural metres right from authored nose.",
+      "source": "mil-hdbk-1211"
+    },
+    "fuze_station_z_m": {
+      "value": 0,
+      "unit": "m",
+      "uncertainty": 0.02,
+      "basis": "assumed",
+      "note": "Axisymmetric ideal sensor reference, structural metres up from authored nose.",
+      "source": "mil-hdbk-1211"
     },
     "component_control_max_incidence_deg": {
       "value": 15.0,
@@ -1349,7 +1385,7 @@
       "publisher": "Project engineering derivation",
       "url": "docs/research/sim-m03/thermal-reticle-method.md",
       "accessed": "2026-11-03",
-      "evidence_kind": "engineering_derivation",
+      "evidence_kind": "unclassified",
       "note": "R=min(width,height)*pitch/2; r=R/2; n=max(1,floor(pi*r/(8*psfSigma))); f=1/(2*pi*n*responseTime).128 phase samples and4x4 spatial quadrature are explicit numerical design. Method references: NAWCWD TP8347(2013),7-1.33-37 and Howser,JHUAPL16(1),1995,27-33. Independent SA-14-only reference: DOI10.1016/j.infrared.2010.07.001,100Hz*12=1200Hz. No OEM AAM constants, fitted scene outcome or empirical calibration are claimed."
     },
     "cctv-name-report": {
@@ -1377,7 +1413,7 @@
     },
     "hangar-vlm": {
       "title": "Shared Hangar aircraft VLM tables",
-      "url": "aero/vlm-carriage-78eb34f7d8a1c1c88d7a3a8cebc7f2b8bd3a6f8798ca233528f0d6b1bf082342.json",
+      "url": "aero/vlm-carriage-82efec425fd7973e79abaf0e3ca1f610dc2b0b8bc36ca07e774971757f441c80.json",
       "evidence_kind": "game_reference",
       "note": "Same base, rate and Mach data as the released JSBSim model; no equipment calibration claim.",
       "simulation": {
@@ -1391,8 +1427,8 @@
           "span_m": 0.8,
           "mass_kg": 115.0
         },
-        "table_inputs_hash": "046588c81f9a547c",
-        "table_sha256": "78eb34f7d8a1c1c88d7a3a8cebc7f2b8bd3a6f8798ca233528f0d6b1bf082342",
+        "table_inputs_hash": "cca533416ecc3b13",
+        "table_sha256": "82efec425fd7973e79abaf0e3ca1f610dc2b0b8bc36ca07e774971757f441c80",
         "input_geometry": "aircraft/pl8/pl8.toml",
         "domain": {
           "mach": [
@@ -1412,7 +1448,7 @@
           "Katz and Plotkin, Low-Speed Aerodynamics, vortex lattice",
           "Shared aero/model.py, tables.py and mach.py; engineering extensions are not equipment measurements"
         ],
-        "solver_sha256": "1fe905d01b307fc9398dda9ddd1b78ab2960d66c80ffd7346a2baf5e255f78bf",
+        "solver_sha256": "c3c6c4ea54c61e3f461287dfb4f0bf1d9b83e6ba685a3352fab2a434639d0670",
         "generic_validation": {
           "schema": "fsim.generic-vlm-validation.v1",
           "basis": "simulated",
@@ -1499,6 +1535,15 @@
       "url": "https://www.jhuapl.edu/sites/default/files/2024-09/29-01-Palumbo_Principles_Rev2018.pdf",
       "accessed": "2026-11-02",
       "note": "Homing-loop methods only; no exact equipment constants taken from this source."
+    },
+    "mil-hdbk-1211": {
+      "evidence_kind": "government_publication",
+      "title": "MIL-HDBK-1211(MI), Missile Flight Simulation Part One: Surface-to-Air Missiles, section2-2.4/Figures2-19 and2-20",
+      "publisher": "U.S. Department of Defense",
+      "url": "https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=116871",
+      "date": "1995-07-17",
+      "accessed": "2026-10-20",
+      "note": "Generic sensor/initiation/fragment/target methodology, not modern missile equipment data."
     }
   },
   "component_models": {
@@ -1655,7 +1700,7 @@
           "execution_mode": "configured"
         },
         "basis": "assumed",
-        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
+        "note": "Explicit finite-actuator state feedback using authored response times, signed native derivatives and same-frame actual surface/load feedback. Engineering controller, not equipment calibration.",
         "validity": "Reduced-order engineering model; hardware performance unvalidated."
       },
       "allocator": {
@@ -1691,20 +1736,25 @@
         "implementation_id": "equipment.pl-8.fuze",
         "configuration_version": 1,
         "parameter_refs": {
-          "model_version": "component_fuze_model_version",
-          "algorithm": "component_fuze_algorithm",
-          "arming_s": "component_fuze_arming_s",
+          "model_version": "fuze_model_version",
+          "algorithm": "fuze_proximity_algorithm",
+          "arming_s": "fuze_arming_s",
           "life_s": "component_guidance_life_s",
-          "radius_m": "component_fuze_radius_m"
+          "radius_m": "fuze_radius_m",
+          "delay_s": "fuze_delay_s",
+          "station_x_m": "fuze_station_x_m",
+          "station_y_m": "fuze_station_y_m",
+          "station_z_m": "fuze_station_z_m",
+          "body_length_m": "length_m",
+          "body_diameter_m": "diameter_m"
         },
         "bindings": {
-          "target_detection_v1": "native.time_armed_geometric_scene.v1",
-          "sensor_reference": "captured_weapon_cg",
+          "sensor_reference": "captured_authored_station_from_nose",
           "target_reference": "captured_target_cg",
           "contact_reference": "captured_authored_nose",
           "contact": "native.authored_point_contact.v1",
           "history": "native.captured_piecewise_linear.v1",
-          "delay": "none"
+          "delay": "native.captured_fixed_delay.v1"
         },
         "basis": "assumed",
         "note": "Existing simulator implementation; no equipment calibration.",
@@ -1811,6 +1861,6 @@
     }
   },
   "simulation_model": {
-    "calibration": "PL-8 is uncalibrated. PL-8 retains its 115 kg/160 mm airframe, three-second authored motor phase and selected scalar reticle. Its identity relationship to the Python family does not supply an exact PL-8 mask, detector, control electronics or firing record. Retained card anchors: mass 115.0 kg (published; source wp-pl8; uncertainty 2.0), length 2.95 m (published; source wp-pl8; uncertainty 0.02), diameter 0.16 m (published; source wp-pl8; uncertainty 0.002), warhead 11.0 kg (published; source wp-pl8; uncertainty 1.0), explosive 5.0 kg (published; source wt-datamine; uncertainty 0.75). Current receiver thermal_conscan_reticle.v1; control fsim.control.load_feedback_cascade; propulsion fsim.propulsion.jsbsim_generated_solid_rocket; fuze native.fuze.swept_path.v1; warhead native.warhead.authored_field.v3. Current mass/warhead and game-reference charge records constrain the parameterization only at their stated basis; reticle/noise, fin forces and fragment behavior remain individually uncalibrated. Source classes and uncertainty records remain unchanged; assumed, derived and game-reference values are not promoted to equipment measurements. Per-model theory, parameter deltas and numerical method routes are in docs/research/sim-m03/component-methods/per-model-effects-components.json and per-model-six-components.json; the separate docs/research/sim-m03/calibration-ledger.json identifies the remaining equipment comparisons. Arithmetic or native scenario verification does not establish held-out accuracy. No admitted same-model independent baseline-to-new held-out calibration receipt is claimed; engineering completion continues through its own gates."
+    "calibration": "PL-8 is uncalibrated. PL-8 retains its 115 kg/160 mm airframe, three-second authored motor phase and selected scalar reticle. Its identity relationship to the Python family does not supply an exact PL-8 mask, detector, control electronics or firing record. Retained card anchors: mass 115.0 kg (published; source wp-pl8; uncertainty 2.0), length 2.95 m (published; source wp-pl8; uncertainty 0.02), diameter 0.16 m (published; source wp-pl8; uncertainty 0.002), warhead 11.0 kg (published; source wp-pl8; uncertainty 1.0), explosive 5.0 kg (published; source wt-datamine; uncertainty 0.75). Current receiver thermal_conscan_reticle.v1; control fsim.control.actuator_aware_cascade.v1; propulsion fsim.propulsion.jsbsim_generated_solid_rocket; fuze native.fuze.turning_cpa.v1; warhead native.warhead.authored_field.v3. Current mass/warhead and game-reference charge records constrain the parameterization only at their stated basis; reticle/noise, fin forces and fragment behavior remain individually uncalibrated. Source classes and uncertainty records remain unchanged; assumed, derived and game-reference values are not promoted to equipment measurements. Per-model theory, parameter deltas and numerical method routes are in docs/research/sim-m03/component-methods/per-model-effects-components.json and per-model-six-components.json; the separate docs/research/sim-m03/calibration-ledger.json identifies the remaining equipment comparisons. Arithmetic or native scenario verification does not establish held-out accuracy. No admitted same-model independent baseline-to-new held-out calibration receipt is claimed; engineering completion continues through its own gates."
   }
 }

@@ -2,7 +2,7 @@
 <fdm_config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" name="mig29a" version="2.0" release="ALPHA" xsi:noNamespaceSchemaLocation="http://jsbsim.sourceforge.net/JSBSim.xsd">
     <!-- Written by hangar; shared geometry/card aerodynamic pipeline; integration metadata v2. --><fileheader>
         <author>hangar</author>
-        <filecreationdate>2026-11-01</filecreationdate>
+        <filecreationdate>2026-11-25</filecreationdate>
         <version>0.1.0</version>
         <description>Mikoyan MiG-29A Fulcrum-A (hangar build)</description>
         <note>Aerodynamics: vortex lattice with viscous section polars, full-envelope
@@ -38,21 +38,21 @@
         <location name="VRP" unit="M">
             <x> 9.2620000000000005 </x>
             <y> -2.1146125918262856e-08 </y>
-            <z> -0.34999999999999992 </z>
+            <z> -0.34999999999999987 </z>
         </location>
     </metrics>
     <mass_balance negated_crossproduct_inertia="false">
-        <ixx unit="KG*M2"> 23076.488159999997 </ixx>
-        <iyy unit="KG*M2"> 134376.80874749998 </iyy>
-        <izz unit="KG*M2"> 152271.50795999999 </izz>
-        <ixy unit="KG*M2"> -0.0016589315975928521 </ixy>
-        <ixz unit="KG*M2"> 3656.8563784313537 </ixz>
-        <iyz unit="KG*M2"> 0.07164917064674331 </iyz>
+        <ixx unit="KG*M2"> 22750.463090690024 </ixx>
+        <iyy unit="KG*M2"> 122750.91992692734 </iyy>
+        <izz unit="KG*M2"> 138413.02011208513 </izz>
+        <ixy unit="KG*M2"> -0.0016589315972466913 </ixy>
+        <ixz unit="KG*M2"> 5853.2309749734795 </ixz>
+        <iyz unit="KG*M2"> 0.071649170646722021 </iyz>
         <emptywt unit="KG"> 11000 </emptywt>
         <location name="CG" unit="M">
             <x> 9.2620000000000005 </x>
             <y> -2.1146125918262856e-08 </y>
-            <z> -0.34999999999999992 </z>
+            <z> -0.34999999999999987 </z>
         </location>
         <pointmass name="pilot">
             <weight unit="KG"> 100.00 </weight>
@@ -75,7 +75,7 @@
             <location unit="M">
                 <x> 11.27 </x>
                 <y> -4.5440000211461253 </y>
-                <z> -0.70399999999999996 </z>
+                <z> -0.70399999999999985 </z>
             </location>
         </pointmass>
         <pointmass name="station 2">
@@ -123,7 +123,7 @@
             <location unit="M">
                 <x> 11.27 </x>
                 <y> 4.5439999788538739 </y>
-                <z> -0.70399999999999996 </z>
+                <z> -0.70399999999999985 </z>
             </location>
         </pointmass>
     </mass_balance>
@@ -184,9 +184,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 2323883 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 77463 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 77463 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 2131494 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 71050 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 71050 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="fin left rear">
             <location unit="M">
@@ -196,9 +196,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 1126867 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 37562 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 37562 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 1115351 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 37178 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 37178 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="fin right rear">
             <location unit="M">
@@ -208,9 +208,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 1126867 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 37562 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 37562 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 1115350 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 37178 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 37178 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="htail left rear">
             <location unit="M">
@@ -220,9 +220,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 830792 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 27693 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 27693 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 794244 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 26475 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 26475 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="htail right rear">
             <location unit="M">
@@ -232,9 +232,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 830792 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 27693 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 27693 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 794244 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 26475 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 26475 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="nacelle left bottom">
             <location unit="M">
@@ -244,9 +244,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 1990086 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 66336 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 66336 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 1954523 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 65151 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 65151 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="nacelle left rear">
             <location unit="M">
@@ -256,9 +256,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 2556683 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 85223 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 85223 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 2385742 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 79525 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 79525 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="nacelle right rear">
             <location unit="M">
@@ -268,9 +268,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 2556684 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 85223 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 85223 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 2385744 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 79525 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 79525 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="nacelle right bottom">
             <location unit="M">
@@ -280,9 +280,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 1990086 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 66336 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 66336 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 1954523 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 65151 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 65151 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="probe front">
             <location unit="M">
@@ -292,9 +292,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 1021887 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 34063 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 34063 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 941887 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 31396 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 31396 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="wing left rear">
             <location unit="M">
@@ -304,9 +304,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 293455 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 9782 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 9782 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 286822 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 9561 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 9561 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="wing left rear 2">
             <location unit="M">
@@ -316,9 +316,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 283977 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 9466 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 9466 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 276925 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 9231 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 9231 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="wing right rear">
             <location unit="M">
@@ -328,9 +328,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 283977 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 9466 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 9466 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 276925 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 9231 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 9231 </damping_coeff_rebound>
         </contact>
         <contact type="STRUCTURE" name="wing right rear 2">
             <location unit="M">
@@ -340,9 +340,9 @@
             </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.6 </dynamic_friction>
-            <spring_coeff unit="N/M"> 293455 </spring_coeff>
-            <damping_coeff unit="N/M/SEC"> 9782 </damping_coeff>
-            <damping_coeff_rebound unit="N/M/SEC"> 9782 </damping_coeff_rebound>
+            <spring_coeff unit="N/M"> 286822 </spring_coeff>
+            <damping_coeff unit="N/M/SEC"> 9561 </damping_coeff>
+            <damping_coeff_rebound unit="N/M/SEC"> 9561 </damping_coeff_rebound>
         </contact>
     </ground_reactions>
     <propulsion>
@@ -1760,15 +1760,15 @@
                         <independentVar lookup="column">velocities/mach</independentVar>
                         <tableData>
                        0.150     0.400     0.700     0.900     1.100     1.400     2.000
-              10.0  -6.00000  -6.00000  -6.00000  -6.00000  -6.00000  -6.00000  -6.00000
-              20.0  -4.13300  -4.47252  -4.12957  -3.40894  -2.53843  -2.82251  -5.71556
-              40.0  -1.49646  -1.86016  -1.71995  -1.17720  -0.52983  -0.72265  -2.05057
-              80.0  -0.59085  -1.03735  -1.10980  -0.93582  -0.24630  -0.03204  -0.02346
-             150.0  -0.46432  -0.96620  -1.05812  -0.87362  -0.20433  -0.00515  -0.09274
-             300.0  -0.33740  -0.78536  -0.92925  -0.76935  -0.13778   0.04353  -0.05695
-             600.0  -0.50984  -0.59672  -0.79089  -0.54663   0.05686   0.10871  -0.01665
-            1200.0  -1.90054  -0.02114   0.01251   0.26514   0.80593   0.93102   0.42864
-            2400.0  -6.00000  -0.15152   0.28602   0.55985   1.12780   1.33941   1.18702
+              10.0  -6.00000  -6.00000  -6.00000  -6.00000  -5.65846  -6.00000  -6.00000
+              20.0  -3.76565  -4.07858  -3.75804  -3.08246  -2.24924  -2.49239  -5.13486
+              40.0  -1.34011  -1.67494  -1.54093  -1.02893  -0.39850  -0.56028  -1.76266
+              80.0  -0.51297  -0.92375  -0.98276  -0.80425  -0.12623   0.09186   0.10554
+             150.0  -0.39455  -0.85760  -0.93469  -0.74676  -0.08741   0.11821   0.05294
+             300.0  -0.27472  -0.69061  -0.81611  -0.65114  -0.02698   0.16176   0.08491
+             600.0  -0.42121  -0.51597  -0.68819  -0.44534   0.15369   0.22326   0.12167
+            1200.0  -1.60887   0.01295   0.05069   0.30163   0.84372   0.98106   0.53285
+            2400.0  -5.81323  -0.10234   0.30222   0.57280   1.14027   1.35751   1.23159
               </tableData>
                     </table>
                 </function>
@@ -1782,13 +1782,13 @@
                        0.150     0.400     0.700     0.900     1.100     1.400     2.000
               10.0  -3.00000  -3.00000  -3.00000  -3.00000  -3.00000  -3.00000  -3.00000
               20.0  -3.00000  -3.00000  -3.00000  -3.00000  -3.00000  -3.00000  -3.00000
-              40.0  -2.00011  -2.46305  -2.38675  -1.98032  -1.75003  -2.16126  -3.00000
-              80.0  -0.71651  -1.16603  -1.23998  -1.19231  -1.07639  -1.17517  -1.63340
-             150.0  -0.36566  -0.80022  -0.87585  -0.84216  -0.76655  -0.84935  -1.23818
-             300.0  -0.05265  -0.48183  -0.56703  -0.55345  -0.51148  -0.57510  -0.85664
-             600.0   0.18990  -0.26018  -0.35464  -0.34129  -0.32291  -0.38762  -0.58612
-            1200.0   0.52279  -0.01871  -0.11142  -0.11499  -0.12322  -0.16680  -0.34933
-            2400.0   0.96415   0.12902   0.01830  -0.00179  -0.02382  -0.05381  -0.15031
+              40.0  -1.81334  -2.25664  -2.19054  -1.81791  -1.60721  -1.98613  -3.00000
+              80.0  -0.63579  -1.06477  -1.13650  -1.09376  -0.98804  -1.07938  -1.50116
+             150.0  -0.31430  -0.72873  -0.80176  -0.77176  -0.70308  -0.77972  -1.13780
+             300.0  -0.02613  -0.43558  -0.51750  -0.50601  -0.46832  -0.52736  -0.78680
+             600.0   0.19599  -0.23128  -0.32192  -0.31063  -0.29471  -0.35481  -0.53786
+            1200.0   0.49223  -0.00818  -0.09742  -0.10186  -0.11055  -0.15128  -0.31985
+            2400.0   0.84235   0.12748   0.02218   0.00250  -0.01892  -0.04714  -0.13650
               </tableData>
                     </table>
                 </function>
@@ -1804,11 +1804,11 @@
               20.0  -0.30000  -0.30000  -0.30000  -0.30000  -0.30000  -0.30000  -0.30000
               40.0  -0.30000  -0.30000  -0.30000  -0.30000  -0.30000  -0.30000  -0.30000
               80.0  -0.30000  -0.30000  -0.30000  -0.30000  -0.30000  -0.30000  -0.30000
-             150.0  -0.26074  -0.25521  -0.23930  -0.21761  -0.21561  -0.25623  -0.30000
-             300.0  -0.13088  -0.12792  -0.11944  -0.10801  -0.10710  -0.12809  -0.22212
-             600.0  -0.06459  -0.06315  -0.05901  -0.04978  -0.04903  -0.06329  -0.11021
-            1200.0  -0.01859  -0.01771  -0.01527  -0.01216  -0.01198  -0.01593  -0.04273
-            2400.0  -0.00458  -0.00437  -0.00377  -0.00301  -0.00296  -0.00393  -0.01047
+             150.0  -0.23991  -0.23482  -0.22019  -0.20023  -0.19839  -0.23576  -0.30000
+             300.0  -0.12043  -0.11770  -0.10990  -0.09938  -0.09855  -0.11785  -0.20437
+             600.0  -0.05943  -0.05810  -0.05430  -0.04580  -0.04512  -0.05824  -0.10141
+            1200.0  -0.01710  -0.01629  -0.01405  -0.01119  -0.01102  -0.01466  -0.03931
+            2400.0  -0.00422  -0.00402  -0.00347  -0.00277  -0.00273  -0.00362  -0.00964
               </tableData>
                     </table>
                 </function>
@@ -1823,12 +1823,12 @@
               10.0  -0.60000  -0.60000  -0.60000  -0.60000  -0.60000  -0.60000  -0.60000
               20.0  -0.60000  -0.60000  -0.60000  -0.60000  -0.60000  -0.60000  -0.60000
               40.0  -0.60000  -0.60000  -0.60000  -0.60000  -0.60000  -0.60000  -0.60000
-              80.0  -0.47061  -0.46181  -0.43588  -0.39924  -0.39390  -0.46278  -0.60000
-             150.0  -0.26074  -0.25521  -0.23930  -0.21761  -0.21561  -0.25623  -0.42990
-             300.0  -0.13088  -0.12792  -0.11944  -0.10801  -0.10710  -0.12809  -0.22212
-             600.0  -0.06459  -0.06315  -0.05901  -0.04978  -0.04903  -0.06329  -0.11021
-            1200.0  -0.01859  -0.01771  -0.01527  -0.01216  -0.01198  -0.01593  -0.04273
-            2400.0  -0.00458  -0.00437  -0.00377  -0.00301  -0.00296  -0.00393  -0.01047
+              80.0  -0.43301  -0.42491  -0.40106  -0.36734  -0.36243  -0.42581  -0.60000
+             150.0  -0.23991  -0.23482  -0.22019  -0.20023  -0.19839  -0.23576  -0.39556
+             300.0  -0.12043  -0.11770  -0.10990  -0.09938  -0.09855  -0.11785  -0.20437
+             600.0  -0.05943  -0.05810  -0.05430  -0.04580  -0.04512  -0.05824  -0.10141
+            1200.0  -0.01710  -0.01629  -0.01405  -0.01119  -0.01102  -0.01466  -0.03931
+            2400.0  -0.00422  -0.00402  -0.00347  -0.00277  -0.00273  -0.00362  -0.00964
               </tableData>
                     </table>
                 </function>
@@ -2171,13 +2171,13 @@
                        0.150     0.400     0.700     0.900     1.100     1.400     2.000
               10.0   1.50000   1.50000   1.50000   1.50000   1.50000   1.50000   1.50000
               20.0   1.50000   1.50000   1.50000   1.50000   1.50000   1.50000   1.50000
-              40.0   0.84232   1.02270   0.98986   0.83913   1.50000   1.50000   1.50000
-              80.0   0.22233   0.38298   0.38815   0.34369   0.62605   1.07620   1.50000
-             150.0   0.01478   0.15752   0.17668   0.15984   0.29700   0.52061   0.93657
-             300.0   0.00000   0.03512   0.06217   0.05934   0.11756   0.22194   0.42783
-             600.0   0.00000   0.00000   0.00637   0.01050   0.03048   0.07724   0.18544
-            1200.0   0.00000   0.00000   0.00000   0.00000   0.00000   0.00613   0.06762
-            2400.0   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00946
+              40.0   0.82594   1.00673   0.97510   0.82672   1.48216   1.50000   1.50000
+              80.0   0.21538   0.37622   0.38195   0.33831   0.61646   1.06017   1.50000
+             150.0   0.01125   0.15409   0.17352   0.15708   0.29208   0.51244   0.92279
+             300.0   0.00000   0.03345   0.06064   0.05799   0.11516   0.21796   0.42120
+             600.0   0.00000   0.00000   0.00561   0.00983   0.02929   0.07527   0.18219
+            1200.0   0.00000   0.00000   0.00000   0.00000   0.00000   0.00515   0.06600
+            2400.0   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00866
               </tableData>
                     </table>
                 </function>
@@ -2209,15 +2209,15 @@
                         <independentVar lookup="column">velocities/mach</independentVar>
                         <tableData>
                        0.150     0.400     0.700     0.900     1.100     1.400     2.000
-              10.0   0.41895   0.40844   0.37758   0.33167   0.59123   0.97812   1.00000
-              20.0   0.20947   0.20422   0.18879   0.16584   0.29562   0.48906   0.80320
-              40.0   0.10474   0.10211   0.09440   0.07938   0.14070   0.24453   0.40160
-              80.0   0.04449   0.04326   0.03967   0.03442   0.06133   0.10249   0.17752
-             150.0   0.02252   0.02192   0.02018   0.01763   0.03142   0.05222   0.08811
-             300.0   0.01095   0.01067   0.00984   0.00861   0.01535   0.02547   0.04240
-             600.0   0.00539   0.00526   0.00486   0.00426   0.00759   0.01258   0.02078
-            1200.0   0.00268   0.00261   0.00242   0.00212   0.00378   0.00626   0.01030
-            2400.0   0.00134   0.00130   0.00121   0.00106   0.00189   0.00312   0.00514
+              10.0   0.41312   0.40276   0.37233   0.32706   0.58301   0.96453   1.00000
+              20.0   0.20656   0.20138   0.18617   0.16353   0.29151   0.48226   0.79204
+              40.0   0.10328   0.10069   0.09308   0.07828   0.13875   0.24113   0.39602
+              80.0   0.04387   0.04266   0.03912   0.03395   0.06047   0.10107   0.17506
+             150.0   0.02221   0.02162   0.01990   0.01739   0.03099   0.05149   0.08688
+             300.0   0.01080   0.01052   0.00970   0.00849   0.01514   0.02511   0.04181
+             600.0   0.00532   0.00518   0.00479   0.00420   0.00749   0.01240   0.02049
+            1200.0   0.00264   0.00258   0.00238   0.00209   0.00373   0.00617   0.01016
+            2400.0   0.00132   0.00129   0.00119   0.00104   0.00186   0.00308   0.00506
               </tableData>
                     </table>
                 </function>
@@ -2264,15 +2264,15 @@
                         <independentVar lookup="column">velocities/mach</independentVar>
                         <tableData>
                        0.150     0.400     0.700     0.900     1.100     1.400     2.000
-              10.0   0.03990   0.04066   0.04307   0.04720   0.02743   0.01685   0.01419
-              20.0   0.07981   0.08131   0.08613   0.09441   0.05486   0.03371   0.02839
-              40.0   0.15962   0.16262   0.17226   0.19382   0.11296   0.06742   0.05678
-              80.0   0.35809   0.36613   0.39198   0.43559   0.25329   0.15391   0.12176
-             150.0   0.70394   0.71719   0.75970   0.83222   0.48362   0.29728   0.24777
-             300.0   1.40169   1.42777   1.51150   1.65529   0.96191   0.59143   0.49984
-             600.0   2.79078   2.84277   3.00970   3.29638   1.91557   1.17769   0.99440
-            1200.0   5.56185   5.66602   6.00046   6.57475   3.82075   2.34820   1.98078
-            2400.0  11.10565  11.31412  11.98338  13.13257   7.63173   4.68972   3.95261
+              10.0   0.04361   0.04443   0.04706   0.05158   0.02998   0.01842   0.01551
+              20.0   0.08721   0.08885   0.09412   0.10316   0.05995   0.03684   0.03102
+              40.0   0.17443   0.17771   0.18824   0.21180   0.12344   0.07367   0.06205
+              80.0   0.39131   0.40009   0.42835   0.47600   0.27679   0.16819   0.13305
+             150.0   0.76924   0.78372   0.83018   0.90942   0.52848   0.32486   0.27076
+             300.0   1.53173   1.56023   1.65172   1.80886   1.05114   0.64630   0.54621
+             600.0   3.04968   3.10649   3.28891   3.60219   2.09328   1.28695   1.08666
+            1200.0   6.07782   6.19166   6.55712   7.18469   4.17520   2.56604   2.16454
+            2400.0  12.13593  12.36373  13.09508  14.35088   8.33972   5.12478   4.31930
               </tableData>
                     </table>
                 </function>
@@ -2284,15 +2284,15 @@
                         <independentVar lookup="column">velocities/mach</independentVar>
                         <tableData>
                        0.150     0.400     0.700     0.900     1.100     1.400     2.000
-              10.0   0.02620   0.01008   0.00624   0.00551   0.00454   0.00321   0.00147
-              20.0   0.05240   0.02016   0.01248   0.01102   0.00907   0.00641   0.00293
-              40.0   0.10481   0.04033   0.02495   0.02212   0.01822   0.01282   0.00587
-              80.0   0.21269   0.08196   0.05091   0.04532   0.03735   0.02620   0.01179
-             150.0   0.41160   0.15820   0.09758   0.08566   0.07053   0.05008   0.02283
-             300.0   0.79212   0.30430   0.18743   0.16439   0.13534   0.09617   0.04511
-             600.0   1.53887   0.59166   0.36531   0.32151   0.26473   0.18759   0.08697
-            1200.0   3.03462   1.16744   0.72207   0.63711   0.52467   0.37100   0.17064
-            2400.0   6.05205   2.32843   1.44046   1.27136   1.04700   0.74016   0.33913
+              10.0   0.02863   0.01102   0.00682   0.00602   0.00496   0.00350   0.00160
+              20.0   0.05727   0.02203   0.01363   0.01204   0.00991   0.00701   0.00321
+              40.0   0.11453   0.04407   0.02727   0.02417   0.01992   0.01401   0.00641
+              80.0   0.23242   0.08956   0.05564   0.04953   0.04081   0.02863   0.01289
+             150.0   0.44979   0.17288   0.10663   0.09361   0.07707   0.05472   0.02495
+             300.0   0.86561   0.33253   0.20482   0.17964   0.14789   0.10510   0.04929
+             600.0   1.68164   0.64655   0.39919   0.35133   0.28929   0.20499   0.09504
+            1200.0   3.31614   1.27574   0.78906   0.69622   0.57335   0.40542   0.18647
+            2400.0   6.61350   2.54443   1.57409   1.38930   1.14413   0.80883   0.37060
               </tableData>
                     </table>
                 </function>
@@ -2302,21 +2302,21 @@
                     <table>
                         <independentVar lookup="row">aero/alpha-rad</independentVar>
                         <tableData>
-                   -0.34907  -0.35581
-                   -0.26180  -0.27574
-                   -0.17453  -0.20264
-                   -0.08727  -0.12207
-                    0.00000  -0.03275
-                    0.08727   0.05812
-                    0.17453   0.13993
-                    0.26180   0.21563
-                    0.34907   0.30009
-                    0.43633   0.38682
-                    0.52360   0.47108
-                    0.61087   0.55086
-                    0.69813   0.62523
-                    0.78540   0.69307
-                    0.87266   0.75332
+                   -0.34907  -0.37079
+                   -0.26180  -0.29148
+                   -0.17453  -0.21983
+                   -0.08727  -0.13987
+                    0.00000  -0.05031
+                    0.08727   0.04099
+                    0.17453   0.12278
+                    0.26180   0.19845
+                    0.34907   0.28363
+                    0.43633   0.37133
+                    0.52360   0.45656
+                    0.61087   0.53727
+                    0.69813   0.61254
+                    0.78540   0.68129
+                    0.87266   0.74260
               </tableData>
                     </table>
                 </function>
@@ -2329,7 +2329,7 @@
                                 <sum>
                                     <property>aero/alphadot-rad_sec</property>
                                     <product>
-                                        <value>0.74779</value>
+                                        <value>0.74152</value>
                                         <property>velocities/q-rad_sec</property>
                                     </product>
                                 </sum>
@@ -2536,12 +2536,12 @@
               10.0  -3.00000  -3.00000  -3.00000  -3.00000  -3.00000  -3.00000  -3.00000
               20.0  -3.00000  -3.00000  -3.00000  -3.00000  -3.00000  -3.00000  -3.00000
               40.0  -3.00000  -3.00000  -3.00000  -3.00000  -3.00000  -3.00000  -3.00000
-              80.0  -2.10590  -2.23418  -2.02020  -1.67047  -2.83284  -3.00000  -3.00000
-             150.0  -0.76719  -0.97316  -0.94322  -0.82897  -1.41901  -2.25018  -3.00000
-             300.0  -0.26487  -0.48509  -0.50527  -0.46180  -0.79935  -1.25239  -1.58165
-             600.0  -0.03921  -0.26138  -0.29887  -0.28194  -0.49518  -0.77766  -0.93802
-            1200.0   0.00000  -0.13498  -0.17997  -0.17529  -0.31462  -0.50263  -0.60578
-            2400.0   0.00000  -0.05324  -0.10249  -0.10474  -0.19515  -0.32306  -0.40249
+              80.0  -1.93614  -2.06675  -1.87293  -1.55175  -2.63257  -3.00000  -3.00000
+             150.0  -0.70541  -0.90717  -0.88249  -0.77759  -1.33184  -2.10924  -2.95684
+             300.0  -0.24190  -0.45622  -0.47722  -0.43697  -0.75689  -1.18530  -1.49017
+             600.0  -0.03080  -0.24662  -0.28346  -0.26770  -0.47058  -0.73934  -0.89091
+            1200.0   0.00000  -0.12678  -0.17063  -0.16636  -0.29900  -0.47824  -0.57726
+            2400.0   0.00000  -0.04886  -0.09673  -0.09905  -0.18500  -0.30697  -0.38380
               </tableData>
                     </table>
                 </function>
@@ -2554,14 +2554,14 @@
                         <tableData>
                        0.150     0.400     0.700     0.900     1.100     1.400     2.000
               10.0   3.00000   3.00000   3.00000   3.00000   3.00000   3.00000   3.00000
-              20.0  -0.00000  -0.00000  -0.00000  -0.00000  -0.00000   3.00000   3.00000
-              40.0  -0.00000   0.00000  -0.00000  -0.00000  -0.00000   0.00000  -0.00000
-              80.0  -0.00000   0.00000   0.00000   0.00000  -0.00000  -0.00000  -0.00000
-             150.0   0.00000  -0.00000  -0.00000  -0.00000   0.00000  -0.00000   0.00000
-             300.0   0.00000  -0.00000  -0.00000  -0.00000  -0.00000  -0.00000  -0.00000
-             600.0  -0.00000  -0.00000  -0.00000  -0.00000  -0.00000  -0.00000   0.00000
-            1200.0  -0.00000  -0.00000  -0.00000  -0.00000  -0.00000  -0.00000  -0.00000
-            2400.0  -0.00000   0.00000   0.00000  -0.00000  -0.00000  -0.00000   0.00000
+              20.0  -0.00000   0.00000   0.00000  -0.00000  -0.00000   3.00000   3.00000
+              40.0  -0.00000   0.00000  -0.00000  -0.00000  -0.00000  -0.00000   0.00000
+              80.0   0.00000  -0.00000   0.00000   0.00000   0.00000  -0.00000  -0.00000
+             150.0  -0.00000  -0.00000  -0.00000  -0.00000  -0.00000  -0.00000  -0.00000
+             300.0  -0.00000  -0.00000   0.00000  -0.00000  -0.00000  -0.00000   0.00000
+             600.0   0.00000  -0.00000  -0.00000  -0.00000   0.00000  -0.00000   0.00000
+            1200.0   0.00000   0.00000  -0.00000  -0.00000  -0.00000  -0.00000  -0.00000
+            2400.0   0.00000   0.00000  -0.00000  -0.00000  -0.00000   0.00000   0.00000
               </tableData>
                     </table>
                 </function>
@@ -2770,7 +2770,7 @@
             </kinematic>
         </channel>
         <property value="2">fsim/integration-v1/version</property>
-        <property value="6">fsim/integration-v1/substeps</property>
+        <property value="7">fsim/integration-v1/substeps</property>
         <property value="4">fsim/integration-v1/rotational-rate-method</property>
     </flight_control>
     <aerodynamics>

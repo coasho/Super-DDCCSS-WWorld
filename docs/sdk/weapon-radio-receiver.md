@@ -99,7 +99,10 @@ exports its folded measured cell peaks. Energy shares are proportional to the
 actual selected `N/PRF`. Consequently each physical pulse has energy
 `P_average/PRF`, independent of how much of its transmitter dwell was observed.
 Actual transmitter pulse widths, compression gates and bandwidth determine
-eclipse, range response and receiver noise. The ordinary radar `dwell` and
+range response and receiver noise. Because a passive bistatic SARH receiver has
+no local transmitter or T/R duplexer, monostatic transmit-window blanking and
+transmit eclipse apply to monostatic ARH receivers only, not to passive bistatic
+SARH reception. The ordinary radar `dwell` and
 diagnostic-null paths retain their prior arithmetic and random draws.
 
 `RadioTemporalCoincidenceV1` keeps the latest observed coherent block per

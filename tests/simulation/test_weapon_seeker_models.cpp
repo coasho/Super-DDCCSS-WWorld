@@ -5,7 +5,7 @@
 #include "simulation/mission_systems/components/implementations/seeker/ImagingIrSeekerV2.h"
 #include "simulation/mission_systems/components/implementations/seeker/SemiActiveRadarSeekerV2.h"
 #include "simulation/mission_systems/components/implementations/seeker/ActiveRadarSeekerV2.h"
-#include "simulation/mission_systems/components/support/ReceiverConfigurationV1.h"
+#include "simulation/mission_systems/components/support/ReceiverConfigurationV3.h"
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 
@@ -27,8 +27,8 @@ struct Runtime {
         // physics. Preserve that V2 contract explicitly while the separate
         // all-current-profile case and engineering suite exercise V3.
         if(idealContract) {
-            DescriptorV1 scalar;ReceiverConfigurationV2 receiver;
-            REQUIRE(receiverConfigurationV2(*profile.find("seeker"),scalar,receiver,error));
+            DescriptorV1 scalar;ReceiverConfigurationV3 receiver;
+            REQUIRE(receiverConfigurationV3(*profile.find("seeker"),scalar,receiver,error));
             profile.components.at("seeker")=std::move(scalar);
             auto& selectedSensor=profile.components.at("seeker");
             if(selectedSensor.implementationId.size()>3&&selectedSensor.implementationId.substr(selectedSensor.implementationId.size()-3)==".v3") {

@@ -91,7 +91,7 @@
           "mass_kg": 100.0,
           "fuel_kg": 800.0
         },
-        "table_inputs_hash": "c6c663be4a2ae7f2",
+        "table_inputs_hash": "cfe98e8fc35c93ea",
         "table_sha256": "58ad7bd5ddc65a4252fb2238e33e312b150d8c4cb85c9e009daa3ae9fafd0645",
         "input_geometry": "aircraft/typhoontank1000l/typhoontank1000l.toml",
         "domain": {
@@ -112,7 +112,7 @@
           "Katz and Plotkin, Low-Speed Aerodynamics, vortex lattice",
           "Shared aero/model.py, tables.py and mach.py; engineering extensions are not equipment measurements"
         ],
-        "solver_sha256": "1fe905d01b307fc9398dda9ddd1b78ab2960d66c80ffd7346a2baf5e255f78bf",
+        "solver_sha256": "c3c6c4ea54c61e3f461287dfb4f0bf1d9b83e6ba685a3352fab2a434639d0670",
         "generic_validation": {
           "schema": "fsim.generic-vlm-validation.v1",
           "basis": "simulated",

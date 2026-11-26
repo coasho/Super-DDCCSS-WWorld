@@ -393,7 +393,7 @@ class AeroModel:
         high wing is more stable. The lattice has no fuselage to make it."""
         wing = self.aircraft.wing
         bodies = [b for b in self.aircraft.bodies if b.kind == "fuselage"]
-        if not wing.mirror or not bodies:
+        if wing is None or wing.kind != "wing" or not wing.mirror or not bodies:
             return 0.0
         root = wing.sections[0]
         x = root.le[0] + 0.25 * root.chord

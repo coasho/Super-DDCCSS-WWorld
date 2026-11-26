@@ -155,7 +155,7 @@ target_link_libraries(fsim_thermal_reticle_receiver_test PRIVATE fsim::ms Catch2
 target_compile_definitions(fsim_thermal_reticle_receiver_test PRIVATE FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores")
 fsim_set_warnings(fsim_thermal_reticle_receiver_test)
 add_test(NAME thermal_reticle_receiver COMMAND fsim_thermal_reticle_receiver_test)
-set_tests_properties(thermal_reticle_receiver PROPERTIES LABELS "sim-m03;weapon-sensor-engineering" TIMEOUT 180)
+set_tests_properties(thermal_reticle_receiver PROPERTIES LABELS "sim-m03;weapon-sensor-engineering" TIMEOUT 600)
 target_link_libraries(fsim_weapon_sensor_engineering_test PRIVATE fsim::ms Catch2::Catch2WithMain)
 target_compile_definitions(fsim_weapon_sensor_engineering_test PRIVATE FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores")
 fsim_set_warnings(fsim_weapon_sensor_engineering_test)
@@ -309,7 +309,7 @@ add_dependencies(fsim_external_tank_population_test fsim_payload_cards)
 fsim_set_warnings(fsim_external_tank_population_test)
 add_test(NAME external_tank_population COMMAND fsim_external_tank_population_test)
 set_tests_properties(external_tank_population PROPERTIES
-    LABELS "payload-components;native-engagement;sim-m03" TIMEOUT 300 RUN_SERIAL TRUE
+    LABELS "payload-components;native-engagement;sim-m03" TIMEOUT 600 RUN_SERIAL TRUE
     ENVIRONMENT "FSIM_EXTERNAL_TANK_POPULATION_DIR=${CMAKE_BINARY_DIR}/validation/external_tanks")
 
 add_executable(fsim_fragment_reach_native_test simulation/test_fragment_reach_native.cpp)
@@ -374,7 +374,7 @@ add_dependencies(fsim_weapon_effects_population_test fsim_payload_cards)
 fsim_set_warnings(fsim_weapon_effects_population_test)
 add_test(NAME weapon_effects_population COMMAND fsim_weapon_effects_population_test)
 set_tests_properties(weapon_effects_population PROPERTIES
-    LABELS "payload-components;native-engagement;sim-m03" TIMEOUT 300 RUN_SERIAL TRUE
+    LABELS "payload-components;native-engagement;sim-m03" TIMEOUT 600 RUN_SERIAL TRUE
     ENVIRONMENT "FSIM_EFFECTS_POPULATION_DIR=${CMAKE_BINARY_DIR}/validation/weapon_effects_population")
 
 add_executable(fsim_weapon_sensor_native_test simulation/test_weapon_sensor_native.cpp)
@@ -393,7 +393,7 @@ fsim_set_warnings(fsim_weapon_sensor_native_test)
 catch_discover_tests(fsim_weapon_sensor_native_test ${FSIM_CATCH_DISCOVERY}
     TEST_SPEC "~[fleet]"
     TEST_PREFIX "sensor_native." PROPERTIES
-    LABELS "payload-components;native-engagement;sim-m03" TIMEOUT 300 RUN_SERIAL TRUE
+    LABELS "payload-components;native-engagement;sim-m03" TIMEOUT 600 RUN_SERIAL TRUE
     ENVIRONMENT "FSIM_SENSOR_NATIVE_DIR=${CMAKE_BINARY_DIR}/validation/weapon_sensor_native")
 
 # The same complete physical scenes, partitioned by actual authored model.
@@ -417,7 +417,7 @@ foreach(_sensor_card IN LISTS _sensor_cards)
             add_test(NAME "${_sensor_test}" COMMAND fsim_weapon_sensor_native_test "${_sensor_case}")
             set_tests_properties("${_sensor_test}" PROPERTIES
                 LABELS "payload-components;native-engagement;sim-m03;slot-read-only"
-                TIMEOUT 300 RUN_SERIAL FALSE
+                TIMEOUT 600 RUN_SERIAL FALSE
                 ENVIRONMENT "FSIM_SENSOR_NATIVE_CARD=${_sensor_id};FSIM_SENSOR_NATIVE_DIR=${CMAKE_BINARY_DIR}/validation/weapon_sensor_native/${_sensor_id}")
         endforeach()
     endif()

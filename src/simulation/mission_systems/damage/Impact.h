@@ -41,6 +41,29 @@ struct BodyContactOutcome {
 /// normal point velocity. Separating/tangent contact transfers no impulse.
 BodyContactOutcome inelasticBodyContact(const ContactBody& a, const ContactBody& b, V3 normal) noexcept;
 
+/// Conservative non-warhead carrier traversal inputs at an armed direct-contact
+/// TOI. Uses exact TOI weapon mass and post-contact-impulse velocity so neither
+/// warhead mass (charge + case + hardware) nor rigid contact impulse is
+/// double-counted.
+struct CarrierTraversalInputV1 {
+    V3 contactPointEcef;
+    V3 contactNormalEcef;
+    V3 weaponVelocityEcef;
+    V3 victimVelocityEcef;
+    V3 weaponAxisEcef;
+    V3 weaponImpulseEcef;
+    double weaponMassToiKg = 0.0;
+    double warheadTotalKg = 0.0;
+    double bodyDiameterM = 0.0;
+    double entrySkinThicknessM = 0.0; ///< Authored victim skin thickness at TOI (>0 gates perforation via THOR)
+    double bodyCd = 1.3;
+};
+/// Build a single-body, blast-free residual carrier field at TOI. Returns an
+/// invalid field if residual mass <= 0, post-contact velocity is not closing
+/// into the surface, THOR does not perforate entrySkinThicknessM, or any input
+/// is nonfinite/nonpositive.
+FragmentFieldV1 buildContactCarrierFieldV1(const CarrierTraversalInputV1& input) noexcept;
+
 constexpr double kBulkDensityKgM3 = 120.0; ///< an aircraft's mass over its body's volume (an estimate: 80 - 160)
 constexpr double kCrushShare = 0.25;       ///< of its body's size (m / rho)^(1/3): about half its depth
 constexpr double kGroundGiveM = 0.3;       ///< what soil gives under it (an estimate; rock none, water more)

@@ -91,7 +91,7 @@
           "mass_kg": 110.0,
           "fuel_kg": 880.0
         },
-        "table_inputs_hash": "e13a62d1a07735b8",
+        "table_inputs_hash": "5892efbd4f13c2d3",
         "table_sha256": "9e44cfb8abad9fb92fa7b215c64a20ccf5765787d471bb8afcc4a89918d3f109",
         "input_geometry": "aircraft/gripentank1100l/gripentank1100l.toml",
         "domain": {
@@ -112,7 +112,7 @@
           "Katz and Plotkin, Low-Speed Aerodynamics, vortex lattice",
           "Shared aero/model.py, tables.py and mach.py; engineering extensions are not equipment measurements"
         ],
-        "solver_sha256": "1fe905d01b307fc9398dda9ddd1b78ab2960d66c80ffd7346a2baf5e255f78bf",
+        "solver_sha256": "c3c6c4ea54c61e3f461287dfb4f0bf1d9b83e6ba685a3352fab2a434639d0670",
         "generic_validation": {
           "schema": "fsim.generic-vlm-validation.v1",
           "basis": "simulated",

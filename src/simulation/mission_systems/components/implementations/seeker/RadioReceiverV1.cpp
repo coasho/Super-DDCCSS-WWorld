@@ -205,6 +205,17 @@ RadioReceiverResultV1 RadioReceiverV1::expose(const RadioSceneFrameV1& scene,V p
     auto shape=waveform;shape.m=std::min(shape.m,static_cast<int>(shape.intervals.size()));
     if(observed?!validObservedWaveform(shape,c.processing):!validWaveform(shape,c.processing))return {};
     if(observed)waveform.m=c.waveform.m;
+    // A passive bistatic SARH receiver has no local transmitter or T/R duplexer,
+    // so the illuminator's monostatic transmit blanking does not gate its front end.
+    const bool passiveBistatic=semi&&observed.has_value();
+    if(passiveBistatic) {
+        std::uint64_t passiveCells=0;
+        for(auto& iv:waveform.intervals) {
+            iv.blankedGates=0;
+            passiveCells+=static_cast<std::uint64_t>(iv.gates)*static_cast<std::uint64_t>(iv.pulses);
+        }
+        if(passiveCells>131072)return {};
+    }
     const double dwell=durationS(waveform);const auto beam=beamFor(pointing,axes);
     const double bwAz=pattern_.beamwidthRad(false),bwEl=pattern_.beamwidthRad(true);
     if(bwAz>=pi/2||bwEl>=pi/2)return {};
@@ -239,7 +250,7 @@ RadioReceiverResultV1 RadioReceiverV1::expose(const RadioSceneFrameV1& scene,V p
         auto& map=clutter[j];map.resize(static_cast<std::size_t>(rows)*static_cast<std::size_t>(iv.pulses));
         const double chips=iv.pulseS*light/(2*waveform.gateM),period=iv.ambiguousRangeM/waveform.gateM;
         for(int row=0;row<rows;++row) {
-            const double value=iv.pulses*radar::signal::noiseShare(row+iv.blankedGates,chips,period)*jamRatio;
+            const double value=iv.pulses*(passiveBistatic?1.:radar::signal::noiseShare(row+iv.blankedGates,chips,period))*jamRatio;
             for(int k=0;k<iv.pulses;++k)map[static_cast<std::size_t>(row)*static_cast<std::size_t>(iv.pulses)+static_cast<std::size_t>(k)]=value;
         }
     }
@@ -268,16 +279,32 @@ RadioReceiverResultV1 RadioReceiverV1::expose(const RadioSceneFrameV1& scene,V p
                 profile[static_cast<std::size_t>(k)]=std::max(0.,fraction);total+=std::max(0.,fraction);
             }
             const double chips=iv.pulseS*light/(2*waveform.gateM),period=iv.ambiguousRangeM/waveform.gateM;
-            for(int gate=first;gate<=first+1;++gate)if(gate>=iv.blankedGates&&gate<iv.gates&&total>0) {
-                const double response=radar::signal::gateResponse(range,gate,chips,period);
-                const double energy=observed?snr*observed->energyFraction.at(j)*m*response*response:
-                    snr/static_cast<double>(waveform.intervals.size())*m*response*response;
-                for(int k=0;k<m;++k)clutter[j][static_cast<std::size_t>(gate-iv.blankedGates)*static_cast<std::size_t>(m)+static_cast<std::size_t>(k)]+=
-                    energy*profile[static_cast<std::size_t>(k)]/total;
+            if(passiveBistatic) {
+                int gates[2]={first,first+1};double weights[2]={0.,0.};
+                if(first>=0&&first<iv.gates)weights[0]=std::max(0.,1.-std::abs(static_cast<double>(first)-range));
+                if(first+1>=0&&first+1<iv.gates)weights[1]=std::max(0.,1.-std::abs(static_cast<double>(first+1)-range));
+                else if(first+1>=iv.gates&&iv.gates>0) {
+                    gates[1]=0;weights[1]=std::max(0.,1.-std::abs(period-range));
+                    if(gates[0]==0)weights[1]=0.;
+                }
+                for(int s=0;s<2;++s)if(weights[s]>0&&gates[s]>=0&&gates[s]<iv.gates&&total>0) {
+                    const double energy=snr*observed->energyFraction.at(j)*m*weights[s]*weights[s];
+                    for(int k=0;k<m;++k)clutter[j][static_cast<std::size_t>(gates[s])*static_cast<std::size_t>(m)+static_cast<std::size_t>(k)]+=
+                        energy*profile[static_cast<std::size_t>(k)]/total;
+                }
+            } else {
+                for(int gate=first;gate<=first+1;++gate)if(gate>=iv.blankedGates&&gate<iv.gates&&total>0) {
+                    const double response=radar::signal::gateResponse(range,gate,chips,period);
+                    const double energy=observed?snr*observed->energyFraction.at(j)*m*response*response:
+                        snr/static_cast<double>(waveform.intervals.size())*m*response*response;
+                    for(int k=0;k<m;++k)clutter[j][static_cast<std::size_t>(gate-iv.blankedGates)*static_cast<std::size_t>(m)+static_cast<std::size_t>(k)]+=
+                        energy*profile[static_cast<std::size_t>(k)]/total;
+                }
             }
         }
     }
     auto settings=c.processing;
+    settings.passiveBistatic=passiveBistatic;
     // A high-PRF receiver can coincide directly in its unambiguous Doppler
     // domain. With medium PRFs, use the actual measured path-delay cells to
     // resolve Doppler aliases; that delay is never a passive Cartesian range.

@@ -11,7 +11,10 @@ import manifold3d as mf
 import numpy as np
 
 from hangar import liquid, liquid_vessels as vessels
-from test_liquid_vessels import Partition, declaration, tank
+try:
+    from .test_liquid_vessels import Partition, declaration, tank
+except ImportError:
+    from test_liquid_vessels import Partition, declaration, tank
 
 
 # Exact original prior AABB endpoints from the retained 134-cell native witness.

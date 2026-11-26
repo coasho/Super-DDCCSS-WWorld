@@ -630,7 +630,7 @@
     },
     "hangar-vlm": {
       "title": "Shared Hangar aircraft VLM tables",
-      "url": "aero/vlm-carriage-8ce028946c399ff0a33436178ea00cab345f62cb3ec54e3580a6e2b6b566ccba.json",
+      "url": "aero/vlm-carriage-357b6cc5d0bb475341d6fe49a61886c81c9ed58c446a2b8a0fbd6d59c418ea9a.json",
       "evidence_kind": "game_reference",
       "note": "Same base, rate and Mach data as the released JSBSim model; no equipment calibration claim.",
       "simulation": {
@@ -644,8 +644,8 @@
           "span_m": 0.45,
           "mass_kg": 84.0
         },
-        "table_inputs_hash": "f541f48a7de83f84",
-        "table_sha256": "8ce028946c399ff0a33436178ea00cab345f62cb3ec54e3580a6e2b6b566ccba",
+        "table_inputs_hash": "342cd4998d108175",
+        "table_sha256": "357b6cc5d0bb475341d6fe49a61886c81c9ed58c446a2b8a0fbd6d59c418ea9a",
         "input_geometry": "aircraft/aim9x/aim9x.toml",
         "domain": {
           "mach": [
@@ -665,7 +665,7 @@
           "Katz and Plotkin, Low-Speed Aerodynamics, vortex lattice",
           "Shared aero/model.py, tables.py and mach.py; engineering extensions are not equipment measurements"
         ],
-        "solver_sha256": "1fe905d01b307fc9398dda9ddd1b78ab2960d66c80ffd7346a2baf5e255f78bf",
+        "solver_sha256": "c3c6c4ea54c61e3f461287dfb4f0bf1d9b83e6ba685a3352fab2a434639d0670",
         "generic_validation": {
           "schema": "fsim.generic-vlm-validation.v1",
           "basis": "simulated",

@@ -34,6 +34,7 @@ set(_source "${_work}/source")
 set(_build "${_work}/build")
 file(MAKE_DIRECTORY "${_source}/cmake" "${_source}/include/fsim" "${_source}/docs/sdk"
     "${_source}/assets/payloads" "${_source}/assets/stores" "${_source}/aircraft"
+    "${_source}/tools/models/hangar/hangar/data"
     "${_source}/examples/simulation/scenarios" "${_source}/third_party/jsbsim")
 foreach(_module Install.cmake StageDesigns.cmake CleanDist.cmake fsimConfig.cmake.in)
     file(COPY "${SOURCE_DIR}/cmake/${_module}" DESTINATION "${_source}/cmake")
@@ -49,6 +50,7 @@ file(WRITE "${_source}/include/fsim/fixture.h" "#pragma once\n")
 file(WRITE "${_source}/docs/sdk/fixture.md" "Fixture SDK.\n")
 file(WRITE "${_source}/assets/payloads/fixture.json" "{}\n")
 file(WRITE "${_source}/assets/stores/fixture.json" "{}\n")
+file(WRITE "${_source}/tools/models/hangar/hangar/data/equipment_models.json" "{}\n")
 file(WRITE "${_source}/examples/simulation/scenarios/fixture.json" "{}\n")
 file(WRITE "${_source}/third_party/jsbsim/COPYING" "Fixture license.\n")
 file(WRITE "${_source}/aircraft/fixture/fixture.xml" "<fixture/>\n")
@@ -74,9 +76,10 @@ if(FIXTURE_EXAMPLES)
     set_target_properties(minimal_trainer PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/examples")
 endif()
 foreach(_file models/FGLGear.cpp models/FGAccelerations.cpp models/FGPropulsion.cpp models/propulsion/FGRotor.h
-        models/propulsion/FGRotor.cpp models/propulsion/FGRocket.h models/propulsion/FGRocket.cpp
+        models/propulsion/FGRotor.cpp models/propulsion/FGEngine.h models/propulsion/FGEngine.cpp
+        models/propulsion/FGRocket.h models/propulsion/FGRocket.cpp
         models/propulsion/FGThruster.cpp models/propulsion/FGElectric.cpp models/propulsion/FGPropeller.cpp
-        models/propulsion/FGTransmission.h models/flight_control/FGActuator.cpp models/FGAerodynamics.cpp
+        models/propulsion/FGTurbine.cpp models/propulsion/FGTransmission.h models/flight_control/FGActuator.cpp models/FGAerodynamics.cpp
         models/FGMassBalance.cpp models/FGMassBalance.h FGFDMExec.cpp models/FGAuxiliary.cpp)
     file(WRITE "${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/${_file}" "// fixture\n")
 endforeach()

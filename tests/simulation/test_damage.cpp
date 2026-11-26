@@ -2723,6 +2723,86 @@ TEST_CASE("only a trusted native detached-material map preserves paid ownership"
     }
 }
 
+TEST_CASE("native detached-material handoff projects mixed panel representations",
+          "[damage][scene-effects][rod-material-history-v3][material-owner-projection]") {
+    std::string error;
+    auto source=readAirframe(std::filesystem::path(FSIM_TEST_AIRCRAFT_DIR)/"f16c/f16c.damage.json",error);
+    INFO(error);REQUIRE(source);REQUIRE(source->contactGeometry);
+    const int section=source->section("nose");REQUIRE(section>=0);
+    auto shared=std::make_shared<Airframe>(*source);VehicleDamage state(shared);
+    REQUIRE(state.separate(section));
+    const auto shift=source->sections[static_cast<std::size_t>(section)].cg;
+    const auto child=state.detachedState(section,shift);REQUIRE(child);
+    const auto attached=child->attachedGeometry();
+    std::size_t surfaces=0,meshes=0;
+    for(const auto index:attached.panelIndices()) {
+        if(source->panels[index].surface)++surfaces;else ++meshes;
+    }
+    REQUIRE(surfaces>0);REQUIRE(meshes>0);
+    MaterialOwnerHandoffV3 map;map.from=1;map.fromGeneration=1;map.to=2;map.toGeneration=5;
+    REQUIRE(prepareMaterialOwnerHandoffV3(map,*source,attached));
+    CHECK(map.panels.size()==meshes);
+    MaterialContactHistoryV3 history;
+    CHECK(rebindMaterialContactOwnerV3(history,map,sceneTarget(shift)));
+    // Projection is a trusted producer operation. The consumer must still
+    // reject unprojected, out-of-range and one-sided mesh maps.
+    auto malformed=map;malformed.panels=attached.panelIndices();
+    CHECK_FALSE(rebindMaterialContactOwnerV3(history,malformed,sceneTarget(shift)));
+    malformed=map;malformed.panels.push_back(source->panels.size());
+    CHECK_FALSE(rebindMaterialContactOwnerV3(history,malformed,sceneTarget(shift)));
+    auto mismatched=*source;
+    mismatched.panels[map.panels.front()].surface=true;
+    auto retained=map;
+    CHECK_FALSE(prepareMaterialOwnerHandoffV3(map,mismatched,attached));
+    CHECK(map.panels==retained.panels);
+    CHECK(map.fromGeometry==retained.fromGeometry);
+    CHECK(map.toGeometry==retained.toGeometry);
+    mismatched=*source;mismatched.contactGeometry.reset();
+    CHECK_FALSE(prepareMaterialOwnerHandoffV3(map,mismatched,attached));
+    CHECK(map.panels==retained.panels);
+    mismatched=*source;
+    REQUIRE(setContactGeometryV1(mismatched,{},error));
+    REQUIRE(mismatched.contactGeometry);
+    CHECK_FALSE(prepareMaterialOwnerHandoffV3(map,mismatched,attached));
+    malformed=retained;malformed.fromGeometry=mismatched.contactGeometry;
+    CHECK_FALSE(rebindMaterialContactOwnerV3(history,malformed,sceneTarget(shift)));
+    malformed=retained;malformed.toGeometry=mismatched.contactGeometry;
+    CHECK_FALSE(rebindMaterialContactOwnerV3(history,malformed,sceneTarget(shift)));
+}
+
+TEST_CASE("material boundary history uses the captured affine origin expression",
+          "[damage][scene-effects][rod-material-history-v3][material-canonical-origin]") {
+    const auto frame=authoredShell(true);
+    const V3 origin{2.3111677030101418,6.8575936093438941,-.54013050580397248};
+    const V3 velocity{.30046747997403145,-249.81202164644856,.085739651694893837};
+    constexpr double horizon=.0002,sampleEnd=.0005;
+    for(const bool captured:{false,true}) {
+        DYNAMIC_SECTION("captured motion "<<captured) {
+            auto target=sceneTarget(origin);target.velocity=velocity;
+            SceneVictimV1 victim{1,AttachedGeometryView(frame),target,1};
+            V3 representedVelocity=velocity;
+            if(captured) {
+                auto last=target;last.at=origin+velocity*sampleEnd;
+                victim.motion={{0,target},{sampleEnd,last}};
+                representedVelocity=(last.at-origin)*(1/sampleEnd);
+            }
+            auto field=branchContinuityField(true);
+            auto& p=field.projectiles.front();p.at+=origin;p.end+=origin;
+            p.velocity+=representedVelocity;p.endVelocity+=representedVelocity;
+            MaterialContactHistoryV3 history;
+            const auto result=assessSceneMaterialContactsV3(field,{victim},materialBranchEnvironmentV3(horizon),history);
+            REQUIRE(result.valid);REQUIRE(history.particles.size()==1);
+            REQUIRE_FALSE(history.particles.front().active.empty());
+            const auto expected=origin+representedVelocity*horizon;
+            for(const auto& key:history.particles.front().active) {
+                CAPTURE(key.boundaryTarget.at.x,key.boundaryTarget.at.y,key.boundaryTarget.at.z);
+                CHECK(fsim::ms::damage::detail::materialPointBitsEqualV3(key.boundaryTarget.at,expected));
+            }
+            CHECK(materialBranchHitsV3(result)==1);
+        }
+    }
+}
+
 
 TEST_CASE("liquid V3 floating origin retains canonical history across calls",
           "[damage][scene-effects][rod-material-history-v3]") {

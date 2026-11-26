@@ -27,6 +27,7 @@ struct MaterialOwnerHandoffV3 {
     std::shared_ptr<const ContactGeometryV1> fromGeometry,toGeometry;
     std::vector<std::size_t> panels;
 };
+bool prepareMaterialOwnerHandoffV3(MaterialOwnerHandoffV3&,const Airframe&,const AttachedGeometryView&);
 bool rebindMaterialContactOwnerV3(MaterialContactHistoryV3&,const MaterialOwnerHandoffV3&,const Target&);
 // Both entrypoints stage all history and publish it ONLY with a valid result.
 // Historical V1 crossedFaces remains an observed-face list, not active state.

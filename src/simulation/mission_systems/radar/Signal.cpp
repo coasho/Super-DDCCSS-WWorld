@@ -211,7 +211,7 @@ static std::vector<Hit> dwellImpl(const Waveform& waveform, const std::vector<Ec
 
     for (int i = 0; i < n; ++i) {
         const Interval& iv = waveform.intervals[static_cast<std::size_t>(i)];
-        const int m = iv.pulses, g0 = iv.blankedGates, gn = iv.gates, rows = gn - g0;
+        const int m = iv.pulses, g0 = settings.passiveBistatic ? 0 : iv.blankedGates, gn = iv.gates, rows = gn - g0;
         if (rows <= 0) continue;
         cells += static_cast<std::uint64_t>(rows) * static_cast<std::uint64_t>(m);
         grid.assign(static_cast<std::size_t>(rows) * static_cast<std::size_t>(m), C());
@@ -227,8 +227,10 @@ static std::vector<Hit> dwellImpl(const Waveform& waveform, const std::vector<Ec
         // (all but the last few gates hear it whole: their shares 1, the rest worked out)
         thread_local std::vector<double> share;
         share.assign(static_cast<std::size_t>(rows), 1.0);
-        for (int r = std::max(0, static_cast<int>(std::floor(periodGates - chips)) - g0); r < rows; ++r)
-            share[static_cast<std::size_t>(r)] = noiseShare(g0 + r, chips, periodGates);
+        if (!settings.passiveBistatic) {
+            for (int r = std::max(0, static_cast<int>(std::floor(periodGates - chips)) - g0); r < rows; ++r)
+                share[static_cast<std::size_t>(r)] = noiseShare(g0 + r, chips, periodGates);
+        }
         const double sdWhole = std::sqrt(0.5 * m);
         for (int r = 0; r < rows; ++r) {
             const double heard = m * share[static_cast<std::size_t>(r)];
@@ -263,8 +265,21 @@ static std::vector<Hit> dwellImpl(const Waveform& waveform, const std::vector<Ec
             const double folded = std::fmod(echo.rangeM, iv.ambiguousRangeM);
             const double x = folded / waveform.gateM;
             const int g = static_cast<int>(std::floor(x));
-            const int gate[2] = {g, g + 1};
-            const double w[2] = {gateResponse(x, g, chips, periodGates), gateResponse(x, g + 1, chips, periodGates)};
+            int gate[2] = {g, g + 1};
+            double w[2] = {0.0, 0.0};
+            if (settings.passiveBistatic) {
+                if (g >= 0 && g < gn) w[0] = std::max(0.0, 1.0 - std::fabs(static_cast<double>(g) - x));
+                if (g + 1 >= 0 && g + 1 < gn) {
+                    w[1] = std::max(0.0, 1.0 - std::fabs(static_cast<double>(g + 1) - x));
+                } else if (g + 1 >= gn && gn > 0) {
+                    gate[1] = 0;
+                    w[1] = std::max(0.0, 1.0 - std::fabs(periodGates - x));
+                    if (gate[0] == 0) w[1] = 0.0;
+                }
+            } else {
+                w[0] = gateResponse(x, g, chips, periodGates);
+                w[1] = gateResponse(x, g + 1, chips, periodGates);
+            }
             if (!(w[0] > 0.0) && !(w[1] > 0.0)) continue;
             // folded Doppler (cycles a pulse) and the window's transform there
             const double nu = -2.0 * echo.rangeRateMs / lambda / iv.prfHz;

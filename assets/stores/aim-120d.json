@@ -518,33 +518,69 @@
       "basis": "assumed",
       "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
     },
-    "component_fuze_model_version": {
-      "value": 0,
-      "unit": "1",
-      "uncertainty": 0,
-      "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
-    },
-    "component_fuze_algorithm": {
-      "value": 0,
-      "unit": "1",
-      "uncertainty": 0,
-      "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
-    },
-    "component_fuze_arming_s": {
+    "fuze_model_version": {
       "value": 1,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Explicit ideal simulator initiation schema 1, distinct from hardware safe/arm/TDD identity.",
+      "source": "mil-hdbk-1211"
+    },
+    "fuze_proximity_algorithm": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Actual captured turning-point CPA inside the admitted radius, not an approaching endpoint clamped to a decision boundary.",
+      "source": "mil-hdbk-1211"
+    },
+    "fuze_arming_s": {
+      "value": 1,
+      "unit": "s",
+      "uncertainty": 1,
+      "basis": "assumed",
+      "note": "Retained generic one-second arming assumption; no published FZU-49 timing is asserted.",
+      "source": "mil-hdbk-1211"
+    },
+    "fuze_radius_m": {
+      "value": 11.47213595499958,
+      "unit": "m",
+      "uncertainty": 6,
+      "basis": "assumed",
+      "note": "Retained generic point-reference detection radius from the prior 7+sqrt(warhead_kg) rule, now explicit. It is not a published RF sensitivity or lethality radius.",
+      "source": "mil-hdbk-1211"
+    },
+    "fuze_delay_s": {
+      "value": 0,
       "unit": "s",
       "uncertainty": 0,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Selected zero-delay ideal simulator model. Hardware detection-to-burst latency is uncalibrated; no delay was fitted to these scenes.",
+      "source": "mil-hdbk-1211"
     },
-    "component_fuze_radius_m": {
-      "value": 11.47213595499958,
+    "fuze_station_x_m": {
+      "value": 1.46,
       "unit": "m",
-      "uncertainty": 0,
+      "uncertainty": 0.15,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Generic material sensor reference derived from the Hughes early-family TDD schematic midpoint 525..548 relative to nose 138/tail 1135. Not an RF phase-centre measurement or D installation calibration.",
+      "source": "hughes-amraam-cutaway"
+    },
+    "fuze_station_y_m": {
+      "value": 0,
+      "unit": "m",
+      "uncertainty": 0.02,
+      "basis": "assumed",
+      "note": "Axisymmetric ideal sensor reference, structural metres right from authored nose.",
+      "source": "hughes-amraam-cutaway"
+    },
+    "fuze_station_z_m": {
+      "value": 0,
+      "unit": "m",
+      "uncertainty": 0.02,
+      "basis": "assumed",
+      "note": "Axisymmetric ideal sensor reference, structural metres up from authored nose.",
+      "source": "hughes-amraam-cutaway"
     },
     "component_control_max_incidence_deg": {
       "value": 15.0,
@@ -1358,7 +1394,7 @@
     },
     "hangar-vlm": {
       "title": "Shared Hangar aircraft VLM tables",
-      "url": "aero/vlm-carriage-f42a61f129d2e587a6c638b561c1379b9559cd110e492a90648e581f6b068e7d.json",
+      "url": "aero/vlm-carriage-93fe79c8dd839e4fef1f79b20724cf4d8127b0e784d3c0e85148f2f97e672dbd.json",
       "evidence_kind": "game_reference",
       "note": "Same base, rate and Mach data as the released JSBSim model; no equipment calibration claim.",
       "simulation": {
@@ -1372,8 +1408,8 @@
           "span_m": 0.483,
           "mass_kg": 161.5
         },
-        "table_inputs_hash": "c40568a8abc9f861",
-        "table_sha256": "f42a61f129d2e587a6c638b561c1379b9559cd110e492a90648e581f6b068e7d",
+        "table_inputs_hash": "32198c598738b73e",
+        "table_sha256": "93fe79c8dd839e4fef1f79b20724cf4d8127b0e784d3c0e85148f2f97e672dbd",
         "input_geometry": "aircraft/aim120d/aim120d.toml",
         "domain": {
           "mach": [
@@ -1393,7 +1429,7 @@
           "Katz and Plotkin, Low-Speed Aerodynamics, vortex lattice",
           "Shared aero/model.py, tables.py and mach.py; engineering extensions are not equipment measurements"
         ],
-        "solver_sha256": "1fe905d01b307fc9398dda9ddd1b78ab2960d66c80ffd7346a2baf5e255f78bf",
+        "solver_sha256": "c3c6c4ea54c61e3f461287dfb4f0bf1d9b83e6ba685a3352fab2a434639d0670",
         "generic_validation": {
           "schema": "fsim.generic-vlm-validation.v1",
           "basis": "simulated",
@@ -1480,6 +1516,24 @@
       "url": "https://www.jhuapl.edu/sites/default/files/2024-09/29-01-Palumbo_Principles_Rev2018.pdf",
       "accessed": "2026-11-02",
       "note": "Homing-loop methods only; no exact equipment constants taken from this source."
+    },
+    "mil-hdbk-1211": {
+      "evidence_kind": "government_publication",
+      "title": "MIL-HDBK-1211(MI), Missile Flight Simulation Part One: Surface-to-Air Missiles, section2-2.4/Figures2-19 and2-20",
+      "publisher": "U.S. Department of Defense",
+      "url": "https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=116871",
+      "date": "1995-07-17",
+      "accessed": "2026-10-20",
+      "note": "Generic sensor/initiation/fragment/target methodology, not modern missile equipment data."
+    },
+    "hughes-amraam-cutaway": {
+      "evidence_kind": "secondary_reference",
+      "title": "Hughes AMRAAM cutaway, reproduced in Quo Vadis - AMRAAM? (Australian Aviation, September 1986)",
+      "publisher": "Hughes artwork, reproduced by Carlo Kopp / Air Power Australia",
+      "url": "https://ausairpower.net/USAF/000-AIM-120A-2S.jpg",
+      "date": "1986-09",
+      "accessed": "2026-10-20",
+      "note": "Primary manufacturer artwork on secondary hosting, attributed at https://ausairpower.net/amraam.html . Early family schematic, not an AIM-120D engineering drawing. Nominal stations derive from independent nose/tail/interface image measurements; family transfer and uncertainty are assumptions."
     }
   },
   "component_models": {
@@ -1667,20 +1721,25 @@
         "implementation_id": "equipment.aim-120d.fuze",
         "configuration_version": 1,
         "parameter_refs": {
-          "model_version": "component_fuze_model_version",
-          "algorithm": "component_fuze_algorithm",
-          "arming_s": "component_fuze_arming_s",
+          "model_version": "fuze_model_version",
+          "algorithm": "fuze_proximity_algorithm",
+          "arming_s": "fuze_arming_s",
           "life_s": "component_guidance_life_s",
-          "radius_m": "component_fuze_radius_m"
+          "radius_m": "fuze_radius_m",
+          "delay_s": "fuze_delay_s",
+          "station_x_m": "fuze_station_x_m",
+          "station_y_m": "fuze_station_y_m",
+          "station_z_m": "fuze_station_z_m",
+          "body_length_m": "length_m",
+          "body_diameter_m": "diameter_m"
         },
         "bindings": {
-          "target_detection_v1": "native.time_armed_geometric_scene.v1",
-          "sensor_reference": "captured_weapon_cg",
+          "sensor_reference": "captured_authored_station_from_nose",
           "target_reference": "captured_target_cg",
           "contact_reference": "captured_authored_nose",
           "contact": "native.authored_point_contact.v1",
           "history": "native.captured_piecewise_linear.v1",
-          "delay": "none"
+          "delay": "native.captured_fixed_delay.v1"
         },
         "basis": "assumed",
         "note": "Existing simulator implementation; no equipment calibration.",
@@ -1789,6 +1848,6 @@
     }
   },
   "simulation_model": {
-    "calibration": "AIM-120D AMRAAM is uncalibrated. The D model retains its own longer authored sustain schedule, supported ARH/strapdown path and receive-fit declaration. Its swept-path V0 initiation and fixed-source V3 field remain distinct from the C-7 V2 finite-case package; C-7 outcomes cannot calibrate this D configuration. Retained card anchors: mass 161.5 kg (published; source usn-aim120; uncertainty 1.0), length 3.66 m (published; source usaf-aim120; uncertainty 0.01), diameter 0.1778 m (published; source usaf-aim120; uncertainty 0.001), warhead 20.0 kg (published; source wp-aim120; uncertainty 2.0), explosive 7.17 kg (published; source wt-datamine; uncertainty 1.08). Current receiver rf_signal.v1; control fsim.control.load_feedback_cascade; propulsion fsim.propulsion.jsbsim_generated_solid_rocket; fuze native.fuze.swept_path.v1; warhead native.warhead.authored_field.v3. Public AMRAAM bulk figures do not establish D-specific RF/INS errors, motor impulse or the card game-reference explosive value as equipment measurements. Source classes and uncertainty records remain unchanged; assumed, derived and game-reference values are not promoted to equipment measurements. Per-model theory, parameter deltas and numerical method routes are in docs/research/sim-m03/component-methods/per-model-effects-components.json and per-model-six-components.json; the separate docs/research/sim-m03/calibration-ledger.json identifies the remaining equipment comparisons. Arithmetic or native scenario verification does not establish held-out accuracy. No admitted same-model independent baseline-to-new held-out calibration receipt is claimed; engineering completion continues through its own gates."
+    "calibration": "AIM-120D AMRAAM is uncalibrated. The D model retains its own longer authored sustain schedule, supported ARH/strapdown path and receive-fit declaration. Its turning-CPA sensor station (transferred from the AMRAAM family schematic as an assumption) and fixed-source V3 field remain distinct from the C-7 V2 finite-case package; C-7 outcomes cannot calibrate this D configuration. Retained card anchors: mass 161.5 kg (published; source usn-aim120; uncertainty 1.0), length 3.66 m (published; source usaf-aim120; uncertainty 0.01), diameter 0.1778 m (published; source usaf-aim120; uncertainty 0.001), warhead 20.0 kg (published; source wp-aim120; uncertainty 2.0), explosive 7.17 kg (published; source wt-datamine; uncertainty 1.08). Current receiver rf_signal.v1; control fsim.control.load_feedback_cascade; propulsion fsim.propulsion.jsbsim_generated_solid_rocket; fuze native.fuze.turning_cpa.v1; warhead native.warhead.authored_field.v3. Public AMRAAM bulk figures do not establish D-specific RF/INS errors, motor impulse, TDD station/latency or the card game-reference explosive value as equipment measurements. Source classes and uncertainty records remain unchanged; assumed, derived and game-reference values are not promoted to equipment measurements. Per-model theory, parameter deltas and numerical method routes are in docs/research/sim-m03/component-methods/per-model-effects-components.json and per-model-six-components.json; the separate docs/research/sim-m03/calibration-ledger.json identifies the remaining equipment comparisons. Arithmetic or native scenario verification does not establish held-out accuracy. No admitted same-model independent baseline-to-new held-out calibration receipt is claimed; engineering completion continues through its own gates."
   }
 }

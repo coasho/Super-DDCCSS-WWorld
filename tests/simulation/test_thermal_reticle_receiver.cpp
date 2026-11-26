@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cstring>
 #include <cfenv>
+#include <future>
 #if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
 #include <xmmintrin.h>
 #endif
@@ -1807,6 +1808,74 @@ TEST_CASE("Invalid measured prior retains the complete captured no-prior result"
     }
 }
 
+TEST_CASE("Captured R60 moving exposures recover measured bearings from causal prior without fabricating blank evidence",
+          "[thermal-reticle][thermal-reticle-r60-moving-measured-prior]") {
+    using namespace fsim::ms;
+    std::vector<std::string> errors;const auto library=std::filesystem::path(FSIM_TEST_STORE_DIR);
+    const auto cards=readStoreLibrary(library,errors);REQUIRE(errors.empty());ProfileV1 profile;std::string error;
+    REQUIRE(readProfileV1(library/"r-60m.json",*cards.at("r-60m"),profile,error));
+    DescriptorV1 scalar;ReceiverConfigurationV3 configuration;
+    REQUIRE(receiverConfigurationV3(*profile.find("seeker"),scalar,configuration,error));REQUIRE(configuration.reticle);
+    const auto& policy=configuration.reticle->policy;
+    ThermalReticleReceiverV1 receiver;REQUIRE(receiver.configure(policy,error));
+
+    SECTION("capture 15.890176 s") {
+        ThermalReticleResultV1 m;m.valid=m.complete=true;
+        m.timeS=15.899999999999954;m.exposureStartTimeS=15.886405730672866;
+        m.measurementTimeS=15.890175641857173;m.exposureEndTimeS=15.893945553041481;
+        m.varianceBoundElectrons2=5521414968.8036995;
+        m.pointing={-0.02571327726458171,0.9993358851534596,-0.025818908126916264};
+        m.measuredElectrons={96005859.7326497,96505890.25209057,97755966.55069278,99506073.36873588,101756210.70621985,104256363.30342428,107006531.16034915,109506683.75755356,111506805.83531709,112756882.1339193,113506927.91308063,113756943.17280108,113756943.17280108,113756943.17280108,114256973.69224195,114757004.21168284,115757065.2505646,117007141.54916681,118757248.36720991,120507355.18525301,122507477.26301654,124257584.08105963,126007690.89910272,127507782.45742537,128507843.49630715,129257889.27546847,130507965.57407068,131758041.87267289,133258133.43099554,134758224.9893182,136258316.54764083,137758408.1059635,138508453.88512483,138258438.6254044,138008423.36568394,137258377.5865226,136508331.80736127,135258255.50875908,133508148.69071598,131758041.87267289,129757919.79490936,127757797.71714582,126257706.15882316,125007629.86022095,123757553.56161875,122757492.52273698,121507416.22413477,120257339.92553256,118757248.36720991,117507172.0686077,116257095.7700055,115257034.73112372,114506988.9519624,114006958.4325215,113756943.17280108,113256912.65336019,112506866.87419887,111256790.57559665,109256668.49783312,107256546.42006958,105006409.0825856,102756271.74510163,100506134.40761764,98506012.32985412,96755905.51181102,95255813.95348836,93755722.39516571,92505646.0965635,91255569.7979613,89755478.23963864,87755356.16187511,85005188.30495025,82005005.18830495,78754806.81193921,75504608.43557346,72754440.5786486,70754318.50088505,69004211.68284197,67504120.12451932,66004028.566196665,64503937.00787401,63003845.44955136,61503753.89122871,60003662.33290606,58253555.51486297,56503448.69681987,54753341.87877678,53503265.58017457,52753219.801013246,52253189.28157236,51753158.762131475,51753158.762131475,51503143.50241104,51003112.98297015,50753097.72324971,50753097.72324971,50753097.72324971,50503082.46352927,50253067.20380882,50003051.944088385,49753036.68436794,49503021.4246475,50003051.944088385,50753097.72324971,52003174.02185192,53503265.58017457,54753341.87877678,56003418.17737899,57003479.21626075,58003540.255142525,59003601.29402429,60003662.33290606,61253738.63150827,62503814.93011048,64003906.48843313,65503998.04675578,67504120.12451932,69504242.20228285,72254410.05920771,75254593.17585301,78504791.55221877,81504974.66886407,84255142.52578892,86755295.12299335,88505401.94103643,90005493.49935909,91505585.05768174,92755661.35628395};
+        const ThermalReticleMeasuredPriorV2 prior{15.860016352382711,15.873786263567018,{-0.024359961331697585,0.9993383471381659,-0.0270085213048843},{-0.03708331572335389,-0.00219310258167323,-0.047699885434629684},0.017277408599853515,0.012635530471801758,-0.04331817230064125};
+        receiver.inferMeasuredWithPriorV2(m,m.pointing,{0.7660436957701505,0.000879641196665831,0.6427878984565392},&prior);
+        INFO("fres="<<m.fitResidual<<" h_ref="<<m.horizonDiagnostic.refusal);
+        REQUIRE_FALSE(m.features.empty());
+        CHECK(m.bearingResolved);
+        CHECK(m.preciseBearing);
+    }
+    SECTION("capture 15.995733 s") {
+        ThermalReticleResultV1 m;m.valid=m.complete=true;
+        m.timeS=15.999999999999954;m.exposureStartTimeS=15.991963243833482;
+        m.measurementTimeS=15.995733155017788;m.exposureEndTimeS=15.999503066202097;
+        m.varianceBoundElectrons2=5597252802.471669;
+        m.pointing={-0.03260694641807226,0.9989492637127045,-0.03220489983114867};
+        m.measuredElectrons={122507477.26301654,123257523.04217787,124757614.60050051,126507721.4185436,128757858.75602758,131258011.35323201,133258133.43099554,135258255.50875908,136758347.06708172,137758408.1059635,138258438.6254044,138258438.6254044,138258438.6254044,138258438.6254044,138758469.14484528,139758530.18372703,141258621.7420497,143258743.81981322,145758896.41701764,148259049.01422206,150759201.61142647,153259354.2086309,155759506.8058353,158009644.14331928,160259781.48080328,162259903.5585668,164510040.89605078,166760178.23353475,168760300.31129828,170260391.86962095,171510468.16822314,172260513.94738448,172010498.68766403,171260452.9085027,170010376.6099005,168760300.31129828,167760239.27241653,166510162.9738143,165260086.67521212,164010010.3766099,163009949.33772814,161759873.03912592,160509796.7405237,158509674.66276017,156259537.3252762,153509369.46835133,150509186.35170603,147509003.23506072,144758835.37813586,142258682.78093144,140258560.70316792,139008484.4045657,138008423.36568394,137258377.5865226,136758347.06708172,136258316.54764083,135758286.02819997,135008240.24903864,134508209.72959775,133758163.95043643,133008118.1712751,131508026.61295244,129757919.79490936,127757797.71714582,125007629.86022095,121757431.48385522,118507233.10748947,115507049.99084416,113006897.39363974,110756760.05615577,109006653.23811267,107256546.42006958,105256424.34230605,103006287.00482208,100756149.66733809,99006042.849295,97505951.29097235,96005859.7326497,94505768.17432705,93005676.61600439,91005554.53824085,89255447.72019777,87505340.90215467,86005249.34383202,84755173.04522981,83505096.7466276,82505035.70774584,81254959.40914363,80004883.11054142,78754806.81193921,77504730.51333699,76254654.21473478,75254593.17585301,74504547.3966917,74504547.3966917,74754562.65641214,75254593.17585301,76004638.95501435,76254654.21473478,76254654.21473478,76004638.95501435,75754623.6952939,75754623.6952939,76254654.21473478,77254715.25361656,78504791.55221877,80254898.37026185,81754989.9285845,83255081.48690715,84755173.04522981,86255264.60355246,87755356.16187511,89255447.72019777,90005493.49935909,91005554.53824085,91755600.31740218,92755661.35628395,94255752.9146066,96505890.25209057,99006042.849295,102006225.9659403,105006409.0825856,108006592.19923091,110506744.79643533,112506866.87419887,114006958.4325215,115757065.2505646,118007202.58804858};
+        const ThermalReticleMeasuredPriorV2 prior{15.958034043174713,15.97180395435902,{-0.029017337177105758,0.9989868314203663,-0.034399197546552594},{-0.04735068965772624,-0.004147387696479784,-0.08050172572961478},0.013493265151977539,0.02584668731689453,-0.04323134461193706};
+        receiver.inferMeasuredWithPriorV2(m,m.pointing,{0.7660436454096597,0.0008926274348506212,0.6427879405711823},&prior);
+        INFO("fres="<<m.fitResidual<<" h_ref="<<m.horizonDiagnostic.refusal);
+        REQUIRE_FALSE(m.features.empty());
+        CHECK(m.bearingResolved);
+        CHECK(m.preciseBearing);
+    }
+    SECTION("source-free negative control with moving measured prior") {
+        ThermalReticleResultV1 blank;blank.valid=blank.complete=true;blank.timeS=.03;blank.measurementTimeS=.025;
+        blank.exposureStartTimeS=.02;blank.exposureEndTimeS=.03;blank.varianceBoundElectrons2=1;
+        blank.measuredElectrons.assign(policy.samplesPerScan,0.);
+        ThermalReticleMeasuredPriorV2 prior{.01,.015,{1,0,0},{0,.05,0},.003,.003,0};
+        receiver.inferMeasuredWithPriorV2(blank,{1,0,0},{0,0,1},&prior);
+        CHECK_FALSE(blank.bearingResolved);CHECK_FALSE(blank.preciseBearing);CHECK(blank.features.empty());
+    }
+    SECTION("invalid moving measured prior keeps exact cold moving path") {
+        ThermalReticleResultV1 ref;ref.valid=ref.complete=true;
+        ref.timeS=15.899999999999954;ref.exposureStartTimeS=15.886405730672866;
+        ref.measurementTimeS=15.890175641857173;ref.exposureEndTimeS=15.893945553041481;
+        ref.varianceBoundElectrons2=5521414968.8036995;
+        ref.pointing={-0.02571327726458171,0.9993358851534596,-0.025818908126916264};
+        ref.measuredElectrons={96005859.7326497,96505890.25209057,97755966.55069278,99506073.36873588,101756210.70621985,104256363.30342428,107006531.16034915,109506683.75755356,111506805.83531709,112756882.1339193,113506927.91308063,113756943.17280108,113756943.17280108,113756943.17280108,114256973.69224195,114757004.21168284,115757065.2505646,117007141.54916681,118757248.36720991,120507355.18525301,122507477.26301654,124257584.08105963,126007690.89910272,127507782.45742537,128507843.49630715,129257889.27546847,130507965.57407068,131758041.87267289,133258133.43099554,134758224.9893182,136258316.54764083,137758408.1059635,138508453.88512483,138258438.6254044,138008423.36568394,137258377.5865226,136508331.80736127,135258255.50875908,133508148.69071598,131758041.87267289,129757919.79490936,127757797.71714582,126257706.15882316,125007629.86022095,123757553.56161875,122757492.52273698,121507416.22413477,120257339.92553256,118757248.36720991,117507172.0686077,116257095.7700055,115257034.73112372,114506988.9519624,114006958.4325215,113756943.17280108,113256912.65336019,112506866.87419887,111256790.57559665,109256668.49783312,107256546.42006958,105006409.0825856,102756271.74510163,100506134.40761764,98506012.32985412,96755905.51181102,95255813.95348836,93755722.39516571,92505646.0965635,91255569.7979613,89755478.23963864,87755356.16187511,85005188.30495025,82005005.18830495,78754806.81193921,75504608.43557346,72754440.5786486,70754318.50088505,69004211.68284197,67504120.12451932,66004028.566196665,64503937.00787401,63003845.44955136,61503753.89122871,60003662.33290606,58253555.51486297,56503448.69681987,54753341.87877678,53503265.58017457,52753219.801013246,52253189.28157236,51753158.762131475,51753158.762131475,51503143.50241104,51003112.98297015,50753097.72324971,50753097.72324971,50753097.72324971,50503082.46352927,50253067.20380882,50003051.944088385,49753036.68436794,49503021.4246475,50003051.944088385,50753097.72324971,52003174.02185192,53503265.58017457,54753341.87877678,56003418.17737899,57003479.21626075,58003540.255142525,59003601.29402429,60003662.33290606,61253738.63150827,62503814.93011048,64003906.48843313,65503998.04675578,67504120.12451932,69504242.20228285,72254410.05920771,75254593.17585301,78504791.55221877,81504974.66886407,84255142.52578892,86755295.12299335,88505401.94103643,90005493.49935909,91505585.05768174,92755661.35628395};
+        auto withInvalid=ref;
+        ThermalReticleMovingDiagnosticV2 refDiag,invDiag;
+        const ThermalReticleMeasuredPriorV2 invalid{ref.measurementTimeS,ref.timeS,{-0.024359961331697585,0.9993383471381659,-0.0270085213048843},{-0.03708331572335389,-0.00219310258167323,-0.047699885434629684},0.017277408599853515,0.012635530471801758,-0.04331817230064125};
+        const weapon::V3 ownUp{0.7660436957701505,0.000879641196665831,0.6427878984565392};
+        receiver.inferMovingMeasuredWithPriorV2(ref,ref.pointing,ownUp,nullptr,&refDiag);
+        receiver.inferMovingMeasuredWithPriorV2(withInvalid,withInvalid.pointing,ownUp,&invalid,&invDiag);
+        CHECK(invDiag.refusal==refDiag.refusal);
+        CHECK(invDiag.residual==refDiag.residual);
+        CHECK(invDiag.endpointsWidthHeightCutoff==refDiag.endpointsWidthHeightCutoff);
+        CHECK(invDiag.calibrations==refDiag.calibrations);
+        CHECK(invDiag.basisEvaluations==refDiag.basisEvaluations);
+    }
+}
+
 #endif
 
 #if defined(FSIM_HAS_RETICLE)
@@ -1832,9 +1901,81 @@ TEST_CASE("Private conic V4 retains field budget signed zero and unsupported con
         CHECK(std::abs(rendered->field[i]-original->at(i))<=v4::fieldBudget);}
     request.pointing={{0,0,1}};request.cutoff=std::cos(.012);CHECK_FALSE(v4::Bank::prepare(request));
 }
+
+TEST_CASE("V5 row-tail certificate encloses independent Gaussian rectangle values",
+          "[thermal-reticle][thermal-conic-v5-gaussian-reference]") {
+    namespace v4=fsim::ms::components::conic_moments_v4;
+    v4::Request request;request.width=request.height=64;
+    request.pixelPitchRad=.0015;request.psfSigmaRad=.00075;
+    request.pointing={{1,0,0}};request.up={{0,0,1}};request.cutoff=.3;
+    request.region={{-.0041,.0052,-.0037,.0049}};
+    auto bank=v4::Bank::prepare(request);REQUIRE(bank);
+    const auto result=bank->evaluateFastMoments(request.region);REQUIRE(result);
+    const auto retained=bank->evaluate(request.region);REQUIRE(retained);
+    // Independent 100-decimal analytic convolution, using exact binary64
+    // inputs and native detector-edge arithmetic. J(z)=z*Phi(z)+phi(z).
+    // NIST DLMF 7.1 defines Phi and Q; reflection avoids tail cancellation.
+    struct Sample {unsigned row,col;double expected;};
+    const Sample reference[]={
+        {0,0,0},{20,29,2.5053779081817904438e-67},
+        {24,31,3.3058171375584702597e-21},{25,31,5.4090329774288407175e-14},
+        {27,31,.00015066702365400184749},{28,31,.036480203217848143383},
+        {29,31,.47723970252043600631},{30,31,.95298846921216125737},
+        {31,31,.99972533709811838235},{32,32,.99999962704913549503},
+        {33,34,.95215967723326932346},{34,35,.43289475408256985914},
+        {35,35,.16451787416276357239},{36,35,.0075263505464123219152},
+        {39,34,2.5379143369021716686e-15},{40,34,7.1174850273505389371e-23},
+        {43,34,8.8989644228957320835e-56},{63,63,0}};
+    REQUIRE(result->field.size()==4096);REQUIRE(result->absoluteError.size()==4096);
+    for(const auto& sample:reference) {
+        CAPTURE(sample.row,sample.col);
+        const auto index=static_cast<std::size_t>(sample.row)*64+sample.col;
+        const double rounding=2*std::numeric_limits<double>::epsilon()*std::max(1e-300,std::abs(sample.expected));
+        CHECK(std::abs(result->field[index]-sample.expected)<=result->absoluteError[index]+rounding);
+    }
+    for(std::size_t i=0;i<result->field.size();++i) {
+        CHECK(result->absoluteError[i]<=v4::fieldBudget);
+        CHECK(std::abs(result->field[i]-retained->field[i])<=result->absoluteError[i]+retained->absoluteError[i]);
+    }
+    const auto repeated=bank->evaluateFastMoments(request.region);REQUIRE(repeated);
+    CHECK(repeated->field==result->field);CHECK(repeated->absoluteError==result->absoluteError);
+    const int savedRounding=std::fegetround();REQUIRE(savedRounding==FE_TONEAREST);
+    const int changed=std::fesetround(FE_DOWNWARD);
+    const bool refused=!bank->evaluateFastMoments(request.region);
+    const int restored=std::fesetround(savedRounding);
+    REQUIRE(changed==0);REQUIRE(restored==0);CHECK(refused);
+}
 #endif
 
 #if defined(FSIM_HAS_RETICLE)
+#include "fixtures/thermal_conic_v5_clipped_reference.h"
+TEST_CASE("V5 clipped columns enclose independent captured conic integrals",
+          "[thermal-reticle][thermal-conic-v5-clipped-reference]") {
+    namespace v5=fsim::ms::components::conic_moments_v4;
+    for(const auto& sample:thermal_conic_v5_clipped_reference::cases) {
+        DYNAMIC_SECTION(sample.id) {
+            v5::Request request;request.width=request.height=64;
+            request.pixelPitchRad=.0015;request.psfSigmaRad=.00075;
+            request.pointing=sample.pointing;request.up=sample.up;
+            request.cutoff=sample.cutoff;request.region=sample.region;
+            auto bank=v5::Bank::prepare(request);REQUIRE(bank);
+            // The original materialized V4 operator still refuses this domain.
+            CHECK_FALSE(bank->evaluate(request.region));
+            const auto result=bank->evaluateFastMoments(request.region);REQUIRE(result);
+            REQUIRE(result->field.size()==4096);REQUIRE(result->absoluteError.size()==4096);
+            for(const auto& reference:sample.reference) {
+                CAPTURE(reference.row,reference.col);
+                const auto at=static_cast<std::size_t>(reference.row)*64+reference.col;
+                const double rounding=2*std::numeric_limits<double>::epsilon()*std::abs(reference.expected);
+                CHECK(std::abs(result->field[at]-reference.expected)<=result->absoluteError[at]+rounding);
+            }
+            for(std::size_t i=0;i<result->field.size();++i) {
+                CHECK(result->absoluteError[i]<=v5::fieldBudget);
+                CHECK(result->field[i]>=0);CHECK(result->field[i]<=1);
+            }
+        }
+    }
+}
 TEST_CASE("Version4 moving basis matches its explicitly materialized conic operator", "[thermal-reticle][thermal-reticle-moving-v4-phase]") {
     using namespace fsim::ms::components;
     using namespace fsim::ms::components::moving_radiator_v2;
@@ -1955,6 +2096,223 @@ TEST_CASE("Version5 moving basis matches its explicitly materialized conic opera
     for(auto& value:reference){previous+=alpha*(value-previous);value=previous;}
     CHECK(reference==(*basis)[0]);
     CHECK(receiver.latest()==nullptr);
+}
+
+TEST_CASE("V5 parallel phases preserve serial native fallback and rounding domains",
+          "[thermal-reticle][thermal-reticle-moving-v5-parallel-fallback]") {
+    using namespace fsim::ms::components;
+    using namespace fsim::ms::components::moving_radiator_v2;
+    auto c=reticlePolicy();c.detector.width=c.detector.height=8;
+    c.periods=3;c.samplesPerScan=24;c.spatialSamples=2;c.scanRadiusRad=.003;c.stopRadiusRad=.006;
+    ThermalReticleReceiverV1 receiver;std::string error;REQUIRE(receiver.configure(c,error));
+    ThermalReticleResultV1 clock;clock.valid=true;clock.complete=true;clock.timeS=.05;
+    clock.exposureStartTimeS=.04;clock.exposureEndTimeS=.05;clock.measurementTimeS=.045;
+    clock.varianceBoundElectrons2=1;clock.measuredElectrons.assign(c.samplesPerScan,0);
+    const fsim::ms::weapon::V3 pointing{0,0,1},up{0,0,1};
+    const Shape shape{{-.0015,-.001,.0015,.001,.003,.003,std::cos(.002)}};
+    namespace v5=fsim::ms::components::conic_moments_v4;
+    v5::Request request;request.width=request.height=8;
+    request.pixelPitchRad=c.detector.pixelPitchRad;request.psfSigmaRad=c.detector.psfSigmaRad;
+    request.pointing={{0,0,1}};request.up={{0,0,1}};request.cutoff=shape[6];
+    CHECK_FALSE(v5::Bank::prepare(request)); // Nonmonotone cone uses the original native renderer.
+    const auto serial=receiver.movingBasisForCalibrationV2(clock,pointing,up,shape);REQUIRE(serial);
+    const auto parallel=receiver.movingBasisForCalibrationV5(clock,pointing,up,shape);REQUIRE(parallel);
+    CHECK(*serial==*parallel);
+    const auto repeated=receiver.movingBasisForCalibrationV5(clock,pointing,up,shape);REQUIRE(repeated);
+    CHECK(*repeated==*parallel);
+    struct Restore {int rounding;~Restore(){std::fesetround(rounding);}} restore{std::fegetround()};
+    REQUIRE(std::fesetround(FE_DOWNWARD)==0);
+    const auto directedSerial=receiver.movingBasisForCalibrationV2(clock,pointing,up,shape);
+    const auto directedV5=receiver.movingBasisForCalibrationV5(clock,pointing,up,shape);
+    REQUIRE(directedSerial.has_value()==directedV5.has_value());
+    if(directedSerial)CHECK(*directedSerial==*directedV5);
+    CHECK(receiver.latest()==nullptr);
+}
+
+TEST_CASE("V5 bounded Gaussian memo preserves exact fields across cutoff pose and eviction",
+          "[thermal-reticle][thermal-conic-v5-gaussian-memo]") {
+    namespace v5=fsim::ms::components::conic_moments_v4;
+    v5::Request policy;policy.width=policy.height=64;
+    policy.pixelPitchRad=.0015;policy.psfSigmaRad=.00075;
+    v5::GaussianMemoV5 shared(policy),evicting(policy,4096),disabled(policy,0);
+    auto foreignPolicy=policy;foreignPolicy.width=32;
+    v5::GaussianMemoV5 foreign(foreignPolicy);
+    for(const double cutoff:{-.004,-.001,0.,.002,.004,.3}) {
+        CAPTURE(cutoff);
+        auto request=policy;request.cutoff=cutoff;
+        request.pointing={{1,0,0}};request.up={{0,0,1}};
+        request.region={{-.0041,.0052,-.0037,.0049}};
+        auto bank=v5::Bank::prepare(request);REQUIRE(bank);
+        const auto direct=bank->evaluateFastMoments(request.region);REQUIRE(direct);
+        for(auto* memo:{&shared,&evicting,&disabled,&foreign}) {
+            const auto cached=bank->evaluateFastMemoV5(request.region,*memo);REQUIRE(cached);
+            REQUIRE(cached->field.size()==direct->field.size());
+            REQUIRE(cached->absoluteError.size()==direct->absoluteError.size());
+            CHECK(std::memcmp(cached->field.data(),direct->field.data(),direct->field.size()*sizeof(double))==0);
+            CHECK(std::memcmp(cached->absoluteError.data(),direct->absoluteError.data(),direct->absoluteError.size()*sizeof(double))==0);
+        }
+        auto changed=request.region;changed[0]=std::nextafter(changed[0],0.);
+        const auto fresh=bank->evaluateFastMoments(changed);REQUIRE(fresh);
+        const auto changedCached=bank->evaluateFastMemoV5(changed,shared);REQUIRE(changedCached);
+        CHECK(changedCached->field==fresh->field);CHECK(changedCached->absoluteError==fresh->absoluteError);
+        request.pointing={{1,.02,-.01}};
+        auto tilted=v5::Bank::prepare(request);REQUIRE(tilted);
+        const auto tiltDirect=tilted->evaluateFastMoments(request.region);REQUIRE(tiltDirect);
+        const auto tiltCached=tilted->evaluateFastMemoV5(request.region,shared);REQUIRE(tiltCached);
+        CHECK(tiltDirect->field==tiltCached->field);CHECK(tiltDirect->absoluteError==tiltCached->absoluteError);
+    }
+    CHECK(shared.work().hits>0);CHECK(evicting.work().chargedBytes<=4096);
+    CHECK(disabled.work().entries==0);CHECK(foreign.work().hits==0);
+    auto request=policy;request.pointing={{1,0,0}};request.up={{0,0,1}};
+    const auto bank=v5::Bank::prepare(request);REQUIRE(bank);
+    struct Restore {int rounding;~Restore(){std::fesetround(rounding);}} restore{std::fegetround()};
+    REQUIRE(std::fesetround(FE_DOWNWARD)==0);
+    CHECK_FALSE(bank->evaluateFastMemoV5({-.0041,.0052,-.0037,.0049},shared));
+}
+
+TEST_CASE("Shared V5 columns publish exact fields across concurrent regions",
+          "[thermal-reticle][thermal-conic-v5-shared-columns]") {
+    namespace v5=fsim::ms::components::conic_moments_v4;
+    for(const auto& fixture:thermal_conic_v5_clipped_reference::cases) {
+        CAPTURE(fixture.id);
+        v5::Request request;
+        request.width=request.height=64;
+        request.pixelPitchRad=.0015;
+        request.psfSigmaRad=.00075;
+        request.pointing=fixture.pointing;
+        request.up=fixture.up;
+        request.cutoff=fixture.cutoff;
+        const auto serial=v5::Bank::prepare(request);
+        const auto shared=v5::Bank::prepareSharedV5(request);
+        REQUIRE(serial);
+        REQUIRE(shared);
+
+        std::array<std::array<double,4>,8> regions;
+        std::array<std::optional<v5::Result>,8> reference;
+        std::size_t serialColumns=0;
+        for(std::size_t i=0;i<regions.size();++i) {
+            regions[i]=fixture.region;
+            const double shift=(static_cast<double>(i)-3)*.00013;
+            regions[i][0]+=shift;
+            regions[i][1]+=shift;
+            regions[i][2]-=shift;
+            regions[i][3]-=shift;
+            v5::Work work;
+            reference[i]=serial->evaluateFastMoments(regions[i],&work);
+            REQUIRE(reference[i]);
+            serialColumns+=work.preparedColumns;
+        }
+
+        std::array<std::future<std::pair<std::optional<v5::Result>,v5::Work>>,8> jobs;
+        for(std::size_t i=0;i<jobs.size();++i) {
+            jobs[i]=std::async(std::launch::async,[&shared,region=regions[i]] {
+                v5::Work work;
+                auto field=shared->evaluateFastMoments(region,&work);
+                return std::make_pair(std::move(field),work);
+            });
+        }
+        std::size_t sharedColumns=0;
+        for(std::size_t i=0;i<jobs.size();++i) {
+            const auto [field,work]=jobs[i].get();
+            REQUIRE(field);
+            const auto exact=[](const std::vector<double>& a,const std::vector<double>& b) {
+                return a.size()==b.size()&&std::memcmp(a.data(),b.data(),a.size()*sizeof(double))==0;
+            };
+            CHECK(exact(field->field,reference[i]->field));
+            CHECK(exact(field->absoluteError,reference[i]->absoluteError));
+            sharedColumns+=work.preparedColumns;
+        }
+        CHECK(serialColumns>0);
+        CHECK(sharedColumns==serialColumns);
+    }
+    // Verify reused workspace produces bit-identical fields across distinct regions and sizes.
+    v5::FieldWorkspaceV5 workspace;
+    for(const auto& fixture:thermal_conic_v5_clipped_reference::cases) {
+        v5::Request request;
+        request.width=request.height=64;request.pixelPitchRad=.0015;request.psfSigmaRad=.00075;
+        request.pointing=fixture.pointing;request.up=fixture.up;request.cutoff=fixture.cutoff;
+        const auto bank=v5::Bank::prepare(request);REQUIRE(bank);
+        const auto direct=bank->evaluateFastMoments(fixture.region);REQUIRE(direct);
+        REQUIRE(bank->evaluateFastIntoV5(fixture.region,workspace));
+        REQUIRE(workspace.field.size()==direct->field.size());
+        CHECK(std::memcmp(workspace.field.data(),direct->field.data(),direct->field.size()*sizeof(double))==0);
+        CHECK(workspace.maxError<=v5::fieldBudget);
+        // Verify concurrent ensureColumnV5 pre-warming matches serial evaluation bit-for-bit.
+        const auto prewarmed=v5::Bank::prepareSharedV5(request);REQUIRE(prewarmed);
+        std::array<std::future<void>,4> warmers;
+        for(unsigned w=0;w<4;++w) {
+            warmers[w]=std::async(std::launch::async,[&prewarmed,w] {
+                for(unsigned col=w;col<64;col+=4)prewarmed->ensureColumnV5(col);
+            });
+        }
+        for(auto& f:warmers)f.get();
+        const auto afterWarm=prewarmed->evaluateFastMoments(fixture.region);REQUIRE(afterWarm);
+        CHECK(std::memcmp(afterWarm->field.data(),direct->field.data(),direct->field.size()*sizeof(double))==0);
+        CHECK(std::memcmp(afterWarm->absoluteError.data(),direct->absoluteError.data(),direct->absoluteError.size()*sizeof(double))==0);
+    }
+}
+
+TEST_CASE("Parallel reticle forward exposure is bit-exact and preserves caller rounding",
+          "[thermal-reticle][thermal-reticle-parallel-forward]") {
+    auto policy=reticlePolicy();
+    policy.detector.width=policy.detector.height=16;
+    policy.periods=3;policy.samplesPerScan=32;policy.spatialSamples=2;
+    policy.scanRadiusRad=.003;policy.stopRadiusRad=.006;
+    ThermalReticleReceiverV1 a,b;std::string error;
+    REQUIRE(a.configure(policy,error));REQUIRE(b.configure(policy,error));
+    auto scene=reticleScene(.02,50.);
+    scene.skyRadianceWm2Sr=1.;scene.groundRadianceWm2Sr=8.;scene.groundHorizonCosine=.001;
+    scene.patches[0].direction=unitRay(1,.002,-.001);
+    scene.patches[0].directionRate={0.,.02,-.01};
+    const fsim::ms::weapon::V3 pointing=unitRay(1,0,0);
+    const auto r1=a.exposeWithMeasuredPriorV2(scene,pointing,1234567ull,nullptr);
+    const auto r2=b.exposeWithMeasuredPriorV2(scene,pointing,1234567ull,nullptr);
+    REQUIRE(r1.valid);REQUIRE(r2.valid);
+    // Advance past first full scan window so all 32 phases execute in parallel.
+    scene.timeS=.04;
+    const auto s1=a.exposeWithMeasuredPriorV2(scene,pointing,1234567ull,nullptr);
+    const auto s2=b.exposeWithMeasuredPriorV2(scene,pointing,1234567ull,nullptr);
+    REQUIRE(s1.valid);REQUIRE(s1.complete);REQUIRE(s2.valid);REQUIRE(s2.complete);
+    REQUIRE(s1.incidentElectrons.size()==policy.samplesPerScan);
+    CHECK(std::memcmp(s1.incidentElectrons.data(),s2.incidentElectrons.data(),s1.incidentElectrons.size()*sizeof(double))==0);
+    CHECK(std::memcmp(s1.measuredElectrons.data(),s2.measuredElectrons.data(),s1.measuredElectrons.size()*sizeof(double))==0);
+    // Directed rounding must be preserved cleanly without throwing or corrupting caller fenv.
+    struct Restore {int r;~Restore(){std::fesetround(r);}} restore{std::fegetround()};
+    REQUIRE(std::fesetround(FE_DOWNWARD)==0);
+    ThermalReticleReceiverV1 c1,c2;
+    REQUIRE(c1.configure(policy,error));REQUIRE(c2.configure(policy,error));
+    auto sceneD=scene;sceneD.timeS=.02;
+    REQUIRE(c1.exposeWithMeasuredPriorV2(sceneD,pointing,1234567ull,nullptr).valid);
+    REQUIRE(c2.exposeWithMeasuredPriorV2(sceneD,pointing,1234567ull,nullptr).valid);
+    sceneD.timeS=.04;
+    const auto d1=c1.exposeWithMeasuredPriorV2(sceneD,pointing,1234567ull,nullptr);
+    const auto d2=c2.exposeWithMeasuredPriorV2(sceneD,pointing,1234567ull,nullptr);
+    REQUIRE(d1.valid);REQUIRE(d1.complete);REQUIRE(d2.valid);REQUIRE(d2.complete);
+    CHECK(std::fegetround()==FE_DOWNWARD);
+    CHECK(std::memcmp(d1.incidentElectrons.data(),d2.incidentElectrons.data(),d1.incidentElectrons.size()*sizeof(double))==0);
+}
+
+TEST_CASE("Reticle prior join tolerates 1-ULP receiver pointing normalization",
+          "[thermal-reticle][thermal-reticle-pointing-ulp]") {
+    using namespace fsim::ms::components::measured;
+    // Construct a 1-ULP non-idempotent vector under measured::unit() so that
+    // unit(v) != unit(unit(v)), matching the EngineeringSeekerV3 opticalPoseAt
+    // -> exposeWithMeasuredPriorV2 double-normalization seam.
+    V first{};bool foundNonIdempotent=false;
+    for(int k=1;k<=1000;++k) {
+        const V probe{-0.039177+k*1e-7,0.998460,-0.039287-k*1e-7};
+        const V u1=unit(probe),u2=unit(u1);
+        if(u1.x!=u2.x||u1.y!=u2.y||u1.z!=u2.z){first=u1;foundNonIdempotent=true;break;}
+    }
+    REQUIRE(foundNonIdempotent);
+    const V normalized=unit(first);
+    CHECK((normalized.x!=first.x||normalized.y!=first.y||normalized.z!=first.z));
+    // Comparing receiver-stored unit(previousPose->pointing) against unit(previousPose->pointing)
+    // is exact bit-for-bit equality, avoiding spurious 1-ULP prior drops.
+    const V recomputed=unit(first);
+    CHECK(normalized.x==recomputed.x);
+    CHECK(normalized.y==recomputed.y);
+    CHECK(normalized.z==recomputed.z);
 }
 
 #endif

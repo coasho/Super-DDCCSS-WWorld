@@ -77,6 +77,83 @@ TEST_CASE("Separating tangent and invalid bodies cannot acquire contact impulse"
     a.massKg=2; a.inertia[4]=-1; CHECK_FALSE(inelasticBodyContact(a,b,{1,0,0}).valid);
     a=body(2); CHECK_FALSE(inelasticBodyContact(a,b,{}).valid);
 }
+
+TEST_CASE("Direct-contact carrier traversal conserves residual mass, post-contact momentum, and THOR component work", "[contact-energy][carrier-traversal]") {
+    // 250 kg missile with 39 kg warhead striking a 10000 kg target nose-on at
+    // 900 m/s relative speed: rigid contact removes only tip normal velocity
+    // (small effective mass), leaving residual non-warhead carrier mass closing.
+    auto weapon=body(250, 2, 120, 120), target=body(10000, 10000, 70000, 75000);
+    weapon.velocity={-650,0,0}; target.velocity={250,0,0};
+    weapon.arm={-1.8,0.0,0.4}; target.arm={7.0,0.0,0.0};
+    const auto contact=inelasticBodyContact(weapon,target,{1,0,0});
+    REQUIRE(contact.valid); REQUIRE(contact.approaching);
+
+    CarrierTraversalInputV1 in;
+    in.contactPointEcef={7.0,0.0,0.0};
+    in.contactNormalEcef={1.0,0.0,0.0};
+    in.weaponVelocityEcef=weapon.velocity;
+    in.victimVelocityEcef=target.velocity;
+    in.weaponAxisEcef={-1.0,0.0,0.0};
+    in.weaponImpulseEcef=contact.impulseA;
+    in.weaponMassToiKg=weapon.massKg;
+    in.warheadTotalKg=39.0;
+    in.bodyDiameterM=0.23;
+    in.entrySkinThicknessM=0.003;
+    const auto field=buildContactCarrierFieldV1(in);
+    REQUIRE(field.valid);
+    CHECK_FALSE(field.applyBlast);
+    CHECK(field.tntKg==0.0);
+    REQUIRE(field.projectiles.size()==1);
+    const auto& p=field.projectiles.front();
+    CHECK(close(p.massKg, 211.0));
+    CHECK(close(field.caseKg, 211.0));
+    CHECK(close(p.areaM2, 0.25*3.14159265358979323846*0.23*0.23));
+    const V3 expectedVel=weapon.velocity+contact.impulseA*(1.0/weapon.massKg);
+    CHECK(length(p.velocity-expectedVel)<1e-12);
+    // Strict kinetic-energy conservation: post-contact carrier KE < pre-contact carrier KE.
+    const double preKe=0.5*211.0*dot(weapon.velocity-target.velocity,weapon.velocity-target.velocity);
+    const double postKe=0.5*p.massKg*dot(p.velocity-target.velocity,p.velocity-target.velocity);
+    CHECK(postKe<preKe);
+    CHECK(postKe>0.0);
+
+    // Traverse an authored skin panel + internal component behind it via native assessSceneV1.
+    Airframe frame;
+    frame.aircraft="carrier-test";
+    Airframe::Section sec; sec.name="nose"; sec.massKg=1000; sec.skinAreaM2=20; sec.skinKg=200;
+    frame.sections.push_back(sec);
+    Airframe::Panel skin; skin.section=0; skin.surface=true; skin.thicknessM=0.003; skin.areaM2=4.0;
+    skin.corners={{{7.0,-1.0,-1.0},{7.0,1.0,-1.0},{7.0,1.0,1.0},{7.0,-1.0,1.0}}};
+    frame.panels.push_back(skin);
+    Airframe::Component comp; comp.name="avionics"; comp.kind="crew"; comp.section=0;
+    comp.centre={5.0,0.0,0.0}; comp.half={0.5,0.5,0.5};
+    frame.components.push_back(comp);
+
+    Target tgt; tgt.at={0,0,0}; tgt.velocity=target.velocity;
+    tgt.bodyToEcef={{{1,0,0},{0,1,0},{0,0,1}}};
+    SceneVictimV1 victim{2, AttachedGeometryView(frame), tgt, 1, {}};
+    SceneEnvironmentV1 env; env.airDensity=0.0; env.maxFlightTimeS=0.02; env.maxSubstepS=0.002;
+    const auto assessed=assessSceneV1(field, {victim}, env);
+    REQUIRE(assessed.valid);
+    REQUIRE(assessed.victims.size()==1);
+    const auto& impact=assessed.victims.front().impact;
+    REQUIRE(impact.panels.size()==1);
+    CHECK(impact.panels.front().perforations>=1);
+    REQUIRE(impact.components.size()==1);
+    CHECK(impact.components.front().component==0);
+    CHECK(impact.components.front().hits==1);
+    CHECK(impact.components.front().energyJ>0.0);
+    CHECK(impact.components.front().energyJ<postKe); // Strict THOR skin dissipation before component strike.
+
+    // Negative controls: no residual mass, bouncing/separating post-contact velocity, non-perforating low speed, invalid inputs.
+    auto zeroMass=in; zeroMass.warheadTotalKg=zeroMass.weaponMassToiKg;
+    CHECK_FALSE(buildContactCarrierFieldV1(zeroMass).valid);
+    auto separating=in; separating.weaponVelocityEcef={300,0,0}; separating.weaponImpulseEcef={0,0,0};
+    CHECK_FALSE(buildContactCarrierFieldV1(separating).valid);
+    auto lowSpeed=in; lowSpeed.weaponVelocityEcef={249,0,0}; lowSpeed.weaponImpulseEcef={0,0,0}; lowSpeed.entrySkinThicknessM=0.02;
+    CHECK_FALSE(buildContactCarrierFieldV1(lowSpeed).valid);
+    auto invalidDiam=in; invalidDiam.bodyDiameterM=0.0;
+    CHECK_FALSE(buildContactCarrierFieldV1(invalidDiam).valid);
+}
 } // namespace contact_tests
 
 namespace {

@@ -36,6 +36,8 @@ bool certifiedSubsetRefusalV2(const std::vector<double>& target,
     const std::array<std::vector<double>,2>& columns,double targetError,
     const std::array<double,2>& columnErrors,double allowedResidualNorm);
 void infer(const Optics&,ThermalReticleResultV1&,V pointing,V up,ThermalReticleMovingDiagnosticV2*);
+void infer(const Optics&,ThermalReticleResultV1&,V pointing,V up,ThermalReticleMovingDiagnosticV2*,
+    const ThermalReticleMeasuredPriorV2* prior);
 std::optional<std::array<std::vector<double>,2>> calibrateBasis(const Optics&,
     const ThermalReticleResultV1&,V pointing,V up,const Shape&,unsigned branch);
 /// Explicit V4 continuous numerical operator; retained calibration stays V2 exact.

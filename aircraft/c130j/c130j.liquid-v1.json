@@ -11805,7 +11805,7 @@
     {
       "path": "liquid.py",
       "role": "producer",
-      "sha256": "3e4fde71494e63e60c7ea62fa21637a55f5743916a054509b682fe80859be9e0"
+      "sha256": "f79250eb81d99cb03eb42da312e508e194081392ab3a1230f21b98f9a5690590"
     },
     {
       "path": "body.py",
@@ -11825,12 +11825,22 @@
     {
       "path": "pipeline.py",
       "role": "normal_model_stage",
-      "sha256": "7d0516d4e40dbdc97cae71ed677da7d022c8c5fcc021d78d88afde4016485c67"
+      "sha256": "71bff21268e53ac61dd770295b80e6c451d37a070c2847083358092b2645fdef"
     },
     {
       "path": "canonical-design-spec",
       "role": "effective_design_spec",
       "sha256": "983d82b39a60d575855905e6501547440ebb1fe323bcad121cd690c349bedf2d"
+    },
+    {
+      "path": "resources.py",
+      "role": "execution_resources",
+      "sha256": "3f977a27462d5767832856c93c9c00fe64619ababd5c1b2fb994cf1431592d40"
+    },
+    {
+      "path": "popen_spawn_win32.py",
+      "role": "spawn_runtime",
+      "sha256": "92731df48729b713148f0de65cb21bbb60a2602a490abb84ab102e13a7799bb1"
     },
     {
       "path": "c130j.glb",
@@ -11845,7 +11855,7 @@
     {
       "path": "breakup.py",
       "role": "native_partition_method",
-      "sha256": "38ed550b0d0e8017b688c101f9664080f5b00cf8ad10aa2b620ed59b4de46c21"
+      "sha256": "d2f196f3216fa7fccf5efb26bf6e97cacb93358e4707824634d45d5a28ca0bc3"
     },
     {
       "path": "manifold3d.cp313-win_amd64.pyd",

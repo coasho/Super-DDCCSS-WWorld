@@ -2,15 +2,95 @@
 #include "MovingRadiatorInverseV2.h"
 #include "simulation/mission_systems/components/support/MeasuredSeekerV2.h"
 #include <algorithm>
+#include <atomic>
+#include <cfenv>
 #include <cmath>
+#include <condition_variable>
+#include <exception>
 #include <limits>
+#include <mutex>
 #include <numeric>
 #include <chrono>
+#include <thread>
+#include <unordered_map>
 #include <unordered_set>
 #include <cstring>
+#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
+#include <xmmintrin.h>
+#endif
 
 namespace fsim::ms::components {
 namespace {
+class StaticJacobianPoolV1 {
+public:
+    StaticJacobianPoolV1()=default;
+    ~StaticJacobianPoolV1() {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            stop_=true;
+            ++generation_;
+        }
+        wake_.notify_all();
+        for(auto& thread:threads_)if(thread.joinable())thread.join();
+    }
+    StaticJacobianPoolV1(const StaticJacobianPoolV1&)=delete;
+    StaticJacobianPoolV1& operator=(const StaticJacobianPoolV1&)=delete;
+    template<class Fn>
+    void run(unsigned workers,const Fn& fn) {
+        if(workers<=1){fn(0u);return;}
+        const unsigned needed=workers-1u;
+        if(threads_.size()<needed) {
+            threads_.reserve(needed);
+            for(unsigned id=static_cast<unsigned>(threads_.size())+1u;id<=needed;++id)
+                threads_.emplace_back([this,id]{loop(id);});
+        }
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            fn_=[](const void* ctx,unsigned worker){(*static_cast<const Fn*>(ctx))(worker);};
+            context_=&fn;
+            dispatched_=needed;
+            active_=static_cast<unsigned>(threads_.size());
+            ++generation_;
+        }
+        wake_.notify_all();
+        fn(0u);
+        std::unique_lock<std::mutex> lock(mutex_);
+        done_.wait(lock,[this]{return active_==0;});
+        fn_=nullptr;
+        context_=nullptr;
+    }
+private:
+    void loop(unsigned worker) {
+        std::size_t seen=0;
+        for(;;) {
+            void (*task)(const void*,unsigned)=nullptr;
+            const void* ctx=nullptr;
+            bool runTask=false;
+            {
+                std::unique_lock<std::mutex> lock(mutex_);
+                wake_.wait(lock,[&]{return stop_||generation_!=seen;});
+                if(stop_)return;
+                seen=generation_;
+                runTask=worker<=dispatched_;
+                task=fn_;ctx=context_;
+            }
+            if(runTask&&task)task(ctx,worker);
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                if(--active_==0)done_.notify_one();
+            }
+        }
+    }
+    std::mutex mutex_;
+    std::condition_variable wake_,done_;
+    std::vector<std::thread> threads_;
+    void (*fn_)(const void*,unsigned)=nullptr;
+    const void* context_=nullptr;
+    std::size_t generation_=0;
+    unsigned dispatched_=0;
+    unsigned active_=0;
+    bool stop_=false;
+};
 using namespace measured;
 using V=weapon::V3;
 struct UnitGroundClockV2 {
@@ -122,6 +202,9 @@ bool dampedBoxStep(const std::array<std::vector<double>,Dimension>& jacobian,con
             step[axis]=std::clamp(step[axis],scaledLow[axis],scaledHigh[axis]);
         }
         if(!valid)continue;
+        // The feasible unconstrained minimizer is also the unique box
+        // minimizer of this strictly convex regularized least-squares problem.
+        if(face==0){for(unsigned axis=0;axis<Dimension;++axis)result[axis]=step[axis]/norms[axis];return true;}
         double cost=0;
         for(std::size_t row=0;row<rows;++row) {
             double error=-target[row];for(unsigned column=0;column<Dimension;++column)error+=design[row][column]*step[column];
@@ -285,15 +368,23 @@ std::array<std::vector<double>,4> ThermalReticleReceiverV1::spotJacobianV1(doubl
     for(unsigned row=0;row<p.height;++row)ys[row]=axis((row-.5*p.height)*p.pixelPitchRad,(row+1-.5*p.height)*p.pixelPitchRad,y,height);
     std::array<std::vector<double>,4> derivative;
     for(auto& values:derivative)values.assign(c.samplesPerScan,0);
-    for(unsigned row=0;row<p.height;++row)for(unsigned col=0;col<p.width;++col) {
-        const auto index=static_cast<std::size_t>(row)*p.width+col;
-        const auto& a=xs[col];const auto& b=ys[row];
-        const std::array<double,4> coefficient{{b.probability*a.centre,b.centre*a.probability,
-                                               b.probability*a.squaredExtent,b.squaredExtent*a.probability}};
-        const double omega=solidAngles_[index]/(p.pixelPitchRad*p.pixelPitchRad);
-        for(unsigned j=0;j<c.samplesPerScan;++j) {
-            const double value=weights_[index*c.samplesPerScan+j]*omega;
-            for(unsigned coordinate=0;coordinate<4;++coordinate)derivative[coordinate][j]+=value*coefficient[coordinate];
+    for(unsigned row=0;row<p.height;++row) {
+        const auto& b=ys[row];
+        if(b.probability==0&&b.centre==0&&b.squaredExtent==0)continue;
+        for(unsigned col=0;col<p.width;++col) {
+            const auto& a=xs[col];
+            if(a.probability==0&&a.centre==0&&a.squaredExtent==0)continue;
+            const auto index=static_cast<std::size_t>(row)*p.width+col;
+            const std::array<double,4> coefficient{{b.probability*a.centre,b.centre*a.probability,
+                                                   b.probability*a.squaredExtent,b.squaredExtent*a.probability}};
+            if(coefficient[0]==0&&coefficient[1]==0&&coefficient[2]==0&&coefficient[3]==0)continue;
+            const double omega=solidAngles_[index]/(p.pixelPitchRad*p.pixelPitchRad);
+            for(unsigned j=0;j<c.samplesPerScan;++j) {
+                const double w=weights_[index*c.samplesPerScan+j];
+                if(w==0)continue;
+                const double value=w*omega;
+                for(unsigned coordinate=0;coordinate<4;++coordinate)derivative[coordinate][j]+=value*coefficient[coordinate];
+            }
         }
     }
     const double alpha=-std::expm1(-1/(c.frequencyHz*c.samplesPerScan*p.pixelResponseTimeS));
@@ -397,6 +488,13 @@ ThermalReticleResultV1 ThermalReticleReceiverV1::expose(const ThermalSceneFrameV
 
 ThermalReticleResultV1 ThermalReticleReceiverV1::exposeWithMeasuredPriorV2(
     const ThermalSceneFrameV1& scene,V pointing,std::uint64_t seed,const ThermalReticleMeasuredPriorV2* prior) {
+    return exposeWithMeasuredPriorV2(scene,pointing,seed,prior,nullptr);
+}
+
+ThermalReticleResultV1 ThermalReticleReceiverV1::exposeWithMeasuredPriorV2(
+    const ThermalSceneFrameV1& scene,V pointing,std::uint64_t seed,const ThermalReticleMeasuredPriorV2* prior,
+    ThermalReticleMovingDiagnosticV2* movingDiagnostic) {
+    if(movingDiagnostic)*movingDiagnostic={};
     const auto& c=config_;const auto& p=c.detector;
     if(!validConfig(c)||!ThermalImageReceiverV1::validScene(scene,p)||scene.timeS<lastTimeS_||!finite(pointing)||norm(pointing)<=0)return {};
     if(scene.timeS==lastTimeS_)return cached_;
@@ -407,7 +505,7 @@ ThermalReticleResultV1 ThermalReticleReceiverV1::exposeWithMeasuredPriorV2(
         detectorCharge_=beforeCharge;expectedCharge_=beforeExpected;return ThermalReticleResultV1{};
     };
     if(!seeded_){rng_.seed(seed^0x52455449434c4531ull);seeded_=true;startedS_=lastDetectorSampleTimeS_=scene.timeS;}
-    ThermalReticleResultV1 result;result.valid=true;result.timeS=scene.timeS;result.pointing=unit(pointing);
+    ThermalReticleResultV1 result;result.valid=true;result.timeS=scene.timeS;result.pointing=unit(pointing);result.horizonDiagnostic.ownUp=scene.up;
     const auto window=captureWindowV1(scene.timeS);
     if(!window){cached_=result;lastTimeS_=scene.timeS;return result;}
     const double start=(*window)[0],end=(*window)[2];
@@ -425,30 +523,78 @@ ThermalReticleResultV1 ThermalReticleReceiverV1::exposeWithMeasuredPriorV2(
     const double alpha=-std::expm1(-1/(c.frequencyHz*c.samplesPerScan*p.pixelResponseTimeS));
     auto optical=p;optical.exposureSamples=1;optical.integrationTimeS=p.integrationTimeS/p.exposureSamples;
     std::vector<double> background;
-    double maximumMeasured=0;
-    for(unsigned j=0;j<c.samplesPerScan;++j) {
+    std::vector<double> phasePhotons(c.samplesPerScan,0.);
+    const auto computePhasePhotons=[&](unsigned j,const std::vector<double>* bg,std::vector<double>* outBg,double& outPhotons)->bool {
         double photons=0;
         const double middle=start+(j+.5)/(c.frequencyHz*c.samplesPerScan);
         for(unsigned k=0;k<p.exposureSamples;++k) {
             const double sample=middle+p.integrationTimeS*((k+.5)/p.exposureSamples-.5);
             auto exposure=scene;exposure.timeS=sample+.5*optical.integrationTimeS;
             for(auto& patch:exposure.patches)patch.direction=unit(subtract(patch.direction,scale(patch.directionRate,scene.timeS-exposure.timeS)));
-            const auto field=ThermalImageReceiverV1::incidentFieldImplV1(exposure,pointing,optical,background.empty()?nullptr:&background);
-            if(!field)return refuse();
-            if(background.empty())background=field->backgroundRadiance;
+            const std::vector<double>* useBg=(bg&&!bg->empty())?bg:(outBg&&!outBg->empty()?outBg:nullptr);
+            const auto field=ThermalImageReceiverV1::incidentFieldImplV1(exposure,pointing,optical,useBg);
+            if(!field)return false;
+            if(!useBg&&outBg)*outBg=field->backgroundRadiance;
             const auto offset=(static_cast<std::size_t>(j)*p.exposureSamples+k)*pixels;
             for(std::size_t i=0;i<pixels;++i) {
-                if(!std::isfinite(field->radiance[i]))return refuse();
+                if(!std::isfinite(field->radiance[i]))return false;
                 photons+=std::max(0.,field->radiance[i])*solidAngles_[i]*timeWeights_[offset+i]*gain/p.exposureSamples;
             }
         }
         photons+=dark;
-        // The positive finite-mean standard-library Poisson domain is used
-        // without an ADC-derived input cap. The2^52 reference domain leaves
-        // a factor-two margin below binary64's consecutive-integer limit.
-        // Outside it we explicitly refuse rather than substitute
-        // a clipped source or an unvalidated large-mean noise approximation.
-        if(!std::isfinite(photons)||photons<0||photons>std::ldexp(1.,52))return refuse();
+        if(!std::isfinite(photons)||photons<0||photons>std::ldexp(1.,52))return false;
+        outPhotons=photons;
+        return true;
+    };
+    if(!computePhasePhotons(0u,nullptr,&background,phasePhotons[0]))return refuse();
+    if(c.samplesPerScan>1u) {
+        const unsigned hw=std::min(16u,std::max(1u,std::thread::hardware_concurrency()));
+        std::fenv_t callerEnv{};
+        if(!scene.patches.empty()&&hw>=2u&&std::fegetenv(&callerEnv)==0) {
+#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
+            const unsigned callerCsr=_mm_getcsr();
+#endif
+#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
+            unsigned short callerCw=0;__asm__ __volatile__("fnstcw %0":"=m"(callerCw));
+#endif
+            const unsigned workers=std::min(hw,c.samplesPerScan-1u);
+            std::atomic<unsigned> nextPhase{1u};
+            std::atomic<bool> failed{false};
+            std::array<std::exception_ptr,16> errs{};
+            StaticJacobianPoolV1 forwardPool;
+            const auto runForward=[&](unsigned worker) noexcept {
+                try {
+                    if(worker!=0u) {
+                        if(std::fesetenv(&callerEnv)!=0){failed.store(true,std::memory_order_relaxed);return;}
+#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
+                        _mm_setcsr(callerCsr);
+#endif
+#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
+                        __asm__ __volatile__("fldcw %0"::"m"(callerCw));
+#endif
+                    }
+                    while(!failed.load(std::memory_order_relaxed)) {
+                        const unsigned j=nextPhase.fetch_add(1u,std::memory_order_relaxed);
+                        if(j>=c.samplesPerScan)break;
+                        if(!computePhasePhotons(j,&background,nullptr,phasePhotons[j])) {
+                            failed.store(true,std::memory_order_relaxed);break;
+                        }
+                    }
+                } catch(...) {errs[worker]=std::current_exception();failed.store(true,std::memory_order_relaxed);}
+            };
+            forwardPool.run(workers,runForward);
+            for(const auto& e:errs)if(e)std::rethrow_exception(e);
+            if(failed.load(std::memory_order_relaxed))return refuse();
+        } else {
+            for(unsigned j=1u;j<c.samplesPerScan;++j) {
+                if(!computePhasePhotons(j,&background,nullptr,phasePhotons[j]))return refuse();
+            }
+        }
+    }
+    double maximumMeasured=0;
+    for(unsigned j=0;j<c.samplesPerScan;++j) {
+        const double photons=phasePhotons[j];
+        const double middle=start+(j+.5)/(c.frequencyHz*c.samplesPerScan);
         result.incidentElectrons.push_back(photons);
         // Exact first-order ZOH update for the actual elapsed detector clock,
         // including the unobserved interval between requested readout windows.
@@ -474,7 +620,8 @@ ThermalReticleResultV1 ThermalReticleReceiverV1::exposeWithMeasuredPriorV2(
     // scale from MEASURED ADC charge and finite response/noise, never photons.
     const double inputUpper=(maximumMeasured+p.detectionSigma*(std::sqrt(maximumMeasured)+readNoise)+adc)/alpha;
     result.varianceBoundElectrons2=inputUpper+readNoise*readNoise+adc*adc/12;
-    if(!result.saturated)inferMeasuredWithPriorV2(result,pointing,scene.up,prior);
+    if(!result.saturated)inferMeasuredWithPriorV2(result,pointing,scene.up,prior,movingDiagnostic);
+    if(norm(result.horizonDiagnostic.ownUp)<=0)result.horizonDiagnostic.ownUp=scene.up;
     cached_=result;lastTimeS_=scene.timeS;return result;
 }
 
@@ -499,6 +646,12 @@ void ThermalReticleReceiverV1::inferMeasuredV1(ThermalReticleResultV1& result,V 
 
 void ThermalReticleReceiverV1::inferMeasuredWithPriorV2(ThermalReticleResultV1& result,V pointing,V up,
     const ThermalReticleMeasuredPriorV2* prior) const {
+    inferMeasuredWithPriorV2(result,pointing,up,prior,nullptr);
+}
+
+void ThermalReticleReceiverV1::inferMeasuredWithPriorV2(ThermalReticleResultV1& result,V pointing,V up,
+    const ThermalReticleMeasuredPriorV2* prior,ThermalReticleMovingDiagnosticV2* movingDiagnostic) const {
+    if(movingDiagnostic)*movingDiagnostic={};
     result.horizonDiagnostic={};
     result.features.clear();result.bearingResolved=false;result.preciseBearing=false;
     result.fitSnr=0;result.fitResidual=0;result.compactFitSnr=0;result.compactFitResidual=0;
@@ -521,14 +674,19 @@ void ThermalReticleReceiverV1::inferMeasuredWithPriorV2(ThermalReticleResultV1& 
     // unchanged. A separately versioned measured-only family handles source
     // motion during an otherwise complete scalar exposure.
     if(result.features.empty()&&result.horizonDiagnostic.refusal!=2&&result.horizonDiagnostic.refusal!=5&&
-       result.horizonDiagnostic.refusal!=21)inferMovingMeasuredV2(result,pointing,up);
+       result.horizonDiagnostic.refusal!=21)inferMovingMeasuredWithPriorV2(result,pointing,up,prior,movingDiagnostic);
 }
 
 void ThermalReticleReceiverV1::inferMovingMeasuredV2(ThermalReticleResultV1& result,V pointing,V up,
     ThermalReticleMovingDiagnosticV2* diagnostic) const {
+    inferMovingMeasuredWithPriorV2(result,pointing,up,nullptr,diagnostic);
+}
+
+void ThermalReticleReceiverV1::inferMovingMeasuredWithPriorV2(ThermalReticleResultV1& result,V pointing,V up,
+    const ThermalReticleMeasuredPriorV2* prior,ThermalReticleMovingDiagnosticV2* diagnostic) const {
     const moving_radiator_v2::Optics optics{config_,weights_,timeWeights_,solidAngles_,flat_,nuisance_,
         [this](const std::array<double,4>& q){return spot(q[0],q[1],config_.detector.psfSigmaRad,q[2],q[3],false);}};
-    moving_radiator_v2::infer(optics,result,pointing,up,diagnostic);
+    moving_radiator_v2::infer(optics,result,pointing,up,diagnostic,prior);
 }
 
 std::optional<std::array<std::vector<double>,2>> ThermalReticleReceiverV1::movingBasisForCalibrationV2(
@@ -1076,6 +1234,26 @@ std::optional<std::vector<double>> ThermalReticleReceiverV1::unitGroundFieldProf
         info.minCy=std::min(c*ty0,c*ty1);info.maxCy=std::max(c*ty0,c*ty1);
         info.minY2=minSquare(ty0,ty1);info.maxY2=std::max(ty0*ty0,ty1*ty1);
     }
+    // Exact horizontal coordinates where the horizon crosses the box's top or
+    // bottom edge. Splitting adaptive Gauss-Legendre at these C0 kinks avoids
+    // deep recursive bisection while preserving the exact continuous integral.
+    std::array<double,4> boxKinks{};unsigned boxKinkCount=0;
+    if(region) {
+        const auto addKinkEdge=[&](double yEdge) {
+            const double ty=std::tan(yEdge),ny=a+c*ty;
+            const double aa=b*b-cutoff*cutoff,bb=2*ny*b,cc=ny*ny-cutoff*cutoff*(1+ty*ty);
+            const auto pushRoot=[&](double tx) {
+                if(!std::isfinite(tx))return;
+                const double x=std::atan(tx);
+                if(x>left&&x<rightEdge&&boxKinkCount<4)boxKinks[boxKinkCount++]=x;
+            };
+            if(std::abs(aa)<1e-14){if(std::abs(bb)>1e-14)pushRoot(-cc/bb);}
+            else {const double disc=bb*bb-4*aa*cc;if(disc>=0){const double sq=std::sqrt(disc);pushRoot((-bb-sq)/(2*aa));pushRoot((-bb+sq)/(2*aa));}}
+        };
+        addKinkEdge(bottom);
+        addKinkEdge(top);
+        for(unsigned i=1;i<boxKinkCount;++i)for(unsigned j=i;j>0&&boxKinks[j]<boxKinks[j-1];--j)std::swap(boxKinks[j],boxKinks[j-1]);
+    }
     for(unsigned col=0;col<p.width;++col) {
         const double px0=(col-.5*p.width)*pitch,px1=px0+pitch;
         const double sx0=std::max(left,px0-margin),sx1=std::min(rightEdge,px1+margin);
@@ -1177,7 +1355,23 @@ std::optional<std::vector<double>> ThermalReticleReceiverV1::unitGroundFieldProf
                 for(unsigned row=0;row<p.height;++row)first[row]+=last[row];
                 return first;
             };
-            fine=integrate(integrate,sx0,sx1,1e-9,10);
+            std::array<double,6> segPts{};unsigned segCount=0;
+            segPts[segCount++]=sx0;
+            for(unsigned k=0;k<boxKinkCount;++k) {
+                const double x=boxKinks[k];
+                if(x>segPts[segCount-1]+1e-14&&x<sx1-1e-14)segPts[segCount++]=x;
+            }
+            segPts[segCount++]=sx1;
+            if(segCount==2) {
+                fine=integrate(integrate,sx0,sx1,1e-9,10);
+            } else {
+                const double segTol=1e-9/static_cast<double>(segCount-1);
+                fine={};
+                for(unsigned s=0;s+1<segCount&&converged;++s) {
+                    const auto part=integrate(integrate,segPts[s],segPts[s+1],segTol,10);
+                    for(unsigned row=0;row<p.height;++row)fine[row]+=part[row];
+                }
+            }
             if(!converged)return fallback(5);
         }
         for(unsigned row=0;row<p.height;++row)if(rows[row].active) {
@@ -1260,10 +1454,12 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
     // A later finite snapshot tests every visited cutoff, including rejected
     // trust proposals. Each snapshot cutoff may add two derivative neighbours;
     // they are shared by its reflected modes and are not recursively profiled.
-    // A valid measured start adds at most one previous cutoff plus the existing
-    // null-cutoff bank. This is a derived work bound, never a new likelihood,
-    // iteration, geometric or false-alarm allowance. No-prior count is exact old.
-    const std::size_t priorTrustStarts=priorStart?maximumJointStarts+1:0;
+    // A valid measured start adds at most the previous accepted cutoff and
+    // current null cutoff across up to 3 roll-rotated extent starts ((w,h),
+    // (h,w), and equal-side envelope). This is a derived work bound, never a
+    // new likelihood, iteration, geometric or false-alarm allowance. No-prior
+    // count is exact old.
+    const std::size_t priorTrustStarts=priorStart?6u:0u;
     const std::size_t trustCutoffBudget=(maximumJointStarts+priorTrustStarts)*(1+trustIterations*(2+trustTrials));
     const std::size_t maximumCalibrations=3*(oldCutoffBudget+trustCutoffBudget+2);
     struct Calibration {
@@ -1273,29 +1469,48 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
     // All scenes below are INSTRUMENT HYPOTHESES: unit ground, zero sky,
     // unknown cutoff and optional black support. No actual scene radiance,
     // source rectangle, identity or horizon threshold reaches this inverse.
-    std::optional<double> lastGroundCutoff;
-    std::vector<double> lastGroundField;
+    struct GroundFieldEntry {double cutoff=0;std::vector<double> field;};
+    std::vector<GroundFieldEntry> groundFieldCache;groundFieldCache.reserve(4);
     const auto groundField=[&](double cutoff)->const std::vector<double>* {
-        if(lastGroundCutoff&&cutoff==*lastGroundCutoff&&std::signbit(cutoff)==std::signbit(*lastGroundCutoff))
-            return &lastGroundField;
+        for(std::size_t idx=0;idx<groundFieldCache.size();++idx) {
+            if(cutoff==groundFieldCache[idx].cutoff&&std::signbit(cutoff)==std::signbit(groundFieldCache[idx].cutoff)) {
+                if(idx!=0)std::rotate(groundFieldCache.begin(),groundFieldCache.begin()+static_cast<std::ptrdiff_t>(idx),
+                    groundFieldCache.begin()+static_cast<std::ptrdiff_t>(idx+1));
+                return &groundFieldCache[0].field;
+            }
+        }
         auto field=unitGroundFieldV1(p,forward,verticalUp,cutoff);if(!field)return nullptr;
-        lastGroundField=std::move(*field);lastGroundCutoff=cutoff;return &lastGroundField;
+        if(groundFieldCache.size()>=4)groundFieldCache.pop_back();
+        groundFieldCache.insert(groundFieldCache.begin(),GroundFieldEntry{cutoff,std::move(*field)});
+        return &groundFieldCache[0].field;
     };
     const auto waveform=[&](const std::vector<double>& field,bool removeNuisance) {
         std::vector<double> wave(count,0);
-        for(std::size_t i=0;i<field.size();++i)for(unsigned j=0;j<count;++j)
-            wave[j]+=field[i]*solidAngles_[i]*weights_[i*count+j]/pixelArea;
+        for(std::size_t i=0;i<field.size();++i) {
+            const double f=field[i];
+            if(f==0)continue;
+            const double scale=f*solidAngles_[i]/pixelArea;
+            const double* w=weights_.data()+i*count;
+            for(unsigned j=0;j<count;++j)wave[j]+=scale*w[j];
+        }
         wave=filtered(std::move(wave),alpha);if(removeNuisance)project(wave);return wave;
+    };
+    const auto cutoffKey=[](double cutoff) noexcept {
+        const double canonical=cutoff==0.?0.:cutoff;
+        std::uint64_t bits=0;std::memcpy(&bits,&canonical,sizeof(bits));return bits;
     };
     double nullExplained=0,nullCutoff=low,nullAmplitude=0,nullCost=std::numeric_limits<double>::infinity();
     std::vector<Calibration> calibrations;calibrations.reserve(maximumCalibrations);
+    std::unordered_map<std::uint64_t,std::size_t> calibrationIndex;calibrationIndex.reserve(1024);
     const auto calibration=[&](double cutoff)->const Calibration* {
-        for(const auto& item:calibrations)if(item.cutoff==cutoff)return &item;
+        const auto key=cutoffKey(cutoff);
+        if(const auto found=calibrationIndex.find(key);found!=calibrationIndex.end())return &calibrations[found->second];
         if(calibrations.size()>=maximumCalibrations)return nullptr;
         const auto* field=groundField(cutoff);
         if(!field)return nullptr;
         Calibration item;item.cutoff=cutoff;item.rawWave=waveform(*field,false);
         item.wave=item.rawWave;project(item.wave);
+        calibrationIndex.emplace(key,calibrations.size());
         calibrations.push_back(std::move(item));auto& added=calibrations.back();
         // The null sees EVERY cutoff visited by any alternative, including
         // derivative and alias hypotheses. Improved background fitting can
@@ -1386,9 +1601,25 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
         if(cacheShapes&&shapeWaves.size()<128)shapeWaves.push_back({shape,removeNuisance,wave});
         return wave;
     };
+    struct HorizonBasis {std::array<std::vector<double>,2> values;bool sourceRelativeGround=false;};
+    const double horizA=dot(forward,verticalUp),horizB=dot(right,verticalUp),horizC=dot(vertical,verticalUp);
+    const double fieldLeft=std::max(-1.55,-halfX-margin),fieldRight=std::min(1.55,halfX+margin);
+    const double fieldBottom=std::max(-1.55,-halfY-margin),fieldTop=std::min(1.55,halfY+margin);
+    const auto boxLevelBounds=[&](double x0,double x1,double y0,double y1)->std::array<double,2> {
+        const double xl=std::tan(x0),xr=std::tan(x1),yl=std::tan(y0),yr=std::tan(y1);
+        const double nlo=horizA+std::min(horizB*xl,horizB*xr)+std::min(horizC*yl,horizC*yr);
+        const double nhi=horizA+std::max(horizB*xl,horizB*xr)+std::max(horizC*yl,horizC*yr);
+        const auto nearest=[](double l,double r){return l<=0&&r>=0?0.:std::min(std::abs(l),std::abs(r));};
+        const double dx=nearest(xl,xr),dy=nearest(yl,yr);
+        const double dlo=std::sqrt(1+dx*dx+dy*dy),dhi=std::sqrt(1+std::max(xl*xl,xr*xr)+std::max(yl*yl,yr*yr));
+        const double err=128*std::numeric_limits<double>::epsilon()*(1+std::abs(horizA)+std::abs(horizB)+std::abs(horizC));
+        return {{std::nextafter(nlo/(nlo>=0?dhi:dlo)-err,-std::numeric_limits<double>::infinity()),
+                 std::nextafter(nhi/(nhi>=0?dlo:dhi)+err,std::numeric_limits<double>::infinity())}};
+    };
     std::optional<Parameters> lastOutsideShape;
     std::vector<double> lastOutsideRaw;
-    const auto basis=[&](const Parameters& q,bool removeNuisance)->std::optional<std::array<std::vector<double>,2>> {
+    bool lastOutsideRelativeGround=false;
+    const auto basis=[&](const Parameters& q,bool removeNuisance)->std::optional<HorizonBasis> {
         const auto* ground=calibration(q[4]);if(!ground)return std::nullopt;
         bool sameOutside=lastOutsideShape.has_value();
         if(sameOutside)for(unsigned coordinate=0;coordinate<5;++coordinate) {
@@ -1396,26 +1627,48 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
                std::signbit(q[coordinate])!=std::signbit((*lastOutsideShape)[coordinate])){sameOutside=false;break;}
         }
         std::vector<double> outside;
-        if(sameOutside)outside=lastOutsideRaw;
+        bool sourceRelativeGround=false;
+        if(sameOutside){outside=lastOutsideRaw;sourceRelativeGround=lastOutsideRelativeGround;}
         else {
             if(q[2]>0&&q[3]>0) {
-                const std::array<double,4> support{q[0]-.5*q[2],q[0]+.5*q[2],q[1]-.5*q[3],q[1]+.5*q[3]};
-                const auto occulted=unitGroundFieldV1(p,forward,verticalUp,q[4],support);
-                if(!occulted)return std::nullopt;
-                if(std::all_of(occulted->begin(),occulted->end(),[](double value){return value==0;}))outside=ground->rawWave;
-                else {
-                    // Keep the original spatial subtraction and summation
-                    // order. Memoize only its unprojected phase vector.
-                    const auto* full=groundField(q[4]);if(!full)return std::nullopt;
-                    auto field=*full;
-                    for(std::size_t i=0;i<field.size();++i)field[i]-=(*occulted)[i];
-                    outside=waveform(field,false);
+                const double x0=q[0]-.5*q[2],x1=q[0]+.5*q[2],y0=q[1]-.5*q[3],y1=q[1]+.5*q[3];
+                const double cx0=std::max(fieldLeft,x0),cx1=std::min(fieldRight,x1);
+                const double cy0=std::max(fieldBottom,y0),cy1=std::min(fieldTop,y1);
+                if(!(cx1>cx0)||!(cy1>cy0)) {
+                    outside=ground->rawWave;
+                } else {
+                    const auto levels=boxLevelBounds(cx0,cx1,cy0,cy1);
+                    if(levels[0]>=q[4]) {
+                        outside=ground->rawWave;
+                    } else if(levels[1]<q[4]&&x0>=-halfX-margin&&x1<=halfX+margin&&y0>=-halfY-margin&&y1<=halfY+margin) {
+                        // Exact linear change of coordinates: wholly ground-backed
+                        // support has contrast relative to ground, identical to
+                        // MovingRadiatorInverseV2::basis.
+                        outside=ground->rawWave;
+                        sourceRelativeGround=true;
+                    } else {
+                        const std::array<double,4> support{x0,x1,y0,y1};
+                        const auto occulted=unitGroundFieldMemoV2(p,forward,verticalUp,q[4],support,
+                            [&]()->const std::vector<double>*{return groundField(q[4]);});
+                        if(!occulted)return std::nullopt;
+                        if(std::all_of(occulted->begin(),occulted->end(),[](double value){return value==0;}))outside=ground->rawWave;
+                        else {
+                            // Linear waveform subtraction matches waveform(*full - *occulted, false)
+                            // while avoiding full-frame groundField recomputation and zero pixels.
+                            const auto occWave=waveform(*occulted,false);
+                            outside=ground->rawWave;
+                            for(unsigned j=0;j<count;++j)outside[j]-=occWave[j];
+                        }
+                    }
                 }
             } else outside=ground->rawWave;
-            lastOutsideShape=q;lastOutsideRaw=outside;
+            lastOutsideShape=q;lastOutsideRaw=outside;lastOutsideRelativeGround=sourceRelativeGround;
         }
         if(removeNuisance)project(outside);
-        return std::array<std::vector<double>,2>{std::move(outside),sourceWave(q,removeNuisance)};
+        return HorizonBasis{std::array<std::vector<double>,2>{std::move(outside),sourceWave(q,removeNuisance)},sourceRelativeGround};
+    };
+    const auto effectiveSource=[&](const Parameters& q,const HorizonBasis& hb,double b,double d) {
+        return d-(hb.sourceRelativeGround?q[2]*q[3]/pixelArea*b:0.);
     };
     // Recover a necessary physical radiance budget from the unprojected ADC
     // waveform. Uniform radiance and the unknown initial pole state are fit
@@ -1435,8 +1688,9 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
     if(hasTransient&&!(det>128*std::numeric_limits<double>::epsilon()*uu*tt))return;
     const auto physicalBudget=[&](const Parameters& q,double b,double d,std::array<double,3>* budget=nullptr) {
         const auto raw=basis(q,false);if(!raw)return false;
+        const double dEff=effectiveSource(q,*raw,b,d);
         auto remaining=result.measuredElectrons;
-        for(unsigned j=0;j<count;++j)remaining[j]-=b*(*raw)[0][j]+d*(*raw)[1][j]+dark[j];
+        for(unsigned j=0;j<count;++j)remaining[j]-=b*raw->values[0][j]+dEff*raw->values[1][j]+dark[j];
         const double sky=hasTransient?(inner(remaining,uniform)*tt-inner(remaining,transient)*ut)/det:inner(remaining,uniform)/uu;
         const double areaCells=q[2]*q[3]/pixelArea;
         const double ground=sky+b,radiator=areaCells>0?sky+d/areaCells:d;
@@ -1447,8 +1701,8 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
     Parameters bestQ{startX,startY,startWidth,startHeight,nullCutoff};
     const auto solve=[&](const Parameters& q,std::vector<double>* reduced=nullptr)->std::optional<std::array<double,3>> {
         if(std::abs(q[0])>halfX||std::abs(q[1])>halfY||q[2]<0||q[3]<0||q[2]>2*halfX||q[3]>2*halfY||q[4]<low||q[4]>high)return std::nullopt;
-        const auto values=basis(q,true);if(!values)return std::nullopt;
-        const auto& u=(*values)[0];const auto& v=(*values)[1];
+        const auto hb=basis(q,true);if(!hb)return std::nullopt;
+        const auto& u=hb->values[0];const auto& v=hb->values[1];
         const double backgroundNorm=inner(u,u),uv=inner(u,v),vv=inner(v,v);
         const double determinant=backgroundNorm*vv-uv*uv;
         if(backgroundNorm<=0||vv<=0||determinant<=128*std::numeric_limits<double>::epsilon()*backgroundNorm*vv)return std::nullopt;
@@ -1459,8 +1713,9 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
             const double residual=data[j]-b*u[j]-d*v[j];cost+=residual*residual;
             if(reduced)(*reduced)[j]=residual/std::sqrt(variance);
         }
-        if(!std::isfinite(cost))return std::nullopt;
-        return std::array<double,3>{cost,b,d};
+        const double dSky=d+(hb->sourceRelativeGround?q[2]*q[3]/pixelArea*b:0.);
+        if(!std::isfinite(cost)||!std::isfinite(b)||!std::isfinite(dSky))return std::nullopt;
+        return std::array<double,3>{cost,b,dSky};
     };
     const auto consider=[&](const Parameters& q) {
         const auto fit=solve(q);if(!fit)return;
@@ -1527,6 +1782,65 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
         const auto record=[&](const Parameters& q,const std::array<double,3>& fit) {
             if(fit[0]<selected.cost&&physicalBudget(q,fit[1],fit[2]))selected={q,fit[0],fit[1],fit[2]};
         };
+        const auto needsRegional=[&](const Parameters& q)->bool {
+            if(!(q[2]>0&&q[3]>0))return false;
+            const double x0=q[0]-.5*q[2],x1=q[0]+.5*q[2],y0=q[1]-.5*q[3],y1=q[1]+.5*q[3];
+            const double cx0=std::max(fieldLeft,x0),cx1=std::min(fieldRight,x1);
+            const double cy0=std::max(fieldBottom,y0),cy1=std::min(fieldTop,y1);
+            if(!(cx1>cx0)||!(cy1>cy0))return false;
+            const auto levels=boxLevelBounds(cx0,cx1,cy0,cy1);
+            if(levels[0]>=q[4])return false;
+            if(levels[1]<q[4]&&x0>=-halfX-margin&&x1<=halfX+margin&&y0>=-halfY-margin&&y1<=halfY+margin)return false;
+            return true;
+        };
+        const auto solvePure=[&](const Parameters& q,const std::vector<double>& groundRawWave,
+            const std::vector<double>* fullGroundField,std::vector<double>& reduced)->bool {
+            if(std::abs(q[0])>halfX||std::abs(q[1])>halfY||q[2]<0||q[3]<0||q[2]>2*halfX||q[3]>2*halfY||q[4]<low||q[4]>high)return false;
+            std::vector<double> outside;
+            bool sourceRelativeGround=false;
+            if(q[2]>0&&q[3]>0) {
+                const double x0=q[0]-.5*q[2],x1=q[0]+.5*q[2],y0=q[1]-.5*q[3],y1=q[1]+.5*q[3];
+                const double cx0=std::max(fieldLeft,x0),cx1=std::min(fieldRight,x1);
+                const double cy0=std::max(fieldBottom,y0),cy1=std::min(fieldTop,y1);
+                if(!(cx1>cx0)||!(cy1>cy0))outside=groundRawWave;
+                else {
+                    const auto levels=boxLevelBounds(cx0,cx1,cy0,cy1);
+                    if(levels[0]>=q[4])outside=groundRawWave;
+                    else if(levels[1]<q[4]&&x0>=-halfX-margin&&x1<=halfX+margin&&y0>=-halfY-margin&&y1<=halfY+margin) {
+                        outside=groundRawWave;sourceRelativeGround=true;
+                    } else {
+                        const std::array<double,4> support{x0,x1,y0,y1};
+                        const auto occulted=unitGroundFieldMemoV2(p,forward,verticalUp,q[4],support,
+                            [&]()->const std::vector<double>*{return fullGroundField;});
+                        if(!occulted)return false;
+                        if(std::all_of(occulted->begin(),occulted->end(),[](double value){return value==0;}))outside=groundRawWave;
+                        else {
+                            const auto occWave=waveform(*occulted,false);
+                            outside=groundRawWave;
+                            for(unsigned j=0;j<count;++j)outside[j]-=occWave[j];
+                        }
+                    }
+                }
+            } else outside=groundRawWave;
+            project(outside);
+            const auto v=spot(q[0],q[1],p.psfSigmaRad,q[2],q[3],true);
+            const auto& u=outside;
+            const double backgroundNorm=inner(u,u),uv=inner(u,v),vv=inner(v,v);
+            const double determinant=backgroundNorm*vv-uv*uv;
+            if(backgroundNorm<=0||vv<=0||determinant<=128*std::numeric_limits<double>::epsilon()*backgroundNorm*vv)return false;
+            const double yu=inner(data,u),yv=inner(data,v);
+            const double b=(yu*vv-yv*uv)/determinant,d=(yv*backgroundNorm-yu*uv)/determinant;
+            reduced.resize(count);
+            double cost=0;
+            for(unsigned j=0;j<count;++j) {
+                const double res=data[j]-b*u[j]-d*v[j];cost+=res*res;
+                reduced[j]=res/std::sqrt(variance);
+            }
+            const double dSky=d+(sourceRelativeGround?q[2]*q[3]/pixelArea*b:0.);
+            return std::isfinite(cost)&&std::isfinite(b)&&std::isfinite(dSky);
+        };
+        StaticJacobianPoolV1 jacobianPool;
+        const unsigned maxJacobianWorkers=std::min(8u,std::max(1u,std::thread::hardware_concurrency()));
         const auto trust=[&](const Parameters& initial) {
             Parameters current=quantize(squared(initial));
             std::vector<double> residual;
@@ -1537,18 +1851,119 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
             for(std::size_t iteration=0;iteration<trustIterations;++iteration) {
                 std::array<std::vector<double>,5> jacobian;
                 bool derivatives=true;
+                bool useParallel=maxJacobianWorkers>=2;
+                std::array<Parameters,5> plusCoords{},minusCoords{};
+                bool anyRegional03=false;
                 for(unsigned coordinate=0;coordinate<5;++coordinate) {
                     const double difference=coordinate<2?p.pixelPitchRad/1024:
                         coordinate<4?p.pixelPitchRad*p.pixelPitchRad/1024:initialCutStep/1024;
-                    auto plus=current,minus=current;
-                    plus[coordinate]=std::min(upper[coordinate],current[coordinate]+difference);
-                    minus[coordinate]=std::max(lower[coordinate],current[coordinate]-difference);
-                    std::vector<double> a,b;
-                    if(!(plus[coordinate]>minus[coordinate])||!solve(geometry(plus),&a)||!solve(geometry(minus),&b)) {
-                        derivatives=false;break;
+                    plusCoords[coordinate]=current;minusCoords[coordinate]=current;
+                    plusCoords[coordinate][coordinate]=std::min(upper[coordinate],current[coordinate]+difference);
+                    minusCoords[coordinate][coordinate]=std::max(lower[coordinate],current[coordinate]-difference);
+                    if(coordinate<4) {
+                        if(!(plusCoords[coordinate][coordinate]>minusCoords[coordinate][coordinate]))useParallel=false;
+                        else if(needsRegional(geometry(plusCoords[coordinate]))||needsRegional(geometry(minusCoords[coordinate])))
+                            anyRegional03=true;
                     }
-                    jacobian[coordinate].resize(count);
-                    for(unsigned j=0;j<count;++j)jacobian[coordinate][j]=(a[j]-b[j])/(plus[coordinate]-minus[coordinate]);
+                }
+                std::fenv_t callerEnv{};
+                if(useParallel&&anyRegional03&&std::fegetenv(&callerEnv)==0) {
+#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
+                    const unsigned callerCsr=_mm_getcsr();
+#endif
+#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
+                    unsigned short callerCw=0;__asm__ __volatile__("fnstcw %0":"=m"(callerCw));
+#endif
+                    const auto restoreEnv=[&](unsigned worker)->bool {
+                        if(worker==0)return true;
+                        if(std::fesetenv(&callerEnv)!=0)return false;
+#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
+                        _mm_setcsr(callerCsr);
+#endif
+#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
+                        __asm__ __volatile__("fldcw %0"::"m"(callerCw));
+#endif
+                        return true;
+                    };
+                    const auto* gCur=calibration(current[4]);
+                    const auto* gfCur=gCur?groundField(current[4]):nullptr;
+                    if(!gCur||!gfCur) {
+                        derivatives=false;
+                    } else {
+                        std::array<std::vector<double>,8> res03;
+                        std::array<bool,8> ok03{};
+                        std::array<std::exception_ptr,8> err03{};
+                        std::atomic<unsigned> nextTask{0};
+                        const auto run03=[&](unsigned worker) noexcept {
+                            try {
+                                if(!restoreEnv(worker))return;
+                                for(;;) {
+                                    const unsigned idx=nextTask.fetch_add(1,std::memory_order_relaxed);
+                                    if(idx>=8u)break;
+                                    const unsigned coord=idx>>1u;
+                                    const Parameters q=geometry((idx&1u)?minusCoords[coord]:plusCoords[coord]);
+                                    ok03[idx]=solvePure(q,gCur->rawWave,gfCur,res03[idx]);
+                                }
+                            } catch(...) {err03[worker]=std::current_exception();}
+                        };
+                        jacobianPool.run(maxJacobianWorkers,run03);
+                        for(const auto& e:err03)if(e)std::rethrow_exception(e);
+                        for(unsigned coord=0;coord<4;++coord) {
+                            if(!ok03[2*coord]||!ok03[2*coord+1]){derivatives=false;break;}
+                            jacobian[coord].resize(count);
+                            const double denom=plusCoords[coord][coord]-minusCoords[coord][coord];
+                            for(unsigned j=0;j<count;++j)jacobian[coord][j]=(res03[2*coord][j]-res03[2*coord+1][j])/denom;
+                        }
+                    }
+                    if(derivatives) {
+                        if(!(plusCoords[4][4]>minusCoords[4][4])) {
+                            derivatives=false;
+                        } else {
+                            const Parameters gp4=geometry(plusCoords[4]),gm4=geometry(minusCoords[4]);
+                            const auto* gP=calibration(gp4[4]);
+                            const auto* gfP=gP?groundField(gp4[4]):nullptr;
+                            if(!gP||!gfP) {
+                                derivatives=false;
+                            } else {
+                                const std::vector<double> rawP=gP->rawWave,fieldP=*gfP;
+                                const auto* gM=calibration(gm4[4]);
+                                const auto* gfM=gM?groundField(gm4[4]):nullptr;
+                                if(!gM||!gfM) {
+                                    derivatives=false;
+                                } else {
+                                    const std::vector<double> rawM=gM->rawWave,fieldM=*gfM;
+                                    std::array<std::vector<double>,2> res4;
+                                    std::array<bool,2> ok4{};
+                                    std::array<std::exception_ptr,2> err4{};
+                                    const auto run4=[&](unsigned worker) noexcept {
+                                        try {
+                                            if(!restoreEnv(worker))return;
+                                            if(worker==0)ok4[0]=solvePure(gp4,rawP,&fieldP,res4[0]);
+                                            else ok4[1]=solvePure(gm4,rawM,&fieldM,res4[1]);
+                                        } catch(...) {err4[worker]=std::current_exception();}
+                                    };
+                                    jacobianPool.run(2u,run4);
+                                    for(const auto& e:err4)if(e)std::rethrow_exception(e);
+                                    if(!ok4[0]||!ok4[1])derivatives=false;
+                                    else {
+                                        jacobian[4].resize(count);
+                                        const double denom=plusCoords[4][4]-minusCoords[4][4];
+                                        for(unsigned j=0;j<count;++j)jacobian[4][j]=(res4[0][j]-res4[1][j])/denom;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    for(unsigned coordinate=0;coordinate<5;++coordinate) {
+                        std::vector<double> a,b;
+                        if(!(plusCoords[coordinate][coordinate]>minusCoords[coordinate][coordinate])||
+                           !solve(geometry(plusCoords[coordinate]),&a)||!solve(geometry(minusCoords[coordinate]),&b)) {
+                            derivatives=false;break;
+                        }
+                        jacobian[coordinate].resize(count);
+                        for(unsigned j=0;j<count;++j)jacobian[coordinate][j]=(a[j]-b[j])/(plusCoords[coordinate][coordinate]-minusCoords[coordinate][coordinate]);
+                    }
                 }
                 if(!derivatives)break;
                 Parameters lowerStep{},upperStep{};
@@ -1601,11 +2016,26 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
         // These propose shapes; physical budgets, null updates, curvature,
         // finite mirrors, domain/profile screens and admission remain below.
         if(priorStart&&selected.cost/variance>residualBound) {
-            auto priorCutoffs=starts;
-            if(std::find(priorCutoffs.begin(),priorCutoffs.end(),(*priorStart)[4])==priorCutoffs.end())
-                priorCutoffs.push_back((*priorStart)[4]);
+            std::vector<double> priorCutoffs{(*priorStart)[4]};
+            if(nullCutoff!=(*priorStart)[4])priorCutoffs.push_back(nullCutoff);
+            // Ego roll between captures can swap or square the axis-aligned
+            // support across the 2f modulation saddle (w == h). Test the prior
+            // extent first, then 90-degree swapped (h, w) and equal-side
+            // envelope (max, max) using only the causal prior's finite values.
+            std::vector<std::array<double,2>> priorExtents{{(*priorStart)[2],(*priorStart)[3]}};
+            if((*priorStart)[2]!=(*priorStart)[3]) {
+                if((*priorStart)[3]<=2*halfX&&(*priorStart)[2]<=2*halfY)
+                    priorExtents.push_back({(*priorStart)[3],(*priorStart)[2]});
+                const double side=std::max((*priorStart)[2],(*priorStart)[3]);
+                if(side<=2*halfX&&side<=2*halfY)priorExtents.push_back({side,side});
+            }
             for(const double cutoff:priorCutoffs) {
-                auto initial=*priorStart;initial[4]=cutoff;trust(initial);
+                for(const auto& extent:priorExtents) {
+                    auto initial=*priorStart;
+                    initial[2]=extent[0];initial[3]=extent[1];initial[4]=cutoff;
+                    trust(initial);
+                    if(selected.cost/variance<=residualBound)break;
+                }
                 if(selected.cost/variance<=residualBound)break;
             }
         }
@@ -1629,8 +2059,9 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
         const auto values=basis(q,true);if(!values)return std::nullopt;
         const auto prediction=[&](const Parameters& shape)->std::optional<std::vector<double>> {
             const auto wave=basis(shape,true);if(!wave)return std::nullopt;
-            auto answer=(*wave)[0];
-            for(unsigned j=0;j<count;++j)answer[j]=background*answer[j]+source*(*wave)[1][j];
+            const double dEff=effectiveSource(shape,*wave,background,source);
+            auto answer=wave->values[0];
+            for(unsigned j=0;j<count;++j)answer[j]=background*answer[j]+dEff*wave->values[1][j];
             return answer;
         };
         std::vector<std::vector<double>> nuisance;
@@ -1645,7 +2076,7 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
             nuisance.push_back(std::move(column));return true;
         };
         if(selectedMode)observed.refusal=13;
-        if(!addColumn((*values)[0])||!addColumn((*values)[1]))return std::nullopt;
+        if(!addColumn(values->values[0])||!addColumn(values->values[1]))return std::nullopt;
         const double derivativeStep=p.pixelPitchRad/1024,cutDerivative=initialCutStep/1024;
         const auto derivative=[&](unsigned coordinate)->std::optional<std::vector<double>> {
             auto plus=q,minus=q;const double h=coordinate==4?cutDerivative:derivativeStep;

@@ -75,8 +75,12 @@ public:
     /// The old expose signature remains the exact no-prior path.
     ThermalReticleResultV1 exposeWithMeasuredPriorV2(const ThermalSceneFrameV1&,weapon::V3 pointing,
         std::uint64_t seed,const ThermalReticleMeasuredPriorV2*);
+    ThermalReticleResultV1 exposeWithMeasuredPriorV2(const ThermalSceneFrameV1&,weapon::V3 pointing,
+        std::uint64_t seed,const ThermalReticleMeasuredPriorV2*,ThermalReticleMovingDiagnosticV2* movingDiagnostic);
     void inferMeasuredWithPriorV2(ThermalReticleResultV1&,weapon::V3 pointing,weapon::V3 up,
         const ThermalReticleMeasuredPriorV2*) const;
+    void inferMeasuredWithPriorV2(ThermalReticleResultV1&,weapon::V3 pointing,weapon::V3 up,
+        const ThermalReticleMeasuredPriorV2*,ThermalReticleMovingDiagnosticV2* movingDiagnostic) const;
     /// Pure five-parameter static-horizon calibration, excluding MovingV2.
     /// No detector exposure, cached receiver state, RNG or scene truth is used.
     void inferStaticHorizonForCalibrationV2(ThermalReticleResultV1&,weapon::V3 pointing,weapon::V3 up,
@@ -88,6 +92,8 @@ public:
     /// Optional output is synchronous/caller-owned; no forward pole/RNG access.
     void inferMovingMeasuredV2(ThermalReticleResultV1&,weapon::V3 pointing,weapon::V3 up,
         ThermalReticleMovingDiagnosticV2* diagnostic=nullptr) const;
+    void inferMovingMeasuredWithPriorV2(ThermalReticleResultV1&,weapon::V3 pointing,weapon::V3 up,
+        const ThermalReticleMeasuredPriorV2* prior,ThermalReticleMovingDiagnosticV2* diagnostic=nullptr) const;
     /// Pure instrument-basis calibration, not an exposure or a detection.
     std::optional<std::array<std::vector<double>,2>> movingBasisForCalibrationV2(
         const ThermalReticleResultV1& clock,weapon::V3 pointing,weapon::V3 up,

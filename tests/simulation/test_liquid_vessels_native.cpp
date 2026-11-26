@@ -349,7 +349,7 @@ struct Native {
         bool declared=false;materials=session::readLiquidMaterialDatasetV1(directory,"rq4b",frame.get(),declared,error);
         INFO(error);REQUIRE(declared);REQUIRE(materials);REQUIRE_FALSE(materials->cells.empty());
         session::VehicleSpec spec;spec.name="native liquid recipient";spec.type="jsbsim:rq4b";
-        spec.initial.altitudeMslM=6000;spec.initial.airspeedTrueMs=220;spec.initial.headingDeg=90;
+        spec.initial.altitudeMslM=6000;spec.initial.airspeedTrueMs=122;spec.initial.headingDeg=90;
         parent=world.createVehicle(spec);REQUIRE(parent);world.step();
     }
     double duration()const{return world.dt()*static_cast<double>(world.frameSkip());}

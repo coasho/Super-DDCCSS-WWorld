@@ -57,6 +57,62 @@ BodyContactOutcome inelasticBodyContact(const ContactBody& a, const ContactBody&
     return out;
 }
 
+FragmentFieldV1 buildContactCarrierFieldV1(const CarrierTraversalInputV1& in) noexcept {
+    FragmentFieldV1 field;
+    if (!finiteVector(in.contactPointEcef) || !finiteVector(in.contactNormalEcef) ||
+        !finiteVector(in.weaponVelocityEcef) || !finiteVector(in.victimVelocityEcef) ||
+        !finiteVector(in.weaponAxisEcef) || !finiteVector(in.weaponImpulseEcef) ||
+        !std::isfinite(in.weaponMassToiKg) || !(in.weaponMassToiKg > 0.0) ||
+        !std::isfinite(in.warheadTotalKg) || in.warheadTotalKg < 0.0 ||
+        !std::isfinite(in.bodyDiameterM) || !(in.bodyDiameterM > 0.0) ||
+        !std::isfinite(in.entrySkinThicknessM) || in.entrySkinThicknessM < 0.0 ||
+        !std::isfinite(in.bodyCd) || !(in.bodyCd > 0.0)) return field;
+    const double normN = length(in.contactNormalEcef);
+    const double normA = length(in.weaponAxisEcef);
+    if (!std::isfinite(normN) || !(normN > 0.0) || !std::isfinite(normA) || !(normA > 0.0)) return field;
+    const double residualKg = in.weaponMassToiKg - in.warheadTotalKg;
+    if (!std::isfinite(residualKg) || !(residualKg > 0.0)) return field;
+    const V3 n = in.contactNormalEcef * (1.0 / normN);
+    const V3 axis = in.weaponAxisEcef * (1.0 / normA);
+    // Subtract any already-transferred rigid-body contact impulse from the TOI
+    // velocity so momentum and energy are never double-counted.
+    const V3 postVelocity = in.weaponVelocityEcef + in.weaponImpulseEcef * (1.0 / in.weaponMassToiKg);
+    if (!finiteVector(postVelocity)) return field;
+    const V3 relVelocity = postVelocity - in.victimVelocityEcef;
+    const double relSpeed = length(relVelocity);
+    const double closingNormal = -dot(relVelocity, n);
+    if (!std::isfinite(relSpeed) || !(relSpeed > 0.0) || !std::isfinite(closingNormal) || !(closingNormal > 0.0)) return field;
+    constexpr double kPi = 3.14159265358979323846;
+    constexpr double kSurfaceClearanceM = 1e-4;
+    const double areaM2 = 0.25 * kPi * in.bodyDiameterM * in.bodyDiameterM;
+    if (!std::isfinite(areaM2) || !(areaM2 > 0.0)) return field;
+    if (in.entrySkinThicknessM > 0.0) {
+        const double obliquityRad = std::acos(std::clamp(closingNormal / relSpeed, 0.0, 1.0));
+        if (!(thorResidual(in.entrySkinThicknessM, areaM2, residualKg, relSpeed, obliquityRad) > 0.0)) return field;
+    }
+    const V3 launchPoint = in.contactPointEcef + n * kSurfaceClearanceM;
+    if (!finiteVector(launchPoint)) return field;
+    field.valid = true;
+    field.caseKg = residualKg;
+    field.tntKg = 0.0;
+    field.applyBlast = false;
+    field.ageS = 0.0;
+    field.emittedCount = 1;
+    field.burst.at = launchPoint;
+    field.burst.velocity = postVelocity;
+    field.burst.axis = axis;
+    FragmentFieldV1::Projectile p;
+    p.sourceOrdinalV1 = 1;
+    p.at = launchPoint;
+    p.velocity = postVelocity;
+    p.massKg = residualKg;
+    p.areaM2 = areaM2;
+    p.cd = in.bodyCd;
+    p.segment = false;
+    field.projectiles.push_back(std::move(p));
+    return field;
+}
+
 namespace {
 double smooth(double lo, double hi, double x) noexcept {
     const double t = std::clamp((x - lo) / (hi - lo), 0.0, 1.0);

@@ -509546,5 +509546,10 @@
     ]
    }
   ]
+ },
+ "liquid_geometry_v1": {
+  "file": "rafale.liquid-v1.json",
+  "schema": "fsim.liquid-occupancy.v1",
+  "required": true
  }
 }

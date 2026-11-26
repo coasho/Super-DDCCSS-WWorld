@@ -1061,7 +1061,7 @@ private:
     struct ContactTransfer {
         std::uint32_t victim=0;
         int section=-1;
-        ms::damage::V3 pointBody, pointEcef, impulseEcef, weaponImpulseEcef, weaponAngularEcef;
+        ms::damage::V3 pointBody, pointEcef, normalEcef, impulseEcef, weaponImpulseEcef, weaponAngularEcef;
         double fraction=0, dissipatedJ=0, closingMs=0;
     };
     std::optional<ContactTransfer> contactTransfer(const Entry& weapon, std::uint32_t victim,

@@ -2891,3 +2891,23 @@ class Applicability(unittest.TestCase):
         self.assertIn('<property value="1">fsim/applicability/version</property>', xml)
         self.assertIn('<property value="1">fsim/applicability/vertical_flight</property>', xml)
         self.assertIn('<property value="0.0">fsim/applicability/aerobatic</property>', xml)
+
+
+class CruciformWingBodySymmetry(unittest.TestCase):
+    """A top-bottom symmetric cruciform missile has no wing surface and must
+    not inherit an asymmetric high-wing DATCOM 5.1.2.1 dihedral roll term."""
+
+    def test_symmetric_cruciform_missile_has_zero_sideslip_roll_at_zero_alpha(self):
+        from hangar.aero.model import AeroModel
+        r60m = Aircraft.load(repo("aircraft/r60m/r60m.toml"))
+        model = AeroModel(r60m)
+        self.assertEqual(model.clb_wing_body, 0.0)
+        for beta_deg in (-6.0, -3.0, 3.0, 6.0):
+            ev = model.evaluate(0.0, math.radians(beta_deg))
+            self.assertAlmostEqual(ev["Cl"], 0.0, places=12, msg=f"beta={beta_deg}")
+
+    def test_high_wing_aircraft_retains_wing_body_dihedral(self):
+        from hangar.aero.model import AeroModel
+        c172 = Aircraft.load(repo("aircraft/c172/c172.toml"))
+        model = AeroModel(c172)
+        self.assertLess(model.clb_wing_body, -0.01)

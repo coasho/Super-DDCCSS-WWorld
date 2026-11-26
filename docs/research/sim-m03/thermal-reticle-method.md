@@ -805,3 +805,188 @@ FLT_EVAL_METHOD==0 guard exact stores. Added immutable-reference controls
 compare IEEE bytes, explicitly distinguish signed zero, and exercise directed
 rounding fallback with complete fenv/CSR restoration. Native admission remains
 pending for this checkpoint.
+
+## V5 certified row and normal arithmetic — 2026-11-05
+
+This changes only the private V5 numerical evaluation of the same opaque
+regional optical integral. Detector parameters, measured charges, trial
+budget, nuisance directions, likelihood/mode criteria and native fallback
+remain unchanged. The V2 and materialized V4 operators retain their previous
+arithmetic. The per-component field budget remains `1e-9`.
+
+For detector row `[l,h]`, source ordinate `y` and Gaussian PSF width `s`, the
+probability is `P(y)=Phi((h-y)/s)-Phi((l-y)/s)`. For rectangle ordinate range
+`[b,t]` wholly separated from that row by `g>0`, monotonicity gives
+`0 <= P(y) <= Q(g/s)`. The horizontal convolved response integrated over any
+rectangle interval is at most one detector pitch `p`. Consequently the entire
+normalized rectangle response in any column of that row is bounded by
+`(t-b)*Q(g/s)/p`; any ground-occulted subset is smaller. This is a bound on the
+physical integral, not a classification of the source or a detection cutoff.
+
+V5 may omit the row only when outward arithmetic proves this bound is within
+the already existing `5e-19` omitted-tail allowance. It stores the row bound
+plus the original outside-domain tail in `absoluteError`. Uncertain bounds
+compute the full row. No acceptance tolerance is enlarged. Moment midpoints
+and their radii are computed once per column and degree, then reused exactly
+for its row contractions.
+
+The Gaussian definitions and independent analytic reference follow
+[NIST DLMF 7.1](https://dlmf.nist.gov/7.1). With
+`J(z)=z*Phi(z)+phi(z)`, a one-dimensional integrated rectangular response is
+`s*(J((h-a)/s)-J((h-b)/s)-J((l-a)/s)+J((l-b)/s))`.
+The two-dimensional fully ground-backed reference is the product of its x/y
+responses divided by `p*p`. The independent 100-decimal evaluation uses exact
+native binary64 inputs and reflected negative tails to avoid subtracting
+nearly equal positive-tail primitives. Inputs are a 64x64 detector,
+`p=0.0015`, `s=0.00075`, region `[-0.0041,0.0052,-0.0037,0.0049]`, horizontal
+pointing and cutoff `0.3`. Eighteen stored points cover central, boundary and
+remote rows. Examples are row/column `31/31 = 0.99972533709811838235`,
+`24/31 = 3.3058171375584702597e-21`, and
+`40/34 = 7.1174850273505389371e-23`. Native results must lie inside their own
+reported error envelopes, including final reference rounding.
+
+V5 also evaluates each stored normal polynomial once at the argument ball's
+center. Its existing coefficient/remainder and operation bounds remain;
+global derivative bounds `|Q'|<0.4` and `|phi'|<0.25` add the complete argument
+radius. This avoids repeating the identical polynomial at both nearly equal
+interval endpoints. At 12 sigma the original stored tail bound applies only
+when the entire argument ball lies in that tail; a crossing ball retains
+derivative padding. Existing guarded center/radius arithmetic then propagates
+the Gaussian primitives and moments. The retained interval normal functions
+are unchanged. Non-nearest rounding and unsupported arithmetic still refuse
+V5, even on repeated requests.
+
+Domain: the existing admitted cone, PSF/pitch range, finite rectangle and
+arithmetic environment. The tail bound grows linearly with source height and
+decreases monotonically with `g/s`; increasing PSF width therefore reduces
+pruning. Invalid cone/topology, excessive moment/remainder error and unsupported
+arithmetic retain native fallback. This is a numerical optical-integral
+comparison; it establishes neither model-specific receiver hardware nor
+held-out equipment calibration.
+
+Current execution under
+`build/architecture-reviews/sim-m03-current-20261105/thermal-row-work/` passes
+22884 assertions in the Gaussian/V2/V4/V5 basis controls. A separate current
+binary linked to the normal production library passes 49624 assertions against
+26 independent 120-digit moment cases and three actual captured regional
+fields, including retained V4 bytes. The original captured-moving gate has its
+own bounded runtime result; these method passes do not admit it or the 216
+component cells. The tested one-entry field cache provided no useful runtime
+improvement and was removed from production.
+
+## Clipped conic integration and exact Gaussian reuse
+
+In the normalized ray model, let `X=tan(x)`, `Y=tan(y)`, `w=(1,X,Y)`
+and let `G` be the Gram matrix of the three native ray axes. The horizon
+condition is `a+b*X+c*Y = h*sqrt(w^T G w)`, where `h` is the configured
+cutoff and `a,b,c` are the axis projections on world up. At either horizontal
+rectangle edge, `Y` is fixed. Squaring gives a quadratic in `X`; native V5
+encloses its real roots, checks the unsquared sign, and partitions the column
+into ground, sky, horizon and root-enclosure strips. It falls back if it
+cannot certify a tangent, sign or classification. Ground uses the Gaussian
+rectangle integral. Horizon pieces use the retained column moments and
+remainder bound. Within a root strip of width `dx`, replacing its clipped
+horizon by a constant at most `dy` away adds at most `dx*dy/p^2` to the
+absolute field error, since both Gaussian pixel responses are at most one.
+The error increases with strip width and horizon uncertainty; neither is
+discarded to make a crossing pass. The existing `1e-9` budget still applies.
+
+`tools/validation/weapon_quality/conic_clipped_reference.py` uses mpmath at
+120 decimal digits to solve the unsquared branch and integrate the Gaussian
+response over each of six captured optical rectangles, split at their edge
+crossings. It computes 18 reference pixel values independently of the native
+polynomial moments. The fixture supplies binary64 optics, cutoff and bounds;
+it does not supply an accepted bearing or engagement outcome. The native
+reference test checks each value against its reported per-pixel error.
+
+V5 shares only Gaussian factors in an explicit per-inverse memo. The row
+key uses the exact bottom and top; the moment key uses exact integration and
+detector bounds and moment degree. The memo instance fixes pitch, sigma and
+detector size. The moment anchor must equal the native midpoint expression;
+nonrepresentable bounds and unadmitted arithmetic bypass reuse. Terrain
+coefficients and completed fields are calculated for each request. This
+makes cutoff and pose changes irrelevant to a factor hit only when the exact
+factor inputs agree. Bounded eviction changes work, never the factor value.
+Independent phase workers still use their own numerical banks and retain
+the original pixel and subexposure operation order before the temporal filter.
+
+The November 11 Release controls kept the same memo alive across six cutoff
+values, checking direct versus memo field and error bytes, changed pose and
+one-ULP bounds, and zero capacity, eviction, foreign configuration and
+directed-rounding behavior. The focused execution reported 13 JUnit sections,
+96,853 assertions and zero failures or errors. The receipt is
+`build/architecture-reviews/sim-m03-current-20261111/gaussian-memo/focused-run.json`;
+the JUnit SHA-256 is
+`3c0a7f79d5ad66b4deb5b3d27c3a6e8a2af95f39a0cbd0cfb3`.
+The separate parallel fallback and rounding control passes 11 assertions.
+Regenerating all 18 mpmath values reproduces the checked-in test header
+exactly; the regenerated `reference-120.json` SHA-256 is
+`0db09e965232d6af87af39ca117303c37b5da3891ef7aafb1a1383c44f8a0c24`.
+
+The original three captured-moving scenes still time out at 180.020 seconds
+(`captured-moving-run.json`, same evidence directory). The incomplete JUnit
+does not establish any individual scene pass. The third scene reaches 2,642
+of 7,800 mode visits and 2,464,768 conic field evaluations with zero conic
+fallbacks. Its last memo sample has 19,196,052 hits and 36,991,547 misses,
+charging 67,106,244 bytes. At the matched 2,624-mode checkpoint both the
+November 5 non-memo and November 11 memo profiles visit 2,345,112 regions
+with the same residual and admission count; the measured elapsed times are
+136.275 and 140.488 seconds respectively. This cross-run observation does
+not establish a speedup. The remaining bottleneck is repeated regional work
+during the full mode sweep; changing the sweep budget or admitting an
+uncertified mode would not resolve it. The native gate and SIM-M03 remain
+unaccepted.
+
+## Exact padding and shared column preparation
+
+The V5 centre/radius path admits round-to-nearest and full extended precision
+with subnormals enabled. Let `m` be the smallest normal extended value and
+`d` the smallest subnormal. For `x >= 8*k*m`, the spacing on either side of
+`x` exceeds `2*k*d`, even immediately below an exponent boundary. The rounded
+result of `x + k*d` or `x - k*d` is then exactly `x`. The guarded implementation
+keeps the original arithmetic below that bound. The final positive binary64
+error is advanced by one representable encoding. The error inflation and
+outward bound stay numerically identical. The motivation is the hardware cost
+of subnormal operands described in the [Intel optimization reference](https://cdrdv2-public.intel.com/821612/248966-Optimization-Reference-Manual-V1-050.pdf).
+
+The before/after Release comparison executed 9,216 regional requests on each
+binary, using the six captured geometries, four cutoffs per geometry and 96
+distinct rectangle offsets. Both accepted every request. The first pass over
+each distinct request produced the same refusal flags and the same field and
+error bytes, SHA-256
+`3152141c24782944547bef83cf5e4095c1e22dd9f4ccb60f844ee7dcb2a73cbe`.
+The single timing sample including output was 1.024 s before and 0.982 s after.
+The complete three-scene run still hit the 180-second limit. Its last periodic
+third-scene sample was 4,224 of 7,800 modes. Raw evidence is in
+`build/architecture-reviews/sim-m03-current-20261111/conic-arithmetic/`.
+
+The parallel path now owns one conic bank per exact cutoff. A worker prepares
+the degree-three column and publishes its status with release semantics.
+Other workers acquire that status before reading the coefficients. If degree
+seven is required, it publishes coefficients four through seven and their
+remainder independently. The constant horizon term is the same recurrence
+prefix at both orders. Degree seven leaves the published degree-three data
+available to concurrent readers. The bank is replaced only between joined
+phase batches. Each worker still accumulates its own phase in the native
+chronological and pixel order.
+
+The concurrent control checks 48 requests over the six captured geometries
+against a serial bank, including field and error bytes and the number of
+column preparations. The full focused selection passes 97,080 assertions in
+15 JUnit sections with zero failures, errors or skips. The JUnit SHA-256 is
+`4e7ce316347d3ac1e1068fe15c2673586c28f06777a61e08c1303110010311d5`, under
+`build/architecture-reviews/sim-m03-current-20261111/shared-conic-bank/`.
+
+At the third scene's matched 2,624-mode point, the shared-bank run evaluates
+the same 2,345,112 regions and reports the same residual and admission count.
+Elapsed time in that scene drops from 138.908 s to 133.275 s after the bank
+change. The unchanged three-scene gate still times out at 180.013 s, with
+the last trace recording mode 4,269 and no completed JUnit. Its log SHA-256
+is `d0b72028beba3057cd34fe2022c7e0b3504545fd3cb0504b0d3d366cbd5ea0e8`.
+
+A separate experiment skipped only exactly zero mask terms in the regional
+phase sum. It retained 810,856 of 2,097,152 terms per complete exposure set
+and passed the byte checks. It took 134.382 s at the same 2,624-mode point
+and also timed out at 180 seconds. The shared-bank source was restored to
+the hash recorded in its receipt. The removed experiment is under
+`build/architecture-reviews/sim-m03-current-20261111/sparse-regional-phase/`.

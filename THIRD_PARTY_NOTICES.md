@@ -115,6 +115,10 @@ the following changes generated into the build tree by `cmake/JsbsimPatches.cmak
   coast. This adds no class members, virtual slots or public signatures; the engine's
   existing ignition latch, buildup and reset apply. Generated pulse tables end with
   zero thrust. See `docs/sdk/missile-flight-validation.md` for the bounded input model.
+- In `src/models/propulsion/FGEngine.h` and `FGEngine.cpp`, the existing nonvirtual
+  `FGEngine::GetSourceTank(unsigned int) const` getter is exported with `JSBSIM_API` for
+  Windows DLL consumers without changing class layout, vtable or method body, and the
+  constructor initializes `Thruster(nullptr)` for exception safety before thruster setup.
 - In `src/models/propulsion/FGTurbine.cpp`, a staged afterburner (augmethod 2) lights only
   with the core at military speed (the 97 % upstream's augmethod 1 gates on) and is lit as far
   as its fuel has risen, at the engine's augmented fuel-flow rates, from the dry engine's flow
@@ -123,6 +127,7 @@ the following changes generated into the build tree by `cmake/JsbsimPatches.cmak
   core was doing. An engine whose lever stays at or below military power is unchanged.
 
 `cmake/JsbsimPatches.cmake` makes the changes: it writes the changed files into the build
-tree, with each edit marked "flightsim patch" (two files the rotor's header reaches,
-`FGEngine.cpp` and `FGTurboProp.cpp`, are compiled from there unchanged). Packages carry the
-changed files and that script in `share/doc/flightsim/jsbsim-changes/`.
+tree, with each edit marked "flightsim patch" (header-includer sources such as
+`FGTurboProp.cpp`, `FGTransmission.cpp` and `FGFDMExec.cpp` are compiled from there
+unchanged against the patched headers). Packages carry the changed files and that script
+in `share/doc/flightsim/jsbsim-changes/`.

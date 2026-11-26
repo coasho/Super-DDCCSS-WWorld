@@ -7,30 +7,30 @@
   "files": [
     {
       "input": "assets/stores/aim-9m.json",
-      "input_sha256": "97df961e688aedb880753855c73db5453feb5d4d1ecf1503e2e766ef5cc6f5dc",
+      "input_sha256": "6617235def65fc995ae61158a9efb3ede51aea316d749d2ad5f9489c4598e9c7",
       "fixture": "tests/simulation/fixtures/weapon-v2/aim-9m.json",
-      "fixture_sha256": "64a787ea550609122c1efc635c6ec7d8cc2c01fca53a7e373acecd20d2510ba1",
+      "fixture_sha256": "8db0db16251ff0f309192f121b6ca5a3b7b8a6b4fc42bdc69f4918205bc8d05a",
       "selected_seeker": "fsim.seeker.nonimaging_ir.v2"
     },
     {
       "input": "assets/stores/aim-9x.json",
-      "input_sha256": "8894aa6a1310e2575069345a61cbb1ae0bd00e3884899634e734672db789dde4",
+      "input_sha256": "93f4025a77e592c938fb5cd73aeaa27b7901533dbf4ccb2a072afc00a65cc299",
       "fixture": "tests/simulation/fixtures/weapon-v2/aim-9x.json",
-      "fixture_sha256": "f6edd9a2d978949a62557453c42f6a244804b525cff21f6a93eb3891674c10a9",
+      "fixture_sha256": "6b41ab688cafabf85b29e2fded911aa67ae3ac85bc2d8c9a511e6a8fd5534f49",
       "selected_seeker": "fsim.seeker.imaging_ir.v2"
     },
     {
       "input": "assets/stores/aim-7m.json",
-      "input_sha256": "5c473f59fbf0728f7ec841dd7da1ab66c59a47416d88f6b6c0e13b1bcd257327",
+      "input_sha256": "6c962e768ad083153305895d78397803797d1c8dea2307d9ae576bcbeafa8b25",
       "fixture": "tests/simulation/fixtures/weapon-v2/aim-7m.json",
-      "fixture_sha256": "d4752a21c12849ee472281580335e3bc6831ff761081e0926dd2143cf0583dba",
+      "fixture_sha256": "1c83cb8935dc083917d0ddf9aab152ba650ee026be2cf0aaf774b49113c6ed19",
       "selected_seeker": "fsim.seeker.semi_active_radar.v2"
     },
     {
       "input": "assets/stores/aim-120c.json",
-      "input_sha256": "6aa631953aa69befb7b2677be42dd9ca4e5eab2a5e5672995387bf934031bd66",
+      "input_sha256": "f42403aa0978aee5dfbf31039f115e2283f4def566a219b11c5cdf5d97a96a55",
       "fixture": "tests/simulation/fixtures/weapon-v2/aim-120c.json",
-      "fixture_sha256": "d81fd624adcc458ebed8ae97f5982e6991924a501a73968ce5d0a3c674083f5b",
+      "fixture_sha256": "489dfcd6d672c9484f419c8eb7d70a81f7193bafbd96124190979e2fb2107c6f",
       "selected_seeker": "fsim.seeker.active_radar.v2"
     }
   ],
@@ -38,7 +38,7 @@
   "dependencies": {
     "catalogue": {
       "path": "tools/models/hangar/hangar/data/equipment_models.json",
-      "sha256": "92726a798885785fa820b5e3c29757bdcacce1000a137ba175d747fd2b4b37c5"
+      "sha256": "ba8514a74355cc00ca9d028d5bb33680d8bc9fc40be3040d95e6f506a4defb81"
     },
     "normalizer": {
       "path": "tools/models/hangar/hangar/equipment_models.py",

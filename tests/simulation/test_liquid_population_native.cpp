@@ -37,7 +37,7 @@ constexpr double pointMassKg=.01,pointAreaM2=.0001,pointAirCd=1.3,relativeSpeedM
 const std::vector<std::string> designs={"a10c","b52h","c130j","c172","c17a","cf2","e3g","e7a","ea18g","ec130h","f15c","f16c","f22a","f35a","fa18c","gripen","h6k","iris","j10a","j20a","kc135r","kc46a","mig29a","mirage2000","rafale","rc135w","rq4b","skua","su25","su27s","su57","typhoon","u2s","uh1h","uh60"};
 V3 vector(const double* p){return {p[0],p[1],p[2]};}
 double coordinate(V3 p,unsigned axis){return axis==0?p.x:(axis==1?p.y:p.z);}
-void coordinate(V3& p,unsigned axis,double value){if(axis==0)p.x=value;else if(axis==1)p.y=value;else p.z=value;}
+[[maybe_unused]] void coordinate(V3& p,unsigned axis,double value){if(axis==0)p.x=value;else if(axis==1)p.y=value;else p.z=value;}
 double norm(V3 p){return std::hypot(p.x,p.y,p.z);}
 V3 rotate(const sim::VehicleState& s,V3 p) {
     const auto* r=s.rotationBodyToEcef;
@@ -407,8 +407,9 @@ TEST_CASE("All maintained native liquid recipients conserve actual contents tran
     const auto chosen=select(restored,restored.data->tanks.front().index,*oldKg.at(static_cast<std::size_t>(restored.data->tanks.front().index)),*restored.world.vehicleState(restored.parent),true);
     burst(restored,source,chosen,false);REQUIRE(restored.world.resetVehicle(restored.parent));CHECK_FALSE(restored.world.liquidMaterialDiagnosticV1());
     restored.world.enableLiquidMaterialDiagnosticV1(false);restored.world.enableLiquidMaterialDiagnosticV1(true);
-    restored.world.step();const auto a=restored.contents(),b=fresh.contents();
-    const auto resetCapture=restored.world.liquidMaterialDiagnosticV1();REQUIRE(resetCapture);checkFreeze(restored,*resetCapture,a);
+    const auto resetSource=restored.release();const auto a=restored.contents(),b=fresh.contents();
+    const auto resetChoice=select(restored,restored.data->tanks.front().index,*a.at(static_cast<std::size_t>(restored.data->tanks.front().index)),*restored.world.vehicleState(restored.parent),true);
+    const auto resetCapture=burst(restored,resetSource,resetChoice,false);REQUIRE(resetCapture);checkFreeze(restored,*resetCapture,a);
     const auto freshSource=fresh.release();const auto freshKg=fresh.contents();
     const auto freshChoice=select(fresh,fresh.data->tanks.front().index,*freshKg.at(static_cast<std::size_t>(fresh.data->tanks.front().index)),*fresh.world.vehicleState(fresh.parent),true);
     const auto freshCapture=burst(fresh,freshSource,freshChoice,false);checkFreeze(fresh,*freshCapture,freshKg);

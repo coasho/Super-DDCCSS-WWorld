@@ -9,6 +9,7 @@ import hashlib
 import heapq
 import json
 import math
+import multiprocessing as mp
 import numbers
 import sys
 from collections import Counter
@@ -93,18 +94,31 @@ def _strict_partial_box(candidate, lo, hi, check=None):
 
     A strict outside box corner and a plane bounding EVERY candidate vertex
     prove a positive-volume part of Box lies outside candidate's convex hull.
-    No positive containment is admitted here. 64 vertices/128 faces/4 planes
+    No positive containment is admitted here. O(1) exact bounding-box checks
+    and 64 vertices/128 faces/4 planes plus bounded missing-corner triples
     bound optional arithmetic; unavailable/unproven inputs retain the original
     strict Boolean. Float scores choose work only; every final sign is exact.
     No persistent cache, moved plane, epsilon or model/budget change.
     """
     if check is not None: check()
+    if (np.shape(lo) != (3,) or np.shape(hi) != (3,) or
+            not np.isfinite(lo).all() or not np.isfinite(hi).all() or np.any(hi <= lo)):
+        return False
+    if hasattr(candidate, 'bounding_box'):
+        try:
+            bounds = candidate.bounding_box()
+        except (AttributeError, TypeError, ValueError):
+            bounds = None
+        if (bounds is not None and len(bounds) == 6 and all(math.isfinite(x) for x in bounds) and
+                bounds[3] > bounds[0] and bounds[4] > bounds[1] and bounds[5] > bounds[2] and
+                (bounds[0] > lo[0] or bounds[1] > lo[1] or bounds[2] > lo[2] or
+                 bounds[3] < hi[0] or bounds[4] < hi[1] or bounds[5] < hi[2])):
+            return True
     if candidate.num_vert() > 64 or candidate.num_tri() > 128: return False
     data = _mesh_arrays(candidate.to_mesh64())
     if data is None: return False
     p, triangles = data
-    if (len(p) > 64 or len(triangles) > 128 or np.shape(lo) != (3,) or np.shape(hi) != (3,) or
-            not np.isfinite(lo).all() or not np.isfinite(hi).all() or np.any(hi <= lo)): return False
+    if len(p) > 64 or len(triangles) > 128: return False
     # Min/max select existing represented coordinates exactly, with no
     # arithmetic tolerance. A corner beyond this axis hull proves NOT-contained.
     minimum, maximum = np.min(p, axis=0), np.max(p, axis=0)
@@ -127,24 +141,69 @@ def _strict_partial_box(candidate, lo, hi, check=None):
         valid = np.isfinite(normals).all(axis=1) & np.isfinite(scales) & (scales > 0) & np.isfinite(scores) & (scores > 0)
         choices = [(-float(scores[i]), int(i//2), 1 if i % 2 == 0 else -1) for i in np.flatnonzero(valid)]
     if check is not None: check()
-    if not choices: return False
-    choices.sort()
-    exact = [tuple(Fraction.from_float(float(x)) for x in row) for row in p]
-    lower, upper = [tuple(Fraction.from_float(float(x)) for x in row) for row in (lo, hi)]
-    for _, index, sign in choices[:4]:
+    exact = None; lower = upper = None
+    if choices:
+        choices.sort()
+        exact = [tuple(Fraction.from_float(float(x)) for x in row) for row in p]
+        lower, upper = [tuple(Fraction.from_float(float(x)) for x in row) for row in (lo, hi)]
+        for _, index, sign in choices[:4]:
+            if check is not None: check()
+            a, b, c = (exact[int(i)] for i in triangles[index])
+            u, v = tuple(y-x for x, y in zip(a, b)), tuple(y-x for x, y in zip(a, c))
+            n = tuple(sign*x for x in (u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0]))
+            if not any(n): continue
+            corner = tuple(upper[i] if n[i] >= 0 else lower[i] for i in range(3))
+            if sum(n[i]*(corner[i]-a[i]) for i in range(3)) <= 0: continue
+            supported = True
+            for count, point in enumerate(exact):
+                if check is not None and count % 16 == 0: check()
+                if sum(n[i]*(point[i]-a[i]) for i in range(3)) > 0:
+                    supported = False; break
+            if supported: return True
+    # Bounded exact missing-corner separating-plane fallback for box-clipped
+    # intersections: when an exact crease is triangulated along the opposite
+    # diagonal, no single triangle face is supporting even though three nearby
+    # vertices define an exact supporting plane separating a missing box corner
+    # from every vertex of p.
+    if len(p) < 3 or np.any(minimum < lo) or np.any(maximum > hi): return False
+    box_corners = np.array([[lo[0] if i & 1 == 0 else hi[0],
+                             lo[1] if i & 2 == 0 else hi[1],
+                             lo[2] if i & 4 == 0 else hi[2]] for i in range(8)])
+    missing = [corner for corner in box_corners if not np.any(np.all(p == corner, axis=1))]
+    if not missing: return False
+    if exact is None:
+        exact = [tuple(Fraction.from_float(float(x)) for x in row) for row in p]
+        lower, upper = [tuple(Fraction.from_float(float(x)) for x in row) for row in (lo, hi)]
+    scale = hi-lo
+    for target in missing:
         if check is not None: check()
-        a, b, c = (exact[int(i)] for i in triangles[index])
-        u, v = tuple(y-x for x, y in zip(a, b)), tuple(y-x for x, y in zip(a, c))
-        n = tuple(sign*x for x in (u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0]))
-        if not any(n): continue
-        corner = tuple(upper[i] if n[i] >= 0 else lower[i] for i in range(3))
-        if sum(n[i]*(corner[i]-a[i]) for i in range(3)) <= 0: continue
-        supported = True
-        for count, point in enumerate(exact):
-            if check is not None and count % 16 == 0: check()
-            if sum(n[i]*(point[i]-a[i]) for i in range(3)) > 0:
-                supported = False; break
-        if supported: return True
+        with np.errstate(over='ignore', invalid='ignore', under='ignore', divide='ignore'):
+            dist = np.sum(np.abs((p-target)/scale), axis=1)
+        if not np.isfinite(dist).all(): continue
+        nearest = np.argsort(dist, kind='stable')[:6].tolist()
+        k = len(nearest)
+        for i in range(k):
+            a = exact[nearest[i]]
+            for j in range(i+1, k):
+                bpt = exact[nearest[j]]
+                u = tuple(y-x for x, y in zip(a, bpt))
+                for m in range(j+1, k):
+                    if check is not None: check()
+                    cpt = exact[nearest[m]]
+                    v = tuple(y-x for x, y in zip(a, cpt))
+                    n0 = (u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0])
+                    if not any(n0): continue
+                    for sign in (1, -1):
+                        n = tuple(sign*x for x in n0)
+                        far_corner = tuple(upper[ax] if n[ax] >= 0 else lower[ax] for ax in range(3))
+                        if sum(n[ax]*(far_corner[ax]-a[ax]) for ax in range(3)) <= 0:
+                            continue
+                        supported = True
+                        for count, point in enumerate(exact):
+                            if check is not None and count % 16 == 0: check()
+                            if sum(n[ax]*(point[ax]-a[ax]) for ax in range(3)) > 0:
+                                supported = False; break
+                        if supported: return True
     return False
 
 
@@ -166,14 +225,38 @@ def _cell_contained(box, candidate, overlap, lo, hi, check=None):
 def _inscribed_vertical_band(mesh, lo, hi, check=None):
     """Same exact facet inequalities on a common binary64 dyadic grid.
 
-    Integer operations avoid intermediate Fraction normalization. Only final
-    selected bounds/sensitivities become Fractions; no geometric sign, endpoint
+    Integer operations avoid intermediate Fraction normalization. Outward
+    non-degenerate facets lying strictly on an outer box face are exact
+    identities and are skipped before integer scaling. Only final selected
+    bounds/sensitivities become Fractions; no geometric sign, endpoint
     rounding, proposal/fallback rule or deadline callback position changes.
     """
     data = _mesh_arrays(mesh)
     if data is None or np.any(hi <= lo): return None
     positions, triangles = data
-    ratios = [tuple(float(x).as_integer_ratio() for x in row) for row in positions]
+    with np.errstate(over='ignore', invalid='ignore', under='ignore', divide='ignore'):
+        pts = positions[triangles]
+        e1 = pts[:, 1]-pts[:, 0]; e2 = pts[:, 2]-pts[:, 0]
+        cr = np.cross(e1, e2)
+        on_lo = np.all(pts == lo[None, None, :], axis=1)
+        on_hi = np.all(pts == hi[None, None, :], axis=1)
+        scale_area = np.maximum(np.sum(e1*e1, axis=1), np.sum(e2*e2, axis=1))
+        outward_box = (
+            (on_lo[:, 0] & (cr[:, 0] < 0)) | (on_hi[:, 0] & (cr[:, 0] > 0)) |
+            (on_lo[:, 1] & (cr[:, 1] < 0)) | (on_hi[:, 1] & (cr[:, 1] > 0)) |
+            (on_lo[:, 2] & (cr[:, 2] < 0)) | (on_hi[:, 2] & (cr[:, 2] > 0))
+        )
+        skip = (outward_box & np.isfinite(cr).all(axis=1) & np.isfinite(scale_area) &
+                (scale_area > 0) & ((np.abs(cr[:, 0])+np.abs(cr[:, 1])+np.abs(cr[:, 2])) > 1e-10*scale_area))
+    rem_tris = triangles[~skip]
+    if len(rem_tris) == 0:
+        if check is not None: check()
+        return dict(lower=float(lo[2]), upper=float(hi[2]), vertical_conflict=False,
+                    sensitivity=(Fraction(0, 1), Fraction(0, 1)))
+    used_verts, inv = np.unique(rem_tris, return_inverse=True)
+    rem_tris_local = inv.reshape(-1, 3)
+    sub_pos = positions[used_verts]
+    ratios = [tuple(float(x).as_integer_ratio() for x in row) for row in sub_pos]
     ratios += [tuple(float(x).as_integer_ratio() for x in row) for row in (lo, hi)]
     exponent = max(denominator.bit_length()-1 for row in ratios for _, denominator in row)
     grid = 1 << exponent
@@ -187,32 +270,34 @@ def _inscribed_vertical_band(mesh, lo, hi, check=None):
     def larger(a, b): return a[0]*b[1] > b[0]*a[1]
     def equal(a, b): return a[0]*b[1] == b[0]*a[1]
     def maxima(a, b): return tuple(x if larger(x, y) else y for x, y in zip(a, b))
-    for triangle in triangles:
+    for t0, t1, t2 in rem_tris_local.tolist():
         if check is not None: check()
-        a, b, c = (p[int(i)] for i in triangle)
-        u, v = tuple(y-x for x, y in zip(a, b)), tuple(y-x for x, y in zip(a, c))
-        n = (u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0])
-        if not any(n): return None
-        bound = sum(x*y for x, y in zip(n, a))
-        maximum = sum(n[i]*(high[i] if n[i] >= 0 else low[i]) for i in (0, 1))
-        if n[2] == 0:
+        a, b, c = p[t0], p[t1], p[t2]
+        u0, u1, u2 = b[0]-a[0], b[1]-a[1], b[2]-a[2]
+        v0, v1, v2 = c[0]-a[0], c[1]-a[1], c[2]-a[2]
+        n0, n1, n2 = u1*v2-u2*v1, u2*v0-u0*v2, u0*v1-u1*v0
+        if not (n0 or n1 or n2): return None
+        bound = n0*a[0]+n1*a[1]+n2*a[2]
+        maximum = n0*(high[0] if n0 >= 0 else low[0])+n1*(high[1] if n1 >= 0 else low[1])
+        if n2 == 0:
             if maximum > bound:
                 conflict = True
-                changes = tuple(abs(n[i])*(high[i]-low[i]) for i in (0, 1))
-                scale = sum(changes)
+                c0 = abs(n0)*(high[0]-low[0]); c1 = abs(n1)*(high[1]-low[1])
+                scale = c0+c1
                 if not scale: return None
-                vertical_s = maxima(vertical_s, tuple((change, scale) for change in changes))
+                vertical_s = maxima(vertical_s, ((c0, scale), (c1, scale)))
             continue
-        numerator, denominator = bound-maximum, n[2]
+        numerator, denominator = bound-maximum, n2
         if denominator < 0: numerator, denominator = -numerator, -denominator
         value = (numerator, denominator)
-        sensitivity = tuple((abs(n[i])*(high[i]-low[i]), abs(n[2])*grid) for i in (0, 1))
-        if n[2] < 0:
+        abs_n2_grid = abs(n2)*grid
+        sensitivity = ((abs(n0)*(high[0]-low[0]), abs_n2_grid), (abs(n1)*(high[1]-low[1]), abs_n2_grid))
+        if n2 < 0:
             if larger(value, lower): lower, lower_s = value, sensitivity
             elif equal(value, lower): lower_s = maxima(lower_s, sensitivity)
         else:
             if larger(upper, value): upper, upper_s = value, sensitivity
-            elif equal(value, upper): upper_s = maxima(upper_s, sensitivity)
+            elif equal(upper, value): upper_s = maxima(upper_s, sensitivity)
     lower = Fraction(lower[0], lower[1]*grid)
     upper = Fraction(upper[0], upper[1]*grid)
     try:
@@ -243,7 +328,6 @@ def _column_partition(lo, hi, lower, upper):
     if upper < hi[2]:
         a = lo.copy(); a[2] = upper; result.append((a, hi.copy(), 'upper'))
     return result
-
 
 
 def _column_core_box(low, high):
@@ -350,63 +434,41 @@ def _contract_overlap(overlap, lo, hi):
     return bounds[:3].copy(), bounds[3:].copy()
 
 
-def _pack_shared(design, hull, tanks, excluded, limits, policy, *, exclusion_boxes=None, deadline=None):
-    """RQ-only serial shared pool with definite per-tank material eligibility.
-
-    Search the original unpunctured material once. For each nested pair,
-    ordinary certified volume must meet restricted demand, AND all certified
-    eligible volume must meet the pair's total demand. Exact consumed slabs
-    then realize those fractional-volume constraints restricted-first.
-    Neither geometric available.volume nor an unresolved mask admits capacity.
-    """
-    limits = liquid._limits(limits); mf = liquid._mf()
-    deadline = time.monotonic()+limits['max_seconds'] if deadline is None else deadline
-    def check():
-        if time.monotonic() > deadline:
-            raise liquid.LiquidError('Liquid global time deadline exceeded')
-    check(); liquid._valid(hull, 'Structural hull', nonempty=True)
-    tanks = [dict(t, anchor_body_m=liquid._vec(t['anchor_body_m'], 'Tank anchor').tolist()) for t in tanks]
-    for t in tanks:
-        if type(t['index']) is not int or t['index'] < 0:
-            raise liquid.LiquidError('Invalid native tank index')
-        for key in ('capacity_kg', 'density_kg_m3'):
-            if isinstance(t[key], bool) or not isinstance(t[key], numbers.Real) or not math.isfinite(t[key]) or t[key] <= 0:
-                raise liquid.LiquidError('Finite positive capacity and physical density required')
-    tanks.sort(key=lambda t: t['index']); pairs = _nested_requirements(tanks)
-    if design != 'rq4b' or policy.selected != {0, 1} or policy.assignment_order([0, 1, 2, 3]) != [2, 3, 0, 1]:
-        raise liquid.LiquidError('Unsupported inferred shared-pool policy')
-    if {t['index']: t for t in tanks} != policy.tanks:
-        raise liquid.LiquidError('Shared pool differs from captured native tank policy')
-    volumes = {t['index']: t['capacity_kg']/t['density_kg_m3'] for t in tanks}
-    if any(not math.isfinite(v) or v <= 0 for v in volumes.values()):
-        raise liquid.LiquidError('Invalid physical liquid volume')
-    required = math.fsum(volumes.values()); targets = {i: v/64 for i, v in volumes.items()}
-    available = liquid._valid(hull-excluded, 'Available interior excluding equipment') if excluded is not None else hull
-    bounds = np.array(available.bounding_box()); low, high = bounds[:3], bounds[3:]
-    max_edge = max(high-low)/8
-    if available.volume()+liquid._tolerance(required, 1) < required:
-        raise liquid.LiquidError('insufficient available interior volume')
-    # This is only a necessary search clip. Final eligibility and original-hull
-    # checks remain fresh for every actual emitted slab.
-    regions = [policy.region(i, low, high) for i in range(4)]
+def _pack_shared_side(design, available, global_low, global_high, side_index, pair, targets, max_edge,
+                      limits, policy, check, *, execution=None, max_cells_budget=None, max_screened_budget=None):
+    """Pack one disjoint RQ wing side (left wing {0, 2} or right wing {1, 3})."""
+    mf = liquid._mf()
+    r_idx, f_idx, dr, total = pair
+    side_tanks = (f_idx, r_idx)
+    side_set = frozenset(side_tanks)
+    valid_masks = (frozenset({0, 2}), frozenset({1, 3}), frozenset({0}), frozenset({1}))
+    regions = [policy.region(i, global_low, global_high) for i in side_tanks]
     region = liquid._valid(mf.Manifold.batch_boolean(regions, mf.OpType.Add), 'Shared necessary vessel region')
-    available = liquid._valid(available ^ region, 'Original hull/necessary vessel region clip')
-    if available.volume()+liquid._tolerance(required, 1) < required:
+    side_avail = liquid._valid(available ^ region, 'Original hull/necessary vessel region clip')
+    if side_avail.volume()+liquid._tolerance(total, 1) < total:
         raise liquid.LiquidError('insufficient physical volume in necessary vessel region')
-    bounds = np.array(available.bounding_box()); low, high = bounds[:3], bounds[3:]
-    anchors = np.array([t['anchor_body_m'] for t in tanks])
+    bounds = np.array(side_avail.bounding_box()); low, high = bounds[:3], bounds[3:]
+    cache_limits = execution.cache_limits if execution is not None else limits
+    cell_cap = limits['max_cells'] if max_cells_budget is None else max_cells_budget
+    screen_cap = limits['max_screened_cells'] if max_screened_budget is None else max_screened_budget
     pending = []; pool = []; sequence = 0; screened = 0
     # Same bounded immutable partial-parent reuse as ordinary pack. Children
     # are exact midpoint subsets; cache pressure falls back to ORIGINAL available.
     records = {}; cache_sequence = 0; cached_vertices = 0; cached_triangles = 0
+    peak_vertices = 0; peak_triangles = 0; fallbacks = 0
     def admit(solid):
-        nonlocal cache_sequence, cached_vertices, cached_triangles
+        nonlocal cache_sequence, cached_vertices, cached_triangles, peak_vertices, peak_triangles, fallbacks
         vertices, triangles = solid.num_vert(), solid.num_tri()
-        if (cached_vertices+vertices > limits['max_vertices'] or cached_triangles+triangles > limits['max_triangles'] or
-                len(records)+1 > limits['max_screened_cells']): return None
+        if (cached_vertices+vertices > cache_limits['max_vertices'] or
+                cached_triangles+triangles > cache_limits['max_triangles'] or
+                len(records)+1 > cache_limits['max_screened_cells']):
+            fallbacks += 1
+            return None
         key = cache_sequence; cache_sequence += 1
         records[key] = [solid, vertices, triangles, 0]
         cached_vertices += vertices; cached_triangles += triangles
+        if cached_vertices > peak_vertices: peak_vertices = cached_vertices
+        if cached_triangles > peak_triangles: peak_triangles = cached_triangles
         return key
     def retain(key):
         if key is not None: records[key][3] += 1
@@ -416,31 +478,50 @@ def _pack_shared(design, hull, tanks, excluded, limits, policy, *, exclusion_box
         row = records[key]; row[3] -= 1
         if row[3] == 0:
             cached_vertices -= row[1]; cached_triangles -= row[2]; del records[key]
-    def push(lo, hi, depth, contained=False, domain=None, definite=None):
+    has_classifier = getattr(policy, 'classifier', None) is not None
+    if has_classifier:
+        origin_y = policy.classifier.origin[1]; cut = policy.classifier.y_root
+        root_strip = (-cut-origin_y, -origin_y) if side_index == 0 else (-origin_y, cut-origin_y)
+        root_cert = (0, -1, -1, -1) if side_index == 0 else (-1, 0, -1, -1)
+    def push(lo, hi, depth, contained=False, domain=None, definite=None, est_vol=None):
         nonlocal sequence
-        # Only all-definite parent facts propagate to exact subsets. Unknown
-        # predicates are reevaluated using ONE original classifier query.
-        values = policy._certificates(lo, hi) if definite is None else definite
+        # Only all-definite parent facts propagate to exact subsets. For pure
+        # root-strip cells (outside both ordinary wings), defer the source-wing
+        # root Boolean until a cell is actually contained in side_avail, where
+        # policy._certificates is always evaluated freshly before admission.
+        deferred = False
+        if definite is not None:
+            values = definite
+        elif not contained and has_classifier:
+            possible = policy.classifier.possible(lo, hi)
+            if ('left wing' not in possible and 'right wing' not in possible and
+                    lo[1] >= root_strip[0] and hi[1] <= root_strip[1]):
+                values = root_cert; deferred = True
+            else:
+                values = policy._certificates(lo, hi)
+        else:
+            values = policy._certificates(lo, hi)
         if len(values) != 4 or any(type(v) is not int or v not in (-1, 0, 1) for v in values):
             raise liquid.LiquidError('Invalid inferred vessel eligibility certificate')
         unknown = 0 in values
         mask = frozenset(i for i, value in enumerate(values) if value == 1)
-        # A true flexible predicate does not turn unknown restricted ownership
-        # into a flexible-only cell. All four masks must be definite first.
-        distance = float(np.min(np.sum(np.maximum(np.maximum(lo-anchors, anchors-hi), 0.)**2, axis=1)))
+        vol = float(math.prod(hi-lo)) if est_vol is None else min(float(math.prod(hi-lo)), float(est_vol))
         retain(domain)
-        heapq.heappush(pending, (depth, int(unknown), distance, sequence, tuple(lo), tuple(hi), mask, unknown, contained, domain))
+        heapq.heappush(pending, (0 if contained else 1, -vol, depth, sequence, tuple(lo), tuple(hi),
+                                 mask, unknown, contained, domain, deferred))
         sequence += 1
-    def split(lo, hi, depth, contained=False, domain=None, definite=None, axis=None):
+    def split(lo, hi, depth, contained=False, domain=None, definite=None, axis=None, est_vol=None):
         axis = int(np.argmax(hi-lo)) if axis is None else axis
         midpoint = float((lo[axis]+hi[axis])*.5)
         if depth >= limits['max_depth'] or hi[axis]-lo[axis] <= limits['min_extent_m'] or midpoint in (lo[axis], hi[axis]):
             raise liquid.LiquidError('Liquid spatial refinement budget exhausted before capacity closure')
         left = hi.copy(); left[axis] = midpoint; right = lo.copy(); right[axis] = midpoint
-        push(lo, left, depth+1, contained, domain, definite); push(right, hi, depth+1, contained, domain, definite)
+        child_est = None if est_vol is None else est_vol*.5
+        push(lo, left, depth+1, contained, domain, definite, child_est)
+        push(right, hi, depth+1, contained, domain, definite, child_est)
     certified = {i: 0. for i in range(4)}
     def feasible():
-        return all(certified[r] >= dr and certified[f] >= total for r, f, dr, total in pairs)
+        return certified[r_idx] >= dr and certified[f_idx] >= total
     core_reported = False
     def report_core(context, info):
         nonlocal core_reported
@@ -452,37 +533,47 @@ def _pack_shared(design, hull, tanks, excluded, limits, policy, *, exclusion_box
               allow_nan=False, sort_keys=True), file=sys.stderr, flush=True)
     push(low, high, 0)
     while pending and not feasible():
-        if screened >= limits['max_screened_cells']:
+        if execution is not None:
+            execution.screen()
+        elif screened >= screen_cap:
             raise liquid.LiquidError('Liquid geometry screening budget exceeded')
-        check(); depth, _, _, _, lo, hi, mask, unknown, contained, domain = heapq.heappop(pending)
+        check(); _, _, depth, _, lo, hi, mask, unknown, contained, domain, deferred = heapq.heappop(pending)
         lo, hi = np.array(lo), np.array(hi); screened += 1
-        if unknown:
+        if unknown and not deferred:
             box = None; candidate = None; overlap = None
             try:
                 box = liquid._box(lo, hi)
-                candidate = available if domain is None else records[domain][0]
+                candidate = side_avail if domain is None else records[domain][0]
                 overlap = liquid._valid(box ^ candidate, 'Unknown cell/interior intersection')
                 if not overlap.is_empty():
                     child_domain = admit(overlap)
+                    ov_vol = overlap.volume()
                     lo, hi = _contract_overlap(overlap, lo, hi)
-                    split(lo, hi, depth, False, child_domain)
+                    split(lo, hi, depth, False, child_domain, est_vol=ov_vol)
             finally:
                 overlap = None; candidate = None; box = None
                 release(domain)
             continue
-        if not mask:
-            release(domain); continue
-        # The only supported masks are the two nested side families. This
-        # prevents an accidental shared root/cross-side eligibility expansion.
-        if mask not in (frozenset({0, 2}), frozenset({1, 3}), frozenset({0}), frozenset({1})):
-            raise liquid.LiquidError('Non-nested inferred vessel eligibility mask')
-        definite = tuple(1 if i in mask else -1 for i in range(4))
+        if not deferred:
+            if not mask:
+                release(domain); continue
+            # The only supported masks are the two nested side families. This
+            # prevents an accidental shared root/cross-side eligibility expansion.
+            if mask not in valid_masks:
+                raise liquid.LiquidError('Non-nested inferred vessel eligibility mask')
+            if not (mask & side_set):
+                release(domain); continue
+            definite = tuple(1 if i in mask else -1 for i in range(4))
+        else:
+            definite = None
         child_domain = None; overlap = None; candidate = None; box = None; mesh = None; proposal = None; core = None; proof = None
         try:
+            ov_vol = None
             if not contained:
-                box = liquid._box(lo, hi); candidate = available if domain is None else records[domain][0]
+                box = liquid._box(lo, hi); candidate = side_avail if domain is None else records[domain][0]
                 overlap = liquid._valid(box ^ candidate, 'Cell/interior intersection')
                 if overlap.is_empty(): continue
+                ov_vol = overlap.volume()
                 contained, mesh = _cell_contained(box, candidate, overlap, lo, hi, check)
             if not contained:
                 parent_lo, parent_hi = lo.copy(), hi.copy()
@@ -509,8 +600,6 @@ def _pack_shared(design, hull, tanks, excluded, limits, policy, *, exclusion_box
                             proof = liquid._valid(core ^ overlap, 'Column core/interior intersection')
                             core_contained = (not proof.is_empty() and proof.volume() > 0 and proof.num_tri() == 12 and
                                               _represented_box(proof.to_mesh64(), core_lo, core_hi))
-                            if not core_contained:
-                                core_contained = liquid._valid(core-overlap, 'Column core/interior difference').is_empty()
                         proof = None; core = None
                         if core_contained:
                             if len(parts) == 1:
@@ -519,35 +608,59 @@ def _pack_shared(design, hull, tanks, excluded, limits, policy, *, exclusion_box
                                 if depth >= limits['max_depth']:
                                     raise liquid.LiquidError('Liquid spatial refinement budget exhausted before capacity closure')
                                 child_domain = admit(overlap)
+                                core_vol = float(math.prod(core_hi-core_lo))
+                                rem_vol = max(0., ov_vol-core_vol) if ov_vol is not None else None
                                 for a, b, kind in parts:
-                                    push(a, b, depth+1, kind == 'core', None if kind == 'core' else child_domain, definite)
+                                    push(a, b, depth+1, kind == 'core', None if kind == 'core' else child_domain,
+                                         definite if not deferred else None,
+                                         est_vol=None if kind == 'core' else (None if rem_vol is None else rem_vol*.5))
                                 continue
-            volume = math.prod(hi-lo); target = min(targets[i] for i in mask)
+            if contained and deferred:
+                values = policy._certificates(lo, hi)
+                if len(values) != 4 or any(type(v) is not int or v not in (-1, 0, 1) for v in values):
+                    raise liquid.LiquidError('Invalid inferred vessel eligibility certificate')
+                if 0 in values:
+                    contained = False
+                else:
+                    mask = frozenset(i for i, v in enumerate(values) if v == 1)
+                    if mask and mask not in valid_masks:
+                        raise liquid.LiquidError('Non-nested inferred vessel eligibility mask')
+                    definite = values; deferred = False
+            if contained and (not mask or not (mask & side_set)):
+                continue
+            volume = math.prod(hi-lo); target = min(targets[i] for i in (mask if mask else (f_idx,)))
             if contained and volume <= target*(1+1e-12) and max(hi-lo) <= max_edge*(1+1e-12):
                 pool.append([lo, hi, mask])
                 for i in mask: certified[i] = math.fsum((certified[i], volume))
-                if len(pool) > limits['max_cells']: raise liquid.LiquidError('Liquid cell budget exceeded')
+                if len(pool) > cell_cap: raise liquid.LiquidError('Liquid cell budget exceeded')
             else:
                 child_domain = admit(overlap) if overlap is not None else None
-                split(lo, hi, depth, contained, child_domain, definite,
-                      None if contained else _column_residual_axis(proposal, lo, hi, max_edge))
+                split(lo, hi, depth, contained, child_domain, definite if not deferred else None,
+                      None if contained else _column_residual_axis(proposal, lo, hi, max_edge),
+                      est_vol=ov_vol)
         finally:
             overlap = None; candidate = None; box = None; mesh = None; core = None; proof = None
             release(domain)
-    for item in pending: release(item[-1])
+    for item in pending: release(item[9])
     pending.clear()
     if records or cached_vertices or cached_triangles:
         raise liquid.LiquidError('Shared pool retained unfinished geometric cache references')
     if not feasible(): raise liquid.LiquidError('insufficient nested certified cell volume')
-    edges = len(pool)*len(tanks)
-    if edges > limits['max_assignment_edges']: raise liquid.LiquidError('Liquid nearest-anchor assignment budget exceeded')
-    # Record capacity feasibility before mutating the disjoint pool by exact
-    # slabs. These are certified cell volumes, never available.volume estimates.
-    feasibility = [dict(restricted_tank=r, flexible_tank=f, ordinary_certified_m3=certified[r],
-                        total_certified_m3=certified[f], restricted_required_m3=dr, total_required_m3=total)
-                   for r, f, dr, total in pairs]
+    edges = len(pool)*2
+    if execution is not None:
+        execution.reserve_edges(edges)
+        execution.cache_metrics = dict(peak_vertices=peak_vertices, peak_triangles=peak_triangles, fallback=fallbacks)
+    elif edges > limits['max_assignment_edges']:
+        raise liquid.LiquidError('Liquid nearest-anchor assignment budget exceeded')
+    return dict(pool=pool, screened=screened, edges=edges,
+                certified_restricted=certified[r_idx], certified_flexible=certified[f_idx])
+
+
+def _emit_tanks(hull, tanks, anchors, volumes, pool, tank_order, limits, policy, excluded,
+                exclusion_boxes, check, *, execution=None):
+    """Emit fresh-audited slabs for tank_order from a certified disjoint pool."""
     centres = np.array([(lo+hi)*.5 for lo, hi, _ in pool]); cells = []; checks = []
-    for index in (2, 3, 0, 1):
+    for index in tank_order:
         check(); tank = tanks[index]; anchor = anchors[index]
         prior_bounds = None
         if cells:
@@ -593,6 +706,8 @@ def _pack_shared(design, hull, tanks, excluded, limits, policy, *, exclusion_box
             elif excluded is not None and not liquid._valid(slab ^ excluded, 'Emitted slab/exclusion intersection').is_empty():
                 raise liquid.LiquidError('Emitted liquid slab intersects occupied equipment')
             actual = math.prod(slab_high-slab_low)
+            if execution is not None:
+                execution.emit_cell()
             cells.append(dict(id=len(cells), tank=index, section=tank['section'], low_m=slab_low.tolist(),
                               high_m=slab_high.tolist(), volume_m3=actual, eligibility_v1=eligibility))
             if len(cells) > limits['max_cells']: raise liquid.LiquidError('Emitted liquid cell budget exceeded')
@@ -603,6 +718,167 @@ def _pack_shared(design, hull, tanks, excluded, limits, policy, *, exclusion_box
             raise liquid.LiquidError('Liquid tank capacity ledger failed for native tank '+str(index))
         checks.append(dict(tank=index, required_m3=volumes[index], actual_m3=actual,
                            error_m3=actual-volumes[index], tolerance_m3=tolerance))
+    return cells, checks
+
+
+def _shared_vessel_worker(recipe, execution):
+    """Reconstruct ORIGINAL GLB/policy in an isolated single-CPU worker for one RQ wing side."""
+    from .geometry import Aircraft
+    execution.check(); liquid._verify_execution_bindings(recipe['bindings'])
+    aircraft = Aircraft.load(recipe['design_path']); origin = np.array(recipe['origin'], float)
+    if aircraft.name != recipe['design']: raise liquid.LiquidError('Owner recipe design mismatch')
+    effective = hashlib.sha256(json.dumps(aircraft.spec, sort_keys=True, allow_nan=False,
+                                          separators=(',', ':')).encode()).hexdigest()
+    if effective != recipe['effective_spec']:
+        raise liquid.LiquidError('Owner loaded design differs from captured effective specification')
+    hull, receipt, sections = liquid.read_glb(recipe['glb'], limits=execution.budget.limits,
+                                              with_sections=True, owner_names_only=True)
+    if receipt != recipe['boundary_receipt']:
+        raise liquid.LiquidError('Owner original-boundary reconstruction mismatch')
+    damage = Path(recipe['glb']).with_suffix('.damage.json')
+    tanks = liquid._ownership(liquid.tank_records(aircraft, origin), sections, damage, aircraft.name, origin)
+    tanks.sort(key=lambda t: t['index'])
+    if tanks != recipe['tanks']: raise liquid.LiquidError('Owner reconstructed native tanks mismatch')
+    native = json.loads(damage.read_text(encoding='utf-8'))
+    excluded, exclusions = liquid._exclusions(aircraft, origin, native_damage=native)
+    if exclusions != recipe['exclusions']:
+        raise liquid.LiquidError('Owner reconstructed material exclusions mismatch')
+    declaration = read_declaration(aircraft.path, aircraft.name)
+    if declaration is None: raise liquid.LiquidError('Missing inferred vessel declaration in worker')
+    policy, _ = create(aircraft, origin, tanks, declaration)
+    if policy.source_receipt != recipe['source_receipt']:
+        raise liquid.LiquidError('Worker source-wing reconstruction differs from captured receipt')
+    limits = execution.budget.limits
+    pairs = _nested_requirements(tanks)
+    volumes = {t['index']: t['capacity_kg']/t['density_kg_m3'] for t in tanks}
+    targets = {i: v/64 for i, v in volumes.items()}
+    anchors = np.array([t['anchor_body_m'] for t in tanks])
+    available = liquid._valid(hull-excluded, 'Available interior excluding equipment') if excluded is not None else hull
+    bounds = np.array(available.bounding_box()); global_low, global_high = bounds[:3], bounds[3:]
+    max_edge = max(global_high-global_low)/8
+    side_index = int(recipe['side'])
+    if side_index not in (0, 1): raise liquid.LiquidError('Invalid RQ shared-vessel side index')
+    side_result = _pack_shared_side(aircraft.name, available, global_low, global_high, side_index,
+                                    pairs[side_index], targets, max_edge, limits, policy, execution.check,
+                                    execution=execution, max_cells_budget=limits['max_cells'],
+                                    max_screened_budget=limits['max_screened_cells'])
+    tank_order = (2, 0) if side_index == 0 else (3, 1)
+    cells, checks = _emit_tanks(hull, tanks, anchors, volumes, side_result['pool'], tank_order,
+                                limits, policy, excluded, exclusions, execution.check, execution=execution)
+    liquid._verify_execution_bindings(recipe['bindings']); execution.check()
+    return dict(side=side_index, cells=cells, checks=checks, screened=side_result['screened'],
+                pool_cells=len(side_result['pool']), edges=side_result['edges'],
+                certified_restricted=side_result['certified_restricted'],
+                certified_flexible=side_result['certified_flexible'])
+
+
+def _pack_shared(design, hull, tanks, excluded, limits, policy, *, exclusion_boxes=None, deadline=None, _recipe=None):
+    """RQ-only shared pool with definite per-tank material eligibility.
+
+    Search each disjoint wing side's original unpunctured material once. For
+    each nested pair, ordinary certified volume must meet restricted demand,
+    AND all certified eligible volume must meet the pair's total demand. Exact
+    consumed slabs then realize those fractional-volume constraints
+    restricted-first. Neither geometric available.volume nor an unresolved mask
+    admits capacity.
+    """
+    limits = liquid._limits(limits)
+    deadline = time.monotonic()+limits['max_seconds'] if deadline is None else deadline
+    def check():
+        if time.monotonic() > deadline:
+            raise liquid.LiquidError('Liquid global time deadline exceeded')
+    check(); liquid._valid(hull, 'Structural hull', nonempty=True)
+    tanks = [dict(t, anchor_body_m=liquid._vec(t['anchor_body_m'], 'Tank anchor').tolist()) for t in tanks]
+    for t in tanks:
+        if type(t['index']) is not int or t['index'] < 0:
+            raise liquid.LiquidError('Invalid native tank index')
+        for key in ('capacity_kg', 'density_kg_m3'):
+            if isinstance(t[key], bool) or not isinstance(t[key], numbers.Real) or not math.isfinite(t[key]) or t[key] <= 0:
+                raise liquid.LiquidError('Finite positive capacity and physical density required')
+    tanks.sort(key=lambda t: t['index']); pairs = _nested_requirements(tanks)
+    if design != 'rq4b' or policy.selected != {0, 1} or policy.assignment_order([0, 1, 2, 3]) != [2, 3, 0, 1]:
+        raise liquid.LiquidError('Unsupported inferred shared-pool policy')
+    if {t['index']: t for t in tanks} != policy.tanks:
+        raise liquid.LiquidError('Shared pool differs from captured native tank policy')
+    volumes = {t['index']: t['capacity_kg']/t['density_kg_m3'] for t in tanks}
+    if any(not math.isfinite(v) or v <= 0 for v in volumes.values()):
+        raise liquid.LiquidError('Invalid physical liquid volume')
+    required = math.fsum(volumes.values()); targets = {i: v/64 for i, v in volumes.items()}
+    available = liquid._valid(hull-excluded, 'Available interior excluding equipment') if excluded is not None else hull
+    bounds = np.array(available.bounding_box()); global_low, global_high = bounds[:3], bounds[3:]
+    max_edge = max(global_high-global_low)/8
+    if available.volume()+liquid._tolerance(required, 1) < required:
+        raise liquid.LiquidError('insufficient available interior volume')
+    anchors = np.array([t['anchor_body_m'] for t in tanks])
+
+    from .resources import current_cpu_lease
+    cpus = current_cpu_lease()
+    if _recipe is not None and 'source_receipt' in _recipe and cpus is not None and len(cpus) >= 2:
+        base_recipe = {k: v for k, v in _recipe.items() if not k.startswith('_')}
+        jobs = [dict(base_recipe, side=side_index, tanks=tanks) for side_index in (0, 1)]
+        budget = liquid._OwnerBudget(mp.get_context('spawn'), limits, deadline, 2)
+        rows = liquid._process_owner_jobs(jobs, _shared_vessel_worker, budget, cpus[:2])
+        screened_by_side = [rows[0]['screened'], rows[1]['screened']]
+        edges_by_side = [rows[0]['edges'], rows[1]['edges']]
+        screened = sum(screened_by_side); edges = sum(edges_by_side)
+        pool_cells = rows[0]['pool_cells']+rows[1]['pool_cells']
+        if pool_cells > limits['max_cells']:
+            raise liquid.LiquidError('Liquid cell budget exceeded')
+        by_tank_cells = {i: [] for i in range(4)}
+        checks = []
+        for row in rows:
+            checks.extend(row['checks'])
+            for cell in row['cells']:
+                by_tank_cells[cell['tank']].append(cell)
+        cells = []
+        for index in (2, 3, 0, 1):
+            check()
+            prior_bounds = _prior_endpoints(cells) if cells else None
+            for cell in by_tank_cells[index]:
+                lo = np.array(cell['low_m']); hi = np.array(cell['high_m'])
+                if prior_bounds is not None and not _prior_clear(lo, hi, prior_bounds):
+                    raise liquid.LiquidError('Emitted liquid slab overlaps prior actual liquid cells')
+                cell = dict(cell, id=len(cells))
+                cells.append(cell)
+        if len(cells) > limits['max_cells']:
+            raise liquid.LiquidError('Emitted liquid cell budget exceeded')
+        actual_counts = budget.counts()
+        if actual_counts != dict(screened=screened, edges=edges, cells=len(cells)):
+            raise liquid.LiquidError('Shared actual-work and canonical owner ledgers disagree')
+        budget.check()
+        feasibility = [dict(restricted_tank=r, flexible_tank=f,
+                            ordinary_certified_m3=rows[side_index]['certified_restricted'],
+                            total_certified_m3=rows[side_index]['certified_flexible'],
+                            restricted_required_m3=dr, total_required_m3=total)
+                       for side_index, (r, f, dr, total) in enumerate(pairs)]
+    else:
+        side0 = _pack_shared_side(design, available, global_low, global_high, 0, pairs[0], targets,
+                                  max_edge, limits, policy, check,
+                                  max_cells_budget=limits['max_cells'],
+                                  max_screened_budget=limits['max_screened_cells'])
+        rem_cells = limits['max_cells']-len(side0['pool'])
+        rem_screened = limits['max_screened_cells']-side0['screened']
+        if rem_cells <= 0: raise liquid.LiquidError('Liquid cell budget exceeded')
+        if rem_screened <= 0: raise liquid.LiquidError('Liquid geometry screening budget exceeded')
+        side1 = _pack_shared_side(design, available, global_low, global_high, 1, pairs[1], targets,
+                                  max_edge, limits, policy, check,
+                                  max_cells_budget=rem_cells,
+                                  max_screened_budget=rem_screened)
+        pool = side0['pool']+side1['pool']
+        screened_by_side = [side0['screened'], side1['screened']]
+        edges_by_side = [side0['edges'], side1['edges']]
+        screened = sum(screened_by_side); edges = sum(edges_by_side)
+        pool_cells = len(pool)
+        if edges > limits['max_assignment_edges']:
+            raise liquid.LiquidError('Liquid nearest-anchor assignment budget exceeded')
+        feasibility = [dict(restricted_tank=r, flexible_tank=f,
+                            ordinary_certified_m3=side['certified_restricted'],
+                            total_certified_m3=side['certified_flexible'],
+                            restricted_required_m3=dr, total_required_m3=total)
+                       for side, (r, f, dr, total) in zip((side0, side1), pairs)]
+        cells, checks = _emit_tanks(hull, tanks, anchors, volumes, pool, (2, 3, 0, 1),
+                                    limits, policy, excluded, exclusion_boxes, check)
+
     comparisons = _audit_disjoint(cells, check); check()
     receipt = policy.receipt(cells)
     receipt['packing_v1'] = dict(method=PACKING, assignment_order=[2, 3, 0, 1],
@@ -613,13 +889,15 @@ def _pack_shared(design, hull, tanks, excluded, limits, policy, *, exclusion_box
         native_owner_interval_certified=False, per_tank_vessel_eligibility_certified=True,
         global_aabb_nonoverlap_verified=True, global_aabb_pair_candidates=comparisons,
         disjoint_basis='definite nested vessel eligibility, consumed shared box pool, exact prior AABB positive-interior proof (zero-contact CSG omitted), independent AABB audit',
-        screened_cells=screened, certified_pool_cells=len(pool), assignment_edges=edges,
+        screened_cells=screened, certified_pool_cells=pool_cells, assignment_edges=edges,
         tanks=sorted(checks, key=lambda x: x['tank']), sections=[])
-    for section in ('left wing', 'right wing'):
+    for side_index, section in enumerate(('left wing', 'right wing')):
         ledger['sections'].append(dict(section=section, capacity_conserved=True, containment_certified=True,
             exclusions_certified=True, disjoint_certified=True,
             tanks=[row for row in ledger['tanks'] if tanks[row['tank']]['section'] == section],
-            assignment_order=[i for i in (2, 3, 0, 1) if tanks[i]['section'] == section]))
+            assignment_order=[i for i in (2, 3, 0, 1) if tanks[i]['section'] == section],
+            screened_cells=screened_by_side[side_index],
+            assignment_edges=edges_by_side[side_index]))
     check()
     return dict(schema=liquid.SCHEMA, design=design, frame=liquid.FRAME, sources=[], tanks=tanks, cells=cells,
         fluid_policy_v1=dict(liquid.FLUID_POLICY_V1), ledger=ledger, inferred_vessels_v1=receipt, limits=limits,
@@ -737,8 +1015,13 @@ class Policy:
                 np.any(hi <= self.bounds[:3]) or np.any(lo >= self.bounds[3:])): return ordinary
         if lo[1] < lower or hi[1] > upper: return max(ordinary, 0)
         box = liquid._box(lo, hi)
+        ov = liquid._valid(box ^ self.root, 'Inferred root cell/source wing intersection')
+        if ov.is_empty(): return ordinary
+        if ov.volume() > 0 and ov.num_tri() == 12 and _represented_box(ov.to_mesh64(), lo, hi):
+            return 1
+        if _strict_partial_box(ov, lo, hi):
+            return max(ordinary, 0)
         if liquid._valid(box-self.root, 'Inferred root cell/source wing difference').is_empty(): return 1
-        if liquid._valid(box ^ self.root, 'Inferred root cell/source wing intersection').is_empty(): return ordinary
         return max(ordinary, 0)
 
     def eligibility(self, index, lo, hi):

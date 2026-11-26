@@ -19,6 +19,7 @@ VALUES=dict(capture_area_m2=.0119,fuel_flow_max_kg_s=.3,heating_value_j_kg=40e6,
 def fixture():
     card=json.loads((ROOT/'assets/stores/meteor.json').read_text(encoding='utf-8'))
     row=card['component_models']['components']['propulsion'];row['implementation_id']=ductedrocket.IMPLEMENTATION
+    row['parameter_refs'].pop('inlet_residence_s',None)
     for key,unit in ductedrocket.ROLES.items():
         ref='ducted_'+key;row['parameter_refs'][key]=ref
         card['parameters'][ref]=dict(value=VALUES[key],unit=unit,basis='assumed',uncertainty=abs(VALUES[key])*.5,

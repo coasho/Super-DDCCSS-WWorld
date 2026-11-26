@@ -114,7 +114,8 @@ def main():
             mass_partition_sha256=sha(production/'mass-partition-closure.json'),
             timing=read(production/'campaign-timing.json'));save()
         run('liquid-population',[sys.executable,ROOT/'tools/validation/weapon_quality/liquid_population.py',
-            '--coverage',out/'coverage.json','--root',ROOT,'--output',out/'liquid-population.json'],300)
+            '--coverage',out/'coverage.json','--root',ROOT,'--output',out/'liquid-population.json'],300,
+            extra_env=method_environment(record['method_environment'],ROOT,parent=env))
         # Generation changes native products. Both normal runtime staging targets
         # must consume the produced bytes before regression or SDK use.
         for preset in ('ucrt64-headless','ucrt64-release'):

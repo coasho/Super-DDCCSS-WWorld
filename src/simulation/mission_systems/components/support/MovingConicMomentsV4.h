@@ -22,7 +22,29 @@ struct Work {
     std::size_t normalPolynomials=0,normalTails=0;
 };
 struct Result {std::vector<double> field,absoluteError;};
+struct FieldWorkspaceV5 {
+    std::vector<double> field;
+    unsigned width=0,height=0;
+    std::array<unsigned,128> activeRows{};
+    unsigned activeRowCount=0;
+    unsigned colBegin=0,colEnd=0;
+    double maxError=0;
+    bool dirtyAll=false;
+};
 struct Bounds {double low=0,high=0;};
+struct GaussianMemoWorkV5 {std::size_t hits=0,misses=0,entries=0,chargedBytes=0;};
+class GaussianMemoV5 {
+public:
+    explicit GaussianMemoV5(const Request&,std::size_t capacityBytes=64u*1024u*1024u);
+    ~GaussianMemoV5();
+    GaussianMemoV5(const GaussianMemoV5&)=delete;
+    GaussianMemoV5& operator=(const GaussianMemoV5&)=delete;
+    GaussianMemoWorkV5 work() const;
+private:
+    friend class Bank;
+    struct Impl;
+    std::unique_ptr<Impl> implementation_;
+};
 
 bool arithmeticAvailable() noexcept;
 // Private numeric calibration seam; no SDK/public V1 layout changes.
@@ -37,10 +59,12 @@ std::optional<std::array<Bounds,8>> fastMomentsForCalibration(
     double low,double high,double detectorLow,double detectorHigh,double sigma,double anchor);
 
 // Bank coefficients depend only on the optical policy/pose/cutoff, never on
-// photons, source identity or request history. One caller owns one bank.
+// photons, source identity or request history. The ordinary bank is serial.
 class Bank {
 public:
     static std::unique_ptr<Bank> prepare(const Request&,Work* = nullptr);
+    /// Own one bank per cutoff and allow concurrent V5 field evaluations.
+    static std::unique_ptr<Bank> prepareSharedV5(const Request&,Work* = nullptr);
     ~Bank();
     Bank(Bank&&) noexcept;
     Bank& operator=(Bank&&) noexcept;
@@ -49,6 +73,12 @@ public:
     std::optional<Result> evaluate(const std::array<double,4>& region,Work* = nullptr) const;
     /// Version5 materialized field, same per-component budget and refusal fallback.
     std::optional<Result> evaluateFastMoments(const std::array<double,4>& region,Work* = nullptr) const;
+    /// Exact bounded Gaussian-factor reuse; no terrain/final-field caching.
+    std::optional<Result> evaluateFastMemoV5(const std::array<double,4>& region,GaussianMemoV5&,Work* = nullptr) const;
+    /// Zero-allocation V5 field evaluation into a caller-owned workspace.
+    bool evaluateFastIntoV5(const std::array<double,4>& region,FieldWorkspaceV5& workspace,Work* = nullptr) const;
+    /// Thread-safe degree-3 column pre-warming for shared V5 banks.
+    bool ensureColumnV5(unsigned col) const;
 private:
     struct Impl;
     std::unique_ptr<Impl> implementation_;

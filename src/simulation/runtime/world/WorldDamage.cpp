@@ -39,7 +39,7 @@ struct WorldDamageResponseV1 {
     std::array<double,3> cg{};
     double pressurePa=0,boundaryS=0;
     std::vector<ms::damage::VehicleDamage::PointImpulse> contact;
-    bool materialOriginMoment=false,liquidAware=false,mechanical=false;
+    bool materialOriginMoment=false,liquidAware=false,mechanical=false,carrierTraversal=false;
 };
 
 // Private, transient native-boundary application policy. Never published as
@@ -66,6 +66,7 @@ struct WorldDamageContinuationV1 {
         ms::damage::SceneEnvironmentV1 environment;
         double sampleTimeS=0,creationBoundaryS=0,lifetimeS=1;
         double lastPublicationS=std::numeric_limits<double>::quiet_NaN();
+        bool carrierTraversal=false;
     };
     std::vector<Pending> pending;
     std::vector<WorldDamageResponseV1> contacts;
@@ -511,6 +512,7 @@ std::optional<World::ContactTransfer> World::contactTransfer(const Entry& weapon
     }
     const auto impulse=ms::damage::inelasticBodyContact(sourceBody,recipientBody,rotate(b,contact.normalBody));
     if (!impulse.valid || !impulse.approaching) return std::nullopt;
+    out.normalEcef=rotate(b,contact.normalBody);
     out.impulseEcef=impulse.impulseB; out.weaponImpulseEcef=impulse.impulseA; out.weaponAngularEcef=impulse.angularImpulseA;
     out.dissipatedJ=impulse.dissipatedJ; out.closingMs=impulse.closingMs;
     traceExistingEffect(weapon.origin.store,weapon.info.id,[&] {
@@ -1128,9 +1130,60 @@ std::vector<ipc::EngagementEvent> World::detonateAt(const Detonation& d, const C
 
             captureWeaponFragmentDiagnosticsV1(d.weapon,pending.sourceGeneration,field,pending.sampleTimeS,
                 pending.sampleTimeS,pending.diagnosticName,d.store,pending.diagnosticExplosiveKg,pending.diagnosticTopology);
+            const double carrierSampleTimeS=pending.sampleTimeS;
+            const double carrierLifetimeS=pending.lifetimeS;
             damageContinuation_->pending.push_back(std::move(pending));
             for(const auto& event:out)engage(event); // The burst is published once; future hits are not.
-            if(contact)if(auto* live=entry(d.weapon))contactDamage(*live,*contact);
+            if(contact) {
+                // Direct armed body-contact: if the residual non-warhead carrier
+                // perforates the victim's entry skin at TOI via THOR, propagate
+                // it through the native material/liquid/component solver instead
+                // of double-counting a non-perforating rigid-wall bounce impulse.
+                // Otherwise retain the rigid-body contact impulse path.
+                bool carrierAdmitted=false;
+                if(weapon&&card!=storeCards_.end()) {
+                    if(const auto* victimEntry=entry(contact->victim)) {
+                        const double contactOffset=std::clamp(contact->fraction,0.0,1.0)*dt;
+                        if(const auto weaponMatterToi=engagementMatterAt(*weapon,contactOffset)) {
+                            const auto weaponStateToi=engagementStateAt(*weapon,contactOffset);
+                            const auto victimStateToi=engagementStateAt(*victimEntry,contactOffset);
+                            double entrySkinM=0.0;
+                            if(const auto victimFrame=airframes_.find(victimEntry->info.aircraft);
+                               victimFrame!=airframes_.end()&&victimFrame->second)
+                                entrySkinM=victimFrame->second->skinThicknessM(contact->section);
+                            ms::damage::CarrierTraversalInputV1 carrierInput;
+                            carrierInput.contactPointEcef=contact->pointEcef;
+                            carrierInput.contactNormalEcef=contact->normalEcef;
+                            carrierInput.weaponVelocityEcef=rotate(weaponStateToi,v3(weaponStateToi.velocityBodyMs));
+                            carrierInput.victimVelocityEcef=rotate(victimStateToi,v3(victimStateToi.velocityBodyMs));
+                            carrierInput.weaponAxisEcef=rotate(weaponStateToi,{1.0,0.0,0.0});
+                            carrierInput.weaponImpulseEcef={0.0,0.0,0.0};
+                            carrierInput.weaponMassToiKg=weaponMatterToi->rigid.massKg;
+                            carrierInput.warheadTotalKg=warhead->totalKg;
+                            carrierInput.bodyDiameterM=card->second->value("diameter_m",0.0);
+                            carrierInput.entrySkinThicknessM=entrySkinM;
+                            carrierInput.bodyCd=1.3;
+                            const auto carrierField=ms::damage::buildContactCarrierFieldV1(carrierInput);
+                            if(carrierField.valid) {
+                                WorldDamageContinuationV1::Pending carrierPending;
+                                carrierPending.source=d;carrierPending.correlation=weapon->origin;
+                                carrierPending.sourceStreamSlot=static_cast<std::uint32_t>(weapon->slot);
+                                carrierPending.sourceGeneration=weapon->info.generation;
+                                if(options_.publish)carrierPending.diagnosticName=weapon->info.name;
+                                carrierPending.diagnosticExplosiveKg=0.0;carrierPending.diagnosticTopology=0u;
+                                carrierPending.correlation.id=weapon->info.id;carrierPending.correlation.launcher=weapon->info.launcher;
+                                carrierPending.correlation.store=d.store;carrierPending.field=carrierField;
+                                carrierPending.environment=environment;carrierPending.sampleTimeS=carrierSampleTimeS;
+                                carrierPending.creationBoundaryS=simTime_;carrierPending.lifetimeS=carrierLifetimeS;
+                                carrierPending.carrierTraversal=true;
+                                damageContinuation_->pending.push_back(std::move(carrierPending));
+                                carrierAdmitted=true;
+                            }
+                        }
+                    }
+                }
+                if(!carrierAdmitted)if(auto* live=entry(d.weapon))contactDamage(*live,*contact);
+            }
             return out;
         }
         if(liquids.recipients.empty())assessment=ms::damage::assessSceneV1(field,sceneVictims,environment);
@@ -1302,7 +1355,7 @@ void World::advanceDetonationEffects() {
                 row.set("motion",std::move(motion));targets.push(std::move(row));
             }
             for(const auto& p:result.continuation.projectiles)remaining.push(std::to_string(p.sourceOrdinalV1));
-            core::Json row=core::Json::Object{{"kind","assessment"},{"generation",std::to_string(effect.sourceGeneration)},
+            core::Json row=core::Json::Object{{"kind",effect.carrierTraversal?"carrier_traversal_assessment":"assessment"},{"generation",std::to_string(effect.sourceGeneration)},
                 {"world_time_s",simTime_},{"birth_time_s",effect.sampleTimeS},{"window_offset_s",offset},{"duration_s",duration},
                 {"field_age_before_s",effect.field.ageS},{"field_age_after_s",result.continuation.ageS},{"valid",result.valid},
                 {"input_projectiles",std::to_string(effect.field.projectiles.size())},{"remaining_projectiles",std::move(remaining)},
@@ -1341,6 +1394,7 @@ void World::advanceDetonationEffects() {
             response.sourceStreamSlot=effect.sourceStreamSlot;response.source=std::move(cause);response.correlation=effect.correlation;
             response.impact=row->impact;response.encounter=snapshot.state;response.cg=snapshot.cg;
             response.pressurePa=snapshot.target.airPressurePa;response.boundaryS=simTime_;response.materialOriginMoment=true;
+            response.carrierTraversal=effect.carrierTraversal;
             response.liquidAware=std::any_of(liquids.recipients.begin(),liquids.recipients.end(),
                 [&](const auto& value){return value.identity==snapshot.entry->info.id;});
             journal.push_back(std::move(response));
@@ -1395,10 +1449,10 @@ void World::advanceDetonationEffects() {
             const auto& prepared=*group.prepared;
             changes=applyDamagePreparedV1(*victim,primary.source,prepared.impact,prepared.encounter,prepared.cg.data(),
                 prepared.pressurePa,prepared.contact,primary.sourceStreamSlot,primary.sourceGeneration,true,prepared.liquidAware,&prepared.application);
-            // A source's Hit retains ONLY its own actual observed count.
+            // A source's Hit retains ONLY its own actual observed warhead fragment count.
             for(const auto index:group.donors) {
                 const auto& donor=journal[index];
-                if(donor.impact.fragmentsStriking>0) {
+                if(donor.impact.fragmentsStriking>0&&!donor.carrierTraversal) {
                     auto hit=engagementEvent(*victim,ipc::EngagementKind::Hit,donor.source.store);
                     hit.target=donor.sourceStreamSlot?*donor.sourceStreamSlot+1u:0u;
                     hit.index=static_cast<std::uint32_t>(donor.impact.fragmentsStriking);engage(hit);
@@ -1408,6 +1462,7 @@ void World::advanceDetonationEffects() {
             // Identical original arithmetic/defaults for one contributor; its
             // diagnostic was captured above, so suppress only its second copy.
             WorldDamageApplicationV1 observed;observed.captureImpact=false;
+            if(primary.carrierTraversal)observed.publishHit=false;
             // Empty componentDonors retains the old fire/RNG/material branches;
             // suppress only the already-recorded diagnostic copy.
             changes=applyDamagePreparedV1(*victim,primary.source,primary.impact,primary.encounter,primary.cg.data(),
@@ -1475,7 +1530,7 @@ void World::advanceDetonationEffects() {
         if(update.field)effect.field=std::move(*update.field);
         if(update.materialContactsV3)effect.materialContactsV3=std::move(*update.materialContactsV3);
         else if(update.field)effect.materialContactsV3={};
-        if(update.capturedEpoch)captureWeaponFragmentDiagnosticsV1(effect.correlation.id,effect.sourceGeneration,effect.field,*update.capturedEpoch,
+        if(update.capturedEpoch&&!effect.carrierTraversal)captureWeaponFragmentDiagnosticsV1(effect.correlation.id,effect.sourceGeneration,effect.field,*update.capturedEpoch,
             effect.sampleTimeS,effect.diagnosticName,effect.source.store,effect.diagnosticExplosiveKg,effect.diagnosticTopology);
     }
 
@@ -1615,8 +1670,8 @@ void World::separatedAt(Entry& e, int section, const sim::VehicleState* as, cons
             ms::damage::MaterialOwnerHandoffV3 handoff;
             handoff.from=e.info.id;handoff.fromGeneration=e.info.generation;
             handoff.to=piece->info.id;handoff.toGeneration=piece->info.generation;
-            handoff.fromGeometry=a.contactGeometry;handoff.toGeometry=piece->damage->airframe().contactGeometry;
-            handoff.panels=piece->damage->attachedGeometry().panelIndices();
+            if(!ms::damage::prepareMaterialOwnerHandoffV3(handoff,a,piece->damage->attachedGeometry()))
+                throw std::runtime_error("material contact ownership preparation refused");
             damageContinuation_->materialHandoffsV3.push_back(std::move(handoff));
         }
         piece->liquidMaterials=e.liquidMaterials;

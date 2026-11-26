@@ -84,6 +84,17 @@ private:
     ThermalImageReceiverV1 thermal_;
     ThermalDualBandReceiverV1 thermalDual_;
     ThermalReticleReceiverV1 reticle_;
+    struct LastPreciseReticleV2 {
+        double readTimeS=0,captureTimeS=0,exposureEndTimeS=0;
+        weapon::V3 pointing{};
+        double widthRad=0,heightRad=0,cutoff=0;
+        std::uint64_t localId=0;
+        bool rateAvailable=false;
+        weapon::V3 direction{},directionRate{};
+        bool closingRateAvailable=false;
+        double invDiameterRatePerS=0;
+    };
+    std::optional<LastPreciseReticleV2> lastPreciseReticle_;
     std::optional<ThermalReticleConfigV1> reticleConfig_;
     std::optional<ReticleReceiverConfigurationV1> reticleReceiverConfig_;
     struct OpticalPose {double timeS;SeekerNavigationPoseV1 navigation;std::array<weapon::V3,3> physicalAxes;weapon::V3 pointing,up;};

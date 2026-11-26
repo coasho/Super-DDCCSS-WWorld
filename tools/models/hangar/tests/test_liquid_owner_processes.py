@@ -183,7 +183,10 @@ class LiquidOwnerProcessTests(unittest.TestCase):
             self.assertEqual(mp.active_children(),[])
 
     def test_half_cache_keeps_exact_geometry_trace_and_literal_final_audits(self):
-        from test_liquid_pack_equivalence import observed,cube,tank
+        try:
+            from .test_liquid_pack_equivalence import observed,cube,tank
+        except ImportError:
+            from test_liquid_pack_equivalence import observed,cube,tank
         hull=cube((2.,2.,2.))-cube((.4,.4,2.),(.8,.8,0.))
         limits=liquid._limits({'max_vertices':64,'max_triangles':96})
         budget=liquid._OwnerBudget(mp.get_context('spawn'),limits,time.monotonic()+20.,2)
@@ -201,7 +204,10 @@ class LiquidOwnerProcessTests(unittest.TestCase):
     def source_fixture(self):
         import numpy as np
         from hangar.geometry import Aircraft
-        from test_liquid import glb,cube,exported_design_vertices
+        try:
+            from .test_liquid import glb,cube,exported_design_vertices
+        except ImportError:
+            from test_liquid import glb,cube,exported_design_vertices
         design=self.directory/'owned.toml'
         design.write_text('''[aircraft]
 name="owned"
@@ -298,7 +304,10 @@ if __name__=='__main__':
         assert all(len(r['cpus'])==1 for r in rows)
         print(json.dumps(rows))
 ''',encoding='utf-8')
-        code=resources.run_leased([sys.executable,'-B',str(script)],log,15.,self.reserved[:2],env=os.environ.copy())
+        env=os.environ.copy()
+        hangar_root=str(Path(__file__).resolve().parents[1])
+        env['PYTHONPATH']=hangar_root+(os.pathsep+env['PYTHONPATH'] if env.get('PYTHONPATH') else '')
+        code=resources.run_leased([sys.executable,'-B',str(script)],log,15.,self.reserved[:2],env=env)
         self.assertEqual(code,0,log.read_text(encoding='utf-8'))
         print(json.dumps(dict(case='nested-generation-owner-affinity',observation=log.read_text(encoding='utf-8').strip())),flush=True)
 
@@ -336,8 +345,11 @@ if __name__=='__main__':
     assert time.monotonic()-started<2.5
     print(json.dumps({'bounded':True,'elapsed_s':time.monotonic()-started,'cold_handles':cold,'warmed_handles':before,'canceled_handles':observed}))
 ''',encoding='utf-8')
+        env=os.environ.copy()
+        hangar_root=str(Path(__file__).resolve().parents[1])
+        env['PYTHONPATH']=hangar_root+(os.pathsep+env['PYTHONPATH'] if env.get('PYTHONPATH') else '')
         with resources.cpu_lease(2),log.open('w',encoding='utf-8') as stream:
-            process=subprocess.Popen([sys.executable,'-B',str(script)],stdout=stream,stderr=subprocess.STDOUT,env=os.environ.copy())
+            process=subprocess.Popen([sys.executable,'-B',str(script)],stdout=stream,stderr=subprocess.STDOUT,env=env)
             try:code=process.wait(timeout=3.)
             except subprocess.TimeoutExpired:
                 subprocess.run(['taskkill','/PID',str(process.pid),'/T','/F'],stdout=stream,stderr=subprocess.STDOUT,timeout=5)

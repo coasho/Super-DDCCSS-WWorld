@@ -112,12 +112,15 @@ function(fsim_install_notices component)
                   ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGPropulsion.cpp
                   ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGRotor.h
                   ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGRotor.cpp
+                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGEngine.h
+                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGEngine.cpp
                   ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGRocket.h
                   ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGRocket.cpp
                   ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGThruster.cpp
                   ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGElectric.cpp
                   ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGPropeller.cpp
                   ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGTransmission.h
+                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGTurbine.cpp
                   ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/flight_control/FGActuator.cpp
                   ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGAerodynamics.cpp
                   ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGMassBalance.cpp

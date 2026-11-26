@@ -1254,7 +1254,7 @@
       "publisher": "Project engineering derivation",
       "url": "docs/research/sim-m03/thermal-reticle-method.md",
       "accessed": "2026-11-03",
-      "evidence_kind": "engineering_derivation",
+      "evidence_kind": "unclassified",
       "note": "R=min(width,height)*pitch/2; r=R/2; n=max(1,floor(pi*r/(8*psfSigma))); f=1/(2*pi*n*responseTime).128 phase samples and4x4 spatial quadrature are explicit numerical design. Method references: NAWCWD TP8347(2013),7-1.33-37 and Howser,JHUAPL16(1),1995,27-33. Independent SA-14-only reference: DOI10.1016/j.infrared.2010.07.001,100Hz*12=1200Hz. No OEM AAM constants, fitted scene outcome or empirical calibration are claimed."
     },
     "foi-identity": {
@@ -1289,7 +1289,7 @@
     },
     "hangar-vlm": {
       "title": "Shared Hangar aircraft VLM tables",
-      "url": "aero/vlm-carriage-5fb7852b40dedef7dd5b5152e6a0de6c7f88742f9c7187ff9d2289feb67f405a.json",
+      "url": "aero/vlm-carriage-929a67c85dfdfde00a3c6a0e1418d2c83cf4855dced54efe13c12a3786958e6f.json",
       "evidence_kind": "game_reference",
       "note": "Same base, rate and Mach data as the released JSBSim model; no equipment calibration claim.",
       "simulation": {
@@ -1303,8 +1303,8 @@
           "span_m": 0.803,
           "mass_kg": 348.0
         },
-        "table_inputs_hash": "4fa404eb2f2c29e0",
-        "table_sha256": "5fb7852b40dedef7dd5b5152e6a0de6c7f88742f9c7187ff9d2289feb67f405a",
+        "table_inputs_hash": "bdb5de0178c47758",
+        "table_sha256": "929a67c85dfdfde00a3c6a0e1418d2c83cf4855dced54efe13c12a3786958e6f",
         "input_geometry": "aircraft/r27et/r27et.toml",
         "domain": {
           "mach": [
@@ -1324,7 +1324,7 @@
           "Katz and Plotkin, Low-Speed Aerodynamics, vortex lattice",
           "Shared aero/model.py, tables.py and mach.py; engineering extensions are not equipment measurements"
         ],
-        "solver_sha256": "1fe905d01b307fc9398dda9ddd1b78ab2960d66c80ffd7346a2baf5e255f78bf",
+        "solver_sha256": "c3c6c4ea54c61e3f461287dfb4f0bf1d9b83e6ba685a3352fab2a434639d0670",
         "generic_validation": {
           "schema": "fsim.generic-vlm-validation.v1",
           "basis": "simulated",

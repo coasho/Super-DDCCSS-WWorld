@@ -65,8 +65,13 @@ class Missiles(unittest.TestCase):
                 card = json.loads((root / "assets/stores" / (card_id + ".json")).read_text(encoding="utf-8"))
                 generated = storebodies.files(card)
                 engine_name = "Engines/%s_motor.xml" % name
+                from hangar import components
                 table = ET.fromstring(generated[engine_name]).find("thrust_table")
-                self.assertEqual(table.get("name"), "fsim/ignition-time-thrust-v1")
+                prop = components.resolve(card, "propulsion")
+                expected_table = ("fsim/commanded-dual-pulse-v1"
+                                  if prop and prop.get("implementation_id") == components.COMMANDED_PULSE
+                                  else "fsim/ignition-time-thrust-v1")
+                self.assertEqual(table.get("name"), expected_table)
                 rows = [tuple(map(float, line.split())) for line in table.findtext("tableData").splitlines() if line.strip()]
                 self.assertEqual(rows[-1][1], 0.0)
                 for path, text in generated.items():
@@ -552,7 +557,7 @@ class NativeShowcaseConsumers(unittest.TestCase):
             plume.Image.new("RGB", (4, 4)).save(command[command.index("--screenshot") + 1])
             return types.SimpleNamespace(returncode=0)
         with tempfile.TemporaryDirectory() as folder, mock.patch.object(plume.subprocess, "run", side_effect=capture) as renderer:
-            plume.render("native.fsrec", os.path.join(folder, "frame.png"), 17.25, True, slot=6)
+            plume.render("native.fsrec", os.path.join(folder, "frame.png"), 17.25, slot=6)
         command = renderer.call_args.args[0]
         self.assertEqual(command[command.index("--follow") + 1], "6")
         self.assertEqual(command[command.index("--screenshot-clock") + 1], "replay")
@@ -565,7 +570,7 @@ class NativeShowcaseConsumers(unittest.TestCase):
             plume.Image.new("RGB", (4, 4)).save(out)
             with mock.patch.object(plume.subprocess, "run", return_value=types.SimpleNamespace(returncode=0)):
                 with self.assertRaisesRegex(RuntimeError, "screenshot"):
-                    plume.render("native.fsrec", out, 17.25, True, slot=6)
+                    plume.render("native.fsrec", out, 17.25, slot=6)
             self.assertFalse(out.exists(), "old mechanical capture must not survive as native evidence")
 
     def test_plume_rejects_undecodable_png(self):
@@ -577,7 +582,7 @@ class NativeShowcaseConsumers(unittest.TestCase):
                 return types.SimpleNamespace(returncode=0)
             with mock.patch.object(plume.subprocess, "run", side_effect=capture):
                 with self.assertRaisesRegex(RuntimeError, "screenshot"):
-                    plume.render("native.fsrec", out, 17.25, True, slot=6)
+                    plume.render("native.fsrec", out, 17.25, slot=6)
 
     def test_plume_rejects_failed_viewer_process(self):
         plume = _tool("plume_check_test", "tools/validation/plume_check/check.py")
@@ -585,7 +590,7 @@ class NativeShowcaseConsumers(unittest.TestCase):
             out = pathlib.Path(folder) / "frame.png"
             with mock.patch.object(plume.subprocess, "run", return_value=types.SimpleNamespace(returncode=7)):
                 with self.assertRaisesRegex(RuntimeError, "viewer.*failed"):
-                    plume.render("native.fsrec", out, 17.25, True, slot=6)
+                    plume.render("native.fsrec", out, 17.25, slot=6)
 
 
 class Lattice(unittest.TestCase):

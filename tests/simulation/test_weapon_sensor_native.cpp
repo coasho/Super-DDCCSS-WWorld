@@ -1,10 +1,13 @@
 #include "simulation/runtime/world/World.h"
 #include "simulation/mission_systems/components/interfaces/MeasuredGuidanceV2.h"
 #include "simulation/mission_systems/components/interfaces/ThermalSeekerExecutionV1.h"
+#include "simulation/mission_systems/components/interfaces/ThermalReticleSeekerExecutionV1.h"
 #include "simulation/mission_systems/components/interfaces/RadioSeekerExecutionV1.h"
 #include "simulation/mission_systems/components/interfaces/SeekerSceneClockV1.h"
 #include "simulation/mission_systems/components/interfaces/SeekerLaunchNavigationV1.h"
+#include "simulation/mission_systems/components/implementations/seeker/EngineeringSeekerV3.h"
 #include "simulation/mission_systems/components/implementations/seeker/ThermalDualBandReceiverV1.h"
+#include "simulation/mission_systems/components/implementations/seeker/ThermalReticleReceiverV1.h"
 #include "simulation/mission_systems/components/implementations/seeker/RadioReceiverV1.h"
 #include "simulation/mission_systems/components/support/MeasuredSeekerV2.h"
 #include "simulation/mission_systems/rf/Path.h"
@@ -185,7 +188,7 @@ void checkGroundPropagation(Observation& observation,const RadioSceneFrameV1& sc
         ++observation.groundPathChecks;
     }
 }
-class Sensor final:public SeekerProviderV1,public SeekerExecutionV2,public ThermalSeekerExecutionV1,public RadioSeekerExecutionV1,public ThermalDualBandSeekerExecutionV1,public SeekerSceneClockV1,public SeekerLaunchNavigationV1 {
+class Sensor final:public SeekerProviderV1,public SeekerExecutionV2,public ThermalSeekerExecutionV1,public ThermalReticleSeekerExecutionV1,public RadioSeekerExecutionV1,public ThermalDualBandSeekerExecutionV1,public SeekerSceneClockV1,public SeekerLaunchNavigationV1 {
 public:
     Sensor(std::unique_ptr<SeekerProviderV1> p,std::shared_ptr<Observation> o):inner_(std::move(p)),out_(std::move(o)),instance_(++out_->instances){}
     const ms::weapon::SeekerConfigV1& config() const noexcept override{return inner_->config();}
@@ -225,6 +228,23 @@ public:
     }
     const ThermalImageConfigV1* thermalPolicyV1() const noexcept override {
         const auto* p=dynamic_cast<const ThermalSeekerExecutionV1*>(inner_.get());return p?p->thermalPolicyV1():nullptr;
+    }
+    bool configureThermalReticleV1(const ThermalReticleConfigV1& c,std::string& error) override {
+        auto* p=dynamic_cast<ThermalReticleSeekerExecutionV1*>(inner_.get());
+        if(!p||!p->configureThermalReticleV1(c,error))return false;
+        reticlePolicy_=c;reticleConfigured_=false;return true;
+    }
+    SeekerResultV2 sampleThermalReticleV1(const SeekerFrameV2& f,const ThermalSceneFrameV1& scene) override {
+        out_->lastReceiver=instance_;
+        ++out_->samples;REQUIRE(f.bodyAxes);REQUIRE(scene.navigation);CHECK(scene.navigation->valid);
+        out_->rawScenes+=static_cast<unsigned>(scene.patches.size());
+        auto* p=dynamic_cast<ThermalReticleSeekerExecutionV1*>(inner_.get());REQUIRE(p);
+        const auto r=p->sampleThermalReticleV1(f,scene);
+        probeReticle(f,scene,*p);
+        out_->rows.push_back({instance_,f.timeS,f.ageS,r,{},false});return r;
+    }
+    const ThermalReticleResultV1* thermalReticleV1() const noexcept override {
+        const auto* p=dynamic_cast<const ThermalReticleSeekerExecutionV1*>(inner_.get());return p?p->thermalReticleV1():nullptr;
     }
     bool configureThermalDualBandV1(const ThermalDualBandConfigV1& c,std::string& error) override {
         auto* p=dynamic_cast<ThermalDualBandSeekerExecutionV1*>(inner_.get());return p&&p->configureThermalDualBandV1(c,error);
@@ -320,10 +340,49 @@ private:
             <<','<<replayError<<",0,0,0,0,"<<difference<<','<<energy<<','<<residual<<','<<semi<<','<<bool(scene.illuminationWaveform)<<','<<bool(scene.illuminationClock)<<",retained_first_interval\n";
         out_->countermeasureRows.push_back(row.str());out_->channelProof[0]=replayError==0;
     }
+    void probeReticle(const SeekerFrameV2& f,const ThermalSceneFrameV1& scene,const ThermalReticleSeekerExecutionV1& execution) {
+        if(!out_->countermeasure||out_->channelProof[0])return;
+        const auto* actual=execution.thermalReticleV1();if(!actual||!actual->valid||actual->timeS!=f.timeS)return;
+        std::string error;
+        if(!reticleConfigured_) {
+            if(!reticlePolicy_) {
+                const auto* eng=dynamic_cast<const EngineeringSeekerV3*>(inner_.get());
+                REQUIRE(eng);REQUIRE(eng->reticleReceiverConfigurationV1());
+                reticlePolicy_=eng->reticleReceiverConfigurationV1()->policy;
+            }
+            REQUIRE(reticleProbe_.configure(*reticlePolicy_,error));reticleConfigured_=true;
+        }
+        auto aligned=scene;
+        if(ms::components::measured::norm(actual->horizonDiagnostic.ownUp)>0)aligned.up=actual->horizonDiagnostic.ownUp;
+        auto before=reticleProbe_;
+        const auto full=reticleProbe_.expose(aligned,actual->pointing,f.receiverSeed);REQUIRE(full.valid);
+        const auto replayError=maximumDifference(full.expectedElectrons,actual->expectedElectrons);
+        auto without=aligned;unsigned matched=0;double age=0,range=0;
+        for(std::size_t i=without.patches.size();i-->0;)if(actualCountermeasure(*out_,f,without.patches[i],without.patches[i].rangeM,age)) {
+            range=without.patches[i].rangeM;++matched;
+            without.patches.erase(without.patches.begin()+static_cast<std::ptrdiff_t>(i));
+            without.refereeAttributionIndices.erase(without.refereeAttributionIndices.begin()+static_cast<std::ptrdiff_t>(i));
+        }
+        if(!matched)return;
+        CHECK(replayError<=1e-5);
+        REQUIRE(matched==1);
+        const auto control=before.expose(without,actual->pointing,f.receiverSeed);REQUIRE(control.valid);
+        double positive=0;unsigned saturated=0;
+        for(std::size_t i=0;i<full.expectedElectrons.size();++i) {
+            positive+=std::max(0.,full.expectedElectrons[i]-control.expectedElectrons[i]);
+            saturated+=full.expectedElectrons[i]>=reticlePolicy_->detector.fullWellElectrons;
+        }
+        if(!(positive>0))return;
+        std::ostringstream row;row<<std::setprecision(17)<<"0,thermal,"<<f.timeS<<','<<f.ageS<<','<<age<<','<<range<<','<<matched
+            <<','<<replayError<<','<<positive<<','<<maximumDifference(full.expectedElectrons,control.expectedElectrons)<<','<<saturated
+            <<','<<maximumDifference(full.measuredElectrons,control.measuredElectrons)<<",0,0,0,0,0,0,preclip_charge\n";
+        out_->countermeasureRows.push_back(row.str());out_->channelProof[0]=replayError==0;
+    }
     SeekerExecutionV2& execution(){auto* p=dynamic_cast<SeekerExecutionV2*>(inner_.get());REQUIRE(p);return *p;}
     std::unique_ptr<SeekerProviderV1> inner_;std::shared_ptr<Observation> out_;unsigned instance_;
     std::array<ThermalImageReceiverV1,2> thermalProbes_;
     std::array<bool,2> thermalConfigured_{};
+    ThermalReticleReceiverV1 reticleProbe_;std::optional<ThermalReticleConfigV1> reticlePolicy_;bool reticleConfigured_=false;
     RadioReceiverV1 radioProbe_;bool radioConfigured_=false;
 };
 class Controller final:public GuidanceProviderV1,public MeasuredGuidanceV2 {

@@ -77,7 +77,7 @@
           "diameter_m": 0.4736,
           "mass_kg": 213.642
         },
-        "table_inputs_hash": "0630a6484e651583",
+        "table_inputs_hash": "951a6b673de302f6",
         "table_sha256": "ccbdb087835fde95d14ea155649910c34731a1071330d15c1b2dec79dbb26c0e",
         "input_geometry": "aircraft/analq184/analq184.toml",
         "domain": {
@@ -98,7 +98,7 @@
           "Katz and Plotkin, Low-Speed Aerodynamics, vortex lattice",
           "Shared aero/model.py, tables.py and mach.py; engineering extensions are not equipment measurements"
         ],
-        "solver_sha256": "1fe905d01b307fc9398dda9ddd1b78ab2960d66c80ffd7346a2baf5e255f78bf",
+        "solver_sha256": "c3c6c4ea54c61e3f461287dfb4f0bf1d9b83e6ba685a3352fab2a434639d0670",
         "generic_validation": {
           "schema": "fsim.generic-vlm-validation.v1",
           "basis": "simulated",
