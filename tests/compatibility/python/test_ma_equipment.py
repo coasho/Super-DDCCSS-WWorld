@@ -151,6 +151,36 @@ class MAEquipmentTest(unittest.TestCase):
         self.assertEqual(reported.value.activity, activity)
         self.assertEqual(reported.value.status.target, 0)
 
+    def test_optical_ir_search_track_and_laser_ranging(self):
+        world = fsim.World("py-ma-optical-ir", publish=False, terrain=False, workers=1, pin_workers=False, seed=31)
+        f35 = world.create_vehicle("f35a", "jsbsim:f35a", latitude_deg=35.0, longitude_deg=-117.0,
+                                   altitude_msl_m=7000.0, heading_deg=90.0, airspeed_ms=230.0)
+        target = world.create_vehicle("target", "jsbsim:f16c", latitude_deg=35.0,
+                                      longitude_deg=-117.0 + 12000.0 / (6371000.0 * math.cos(math.radians(35.0))) * 180.0 / math.pi,
+                                      altitude_msl_m=7000.0, heading_deg=90.0, airspeed_ms=230.0)
+        agent = world.create_agent(f35, "f35-agent")
+        agent.set_payload_state("eots", "operate")
+        for _ in range(300):
+            if next(p for p in agent.payloads if p.name == "eots").state == "operate":
+                break
+            world.step(1)
+        agent.search_optical("eots", azimuth_half_width_rad=math.radians(30.0), elevation_half_width_rad=math.radians(20.0))
+        world.step(30)
+        contacts = agent.contacts("eots")
+        self.assertGreaterEqual(len(contacts), 1)
+        self.assertEqual(contacts[0].truth, 0)
+        self.assertTrue(math.isnan(contacts[0].range_m))
+        agent.track_optical("eots", contacts[0].id)
+        world.step(30)
+        tracked = agent.contacts("eots")
+        self.assertGreaterEqual(len(tracked), 1)
+        self.assertTrue(math.isfinite(tracked[0].range_m))
+        self.assertAlmostEqual(tracked[0].range_m, 12000.0, delta=600.0)
+        rep = {kv.name: kv.value for kv in agent.payload_report("eots")}
+        self.assertEqual(rep["laser_capable"], 1.0)
+        self.assertEqual(rep["laser_ranged"], 1.0)
+        self.assertEqual(target.id > 0, True)
+
 
 if __name__ == "__main__":
     unittest.main()

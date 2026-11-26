@@ -62,6 +62,13 @@ public:
     virtual Role role(std::uint32_t id) const { (void)id; return Role::Aircraft; }
     /// Who released a weapon (0: not one).
     virtual std::uint32_t launcher(std::uint32_t id) const { (void)id; return 0; }
+    /// Whether a weapon entity's rocket motor is burning now (false for non-weapons or coasting weapons).
+    virtual bool weaponBurning(std::uint32_t id) const { (void)id; return false; }
+    /// Active infrared flare decoys currently in the air (distinct from radar targets()).
+    virtual const std::vector<Decoy>& flares() const {
+        static const std::vector<Decoy> empty;
+        return empty;
+    }
     virtual const sim::EnvironmentState& environment() const = 0;
     /// The terrain, or the earth's curve, stands between the carrier and another entity: the radio path's loss at
     /// 10 GHz past free space by more than a ridge's edge gives (20 dB).

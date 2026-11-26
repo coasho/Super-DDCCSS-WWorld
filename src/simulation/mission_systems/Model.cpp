@@ -2,6 +2,7 @@
 
 #include "simulation/mission_systems/ea/Jammer.h"
 #include "simulation/mission_systems/esm/Receiver.h"
+#include "simulation/mission_systems/optical/OpticalSensor.h"
 
 namespace fsim::ms {
 
@@ -20,7 +21,8 @@ std::unique_ptr<Model> makeModel(const Card& card, std::uint16_t count) {
     switch (card.family) {
     case Family::Esm: return esm::makeReceiver(card);
     case Family::ElectronicAttack: return ea::makeJammer(card, count);
-    default: return nullptr; // (the other families' models: MS-10 to MS-11, not built yet)
+    case Family::PassiveOptical: return optical::makeOpticalSensor(card, count);
+    default: return nullptr; // (the remaining families' models: MS-11, not built yet)
     }
 }
 

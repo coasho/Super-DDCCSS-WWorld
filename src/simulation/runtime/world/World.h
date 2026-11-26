@@ -1146,6 +1146,7 @@ private:
     std::vector<std::size_t> sensing_;   ///< the slots whose sensors look this step
     std::vector<ms::Emission> emissions_; ///< what radiates this step: every vehicle's radars, jammers and datalink carriers
     std::vector<sim::VehicleState> c2EmissionStates_; ///< synthetic carrier states for C2 nodes emitting datalink traffic
+    std::vector<ms::Decoy> activeFlares_; ///< active pyrotechnic flares visible to optical/IR sensors this step
     std::unique_ptr<ipc::MissionRecord> missionScratch_; ///< publishMission's record, reused
     /// The sensors' looks after a step (MS-4).
     void sense();

@@ -44,7 +44,7 @@ void Host::bind(std::uint32_t vehicle, std::shared_ptr<const Fit> fit, std::uint
     vehicle_ = vehicle;
     fit_ = std::move(fit);
     payloads_.clear(), state_.clear(), cards_.clear(), capabilities_.clear(), ids_.clear(), control_.clear(), statusCapability_.clear();
-    radars_.clear(), amtiCapability_.clear(), eaCapability_.clear(), models_.clear(), modelRng_.clear();
+    radars_.clear(), amtiCapability_.clear(), eaCapability_.clear(), poCapability_.clear(), models_.clear(), modelRng_.clear();
     salvos_.clear(), dispenseRequests_.clear();
     live_.clear(), ended_.clear();
     strikeCapability_.clear(), storeCapability_.clear(), stores_.clear(), storeInfo_.clear(), strikes_.clear(), endedStrikes_.clear(),
@@ -74,6 +74,7 @@ void Host::bind(std::uint32_t vehicle, std::shared_ptr<const Fit> fit, std::uint
         modelRng_.emplace_back(radarSeed(seed ^ kModelStream, p.index));
         amtiCapability_.push_back(-1);
         eaCapability_.push_back(-1);
+        poCapability_.push_back(-1);
         strikeCapability_.push_back(-1), storeCapability_.push_back(-1);
     }
     // the instance ids first, so their strings do not move as the list grows
@@ -99,6 +100,11 @@ void Host::bind(std::uint32_t vehicle, std::shared_ptr<const Fit> fit, std::uint
                 ((p.family == Family::ElectronicAttack && models_[p.index]) || p.family == Family::Countermeasures)) {
                 c.support = control::Support::Supported, c.stage = 0;
                 eaCapability_[p.index] = static_cast<int>(capabilities_.size());
+            }
+            // passive & active optical/IR sensors (MS-10 / SIM-M06)
+            if (type == CapabilityType::PassiveOptical && p.family == Family::PassiveOptical && models_[p.index]) {
+                c.support = control::Support::Supported, c.stage = 0;
+                poCapability_[p.index] = static_cast<int>(capabilities_.size());
             }
             // Native store lifecycle, engagements and advisory launch zones exist. The original calibrated
             // weapon and launch-zone acceptance remains partial (MS-7/MS-8).
@@ -449,6 +455,46 @@ CommandResult Host::submit(const PayloadTask& command, const CommandOptions& opt
         s.nextSalvoAt = simTime;
         s.endAt = std::isfinite(command.durationS) ? (simTime + command.durationS) : std::numeric_limits<double>::infinity();
         salvos_.push_back(s);
+        r.status = control::CommandStatus::Accepted;
+        r.activity = a.id;
+        return r;
+    }
+    if (command.kind == TaskKind::Search || command.kind == TaskKind::Track) {
+        if (info.family != Family::PassiveOptical) return r.reason = Reason::NotSupported, r;
+        const int capability = poCapability_[command.payload];
+        if (capability < 0 || !models_[command.payload]) return r.reason = Reason::NotImplemented, r;
+        if ((r.reason = admit(static_cast<std::size_t>(capability), options)) != Reason::None) return r;
+        std::optional<Contact> heldContact;
+        if (command.kind == TaskKind::Track) {
+            if (command.contact == 0) return r.reason = Reason::InvalidParameter, r;
+            const std::uint16_t srcPayload = static_cast<std::uint16_t>(command.contact >> 48);
+            const auto srcContacts = contacts(srcPayload);
+            for (const Contact& c : srcContacts) {
+                if (c.id == command.contact) {
+                    heldContact = c;
+                    break;
+                }
+            }
+            if (!heldContact) return r.reason = Reason::UnknownContact, r;
+        }
+        Payload& p = state_[command.payload];
+        const Reason br = models_[command.payload]->begin(command, simTime);
+        if (br != Reason::None) return r.reason = br, r;
+        if (heldContact) {
+            models_[command.payload]->followed(&*heldContact);
+            if (models_[command.payload]->finished() != Reason::None) {
+                models_[command.payload]->stop(simTime);
+                return r.reason = Reason::InvalidParameter, r;
+            }
+        }
+        if (p.task) {
+            const ActivityId prev = p.task;
+            p.task = 0; // avoid stopping the newly started model inside end()
+            end(prev, control::ActivityState::Canceled, Reason::Superseded, simTime);
+        }
+        ActivityRecord& a = start(static_cast<std::size_t>(capability), command.payload, options, simTime);
+        a.percent = models_[command.payload]->percent();
+        p.task = a.id;
         r.status = control::CommandStatus::Accepted;
         r.activity = a.id;
         return r;

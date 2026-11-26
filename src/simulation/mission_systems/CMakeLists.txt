@@ -78,6 +78,8 @@ add_library(fsim_ms STATIC
     ea/Jammer.cpp
     esm/Receiver.h
     esm/Receiver.cpp
+    optical/OpticalSensor.h
+    optical/OpticalSensor.cpp
     damage/Damage.h
     damage/Damage.cpp
     damage/WarheadAdapter.cpp

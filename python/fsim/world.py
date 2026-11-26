@@ -3014,6 +3014,22 @@ class Vehicle:
             payload, TaskKind.DISPENSE, chaff=chaff, flares=flares, salvos=salvos, interval_s=interval_s,
             duration_s=duration_s, source=source, controller=controller, command_id=command_id)
 
+    def search_optical(self, payload, *, azimuth_centre_rad=0.0, elevation_centre_rad=0.0,
+                       azimuth_half_width_rad=float("nan"), elevation_half_width_rad=float("nan"),
+                       duration_s=float("nan"), source=Source.POLICY, controller=0, command_id=0):
+        """Command an operating passive/active optical payload (IRST/EOTS/FLIR) to search a volume."""
+        return self.submit_task(
+            payload, TaskKind.SEARCH, azimuth_centre_rad=azimuth_centre_rad, elevation_centre_rad=elevation_centre_rad,
+            azimuth_half_width_rad=azimuth_half_width_rad, elevation_half_width_rad=elevation_half_width_rad,
+            duration_s=duration_s, source=source, controller=controller, command_id=command_id)
+
+    def track_optical(self, payload, contact, *, duration_s=float("nan"),
+                      source=Source.POLICY, controller=0, command_id=0):
+        """Command an operating passive/active optical payload to track a held contact (and laser-range if fitted)."""
+        return self.submit_task(
+            payload, TaskKind.TRACK, contact=contact, duration_s=duration_s,
+            source=source, controller=controller, command_id=command_id)
+
     def payload_report(self, payload):
         """Read a payload model's reported numeric figures ([PayloadValue])."""
         return [PayloadValue(*t) for t in self._h.payload_report(self.id, self._payload_index(payload))]

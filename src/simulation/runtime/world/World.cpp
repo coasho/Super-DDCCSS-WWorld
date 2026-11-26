@@ -3149,6 +3149,11 @@ void World::sense() {
             const Entry* e = world.entry(id);
             return e ? e->info.launcher : 0;
         }
+        bool weaponBurning(std::uint32_t id) const override {
+            const Entry* e = world.entry(id);
+            return e ? e->origin.burning : false;
+        }
+        const std::vector<ms::Decoy>& flares() const override { return world.activeFlares_; }
     };
     const auto states = pool_->states();
     sensing_.clear();
@@ -3203,6 +3208,28 @@ void World::sense() {
         emission.powerW=seeker.emitterPowerW; emission.peakGainDbi=seeker.emitterPeakGainDbi; emission.sidelobeDbi=seeker.emitterSidelobeDbi;
         emission.azimuthHalfWidthRad=emission.elevationHalfWidthRad=seeker.emitterHalfWidthRad;
         emissions_.push_back(emission);
+    }
+    // Collect active pyrotechnic flare decoys once before parallel worker sensing.
+    activeFlares_.clear();
+    for (const auto* dispenser : dispensers()) {
+        if (!dispenser) continue;
+        for (const auto& d : dispenser->decoys()) {
+            if (d.kind != ms::countermeasure::Kind::Flare) continue;
+            const double ageS = std::max(0.0, simTime_ - d.launchTimeS);
+            if (ageS >= d.lifeS) continue;
+            ms::Decoy flare;
+            flare.id = d.id;
+            flare.kind = ms::Decoy::Kind::Flare;
+            flare.owner = d.owner;
+            flare.bornS = d.launchTimeS;
+            flare.state.positionEcef[0] = d.position.x;
+            flare.state.positionEcef[1] = d.position.y;
+            flare.state.positionEcef[2] = d.position.z;
+            flare.state.altitudeMslM = std::max(0.0, std::sqrt(d.position.x * d.position.x + d.position.y * d.position.y + d.position.z * d.position.z) - 6371000.0);
+            // Pyrotechnic flare radiant intensity (3-5 um MWIR, ~6000 W/sr peak decaying with tau = 2.0 s)
+            flare.intensityWSr = 6000.0 * std::exp(-ageS / 2.0);
+            activeFlares_.push_back(flare);
+        }
     }
     // each radar looks on its own (its stream, its detections), on the workers - a contiguous share of them each, in
     // order: the answers are the same for any number of workers
