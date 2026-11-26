@@ -5,6 +5,7 @@
 #include "fsim/World.h"
 #include "simulation/mission_systems/Cards.h"
 #include "simulation/mission_systems/ea/Jammer.h"
+#include "simulation/mission_systems/esm/Receiver.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -388,15 +389,16 @@ TEST_CASE("SIM-M05 moving-platform passive bearing-only ESM triangulation geoloc
     search.rangeScaleM = 120e3;
     REQUIRE(emitter.submit(search).accepted());
 
-    // Initial look (~1 s): baseline too short -> range and lat/lon must remain NaN (no fabricated single-look range)
+    // Initial look (~1 s): baseline too short -> range, lat/lon and CEP must remain NaN (no fabricated single-look range)
     world.step(30);
     auto initialContacts = rivet.contacts(sigintIdx);
     REQUIRE(!initialContacts.empty());
     CHECK(std::isnan(initialContacts.front().rangeM));
     CHECK(std::isnan(initialContacts.front().latitudeRad));
     CHECK(std::isnan(initialContacts.front().longitudeRad));
+    CHECK(std::isnan(initialContacts.front().sizeM));
 
-    // Fly ~30 s (~6.3 km cross-range baseline -> >10 deg parallax): geolocation converges
+    // Fly ~30 s (~6.3 km cross-range baseline -> >10 deg parallax): geolocation converges with finite CRLB CEP50
     world.step(900);
     auto laterContacts = rivet.contacts(sigintIdx);
     REQUIRE(!laterContacts.empty());
@@ -404,8 +406,14 @@ TEST_CASE("SIM-M05 moving-platform passive bearing-only ESM triangulation geoloc
     CHECK(std::isfinite(c.rangeM));
     CHECK(std::isfinite(c.latitudeRad));
     CHECK(std::isfinite(c.longitudeRad));
+    CHECK(std::isfinite(c.sizeM));
+    CHECK(c.sizeM > 10.0);
+    CHECK(c.sizeM < 50000.0);
     CHECK(c.rangeM > 5000.0);
     CHECK(c.rangeM < 80000.0);
+    const auto rep = rivet.payloadReport(sigintIdx);
+    CHECK(reportValue(rep, "geolocated") >= 1.0);
+    CHECK(std::isfinite(reportValue(rep, "geo_cep_min")));
 }
 
 TEST_CASE("SIM-M05 programmed countermeasure salvos and Agent permission boundaries", "[sim-m05][cm][agent]") {
@@ -463,4 +471,153 @@ TEST_CASE("SIM-M05 programmed countermeasure salvos and Agent permission boundar
     REQUIRE(act.has_value());
     CHECK(act->state == fsim::control::ActivityState::Completed);
     CHECK(act->reason == fsim::ms::Reason::GoalReached);
+}
+
+TEST_CASE("SIM-M05 open-source alignment: Skolnik/Adamy SSJ burn-through scaling vs native Radar::dwell", "[sim-m05][ea][alignment]") {
+    using namespace fsim::ms;
+
+    // 1) Closed-form Skolnik (Radar Handbook) / Adamy (EW 101) Self-Screening Jammer (SSJ) check:
+    // J0 = P_j * G_jt * G_jr / (L_path * B_j) * overlap; SNR_deg = 10 log10(1 + J0/N0).
+    constexpr double kLight = 299792458.0;
+    constexpr double kBoltzmannT0 = 1.380649e-23 * 290.0; // W/Hz
+    const double freqHz = 9.86e9;
+    const double lambda = kLight / freqHz;
+    const double pjW = 4500.0;
+    const double gjtDbi = 3.0;
+    const double gjrDbi = 30.0;
+    const double bjHz = 17.936e9;
+    const double nfLinear = std::pow(10.0, 4.0 / 10.0);
+    const double n0 = kBoltzmannT0 * nfLinear;
+
+    const double rFar = 20000.0;
+    const double rNear = 10000.0;
+    const double fsplFarDb = 20.0 * std::log10(4.0 * kPi * rFar / lambda);
+    const double fsplNearDb = 20.0 * std::log10(4.0 * kPi * rNear / lambda);
+    const double j0Far = ea::receivedJammerDensityWHz(pjW, gjtDbi, gjrDbi, fsplFarDb, bjHz, 1.0);
+    const double j0Near = ea::receivedJammerDensityWHz(pjW, gjtDbi, gjrDbi, fsplNearDb, bjHz, 1.0);
+    // One-way R^-2 jammer scaling: halving range quadruples J0 (+6.0206 dB).
+    CHECK(10.0 * std::log10(j0Near / j0Far) == Catch::Approx(6.0205999).margin(1e-5));
+    // Jam-dominated regime (J0 >> N0): SNR degradation increases by ~6.0 dB at half range,
+    // while radar echo rises by +12.04 dB (R^-4), yielding exact +6.02 dB net S/J burn-through slope.
+    const double degFarDb = 10.0 * std::log10(1.0 + j0Far / n0);
+    const double degNearDb = 10.0 * std::log10(1.0 + j0Near / n0);
+    CHECK(degFarDb > 20.0);
+    CHECK((degNearDb - degFarDb) == Catch::Approx(6.02).margin(0.05));
+
+    // 2) Live native World Radar::dwell check confirming R^-4 clean vs R^-2 SSJ burn-through slope:
+    auto measureMeanSnr = [](double rangeKm, bool jamOn) -> double {
+        fsim::World world(makeOptions("sim_m05_ssj_slope", 131));
+        auto f16 = createAircraft(world, "f16", "f16c", 0.0, 0.0, 6000.0, 90.0, 220.0);
+        auto growler = createAircraft(world, "ea18g", "ea18g", rangeKm, 0.0, 6000.0, 270.0, 220.0);
+        const auto radarIdx = findPayload(f16, "radar");
+        const auto jamIdx = findPayload(growler, "jammers");
+        powerToOperate(world, f16, radarIdx);
+        powerToOperate(world, growler, jamIdx);
+
+        fsim::ms::AmtiCommand search;
+        search.payload = radarIdx;
+        search.mode = fsim::ms::AmtiMode::RangeWhileSearch;
+        search.azimuthHalfWidthRad = 10.0 * kDeg;
+        search.bars = 1;
+        search.rangeScaleM = 80e3;
+        REQUIRE(f16.submit(search).accepted());
+
+        if (jamOn) {
+            fsim::ms::PayloadTask jam;
+            jam.payload = jamIdx;
+            jam.kind = fsim::ms::TaskKind::Jam;
+            jam.frequencyHz = std::numeric_limits<double>::quiet_NaN();
+            jam.bandwidthHz = std::numeric_limits<double>::quiet_NaN();
+            jam.azimuthHalfWidthRad = kPi;
+            jam.elevationHalfWidthRad = 0.5 * kPi;
+            REQUIRE(growler.submit(jam).accepted());
+        }
+        world.step(60); // 2 s
+        double sum = 0.0;
+        std::size_t n = 0;
+        for (const auto& d : f16.amtiDetections(radarIdx)) {
+            if (d.truth == growler.id()) {
+                sum += d.snrDb;
+                ++n;
+            }
+        }
+        REQUIRE(n >= 1);
+        return sum / static_cast<double>(n);
+    };
+
+    const double clean8 = measureMeanSnr(8.0, false);
+    const double clean4 = measureMeanSnr(4.0, false);
+    const double jam8 = measureMeanSnr(8.0, true);
+    const double jam4 = measureMeanSnr(4.0, true);
+
+    // Unjammed radar SNR rises by ~12 dB (R^-4); SSJ jammed SNR rises by ~6 dB (R^-2 burn-through).
+    const double cleanGainDb = clean4 - clean8;
+    const double jamGainDb = jam4 - jam8;
+    CHECK(cleanGainDb > 9.0);
+    CHECK(cleanGainDb < 16.0);
+    CHECK(jamGainDb > 3.5);
+    CHECK(jamGainDb < 9.5);
+    CHECK((cleanGainDb - jamGainDb) == Catch::Approx(6.0).margin(2.0));
+}
+
+TEST_CASE("SIM-M05 open-source alignment: O'Donoughue Stansfield + Gauss-Newton ML triangulation and CRLB/CEP50", "[sim-m05][esm][geo][alignment]") {
+    using namespace fsim::ms::esm;
+
+    // Geometry on the equator (lat=0, lon=0, h=6 km):
+    // Emitter at East=+40 km, North=0, Up=0 relative to equator point (R+6km, 0, 0).
+    // Receiver samples along North-South baseline y = -6..+6 km (9 points, 1.5 km spacing).
+    constexpr double kR = 6378137.0 + 6000.0;
+    const double emitter[3] = {kR, 40000.0, 0.0}; // +Y is East at (lat=0, lon=0)
+
+    auto buildSamples = [&](double sigmaRad, double rangeScale) {
+        const double target[3] = {kR, 40000.0 * rangeScale, 0.0};
+        std::vector<BearingSample> samples;
+        for (int i = -4; i <= 4; ++i) {
+            BearingSample s;
+            s.originEcef[0] = kR;
+            s.originEcef[1] = 0.0;
+            s.originEcef[2] = static_cast<double>(i) * 1500.0 * rangeScale; // +Z is North at equator
+            const double d[3] = {target[0] - s.originEcef[0],
+                                 target[1] - s.originEcef[1],
+                                 target[2] - s.originEcef[2]};
+            const double r = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+            s.rayEcef[0] = d[0] / r;
+            s.rayEcef[1] = d[1] / r;
+            s.rayEcef[2] = d[2] / r;
+            s.sigmaRad = sigmaRad;
+            samples.push_back(s);
+        }
+        return samples;
+    };
+
+    const double sigma1Deg = 1.0 * kDeg;
+    const auto s1 = buildSamples(sigma1Deg, 1.0);
+    const auto r1 = triangulateBearings(s1.data(), s1.size(), s1.back().originEcef, s1.back().rayEcef);
+    REQUIRE(r1.valid);
+    const double posErrM = std::sqrt(
+        std::pow(r1.positionEcef[0] - emitter[0], 2) +
+        std::pow(r1.positionEcef[1] - emitter[1], 2) +
+        std::pow(r1.positionEcef[2] - emitter[2], 2));
+    // Exact noiseless recovery to sub-millimeter precision.
+    CHECK(posErrM < 1e-3);
+    REQUIRE(std::isfinite(r1.crlbRmsM));
+    REQUIRE(std::isfinite(r1.crlbCep50M));
+    CHECK(r1.crlbRmsM > 100.0);
+    CHECK(r1.crlbCep50M > 100.0);
+
+    // Exact CRLB proportionality to bearing noise sigma_theta (O'Donoughue Ch. 10):
+    // doubling sigma_theta must double both CRLB RMS and CEP50 identically.
+    const auto s2 = buildSamples(2.0 * sigma1Deg, 1.0);
+    const auto r2 = triangulateBearings(s2.data(), s2.size(), s2.back().originEcef, s2.back().rayEcef);
+    REQUIRE(r2.valid);
+    CHECK(r2.crlbRmsM == Catch::Approx(2.0 * r1.crlbRmsM).epsilon(1e-6));
+    CHECK(r2.crlbCep50M == Catch::Approx(2.0 * r1.crlbCep50M).epsilon(1e-6));
+
+    // Exact GDOP range scaling at constant parallax angle:
+    // doubling both range and baseline doubles CRLB RMS and CEP50.
+    const auto sFar = buildSamples(sigma1Deg, 2.0);
+    const auto rFar = triangulateBearings(sFar.data(), sFar.size(), sFar.back().originEcef, sFar.back().rayEcef);
+    REQUIRE(rFar.valid);
+    CHECK(rFar.crlbRmsM == Catch::Approx(2.0 * r1.crlbRmsM).epsilon(1e-4));
+    CHECK(rFar.crlbCep50M == Catch::Approx(2.0 * r1.crlbCep50M).epsilon(1e-4));
 }

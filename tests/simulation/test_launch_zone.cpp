@@ -517,3 +517,50 @@ TEST_CASE("launch zone: native 6-DOF JSBSim AIM-120C launch inside R_ne intercep
     CHECK(std::isfinite(missM));
     CHECK(missM < 25.0);
 }
+
+TEST_CASE("launch zone: open-source alignment with ICAO ISA, Zarchan F-pole/A-pole kinematics, and propulsion scaling", "[sim-m04][dlz][alignment]") {
+    // 1) ICAO / US Standard Atmosphere 1976 speed-of-sound cross-check (0..20 km)
+    CHECK(ms::weapon::isaSoundSpeedMs(0.0) == Approx(340.294).margin(0.05));
+    CHECK(ms::weapon::isaSoundSpeedMs(5000.0) == Approx(320.545).margin(0.05));
+    CHECK(ms::weapon::isaSoundSpeedMs(11000.0) == Approx(295.070).margin(0.05));
+    CHECK(ms::weapon::isaSoundSpeedMs(15000.0) == Approx(295.070).margin(0.05));
+    CHECK(ms::weapon::isaSoundSpeedMs(20000.0) == Approx(295.070).margin(0.05));
+
+    // 2) Exact kinematic F-pole and A-pole closure alignment (Zarchan / BVR geometry)
+    const std::filesystem::path aircraftDir(FSIM_TEST_AIRCRAFT_DIR);
+    ms::weapon::LaunchZoneTableV1 amraam, aim9x, meteor;
+    std::string err;
+    REQUIRE(ms::weapon::loadLaunchZoneTableV1(aircraftDir / "stores" / "aim120c" / "aim120c.dlz-v1.json", amraam, err));
+    REQUIRE(ms::weapon::loadLaunchZoneTableV1(aircraftDir / "stores" / "aim9x" / "aim9x.dlz-v1.json", aim9x, err));
+    REQUIRE(ms::weapon::loadLaunchZoneTableV1(aircraftDir / "stores" / "meteor" / "meteor.dlz-v1.json", meteor, err));
+
+    const auto qBvr = makeQuery(12000.0, 1.2, 0.0, 0.9, 0.0, 85000.0, 0.0);
+    const auto zAmraam = ms::weapon::evaluateLaunchZoneV2(amraam, qBvr);
+    REQUIRE(zAmraam.valid);
+    REQUIRE(zAmraam.inRange);
+    REQUIRE(std::isfinite(zAmraam.timeOfFlightS));
+    // Pre-merge head-on closure: separation shrinks by (vL + vT) * t_tof for F-pole, and (vL + vT) * t_act for A-pole.
+    const double vClose = zAmraam.closingSpeedMs;
+    const double expectedFPole = std::abs(zAmraam.slantRangeM - vClose * zAmraam.timeOfFlightS);
+    CHECK(zAmraam.fPoleM == Approx(expectedFPole).margin(5.0));
+    const double tActive = zAmraam.timeOfFlightS * (1.0 - amraam.activeRangeM / zAmraam.slantRangeM);
+    const double expectedAPole = std::abs(zAmraam.slantRangeM - vClose * tActive);
+    CHECK(zAmraam.aPoleM == Approx(expectedAPole).margin(5.0));
+    CHECK(zAmraam.aPoleM > zAmraam.fPoleM); // Pre-merge: pitbull occurs strictly before intercept
+
+    // IR missile (no active radar seeker) must report NaN A-pole
+    const auto qWvr = makeQuery(6000.0, 0.9, 0.0, 0.9, 0.0, 12000.0, 0.0);
+    const auto zAim9x = ms::weapon::evaluateLaunchZoneV2(aim9x, qWvr);
+    REQUIRE(zAim9x.valid);
+    REQUIRE(zAim9x.inRange);
+    CHECK(std::isfinite(zAim9x.fPoleM));
+    CHECK(std::isnan(zAim9x.aPoleM));
+
+    // 3) Propulsion-class kinematic ordering: Meteor ducted ramjet sustains terminal energy better than solid-rocket AMRAAM
+    const auto zMeteor = ms::weapon::evaluateLaunchZoneV2(meteor, qBvr);
+    REQUIRE(zMeteor.valid);
+    CHECK(zMeteor.noEscapeM / zMeteor.maximumM > zAmraam.noEscapeM / zAmraam.maximumM + 0.05);
+    // Higher launch altitude lowers atmospheric drag, monotonically increasing R_max
+    const auto zAmraamLow = ms::weapon::evaluateLaunchZoneV2(amraam, makeQuery(1000.0, 1.2, 0.0, 0.9, 0.0, 45000.0, 0.0));
+    CHECK(zAmraam.maximumM > zAmraamLow.maximumM);
+}

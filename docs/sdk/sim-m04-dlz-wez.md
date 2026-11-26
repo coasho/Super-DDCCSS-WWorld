@@ -50,6 +50,7 @@ Runtime evaluation (`src/simulation/mission_systems/weapon/LaunchZone.{h,cpp}`) 
 
 - `cmake/StageDesigns.cmake` copies `<model>.dlz-v1.json` alongside `<model>.xml` into build and installed `share/flightsim/aircraft/stores/<model>/` trees so installed C++, C99, and Python consumers resolve the flyout tables without source-tree fallback.
 - Full 24-AAM published-performance comparison tables, residuals, and SHA-256 provenance are recorded in [dlz-published-comparison.md](../research/sim-m04/dlz-published-comparison.md) and [dlz-published-comparison.json](../research/sim-m04/dlz-published-comparison.json).
+- Public-literature and open-source methodology alignment (JSBSim, Zarchan, Fleeman, ICAO ISA, BVR F-pole/A-pole closure) is documented in [open-source-alignment.md](../research/sim-m04/open-source-alignment.md).
 - Notable un-tuned physical findings:
   - `aim-120c` produces `99.0 km` high-altitude head-on `R_max` (`+10.0%` vs published `90 ± 15 km`) with `R_ne = 43.8 km` (`44.2%`).
   - `meteor`'s ducted-rocket V2 sustained thrust naturally yields the highest no-escape ratio (`R_ne = 73.2 km` / `R_max = 128.3 km` = `57.1%`).

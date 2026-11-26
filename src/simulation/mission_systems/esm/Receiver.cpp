@@ -89,45 +89,79 @@ void ecefToGeodetic(const double p[3], double& latRad, double& lonRad, double& h
     heightM = horiz / std::max(std::cos(lat), 1e-9) - n;
 }
 
-struct GeoSample {
-    std::array<double, 3> origin;
-    std::array<double, 3> ray;
-    double weight = 1.0;
-};
+bool invert3x3(const double m[3][3], double inv[3][3]) noexcept {
+    const double det =
+        m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) -
+        m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
+        m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+    const double trace = m[0][0] + m[1][1] + m[2][2];
+    if (!std::isfinite(det) || !(trace > 1e-18) || det <= 1e-11 * trace * trace * trace) return false;
+    const double invDet = 1.0 / det;
+    inv[0][0] = (m[1][1] * m[2][2] - m[1][2] * m[2][1]) * invDet;
+    inv[0][1] = (m[0][2] * m[2][1] - m[0][1] * m[2][2]) * invDet;
+    inv[0][2] = (m[0][1] * m[1][2] - m[0][2] * m[1][1]) * invDet;
+    inv[1][0] = (m[1][2] * m[2][0] - m[1][0] * m[2][2]) * invDet;
+    inv[1][1] = (m[0][0] * m[2][2] - m[0][2] * m[2][0]) * invDet;
+    inv[1][2] = (m[0][2] * m[1][0] - m[0][0] * m[1][2]) * invDet;
+    inv[2][0] = (m[1][0] * m[2][1] - m[1][1] * m[2][0]) * invDet;
+    inv[2][1] = (m[0][1] * m[2][0] - m[0][0] * m[2][1]) * invDet;
+    inv[2][2] = (m[0][0] * m[1][1] - m[0][1] * m[1][0]) * invDet;
+    return true;
+}
 
-// Deterministic 3-D bearing-only least-squares triangulation:
-// minimizes sum_k w_k || (I - u_k u_k^T)(p - o_k) ||^2.
-// Returns true and populates `estEcef` only when baseline >= 2 km, angular
-// parallax >= 4 deg, the normal matrix is well-conditioned, and the fix lies
-// in front of the receiver within [500 m, 600 km].
-bool triangulateRays(const std::vector<GeoSample>& samples, const double ownPos[3],
-                     const double latestRay[3], double estEcef[3]) noexcept {
-    if (samples.size() < 4) return false;
+double mlAngularCost(const BearingSample* samples, std::size_t count, const double ownPos[3], const double dp[3]) noexcept {
+    double cost = 0.0;
+    for (std::size_t i = 0; i < count; ++i) {
+        const double invVar = 1.0 / std::max(samples[i].sigmaRad * samples[i].sigmaRad, 1e-8);
+        const double d[3] = {
+            dp[0] - (samples[i].originEcef[0] - ownPos[0]),
+            dp[1] - (samples[i].originEcef[1] - ownPos[1]),
+            dp[2] - (samples[i].originEcef[2] - ownPos[2])};
+        const double r = geom::norm3(d);
+        if (!(r > 1.0)) return std::numeric_limits<double>::infinity();
+        const double ex = d[0] / r - samples[i].rayEcef[0];
+        const double ey = d[1] / r - samples[i].rayEcef[1];
+        const double ez = d[2] / r - samples[i].rayEcef[2];
+        cost += 0.5 * invVar * (ex * ex + ey * ey + ez * ez);
+    }
+    return cost;
+}
+
+} // namespace
+
+TriangulationResult triangulateBearings(const BearingSample* samples, std::size_t count,
+                                        const double ownPos[3], const double latestRay[3]) noexcept {
+    TriangulationResult out;
+    if (!samples || count < 4) return out;
 
     double maxBaselineSq = 0.0;
     double minCosParallax = 1.0;
-    const auto& first = samples.front();
-    for (std::size_t i = 1; i < samples.size(); ++i) {
-        const double dx = samples[i].origin[0] - first.origin[0];
-        const double dy = samples[i].origin[1] - first.origin[1];
-        const double dz = samples[i].origin[2] - first.origin[2];
+    const auto& first = samples[0];
+    for (std::size_t i = 1; i < count; ++i) {
+        const double dx = samples[i].originEcef[0] - first.originEcef[0];
+        const double dy = samples[i].originEcef[1] - first.originEcef[1];
+        const double dz = samples[i].originEcef[2] - first.originEcef[2];
         maxBaselineSq = std::max(maxBaselineSq, dx * dx + dy * dy + dz * dz);
-        const double c = samples[i].ray[0] * first.ray[0] +
-                         samples[i].ray[1] * first.ray[1] +
-                         samples[i].ray[2] * first.ray[2];
+        const double c = samples[i].rayEcef[0] * first.rayEcef[0] +
+                         samples[i].rayEcef[1] * first.rayEcef[1] +
+                         samples[i].rayEcef[2] * first.rayEcef[2];
         minCosParallax = std::min(minCosParallax, std::clamp(c, -1.0, 1.0));
     }
     // Require >= 2 km baseline and >= 4 deg parallax before publishing a fix.
-    if (maxBaselineSq < 2000.0 * 2000.0) return false;
-    if (std::acos(minCosParallax) < 4.0 * kDeg) return false;
+    if (maxBaselineSq < 2000.0 * 2000.0) return out;
+    if (std::acos(minCosParallax) < 4.0 * kDeg) return out;
 
-    // Work in coordinates shifted relative to `ownPos` for numerical conditioning.
+    // Stage 1: Weighted orthogonal-projection (Stansfield-class) linear initializer
+    // in coordinates shifted relative to `ownPos`.
     double A[3][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
     double b[3] = {0, 0, 0};
-    for (const auto& s : samples) {
-        const double w = s.weight;
-        const double o[3] = {s.origin[0] - ownPos[0], s.origin[1] - ownPos[1], s.origin[2] - ownPos[2]};
-        const double u[3] = {s.ray[0], s.ray[1], s.ray[2]};
+    for (std::size_t i = 0; i < count; ++i) {
+        const double w = 1.0 / std::max(samples[i].sigmaRad * samples[i].sigmaRad, 1e-8);
+        const double o[3] = {
+            samples[i].originEcef[0] - ownPos[0],
+            samples[i].originEcef[1] - ownPos[1],
+            samples[i].originEcef[2] - ownPos[2]};
+        const double u[3] = {samples[i].rayEcef[0], samples[i].rayEcef[1], samples[i].rayEcef[2]};
         for (int r = 0; r < 3; ++r) {
             for (int c = 0; c < 3; ++c) {
                 const double m = ((r == c) ? 1.0 : 0.0) - u[r] * u[c];
@@ -137,38 +171,129 @@ bool triangulateRays(const std::vector<GeoSample>& samples, const double ownPos[
         }
     }
 
-    const double det =
-        A[0][0] * (A[1][1] * A[2][2] - A[1][2] * A[2][1]) -
-        A[0][1] * (A[1][0] * A[2][2] - A[1][2] * A[2][0]) +
-        A[0][2] * (A[1][0] * A[2][1] - A[1][1] * A[2][0]);
-    const double trace = A[0][0] + A[1][1] + A[2][2];
-    if (!std::isfinite(det) || !(trace > 1e-12) || det <= 1e-9 * trace * trace * trace) return false;
-
-    const double invDet = 1.0 / det;
-    double inv[3][3];
-    inv[0][0] = (A[1][1] * A[2][2] - A[1][2] * A[2][1]) * invDet;
-    inv[0][1] = (A[0][2] * A[2][1] - A[0][1] * A[2][2]) * invDet;
-    inv[0][2] = (A[0][1] * A[1][2] - A[0][2] * A[1][1]) * invDet;
-    inv[1][0] = (A[1][2] * A[2][0] - A[1][0] * A[2][2]) * invDet;
-    inv[1][1] = (A[0][0] * A[2][2] - A[0][2] * A[2][0]) * invDet;
-    inv[1][2] = (A[0][2] * A[1][0] - A[0][0] * A[1][2]) * invDet;
-    inv[2][0] = (A[1][0] * A[2][1] - A[1][1] * A[2][0]) * invDet;
-    inv[2][1] = (A[0][1] * A[2][0] - A[0][0] * A[2][1]) * invDet;
-    inv[2][2] = (A[0][0] * A[1][1] - A[0][1] * A[1][0]) * invDet;
+    double invA[3][3];
+    if (!invert3x3(A, invA)) return out;
 
     double dp[3] = {0, 0, 0};
     for (int r = 0; r < 3; ++r) {
-        dp[r] = inv[r][0] * b[0] + inv[r][1] * b[1] + inv[r][2] * b[2];
-        if (!std::isfinite(dp[r])) return false;
+        dp[r] = invA[r][0] * b[0] + invA[r][1] * b[1] + invA[r][2] * b[2];
+        if (!std::isfinite(dp[r])) return out;
     }
-    const double range = geom::norm3(dp);
-    if (!(range >= 500.0 && range <= 600000.0)) return false;
-    // Must lie in front of the latest measured line of sight.
-    if (geom::dot3(dp, latestRay) <= 0.0) return false;
+    const double initRange = geom::norm3(dp);
+    if (!(initRange >= 500.0 && initRange <= 600000.0)) return out;
+    if (geom::dot3(dp, latestRay) <= 0.0) return out;
 
-    for (int k = 0; k < 3; ++k) estEcef[k] = ownPos[k] + dp[k];
-    return true;
+    // Stage 2: Damped Gauss-Newton angular Maximum Likelihood refinement
+    // minimizing 0.5 * sum_k (1/sigma_k^2) || (x - o_k)/||x - o_k|| - u_k ||^2.
+    double cost = mlAngularCost(samples, count, ownPos, dp);
+    for (int iter = 0; iter < 6; ++iter) {
+        double fim[3][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+        double grad[3] = {0, 0, 0};
+        for (std::size_t i = 0; i < count; ++i) {
+            const double invVar = 1.0 / std::max(samples[i].sigmaRad * samples[i].sigmaRad, 1e-8);
+            const double d[3] = {
+                dp[0] - (samples[i].originEcef[0] - ownPos[0]),
+                dp[1] - (samples[i].originEcef[1] - ownPos[1]),
+                dp[2] - (samples[i].originEcef[2] - ownPos[2])};
+            const double r = geom::norm3(d);
+            if (!(r > 1.0)) break;
+            const double dh[3] = {d[0] / r, d[1] / r, d[2] / r};
+            const double u[3] = {samples[i].rayEcef[0], samples[i].rayEcef[1], samples[i].rayEcef[2]};
+            const double wFim = invVar / (r * r);
+            const double wGrad = invVar / r;
+            const double dotDu = geom::dot3(dh, u);
+            for (int row = 0; row < 3; ++row) {
+                grad[row] += -wGrad * (u[row] - dotDu * dh[row]);
+                for (int col = 0; col < 3; ++col) {
+                    fim[row][col] += wFim * (((row == col) ? 1.0 : 0.0) - dh[row] * dh[col]);
+                }
+            }
+        }
+        const double tr = fim[0][0] + fim[1][1] + fim[2][2];
+        if (!(tr > 0.0)) break;
+        const double damp = 1e-6 * tr;
+        for (int k = 0; k < 3; ++k) fim[k][k] += damp;
+        double invF[3][3];
+        if (!invert3x3(fim, invF)) break;
+        double step[3] = {0, 0, 0};
+        for (int row = 0; row < 3; ++row) {
+            step[row] = -(invF[row][0] * grad[0] + invF[row][1] * grad[1] + invF[row][2] * grad[2]);
+        }
+        if (geom::norm3(step) < 0.5) break;
+
+        bool accepted = false;
+        for (double alpha = 1.0; alpha >= 0.125; alpha *= 0.5) {
+            const double cand[3] = {dp[0] + alpha * step[0], dp[1] + alpha * step[1], dp[2] + alpha * step[2]};
+            const double candRange = geom::norm3(cand);
+            if (!(candRange >= 500.0 && candRange <= 600000.0)) continue;
+            if (geom::dot3(cand, latestRay) <= 0.0) continue;
+            const double candCost = mlAngularCost(samples, count, ownPos, cand);
+            if (candCost < cost) {
+                for (int k = 0; k < 3; ++k) dp[k] = cand[k];
+                cost = candCost;
+                accepted = true;
+                break;
+            }
+        }
+        if (!accepted) break;
+    }
+
+    for (int k = 0; k < 3; ++k) out.positionEcef[k] = ownPos[k] + dp[k];
+    out.valid = true;
+
+    // Stage 3: Exact 3-D Fisher Information Matrix & Cramér-Rao Lower Bound (CRLB)
+    // covariance C = F(x*)^-1, plus horizontal (East-North) elliptical CEP50.
+    double fim[3][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+    for (std::size_t i = 0; i < count; ++i) {
+        const double invVar = 1.0 / std::max(samples[i].sigmaRad * samples[i].sigmaRad, 1e-8);
+        const double d[3] = {
+            dp[0] - (samples[i].originEcef[0] - ownPos[0]),
+            dp[1] - (samples[i].originEcef[1] - ownPos[1]),
+            dp[2] - (samples[i].originEcef[2] - ownPos[2])};
+        const double r = geom::norm3(d);
+        if (!(r > 1.0)) continue;
+        const double dh[3] = {d[0] / r, d[1] / r, d[2] / r};
+        const double w = invVar / (r * r);
+        for (int row = 0; row < 3; ++row) {
+            for (int col = 0; col < 3; ++col) {
+                fim[row][col] += w * (((row == col) ? 1.0 : 0.0) - dh[row] * dh[col]);
+            }
+        }
+    }
+    double cov[3][3];
+    if (invert3x3(fim, cov)) {
+        const double trCov = cov[0][0] + cov[1][1] + cov[2][2];
+        if (trCov > 0.0 && std::isfinite(trCov)) {
+            out.crlbRmsM = std::sqrt(trCov);
+            // Project 3x3 ECEF covariance onto local horizontal (East, North) plane at estEcef.
+            double lat = 0.0, lon = 0.0, hM = 0.0;
+            ecefToGeodetic(out.positionEcef, lat, lon, hM);
+            const double sl = std::sin(lat), cl = std::cos(lat);
+            const double so = std::sin(lon), co = std::cos(lon);
+            const double east[3] = {-so, co, 0.0};
+            const double north[3] = {-sl * co, -sl * so, cl};
+            auto quad = [&](const double u[3], const double v[3]) noexcept {
+                double s = 0.0;
+                for (int r = 0; r < 3; ++r)
+                    for (int c = 0; c < 3; ++c) s += u[r] * cov[r][c] * v[c];
+                return s;
+            };
+            const double cEE = std::max(0.0, quad(east, east));
+            const double cNN = std::max(0.0, quad(north, north));
+            const double cEN = quad(east, north);
+            const double mean = 0.5 * (cEE + cNN);
+            const double diff = 0.5 * (cEE - cNN);
+            const double rad = std::hypot(diff, cEN);
+            const double sigMax = std::sqrt(std::max(0.0, mean + rad));
+            const double sigMin = std::sqrt(std::max(0.0, mean - rad));
+            // Standard elliptical CEP50 approximation (O'Donoughue / Grubbs): 0.5887 * (sigma_a + sigma_b).
+            out.crlbCep50M = 0.5887 * (sigMax + sigMin);
+        }
+    }
+    return out;
 }
+
+namespace {
 
 class Receiver final : public Model {
 public:
@@ -247,7 +372,7 @@ public:
                     for (double& v : mRay) v /= rayNorm;
                     bool farEnough = h->geoSamples.empty();
                     if (!farEnough) {
-                        const auto& prev = h->geoSamples.back().origin;
+                        const auto& prev = h->geoSamples.back().originEcef;
                         const double dx = own.positionEcef[0] - prev[0];
                         const double dy = own.positionEcef[1] - prev[1];
                         const double dz = own.positionEcef[2] - prev[2];
@@ -257,23 +382,29 @@ public:
                         if (h->geoSamples.size() >= kGeoSamplesMax) {
                             h->geoSamples.erase(h->geoSamples.begin());
                         }
-                        const double invVar = 1.0 / std::max(h->sigmaEff * h->sigmaEff, 1e-6);
-                        h->geoSamples.push_back({
-                            {own.positionEcef[0], own.positionEcef[1], own.positionEcef[2]},
-                            {mRay[0], mRay[1], mRay[2]},
-                            invVar});
+                        BearingSample sample;
+                        for (int k = 0; k < 3; ++k) {
+                            sample.originEcef[k] = own.positionEcef[k];
+                            sample.rayEcef[k] = mRay[k];
+                        }
+                        sample.sigmaRad = std::max(h->sigmaEff, 1e-4);
+                        h->geoSamples.push_back(sample);
                     }
-                    double estEcef[3];
-                    if (triangulateRays(h->geoSamples, own.positionEcef, mRay, estEcef)) {
+                    const TriangulationResult geo = triangulateBearings(
+                        h->geoSamples.data(), h->geoSamples.size(), own.positionEcef, mRay);
+                    if (geo.valid) {
                         double lat = 0.0, lon = 0.0, hM = 0.0;
-                        ecefToGeodetic(estEcef, lat, lon, hM);
-                        const double rel[3] = {estEcef[0] - own.positionEcef[0],
-                                               estEcef[1] - own.positionEcef[1],
-                                               estEcef[2] - own.positionEcef[2]};
+                        ecefToGeodetic(geo.positionEcef, lat, lon, hM);
+                        const double rel[3] = {geo.positionEcef[0] - own.positionEcef[0],
+                                               geo.positionEcef[1] - own.positionEcef[1],
+                                               geo.positionEcef[2] - own.positionEcef[2]};
                         c.rangeM = geom::norm3(rel);
                         c.latitudeRad = lat;
                         c.longitudeRad = lon;
                         c.heightM = hM;
+                        if (std::isfinite(geo.crlbCep50M)) {
+                            c.sizeM = geo.crlbCep50M;
+                        }
                     }
                 }
             }
@@ -292,17 +423,24 @@ public:
         double jammers = 0.0;
         double comintContacts = 0.0;
         double geolocated = 0.0;
+        double minCepM = std::numeric_limits<double>::infinity();
         for (const Held& h : held_) {
             warnings += h.contact.warning ? 1.0 : 0.0;
             jammers += (h.contact.mode == EmitterMode::Jammer) ? 1.0 : 0.0;
             comintContacts += (h.contact.mode == EmitterMode::Datalink) ? 1.0 : 0.0;
-            geolocated += std::isfinite(h.contact.rangeM) ? 1.0 : 0.0;
+            if (std::isfinite(h.contact.rangeM)) {
+                geolocated += 1.0;
+                if (std::isfinite(h.contact.sizeM)) {
+                    minCepM = std::min(minCepM, h.contact.sizeM);
+                }
+            }
         }
         out.push_back({"contacts", static_cast<double>(held_.size()), ""});
         out.push_back({"warnings", warnings, ""});
         out.push_back({"jammers", jammers, ""});
         out.push_back({"comint_contacts", comintContacts, ""});
         out.push_back({"geolocated", geolocated, ""});
+        out.push_back({"geo_cep_min", std::isfinite(minCepM) ? minCepM : std::numeric_limits<double>::quiet_NaN(), "m"});
         out.push_back({"sensitivity", sensitivityDbm_, "dBm"});
     }
 
@@ -314,7 +452,7 @@ private:
         double measuredS = -std::numeric_limits<double>::infinity();
         double sigmaEff = 0.0;
         double azimuthError = 0.0, elevationError = 0.0;
-        std::vector<GeoSample> geoSamples;
+        std::vector<BearingSample> geoSamples;
     };
 
     Held* held(const Emission& e, double now) {
