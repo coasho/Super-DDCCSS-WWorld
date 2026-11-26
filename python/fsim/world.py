@@ -2988,13 +2988,16 @@ class Vehicle:
     def submit_task(self, payload, kind, *, contact=0, chaff=0, flares=0, salvos=1, interval_s=0.5,
                     azimuth_centre_rad=0.0, elevation_centre_rad=0.0, azimuth_half_width_rad=float("nan"),
                     elevation_half_width_rad=float("nan"), frequency_hz=float("nan"), bandwidth_hz=float("nan"),
-                    duration_s=float("nan"), source=Source.POLICY, controller=0, command_id=0):
-        """Submit an electronic-attack (TaskKind.JAM) or programmed countermeasure salvo (TaskKind.DISPENSE) task."""
+                    duration_s=float("nan"), range_scale_m=float("nan"), latitude_rad=float("nan"),
+                    longitude_rad=float("nan"), resolution_m=float("nan"),
+                    source=Source.POLICY, controller=0, command_id=0):
+        """Submit a payload task (Jam, Dispense, Search, Track, or Image) on an operating payload."""
         return _ms_checked(self._h.payload_task(
             self.id, self._payload_index(payload), int(kind), int(contact), int(chaff), int(flares), int(salvos),
             float(interval_s), float(azimuth_centre_rad), float(elevation_centre_rad), float(azimuth_half_width_rad),
             float(elevation_half_width_rad), float(frequency_hz), float(bandwidth_hz), float(duration_s),
-            int(source), int(controller), int(command_id)))
+            int(source), int(controller), int(command_id),
+            float(range_scale_m), float(latitude_rad), float(longitude_rad), float(resolution_m)))
 
     def jam(self, payload, *, contact=0, frequency_hz=float("nan"), bandwidth_hz=float("nan"),
             azimuth_centre_rad=0.0, elevation_centre_rad=0.0, azimuth_half_width_rad=float("nan"),
@@ -3028,6 +3031,25 @@ class Vehicle:
         """Command an operating passive/active optical payload to track a held contact (and laser-range if fitted)."""
         return self.submit_task(
             payload, TaskKind.TRACK, contact=contact, duration_s=duration_s,
+            source=source, controller=controller, command_id=command_id)
+
+    def search_weather(self, payload, *, azimuth_centre_rad=0.0, elevation_centre_rad=0.0,
+                       azimuth_half_width_rad=float("nan"), elevation_half_width_rad=float("nan"),
+                       range_scale_m=float("nan"), duration_s=float("nan"),
+                       source=Source.POLICY, controller=0, command_id=0):
+        """Command an operating weather radar payload to scan a sector for precipitation reflectivity."""
+        return self.submit_task(
+            payload, TaskKind.SEARCH, azimuth_centre_rad=azimuth_centre_rad, elevation_centre_rad=elevation_centre_rad,
+            azimuth_half_width_rad=azimuth_half_width_rad, elevation_half_width_rad=elevation_half_width_rad,
+            range_scale_m=range_scale_m, duration_s=duration_s,
+            source=source, controller=controller, command_id=command_id)
+
+    def image_sar(self, payload, latitude_rad, longitude_rad, *, resolution_m=1.0, duration_s=float("nan"),
+                  source=Source.POLICY, controller=0, command_id=0):
+        """Command an operating SAR payload to collect a spotlight image at (latitude_rad, longitude_rad)."""
+        return self.submit_task(
+            payload, TaskKind.IMAGE, latitude_rad=latitude_rad, longitude_rad=longitude_rad,
+            resolution_m=resolution_m, duration_s=duration_s,
             source=source, controller=controller, command_id=command_id)
 
     def payload_report(self, payload):

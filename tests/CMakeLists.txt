@@ -110,6 +110,17 @@ fsim_set_warnings(fsim_optical_ir_test)
 add_test(NAME optical_ir COMMAND fsim_optical_ir_test)
 set_tests_properties(optical_ir PROPERTIES LABELS "sim-m06;mission-systems;optical" TIMEOUT 180)
 
+add_executable(fsim_ms11_families_test simulation/test_ms11_families.cpp)
+target_link_libraries(fsim_ms11_families_test PRIVATE fsim::sdk fsim::ms Catch2::Catch2WithMain)
+target_compile_definitions(fsim_ms11_families_test PRIVATE
+    FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}"
+    FSIM_TEST_PAYLOAD_DIR="${CMAKE_SOURCE_DIR}/assets/payloads"
+    FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft")
+add_dependencies(fsim_ms11_families_test fsim_payload_cards)
+fsim_set_warnings(fsim_ms11_families_test)
+add_test(NAME ms11_families COMMAND fsim_ms11_families_test)
+set_tests_properties(ms11_families PROPERTIES LABELS "sim-m07;mission-systems;weather;sar;pnt;comm" TIMEOUT 180)
+
 # Enumerate cases at test time rather than at build time: the executables are
 # linked before `deploy` has staged the DLLs beside them, so running them to
 # list their tests during the build would fail.

@@ -1,8 +1,14 @@
 #include "simulation/mission_systems/Model.h"
 
+#include "simulation/mission_systems/comm/CommTerminal.h"
 #include "simulation/mission_systems/ea/Jammer.h"
 #include "simulation/mission_systems/esm/Receiver.h"
+#include "simulation/mission_systems/ground_map/GroundMapRadar.h"
 #include "simulation/mission_systems/optical/OpticalSensor.h"
+#include "simulation/mission_systems/pnt/PntReceiver.h"
+#include "simulation/mission_systems/sar/SarRadar.h"
+#include "simulation/mission_systems/smti/SmtiRadar.h"
+#include "simulation/mission_systems/weather/WeatherRadar.h"
 
 namespace fsim::ms {
 
@@ -22,7 +28,13 @@ std::unique_ptr<Model> makeModel(const Card& card, std::uint16_t count) {
     case Family::Esm: return esm::makeReceiver(card);
     case Family::ElectronicAttack: return ea::makeJammer(card, count);
     case Family::PassiveOptical: return optical::makeOpticalSensor(card, count);
-    default: return nullptr; // (the remaining families' models: MS-11, not built yet)
+    case Family::WeatherRadar: return weather::makeWeatherRadar(card, count);
+    case Family::Sar: return sar::makeSarRadar(card, count);
+    case Family::Smti: return smti::makeSmtiRadar(card, count);
+    case Family::Pnt: return pnt::makePntReceiver(card, count);
+    case Family::CommTerminal: return comm_payload::makeCommTerminal(card, count);
+    case Family::GroundMapRadar: return ground_map::makeGroundMapRadar(card, count);
+    default: return nullptr; // (store stations, air radars handled separately; guns: SIM-M10)
     }
 }
 

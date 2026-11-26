@@ -80,6 +80,18 @@ add_library(fsim_ms STATIC
     esm/Receiver.cpp
     optical/OpticalSensor.h
     optical/OpticalSensor.cpp
+    weather/WeatherRadar.h
+    weather/WeatherRadar.cpp
+    sar/SarRadar.h
+    sar/SarRadar.cpp
+    smti/SmtiRadar.h
+    smti/SmtiRadar.cpp
+    pnt/PntReceiver.h
+    pnt/PntReceiver.cpp
+    comm/CommTerminal.h
+    comm/CommTerminal.cpp
+    ground_map/GroundMapRadar.h
+    ground_map/GroundMapRadar.cpp
     damage/Damage.h
     damage/Damage.cpp
     damage/WarheadAdapter.cpp

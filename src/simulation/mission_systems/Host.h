@@ -249,6 +249,7 @@ private:
     std::vector<int> amtiCapability_;                  ///< by payload: its AMTI capability, -1 for none
     std::vector<int> eaCapability_;                    ///< by payload: its EA / countermeasures capability, -1 for none
     std::vector<int> poCapability_;                    ///< by payload: its passive/active optical capability, -1 for none
+    std::vector<int> taskCapability_;                  ///< by payload: MS-11 task capability (Weather/SAR/SMTI), -1 for none
     struct Salvo {
         ActivityId id = 0;
         std::uint16_t payload = 0;

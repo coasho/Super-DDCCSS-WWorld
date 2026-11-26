@@ -181,6 +181,35 @@ class MAEquipmentTest(unittest.TestCase):
         self.assertEqual(rep["laser_ranged"], 1.0)
         self.assertEqual(target.id > 0, True)
 
+    def test_ms11_weather_sar_and_pnt_through_python_agent(self):
+        world = fsim.World("py-ma-ms11", publish=False, terrain=False, workers=1, pin_workers=False, seed=41)
+        u2 = world.create_vehicle("u2s", "jsbsim:u2s", latitude_deg=35.0, longitude_deg=-117.0,
+                                  altitude_msl_m=18000.0, heading_deg=90.0, airspeed_ms=200.0)
+        c130 = world.create_vehicle("c130j", "jsbsim:c130j", latitude_deg=35.0, longitude_deg=-117.0,
+                                    altitude_msl_m=3000.0, heading_deg=90.0, airspeed_ms=140.0)
+        u2_agent = world.create_agent(u2, "u2-agent")
+        c130_agent = world.create_agent(c130, "c130-agent")
+        u2_agent.set_payload_state("sar", "operate")
+        c130_agent.set_payload_state("radar", "operate")
+        for _ in range(300):
+            if (next(p for p in u2_agent.payloads if p.name == "sar").state == "operate" and
+                    next(p for p in c130_agent.payloads if p.name == "radar").state == "operate"):
+                break
+            world.step(1)
+        world.set_environment(cloud_base_m=2000.0, cloud_cover=0.9, precipitation=0.9)
+        c130_agent.search_weather("radar", range_scale_m=120000.0)
+        lat_south = math.radians(35.0 - 45000.0 / 6371000.0 * 180.0 / math.pi)
+        sar_act = u2_agent.image_sar("sar", lat_south, math.radians(-117.0), resolution_m=1.0)
+        world.step(200)
+        wx_contacts = c130_agent.contacts("radar")
+        self.assertGreaterEqual(len(wx_contacts), 1)
+        self.assertEqual(wx_contacts[0].kind, fsim.ContactKind.WEATHER)
+        sar_imgs = u2_agent.contacts("sar")
+        self.assertEqual(len(sar_imgs), 1)
+        self.assertEqual(sar_imgs[0].kind, fsim.ContactKind.IMAGE)
+        self.assertAlmostEqual(sar_imgs[0].size_m, 1.0, places=3)
+        self.assertEqual(u2_agent.mission_activity(sar_act).state, fsim.ActivityState.COMPLETED)
+
 
 if __name__ == "__main__":
     unittest.main()
