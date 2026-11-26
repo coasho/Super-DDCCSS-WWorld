@@ -116,6 +116,7 @@ float cloudStart() {
 
 // the share of the light the ground under the pixel keeps in the clouds' shadow
 float groundShade() {
+  if (P_ground.y <= 1e-4) return 1.0;
   vec4 h = P_inverseProjection * vec4(screenUv() * 2.0 - 1.0, 1.0, 1.0);
   vec3 direction = normalize(mat3(P_inverseView) * normalize(h.xyz / h.w));
   vec3 origin = P_camera.xyz + altitudeCorrection;
@@ -127,6 +128,7 @@ float groundShade() {
 void main() {
 #if MODE == 0
   float s = groundShade();
+  if (s >= 0.999) discard; // skip multiplicative no-op blend on sky and unshadowed ground (VIS-M12b)
   outColor = vec4(s, s, s, 1.0);
 #else
   vec4 c = texelFetch(colorBuffer, ivec2(gl_FragCoord.xy), 0);

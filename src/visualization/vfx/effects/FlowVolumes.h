@@ -201,7 +201,6 @@ private:
     double originTime_ = 0.0, lastTime_ = -1.0;
     std::uint64_t nextLuid_ = 1;
     Cost cost_;
-    std::unordered_map<std::uint64_t, std::uint32_t> slots_; ///< a leaf's brick (by its place; the solver's thread's)
 
     std::filesystem::path shaderDir_;
     AtmosphereTables tables_;

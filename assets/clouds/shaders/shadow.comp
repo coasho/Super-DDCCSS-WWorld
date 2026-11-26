@@ -10,7 +10,7 @@ layout(local_size_x = 8, local_size_y = 8) in;
 #define fsimClampMax P_shadowTexel.zw
 #define CASCADE_COUNT 3
 #define SHADOW 1
-#define SHAPE_DETAIL 1
+// Fine 32^3 surface detail noise is sub-texel on 20..200 m Beer Shadow Map texels (VIS-M12b).
 #define TURBULENCE 1
 #define TEMPORAL_PASS 1
 #define TEMPORAL_JITTER 1

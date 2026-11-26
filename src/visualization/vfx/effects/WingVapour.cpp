@@ -1623,11 +1623,34 @@ void marchPixel(ivec2 p) {
 // rays while the others in its group wait for it cost the whole group as much.
 const char* kMarchMain = R"(
 layout(local_size_x = 8, local_size_y = 8) in;
+bool inAnyRect(vec2 px, float pad) {
+    int vCount = int(info.y);
+    for (int k = 0; k < vCount; ++k) {
+        vec4 r = rects[k];
+        if (px.x >= r.x - pad && px.y >= r.y - pad && px.x <= r.z + pad && px.y <= r.w + pad) return true;
+    }
+    int fCount = int(screen.z);
+    for (int f = 0; f < fCount; ++f) {
+        vec4 r = rects[VAPOUR_RECTS + f];
+        if (px.x >= r.x - pad && px.y >= r.y - pad && px.x <= r.z + pad && px.y <= r.w + pad) return true;
+    }
+    return false;
+}
 void main() {
     // (the texels the boxes can reach, and those round them the composite reads: the rest are not marched, not read)
     ivec2 c = ivec2(gl_GlobalInvocationID.xy) + ivec2(region.xy);
     if (c.x >= int(region.z) || c.y >= int(region.w)) return;
     float scale = info.x;
+    vec2 centerPx = (vec2(c) + 0.5) * scale;
+    // Skip empty sky between spread-out formation aircraft completely (neither marched nor read by composite, VIS-M12b).
+    if (!inAnyRect(centerPx, 6.0 * scale + 2.0)) return;
+    // Halo margin outside every box outline: write zero directly without reading 4K scene depth or marching.
+    if (!inAnyRect(centerPx, 0.5 * scale + 1.0)) {
+        imageStore(colorOut, c, vec4(0.0));
+        imageStore(frontOut, c, vec4(0.0));
+        imageStore(hazeOut, c, vec4(0.0));
+        return;
+    }
     if (scale < 1.001) {
         float front;
         vec3 haze;
@@ -1728,6 +1751,22 @@ void main() {
     vec2 pixel = gl_FragCoord.xy;
     // (beyond what the boxes can reach nothing was marched: nothing to lay on)
     if (pixel.x < laid.x || pixel.y < laid.y || pixel.x >= laid.z || pixel.y >= laid.w) discard;
+    // Per-rect discard before touching 4K depth/gas textures (eliminates empty-sky work between formation jets, VIS-M12b).
+    float pad = 3.0 * info.x + 1.0;
+    bool nearAny = false;
+    int vCount = int(info.y);
+    for (int k = 0; k < vCount; ++k) {
+        vec4 r = rects[k];
+        if (pixel.x >= r.x - pad && pixel.y >= r.y - pad && pixel.x <= r.z + pad && pixel.y <= r.w + pad) { nearAny = true; break; }
+    }
+    if (!nearAny) {
+        int fCount = int(screen.z);
+        for (int f = 0; f < fCount; ++f) {
+            vec4 r = rects[VAPOUR_RECTS + f];
+            if (pixel.x >= r.x - pad && pixel.y >= r.y - pad && pixel.x <= r.z + pad && pixel.y <= r.w + pad) { nearAny = true; break; }
+        }
+    }
+    if (!nearAny) discard;
     vec4 h = inverseProjection * vec4(pixel / screen.xy * 2.0 - 1.0, 1.0, 1.0);
     vec3 ray = normalize(h.xyz / h.w);
     float scale = info.x;
@@ -1865,7 +1904,8 @@ bool WingVapour::build(vsg::ref_ptr<vsg::ImageInfo> depth, std::uint32_t width, 
     auto edgeReset = vsg::ShaderStage::create(VK_SHADER_STAGE_COMPUTE_BIT, "main", std::string(kEdgesReset));
     auto vertex = vsg::ShaderStage::create(VK_SHADER_STAGE_VERTEX_BIT, "main", std::string("#version 450\n") + kCompositeVertex);
     auto fragment = vsg::ShaderStage::create(VK_SHADER_STAGE_FRAGMENT_BIT, "main", std::string("#version 450\n#define SCREEN_RECTS ") +
-                                                                                      std::to_string(kInstances + kMaxFlames) + "\n" + kCompositeFragment);
+                                                                                      std::to_string(kInstances + kMaxFlames) + "\n#define VAPOUR_RECTS " +
+                                                                                      std::to_string(kInstances) + "\n" + kCompositeFragment);
     auto shaderCompiler = vsg::ShaderCompiler::create();
     vsg::ShaderStages one{march}, two{vertex, fragment}, three{edgeMarch}, four{edgeReset};
     if (!shaderCompiler->supported() || !shaderCompiler->compile(one) || !shaderCompiler->compile(two) || !shaderCompiler->compile(three) ||
@@ -1995,13 +2035,17 @@ bool WingVapour::build(vsg::ref_ptr<vsg::ImageInfo> depth, std::uint32_t width, 
             g->addChild(d);
             return g;
         };
-        // the edge list emptied; the texels marched, the edges listed; the edges marched
+        // the edge list emptied; the texels marched, the edges listed; the edges marched (skipped when scale == 1, VIS-M12b)
         pass->addChild(stage(edgeReset, vsg::Dispatch::create(1, 1, 1)));
         pass->addChild(computeBarrier());
         dispatch_ = vsg::Dispatch::create(1, 1, 1);
         pass->addChild(stage(march, dispatch_));
-        pass->addChild(computeBarrier());
-        pass->addChild(stage(edgeMarch, vsg::Dispatch::create((kMaxEdges + 63) / 64, 1, 1)));
+        auto edgeGroup = vsg::Group::create();
+        edgeGroup->addChild(computeBarrier());
+        edgeGroup->addChild(stage(edgeMarch, vsg::Dispatch::create((kMaxEdges + 63) / 64, 1, 1)));
+        edgeSwitch_ = vsg::Switch::create();
+        edgeSwitch_->addChild(true, edgeGroup); // kept ON during compile; gated by scale >= 1.001 in update()
+        pass->addChild(edgeSwitch_);
         auto done = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0);
         done->memoryBarriers.push_back(vsg::MemoryBarrier::create(VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT));
         pass->addChild(done);
@@ -2347,6 +2391,7 @@ void WingVapour::update(Span<const sim::VehicleState> states, const std::vector<
         // the march's share of the window's pixels, and its size
         const double rays = std::min(coveredSum, 1.0) * static_cast<double>(ww) * static_cast<double>(wh);
         const double scale = std::clamp(std::sqrt(rays / kRayBudget), 1.0, kMaxScale);
+        if (edgeSwitch_) edgeSwitch_->setAllChildren(scale >= 1.001);
         const auto uw = static_cast<std::uint32_t>(std::ceil(ww / scale)), uh = static_cast<std::uint32_t>(std::ceil(wh / scale));
         // the texels marched: those the outlines reach, and kRegionTexels round them (all zero, and marched so: the
         // composite's filter reads them); the pixels it is laid on: kLaidTexels round - every texel those read is one

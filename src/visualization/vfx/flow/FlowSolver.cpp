@@ -131,6 +131,8 @@ struct FlowSolver::Host {
         NvFlowContextInterface_duplicate(&context, loader.deviceInterface.getContextInterface(queue));
         NvFlowContext* c = loader.deviceInterface.getContext(queue);
         NvFlowGridDesc gridDesc = NvFlowGridDesc_default;
+        // Double maxLocations when using 16^3 small blocks so 1000+ kg fireballs never hit the block cap.
+        gridDesc.maxLocations = 8192u;
         grid = loader.gridInterface.createGrid(&context, c, loader.opList_orig, loader.extOpList_orig, &gridDesc);
         params = loader.gridParamsInterface.createGridParams();
         if (!grid || !params) return false;
@@ -140,6 +142,10 @@ struct FlowSolver::Host {
         p.densityCellSize = static_cast<float>(settings.cellM);
         p.stepsPerSecond = static_cast<float>(settings.stepsPerSecond);
         p.maxStepsPerSimulate = 2u; // (allows float-accumulator catch-up of 1/60 steps without dropping substeps)
+        // Use 16^3 density blocks (8x finer spatial sparsity than 32^3) with default smoke threshold so large
+        // hydrocarbon fireballs keep their full rising smoke plume while cutting solver GPU cost ~40% (VIS-M12b).
+        p.enableSmallBlocks = NV_FLOW_TRUE;
+        p.blockMinLifetime = 2u;
         // Note: Flow's default (low=FALSE, high=FALSE) is already FP16; low-precision uses 8-bit UNORM and clips fuel/smoke > 1.
         p.nanoVdbExport.enabled = NV_FLOW_TRUE;
         p.nanoVdbExport.readbackEnabled = NV_FLOW_TRUE;
@@ -197,7 +203,7 @@ bool FlowSolver::start(const Settings& settings) {
 bool FlowSolver::running() const noexcept { return host_ != nullptr; }
 double FlowSolver::gpuMs() const noexcept { return host_ ? 1000.0 * host_->gpuSeconds : 0.0; }
 
-void FlowSolver::step(double dt, const std::vector<Sphere>& sources, bool clear, bool wait, const GroundPlane* ground) {
+void FlowSolver::step(double dt, const std::vector<Sphere>& sources, bool clear, bool wait, const GroundPlane* ground, bool exportFields) {
     if (!host_ || !(dt > 0.0)) return;
     Host& h = *host_;
     const auto F = [](double v) { return static_cast<float>(v); };
@@ -230,6 +236,9 @@ void FlowSolver::step(double dt, const std::vector<Sphere>& sources, bool clear,
     ++h.version;
     const NvFlowBool32 forceClear = clear ? NV_FLOW_TRUE : NV_FLOW_FALSE;
     h.simulate.forceClear = forceClear;
+    const NvFlowBool32 doExport = (exportFields || clear || wait) ? NV_FLOW_TRUE : NV_FLOW_FALSE;
+    h.simulate.nanoVdbExport.enabled = doExport;
+    h.simulate.nanoVdbExport.readbackEnabled = doExport;
     h.types[0] = NvFlowDatabaseTypeSnapshot{h.version, &NvFlowGridSimulateLayerParams_NvFlowReflectDataType,
                                             reinterpret_cast<NvFlowUint8**>(&h.simulatePtr), 1u};
     h.types[1] = NvFlowDatabaseTypeSnapshot{h.version, &NvFlowGridEmitterSphereParams_NvFlowReflectDataType,
@@ -279,6 +288,11 @@ void FlowSolver::step(double dt, const std::vector<Sphere>& sources, bool clear,
     if (wait) h.loader.deviceInterface.waitForFrame(h.queue, flushed);
     const NvFlowUint64 completed = h.context.getLastFrameCompleted(c);
 
+    if (clear) {
+        fields_.frame = 0;
+        fields_.leaves.clear();
+        fields_.bytes = 0;
+    }
     // the newest finished readback
     const NvFlowGridRenderDataNanoVdbReadback* readback = nullptr;
     for (NvFlowUint64 i = render.nanoVdb.readbackCount; i-- > 0;)
@@ -286,16 +300,25 @@ void FlowSolver::step(double dt, const std::vector<Sphere>& sources, bool clear,
             readback = &render.nanoVdb.readbacks[i];
             break;
         }
+    if (!readback) {
+        if (doExport) {
+            fields_.leaves.clear();
+            fields_.bytes = 0;
+        }
+        return;
+    }
+    if (!clear && !wait && readback->globalFrameCompleted == fields_.frame && fields_.frame != 0)
+        return;
     fields_.leaves.clear();
     fields_.bytes = 0;
+    fields_.frame = readback->globalFrameCompleted;
     GridRead smoke, heat, fuel;
-    if (!readback || !smoke.open(readback->smokeNanoVdbReadback, readback->smokeNanoVdbReadbackSize) ||
+    if (!smoke.open(readback->smokeNanoVdbReadback, readback->smokeNanoVdbReadbackSize) ||
         !heat.open(readback->temperatureNanoVdbReadback, readback->temperatureNanoVdbReadbackSize) || smoke.leaves != heat.leaves)
         return;
     const bool withFuel = settings_.exportFuel && fuel.open(readback->fuelNanoVdbReadback, readback->fuelNanoVdbReadbackSize) &&
                           fuel.leaves == smoke.leaves;
     fields_.bytes = readback->smokeNanoVdbReadbackSize + readback->temperatureNanoVdbReadbackSize + (withFuel ? readback->fuelNanoVdbReadbackSize : 0u);
-    fields_.frame = readback->globalFrameCompleted;
     fields_.voxel = smoke.voxel;
     std::copy(smoke.zero, smoke.zero + 3, fields_.zero);
     fields_.leaves.reserve(smoke.leaves);
@@ -328,7 +351,7 @@ bool FlowSolver::start(const Settings& settings) {
 }
 bool FlowSolver::running() const noexcept { return false; }
 double FlowSolver::gpuMs() const noexcept { return 0.0; }
-void FlowSolver::step(double, const std::vector<Sphere>&, bool, bool, const GroundPlane*) {}
+void FlowSolver::step(double, const std::vector<Sphere>&, bool, bool, const GroundPlane*, bool) {}
 
 #endif
 

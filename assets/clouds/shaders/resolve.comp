@@ -82,7 +82,7 @@ vec2 fsimImageUv(const vec2 uv, const vec2 used, const vec2 size) {
   return uv * used / size;
 }
 
-// fsim: takram's catmullRomSampling.glsl (MJP's, MIT), read at level 0 (a compute shader has no implicit level)
+// fsim: 5-tap cross Catmull-Rom (Filmic/UE5) drops 4 negligible <1% corner taps, cutting 4K RGBA16F history bandwidth 44% (VIS-M12b).
 vec4 fsimCatmullRom(sampler2D tex, vec2 uv) {
   vec2 texSize = vec2(textureSize(tex, 0));
   vec2 samplePos = uv * texSize;
@@ -93,21 +93,21 @@ vec4 fsimCatmullRom(sampler2D tex, vec2 uv) {
   vec2 w2 = f * (0.5 + f * (2.0 - 1.5 * f));
   vec2 w3 = f * f * (-0.5 + 0.5 * f);
   vec2 w12 = w1 + w2;
-  vec2 offset12 = w2 / (w1 + w2);
+  vec2 offset12 = w2 / w12;
   vec2 texPos0 = (texPos1 - 1.0) / texSize;
   vec2 texPos3 = (texPos1 + 2.0) / texSize;
   vec2 texPos12 = (texPos1 + offset12) / texSize;
-  vec4 result = vec4(0.0);
-  result += textureLod(tex, vec2(texPos0.x, texPos0.y), 0.0) * w0.x * w0.y;
-  result += textureLod(tex, vec2(texPos12.x, texPos0.y), 0.0) * w12.x * w0.y;
-  result += textureLod(tex, vec2(texPos3.x, texPos0.y), 0.0) * w3.x * w0.y;
-  result += textureLod(tex, vec2(texPos0.x, texPos12.y), 0.0) * w0.x * w12.y;
-  result += textureLod(tex, vec2(texPos12.x, texPos12.y), 0.0) * w12.x * w12.y;
-  result += textureLod(tex, vec2(texPos3.x, texPos12.y), 0.0) * w3.x * w12.y;
-  result += textureLod(tex, vec2(texPos0.x, texPos3.y), 0.0) * w0.x * w3.y;
-  result += textureLod(tex, vec2(texPos12.x, texPos3.y), 0.0) * w12.x * w3.y;
-  result += textureLod(tex, vec2(texPos3.x, texPos3.y), 0.0) * w3.x * w3.y;
-  return max(result, vec4(0.0)); // (its lobes can go below zero at an edge)
+  float wC = w12.x * w12.y;
+  float wT = w12.x * w0.y;
+  float wB = w12.x * w3.y;
+  float wL = w0.x * w12.y;
+  float wR = w3.x * w12.y;
+  vec4 result = textureLod(tex, vec2(texPos12.x, texPos0.y), 0.0) * wT
+              + textureLod(tex, vec2(texPos0.x, texPos12.y), 0.0) * wL
+              + textureLod(tex, vec2(texPos12.x, texPos12.y), 0.0) * wC
+              + textureLod(tex, vec2(texPos3.x, texPos12.y), 0.0) * wR
+              + textureLod(tex, vec2(texPos12.x, texPos3.y), 0.0) * wB;
+  return max(result / (wC + wT + wB + wL + wR), vec4(0.0));
 }
 
 // fsim: where the low-res texel t's sample was marched this frame (px, the full-size image's)
@@ -116,38 +116,41 @@ vec2 marchedAt(const ivec2 t) {
 }
 
 void temporalUpscale(out vec4 outputColor) {
-  // fsim: this frame's samples round the pixel - the two nearest each way - weighted by their distance
-  ivec2 base = ivec2(floor((fsimFragCoord - P_frame.xy * 4.0) / 4.0));
-  vec4 sum = vec4(0.0);
-  float weights = 0.0;
-  for (int k = 0; k < 4; ++k) {
-    ivec2 t = clamp(base + ivec2(k & 1, k >> 1), ivec2(0), ivec2(P_screen.zw) - 1);
-    vec2 d = fsimFragCoord - marchedAt(t);
-    float w = exp(-0.5 * dot(d, d) / (SAMPLE_SIGMA * SAMPLE_SIGMA));
-    sum += w * texelFetch(colorBuffer, t, 0);
-    weights += w;
-  }
-  vec4 currentColor = sum / weights; // (the nearest is 2.9 px off at most: never all zero)
-
-  // fsim: the nine round it: the box the history is held to (below), and a smoother reconstruction, for where there is
-  // no history or it is drawn from far off (the nearest four alone made 4 x 4 blocks there: a view zooming out showed
-  // a mosaic round its edges, the part of the screen new each frame)
-  ivec2 centre = ivec2(floor((fsimFragCoord - P_frame.xy * 4.0) / 4.0 + 0.5));
-  vec4 moment1 = vec4(0.0), moment2 = vec4(0.0), smoothSum = vec4(0.0);
-  float boxWeights = 0.0, smoothWeights = 0.0;
+  // Single merged 9-tap gather for currentColor (4-tap subset), smoothColor, variance moments, and clear-sky early-out (VIS-M12b).
+  vec2 lowPos = (fsimFragCoord - P_frame.xy * 4.0) / 4.0;
+  ivec2 base = ivec2(floor(lowPos));
+  ivec2 centre = ivec2(floor(lowPos + 0.5));
+  ivec2 maxLow = ivec2(P_screen.zw) - 1;
+  vec4 sum = vec4(0.0), moment1 = vec4(0.0), moment2 = vec4(0.0), smoothSum = vec4(0.0);
+  float weights = 0.0, boxWeights = 0.0, smoothWeights = 0.0, maxAlpha = 0.0;
   for (int k = 0; k < 9; ++k) {
-    ivec2 t = clamp(centre + neighborOffsets[k], ivec2(0), ivec2(P_screen.zw) - 1);
+    ivec2 raw = centre + neighborOffsets[k];
+    ivec2 t = clamp(raw, ivec2(0), maxLow);
+    vec4 c = texelFetch(colorBuffer, t, 0);
+    maxAlpha = max(maxAlpha, c.a);
     vec2 d = fsimFragCoord - marchedAt(t);
     float r2 = dot(d, d);
-    float w = exp(-0.5 * r2 / (BOX_SIGMA * BOX_SIGMA));
-    float ws = exp(-0.5 * r2 / (SMOOTH_SIGMA * SMOOTH_SIGMA));
-    vec4 c = texelFetch(colorBuffer, t, 0);
+    float w = exp(-0.5 * r2 * (1.0 / (BOX_SIGMA * BOX_SIGMA)));
+    float ws = exp(-0.5 * r2 * (1.0 / (SMOOTH_SIGMA * SMOOTH_SIGMA)));
     moment1 += w * c;
     moment2 += w * c * c;
     boxWeights += w;
     smoothSum += ws * c;
     smoothWeights += ws;
+    if (raw.x >= base.x && raw.x <= base.x + 1 && raw.y >= base.y && raw.y <= base.y + 1) {
+      // SAMPLE_SIGMA == 1.0, SMOOTH_SIGMA == 2.0 => exp(-0.5*r2/1) == (exp(-0.5*r2/4))^4
+      float ws2 = ws * ws;
+      float wCur = ws2 * ws2;
+      sum += wCur * c;
+      weights += wCur;
+    }
   }
+  // Clear-sky fast-path: if all 9 surrounding low-res samples are empty, skip velocity gather, history Catmull-Rom, and clipAABB.
+  if (maxAlpha < 1e-5) {
+    outputColor = vec4(0.0);
+    return;
+  }
+  vec4 currentColor = sum / weights; // (the nearest is 2.9 px off at most: never all zero)
   vec4 smoothColor = smoothSum / smoothWeights;
 
   if (P_medium.z < 0.5) { // fsim: no history yet

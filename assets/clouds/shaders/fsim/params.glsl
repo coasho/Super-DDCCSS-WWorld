@@ -58,7 +58,7 @@ layout(set = 0, binding = 0, std140) uniform CloudsParams {
                                 // clouds' shadow on it (1) or none
   vec4 P_oceanSpectrum;         // JONSWAP's alpha; its peak (rad/s); the depth the spectrum is for (m); swell
   vec4 P_oceanSpectrum2;        // spread; detail; whitecap; the foam's growth this frame
-  vec4 P_oceanFoam;             // the foam's decay this frame; Cox & Munk's slope variance along U and along V; -
+  vec4 P_oceanFoam;             // the foam's decay this frame; Cox & Munk's slope variance along U and along V; base whitecap cover (3.84e-6 * U^3.41)
   vec4 P_oceanEye;              // the eye in the ellipsoid's unit sphere (ECEF / (a, a, b)); |that|^2 - 1, from doubles
   vec4 P_oceanRadii;            // 1/a, 1/a, 1/b; how far below sea level the sea is depth-tested (m)
   vec4 P_oceanU;                // the plane's axes (ECEF): east

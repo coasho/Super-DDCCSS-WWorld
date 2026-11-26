@@ -144,7 +144,7 @@ private:
     vsg::ref_ptr<vsg::Data> earthMap_, seaMap_;
     AtmosphereTables atmosphere_;
     vsg::ref_ptr<vsg::Group> under_, over_, compute_;
-    vsg::ref_ptr<vsg::Switch> underSwitch_, overSwitch_, computeSwitch_, firstSwitch_, shadowResolveSwitch_, marchSwitch_, resolveSwitch_;
+    vsg::ref_ptr<vsg::Switch> underSwitch_, overSwitch_, computeSwitch_, firstSwitch_, shadowPassSwitch_, shadowResolveSwitch_, marchSwitch_, resolveSwitch_;
     vsg::ref_ptr<vsg::ubyteArray> params_;
     Weather weather_, given_;
     bool weatherGiven_ = false;
@@ -153,12 +153,17 @@ private:
     vsg::vec2 screen_{1.0f, 1.0f};
     vsg::uivec2 lowAlloc_{1, 1}, fullAlloc_{1, 1};
     vsg::uivec2 lastLow_{0, 0};
-    int parity_ = 0;
+    int parity_ = 0, shadowParity_ = 0;
     std::vector<vsg::ref_ptr<vsg::Dispatch>> lowDispatches_, fullDispatches_;
     // last frame, for the reprojections
     bool haveLast_ = false, shadowHistory_ = false, cloudsHistory_ = false;
     vsg::dmat4 lastViewProjection_;     ///< ECEF -> clip
     vsg::dmat4 lastShadow_[3];          ///< ECEF -> each cascade's clip
+    vsg::vec4 lastShadowIntervals_[3];  ///< cached cascade split intervals matching lastShadow_
+    vsg::dvec3 lastShadowEye_{0.0, 0.0, 0.0};
+    double shadowAccumDt_ = 1.0;        ///< elapsed sim/wall time since last shadow cascade march
+    double seaAccumDt_ = 1.0;           ///< elapsed time since last ocean FFT dispatch
+    double lastWallTime_ = -1.0;        ///< monotonic clock for real-time update cadence (independent of replay/sim pause)
     vsg::dvec2 weatherOffset_{0.0, 0.0};
     vsg::dvec3 shapeOffset_{0.0, 0.0, 0.0}, detailOffset_{0.0, 0.0, 0.0};
     double lastTime_ = -1.0;

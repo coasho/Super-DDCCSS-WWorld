@@ -113,7 +113,7 @@ private:
     };
 
     vsg::ref_ptr<vsg::Group> root_, compute_;
-    vsg::ref_ptr<vsg::Switch> computeSwitch_, drawSwitch_;
+    vsg::ref_ptr<vsg::Switch> computeSwitch_, drawSwitch_, edgeSwitch_;
     vsg::ref_ptr<vsg::Dispatch> dispatch_;
     vsg::ref_ptr<vsg::vec4Array> data_, screen_, flames_;
     const Exhaust* exhaust_ = nullptr;

@@ -39,7 +39,8 @@ const float CROW_WAVELENGTH = 8.6;   // b0 (Crow 1970)
 // takram's phase function and multiple scattering (packages/clouds/src/shaders/clouds.frag, MIT), their defaults
 vec2 henyeyGreenstein(const vec2 g, const float cosTheta) {
   vec2 g2 = g * g;
-  return RECIPROCAL_PI4 * ((1.0 - g2) / max(vec2(1e-7), pow(1.0 + g2 - 2.0 * g * cosTheta, vec2(1.5))));
+  vec2 d = max(vec2(1e-7), 1.0 + g2 - 2.0 * g * cosTheta);
+  return RECIPROCAL_PI4 * ((1.0 - g2) / (d * sqrt(d)));
 }
 float phaseFunction(const float cosTheta, const float attenuation) {
   const vec2 g = vec2(0.7, -0.2);
@@ -111,14 +112,29 @@ float erfcApprox(float x) {
 
 // The optical depth from a point p (y, z, relative to the Gaussian's centre) along a half-line, its direction across
 // the tube u and how long a step along it is across it (|u|): the line's integral times the share of the Gaussian
-// along it ahead of the point.
+// along it ahead of the point (single covariance inversion, VIS-M12b).
 float halfLineDepth(const vec3 sigma, const float E, const vec2 p, const vec2 u, const float alongLength) {
-  float full = plumeDepth(sigma, E, p, u, alongLength);
+  if (E <= 0.0) return 0.0;
   float det = max(sigma.x * sigma.y - sigma.z * sigma.z, 1e-6);
   mat2 S = mat2(sigma.y, -sigma.z, -sigma.z, sigma.x) / det;
-  float a = dot(u, S * u);
+  float A0 = E / (6.283185307 * sqrt(det));
+  vec2 Sp = S * p;
+  vec2 Su = S * u;
+  float l = length(u);
+  float full;
+  if (l < 1e-4) {
+    full = A0 * exp(-0.5 * dot(p, Sp)) * alongLength;
+  } else {
+    float invL = 1.0 / l;
+    float aN = dot(u, Su) * invL * invL;
+    float bN = dot(u, Sp) * invL;
+    float c = dot(p, Sp);
+    float peak = exp(-0.5 * max(c - bN * bN / aN, 0.0));
+    full = min(A0 * sqrt(6.283185307 / aN) * peak * invL, A0 * peak * alongLength);
+  }
+  float a = dot(u, Su);
   if (a < 1e-8) return 0.5 * full;
-  return full * 0.5 * erfcApprox(dot(u, S * p) / sqrt(2.0 * a));
+  return full * 0.5 * erfcApprox(dot(u, Sp) / sqrt(2.0 * a));
 }
 
 // The coverage of a Gaussian part eroded by takram's noises: the share of the Gaussian above a threshold the noises

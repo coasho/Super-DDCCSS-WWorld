@@ -425,7 +425,8 @@ Airflow::Airflow(std::size_t slots, vsg::ref_ptr<const vsg::Options> options, co
         LOG_WARN("world") << "no contrails: the clouds' shaders, noises or the atmosphere's tables are missing";
         return;
     }
-    const std::uint32_t table = static_cast<std::uint32_t>(kSources * kDrawn * kStride);
+    const std::uint32_t maxSamples = static_cast<std::uint32_t>(kSources * kDrawn);
+    const std::uint32_t table = (maxSamples + 2u) * static_cast<std::uint32_t>(kStride);
     const std::string cap = "#define CONTRAIL_CAP " + std::to_string(kDrawn) + "\n#define CONTRAIL_STRIDE " + std::to_string(kStride) +
                             "\n#define BLACKBODY_AT " + std::to_string(table) + "\n#define BLACKBODY_ROWS " +
                             std::to_string(SunlitBlackbody::kRows) + "\n";
@@ -763,14 +764,17 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
     // a fraction of a second - is drawn from samples at fixed ages (kYoungAges) between those laid, along the path
     // between them: it was drawn between samples laid 0.25 s apart, whose ages moved on frame after frame until the
     // next was laid, and the trail behind the jets faded and filled again four times a second
-    std::size_t used = 0;
+    // Pack only active trail samples contiguously so ribbonDraw_->instanceCount draws active segments alone,
+    // avoiding thousands of empty/degenerate bounding-box instances (VIS-M12b).
+    const std::size_t maxSamples = kSources * kDrawn;
+    std::size_t outIdx = 0;
+    double sequence = 0.0;
     drawnScratch_.reserve(kDrawn);
     for (std::size_t k = 0; k < sources_.size(); ++k) {
         const Source& src = sources_[k];
-        if (src.slot < 0 && k >= prevUsed_) continue;
-        double sequence = 0.0;
+        if (src.slot < 0) continue;
         drawnScratch_.clear();
-        if (src.slot >= 0) {
+        {
             // the head: the newest sample again, at the jets now and just born
             const bool head = src.used && src.forming && !src.samples.empty();
             Sample h;
@@ -807,17 +811,16 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
             }
         }
         const std::size_t count = drawnScratch_.size();
-        for (std::size_t j = 0; j < kDrawn; ++j) {
-            const auto at = static_cast<std::uint32_t>(kStride * (k * kDrawn + j));
-            if (j >= count) {
-                samples_->set(at, vsg::vec4(0.0f, 0.0f, 0.0f, -1.0f));
-                continue;
-            }
+        if (count < 2) continue;
+        // Separate sources by a sequence jump > 2 so adjacent sources never link or share neighbor planes.
+        if (outIdx > 0) sequence += 4.0;
+        const auto F = [](double v) { return static_cast<float>(v); };
+        for (std::size_t j = 0; j < count && outIdx < maxSamples; ++j) {
             const Sample& s = drawnScratch_[j];
-            if (s.gapBefore) sequence += 1.0;
+            if (j > 0 && s.gapBefore) sequence += 2.0;
+            const auto at = static_cast<std::uint32_t>(kStride * outIdx);
             const Drawn w = drawn(s, air, now);
             const vsg::dvec3 rel = s.at - eye;
-            const auto F = [](double v) { return static_cast<float>(v); };
             samples_->set(at, vsg::vec4(F(rel.x), F(rel.y), F(rel.z), F(sequence)));
             samples_->set(at + 1, vsg::vec4(F(w.plumeSyy), F(w.plumeSzz), F(w.plumeSyz), F(w.plumeE)));
             samples_->set(at + 2, vsg::vec4(F(w.halfSpacing), F(w.descent), F(w.crow), F(w.rings)));
@@ -828,12 +831,15 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
             const double flameK = w.flameK > 0.0 ? SunlitBlackbody::meanOfFlicker(w.flameK, kFlicker) : 0.0;
             samples_->set(at + 6, vsg::vec4(F(flameK), F(kFlicker), 0.0f, 0.0f));
             sequence += 1.0;
+            ++outIdx;
         }
-        if (src.slot >= 0) used = k + 1;
     }
-    if (used > 0 || prevUsed_ > 0) samples_->dirty();
-    prevUsed_ = used;
-    ribbonDraw_->instanceCount = static_cast<std::uint32_t>(used * kDrawn);
+    // Two trailing sentinel slots ensure contrail.vert's `after = samples[(i + 2) * STRIDE]` read is always valid.
+    for (std::size_t s = 0; s < 2; ++s)
+        samples_->set(static_cast<std::uint32_t>(kStride * (outIdx + s)), vsg::vec4(0.0f, 0.0f, 0.0f, -1.0f));
+    if (outIdx > 0 || prevUsed_ > 0) samples_->dirty();
+    prevUsed_ = outIdx;
+    ribbonDraw_->instanceCount = outIdx > 1 ? static_cast<std::uint32_t>(outIdx - 1) : 0u;
     ribbonAt_->matrix = vsg::translate(eye);
 }
 

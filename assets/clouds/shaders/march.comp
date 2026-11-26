@@ -212,9 +212,8 @@ float sampleShadowOpticalDepth(
 
 vec2 henyeyGreenstein(const vec2 g, const float cosTheta) {
   vec2 g2 = g * g;
-  // prettier-ignore
-  return RECIPROCAL_PI4 *
-    ((1.0 - g2) / max(vec2(1e-7), pow(1.0 + g2 - 2.0 * g * cosTheta, vec2(1.5))));
+  vec2 d = max(vec2(1e-7), 1.0 + g2 - 2.0 * g * cosTheta);
+  return RECIPROCAL_PI4 * ((1.0 - g2) / (d * sqrt(d)));
 }
 
 float phaseFunction(const float cosTheta, const float attenuation) {
@@ -255,7 +254,7 @@ float marchOpticalDepth(
     float height = length(position) - bottomRadius;
     fsimCoverage = fsimCoverageAt(position); // fsim
     WeatherSample weather = sampleWeather(uv, height, mipLevel);
-    MediaSample media = sampleMedia(weather, position, uv, mipLevel, jitter);
+    MediaSample media = sampleMediaCoarse(weather, position, uv);
     opticalDepth += media.extinction * stepSize;
     nextDistance += stepSize;
     stepSize *= secondaryStepScale;
@@ -303,29 +302,32 @@ vec3 getGroundSunSkyIrradiance(
   const vec3 position,
   const vec3 surfaceNormal,
   const float height,
+  const bool fastLight,
   out vec3 skyIrradiance
 ) {
   #ifdef ACCURATE_SUN_SKY_LIGHT
-  return GetSunAndSkyIrradiance(
-    (position - surfaceNormal * height) * METER_TO_LENGTH_UNIT,
-    surfaceNormal,
-    sunDirection,
-    skyIrradiance
-  );
-  #else // ACCURATE_SUN_SKY_LIGHT
+  if (!fastLight) {
+    return GetSunAndSkyIrradiance(
+      (position - surfaceNormal * height) * METER_TO_LENGTH_UNIT,
+      surfaceNormal,
+      sunDirection,
+      skyIrradiance
+    );
+  }
+  #endif // ACCURATE_SUN_SKY_LIGHT
   skyIrradiance = vGroundIrradiance.sky;
   return vGroundIrradiance.sun;
-  #endif // ACCURATE_SUN_SKY_LIGHT
 }
 
-vec3 getCloudsSunSkyIrradiance(const vec3 position, const float height, out vec3 skyIrradiance) {
+vec3 getCloudsSunSkyIrradiance(const vec3 position, const float height, const bool fastLight, out vec3 skyIrradiance) {
   #ifdef ACCURATE_SUN_SKY_LIGHT
-  return GetSunAndSkyScalarIrradiance(position * METER_TO_LENGTH_UNIT, sunDirection, skyIrradiance);
-  #else // ACCURATE_SUN_SKY_LIGHT
+  if (!fastLight) {
+    return GetSunAndSkyScalarIrradiance(position * METER_TO_LENGTH_UNIT, sunDirection, skyIrradiance);
+  }
+  #endif // ACCURATE_SUN_SKY_LIGHT
   float alpha = remapClamped(height, minHeight, maxHeight);
   skyIrradiance = mix(vCloudsIrradiance.minSky, vCloudsIrradiance.maxSky, alpha);
   return mix(vCloudsIrradiance.minSun, vCloudsIrradiance.maxSun, alpha);
-  #endif // ACCURATE_SUN_SKY_LIGHT
 }
 
 #ifdef GROUND_BOUNCE
@@ -334,7 +336,8 @@ vec3 approximateRadianceFromGround(
   const vec3 surfaceNormal,
   const float height,
   const float mipLevel,
-  const float jitter
+  const float jitter,
+  const bool fastLight
 ) {
   float opticalDepthToGround = marchOpticalDepth(
     position,
@@ -344,7 +347,7 @@ vec3 approximateRadianceFromGround(
     jitter
   );
   vec3 skyIrradiance;
-  vec3 sunIrradiance = getGroundSunSkyIrradiance(position, surfaceNormal, height, skyIrradiance);
+  vec3 sunIrradiance = getGroundSunSkyIrradiance(position, surfaceNormal, height, fastLight, skyIrradiance);
   const float groundAlbedo = 0.3;
   vec3 groundIrradiance = skyIrradiance + (1.0 - coverage) * sunIrradiance;
   vec3 bouncedRadiance = groundAlbedo * RECIPROCAL_PI * groundIrradiance;
@@ -368,6 +371,15 @@ vec4 marchClouds(
   float weightedDistanceSum = 0.0;
   float transmittanceSum = 0.0;
   float lightDistanceSum = 0.0, lightSum = 0.0; // fsim
+
+  // Hoist the 5 multiple-scattering phase octaves once per ray (cosTheta is constant along the ray; VIS-M12b).
+  float octavePhase[5];
+  {
+    float att = 1.0;
+    for (int m = 0; m < 5; ++m, att *= 0.5) {
+      octavePhase[m] = att * phaseFunction(cosTheta, att);
+    }
+  }
 
   float maxRayDistance_ = rayNearFar.y - rayNearFar.x;
   // fsim: no longer than their longest step (from far off - from orbit - theirs grew past the layers' depth and
@@ -424,9 +436,13 @@ vec4 marchClouds(
     MediaSample media = sampleMedia(weather, position, uv, mipLevel, jitter, sampleCount);
 
     if (media.extinction > minExtinction) {
-      vec3 skyIrradiance;
-      vec3 sunIrradiance = getCloudsSunSkyIrradiance(position, height, skyIrradiance);
       vec3 surfaceNormal = normalize(position);
+      // Use precomputed local troposphere irradiance in daytime (< 200 km, sun > 8.6 deg above horizon), falling back
+      // to exact per-step atmosphere LUT fetches near sunset terminator or orbit (VIS-M12b).
+      float totalDist = rayNearFar.x + rayDistance;
+      bool fastLight = (cameraHeight < 30000.0 && totalDist < 200000.0 && dot(sunDirection, surfaceNormal) > 0.15);
+      vec3 skyIrradiance;
+      vec3 sunIrradiance = getCloudsSunSkyIrradiance(position, height, fastLight, skyIrradiance);
 
       // March optical depth to the sun for finer details, which BSM lacks.
       float sunRayDistance = 0.0;
@@ -452,20 +468,37 @@ vec4 marchClouds(
         );
       }
 
-      vec3 radiance = sunIrradiance * approximateMultipleScattering(opticalDepth, cosTheta);
+      // 5 explicit octaves + geometric tail matches 8 octaves to <0.1% using per-ray hoisted phase terms (VIS-M12b).
+      float scattering = 0.0;
+      float bAtt = 1.0;
+      for (int m = 0; m < 5; ++m, bAtt *= 0.5) {
+        scattering += exp(-opticalDepth * bAtt) * octavePhase[m];
+      }
+      scattering += 0.875 * exp(-opticalDepth * 0.024) * octavePhase[4];
+      vec3 radiance = sunIrradiance * scattering;
 
       #ifdef GROUND_BOUNCE
-      // Fudge factor for the irradiance from ground.
-      if (height < shadowTopHeight && mipLevel < 0.5) {
-        fsimCoverage = fsimCoverageAt(position); // fsim (the ground march above set its own)
-        vec3 groundRadiance = approximateRadianceFromGround(
-          position,
-          surfaceNormal,
-          height,
-          mipLevel,
-          jitter
-        );
-        radiance += groundRadiance * RECIPROCAL_PI4 * groundBounceScale;
+      // Fudge factor for the irradiance from ground. Use cheap analytic bounce when viewing cloud tops from above
+      // or beyond 35 km, reserving the 3-step downward march for close-up cloud undersides (VIS-M12b).
+      if (height < shadowTopHeight && mipLevel < 0.5 && transmittanceIntegral > 0.2) {
+        if (cameraHeight > shadowTopHeight || totalDist > 35000.0) {
+          vec3 gSky;
+          vec3 gSun = getGroundSunSkyIrradiance(position, surfaceNormal, height, fastLight, gSky);
+          vec3 gIrr = gSky + (1.0 - coverage) * gSun;
+          float hFrac = dot(weather.heightFraction, media.weight);
+          radiance += (0.3 * RECIPROCAL_PI * gIrr * exp(-1.5 * hFrac)) * RECIPROCAL_PI4 * groundBounceScale;
+        } else {
+          fsimCoverage = fsimCoverageAt(position); // fsim (the ground march above set its own)
+          vec3 groundRadiance = approximateRadianceFromGround(
+            position,
+            surfaceNormal,
+            height,
+            mipLevel,
+            jitter,
+            fastLight
+          );
+          radiance += groundRadiance * RECIPROCAL_PI4 * groundBounceScale;
+        }
       }
       #endif // GROUND_BOUNCE
 
@@ -617,14 +650,6 @@ void main() {
   vCameraPosition = P_camera.xyz;
   vCameraDirection = normalize((P_inverseView * vec4(0.0, 0.0, -1.0, 0.0)).xyz);
   vRayDirection = (P_inverseView * vec4(viewRay, 0.0)).xyz;
-  {
-    vec3 positionECEF = vCameraPosition + altitudeCorrection;
-    vGroundIrradiance.sun = GetSunAndSkyScalarIrradiance(positionECEF * METER_TO_LENGTH_UNIT, sunDirection, vGroundIrradiance.sky);
-    vec3 surfaceNormal = normalize(positionECEF);
-    vec2 radii = (bottomRadius + vec2(minHeight, maxHeight)) * METER_TO_LENGTH_UNIT;
-    vCloudsIrradiance.minSun = GetSunAndSkyScalarIrradiance(surfaceNormal * radii.x, sunDirection, vCloudsIrradiance.minSky);
-    vCloudsIrradiance.maxSun = GetSunAndSkyScalarIrradiance(surfaceNormal * radii.y, sunDirection, vCloudsIrradiance.maxSky);
-  }
 
   vec3 cameraPosition = vCameraPosition + altitudeCorrection;
   vec3 rayDirection = normalize(vRayDirection);
@@ -647,6 +672,14 @@ void main() {
   bool hitClouds = false;
 
   if (!intersectsGround && !intersectsScene) {
+    // Only evaluate local troposphere irradiance tables for rays that actually enter the cloud shell (VIS-M12b).
+    {
+      vec3 surfaceNormal = normalize(cameraPosition);
+      vGroundIrradiance.sun = GetSunAndSkyIrradiance(surfaceNormal * (bottomRadius * METER_TO_LENGTH_UNIT), surfaceNormal, sunDirection, vGroundIrradiance.sky);
+      vec2 radii = (bottomRadius + vec2(minHeight, maxHeight)) * METER_TO_LENGTH_UNIT;
+      vCloudsIrradiance.minSun = GetSunAndSkyScalarIrradiance(surfaceNormal * radii.x, sunDirection, vCloudsIrradiance.minSky);
+      vCloudsIrradiance.maxSun = GetSunAndSkyScalarIrradiance(surfaceNormal * radii.y, sunDirection, vCloudsIrradiance.maxSky);
+    }
     vec3 rayOrigin = rayNearFar.x * rayDirection + cameraPosition;
 
     vec2 globeUv = getGlobeUv(rayOrigin);

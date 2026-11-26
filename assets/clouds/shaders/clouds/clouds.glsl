@@ -105,10 +105,9 @@ WeatherSample sampleWeather(const vec2 uv, const float height, const float mipLe
 }
 
 vec4 getLayerDensity(const vec4 heightFraction) {
-  // prettier-ignore
-  return densityProfile.expTerms * exp(densityProfile.exponents * heightFraction) +
-    densityProfile.linearTerms * heightFraction +
-    densityProfile.constantTerms;
+  vec4 base = densityProfile.linearTerms * heightFraction + densityProfile.constantTerms;
+  if (dot(abs(densityProfile.expTerms), vec4(1.0)) <= 0.0) return base;
+  return densityProfile.expTerms * exp(densityProfile.exponents * heightFraction) + base;
 }
 
 struct MediaSample {
@@ -151,13 +150,24 @@ MediaSample sampleMedia(
   ++sampleCount.y;
   #endif // DEBUG_SHOW_SAMPLE_COUNT
 
+  // Early-out eroded-empty voxels before fetching 3D detail noise and evaluating density profiles (VIS-M12b).
+  if (dot(density, vec4(1.0)) <= 1e-6) {
+    MediaSample empty;
+    empty.density = 0.0;
+    empty.weight = vec4(0.0);
+    empty.scattering = 0.0;
+    empty.extinction = 0.0;
+    return empty;
+  }
+
   #ifdef SHAPE_DETAIL
   if (mipLevel * 0.5 + (jitter - 0.5) * 0.5 < 0.5) {
     vec3 detailPosition = (position + turbulence) * shapeDetailRepeat + shapeDetailOffset;
     float detail = textureLod(shapeDetailTexture, detailPosition, fsimDetailLod).r; // fsim: the footprint's level
     // Fluffy at the top and whippy at the bottom.
+    float d2 = detail * detail;
     vec4 modifier = mix(
-      vec4(pow(detail, 6.0)),
+      vec4(d2 * d2 * d2),
       vec4(1.0 - detail),
       remapClamped(weather.heightFraction, vec4(0.2), vec4(0.4))
     );
@@ -190,4 +200,42 @@ MediaSample sampleMedia(
 ) {
   ivec3 sampleCount;
   return sampleMedia(weather, position, uv, mipLevel, jitter, sampleCount);
+}
+
+// Coarse media evaluation for soft secondary optical-depth marches (skips fine 32^3 detail noise; VIS-M12b).
+MediaSample sampleMediaCoarse(
+  const WeatherSample weather,
+  const vec3 position,
+  const vec2 uv
+) {
+  vec4 density = weather.density;
+  vec3 surfaceNormal = normalize(position);
+  float localWeatherSpeed = length(localWeatherOffset);
+  vec3 evolution = -surfaceNormal * localWeatherSpeed * 2e4;
+  vec3 turbulence = vec3(0.0);
+  #ifdef TURBULENCE
+  vec2 turbulenceUv = uv * localWeatherRepeat * turbulenceRepeat;
+  turbulence =
+    turbulenceDisplacement *
+    (textureLod(turbulenceTexture, turbulenceUv, fsimTurbulenceLod).rgb * 2.0 - 1.0) *
+    dot(density, remapClamped(weather.heightFraction, vec4(0.3), vec4(0.0)));
+  #endif // TURBULENCE
+  vec3 shapePosition = (position + evolution + turbulence) * shapeRepeat + shapeOffset;
+  float shape = textureLod(shapeTexture, shapePosition, fsimShapeLod).r;
+  density = remapClamped(density, vec4(1.0 - shape) * shapeAmounts, vec4(1.0));
+  if (dot(density, vec4(1.0)) <= 1e-6) {
+    MediaSample empty;
+    empty.density = 0.0;
+    empty.weight = vec4(0.0);
+    empty.scattering = 0.0;
+    empty.extinction = 0.0;
+    return empty;
+  }
+  density = saturate(density * densityScales * getLayerDensity(weather.heightFraction));
+  MediaSample media;
+  float densitySum = density.x + density.y + density.z + density.w;
+  media.weight = density / densitySum;
+  media.scattering = densitySum * scatteringCoefficient;
+  media.extinction = densitySum * absorptionCoefficient + media.scattering;
+  return media;
 }

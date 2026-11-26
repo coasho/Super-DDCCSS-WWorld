@@ -675,15 +675,16 @@ void main() {
     }
     const std::uint32_t shadowGroups = (kShadowMap + 7) / 8;
     vsg::ref_ptr<vsg::Dispatch> d;
-    // the shadow maps
+    // the shadow maps (wrapped in shadowPassSwitch_ so 160 Hz frames can refresh BSM at 60 Hz, VIS-M12b)
+    auto shadowGroup = vsg::Group::create();
     {
         vsg::ref_ptr<vsg::PipelineLayout> layout;
         auto set = bindSet(VK_PIPELINE_BIND_POINT_COMPUTE, cs,
                            with({params, textures[0], textures[1], textures[2], textures[3], textures[4], textures[8]},
                                 {storage(shadowCurrent, 12), storage(shadowVelocity, 13)}),
                            false, layout);
-        passes->addChild(dispatch(shadowShader, layout, set, shadowGroups, shadowGroups, kCascades, d));
-        passes->addChild(computeDone(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT));
+        shadowGroup->addChild(dispatch(shadowShader, layout, set, shadowGroups, shadowGroups, kCascades, d));
+        shadowGroup->addChild(computeDone(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT));
     }
     shadowResolveSwitch_ = vsg::Switch::create();
     for (int k = 0; k < 2; ++k) {
@@ -694,8 +695,11 @@ void main() {
                            false, layout);
         shadowResolveSwitch_->addChild(k == 0, dispatch(shadowResolveShader, layout, set, shadowGroups, shadowGroups, kCascades, d));
     }
-    passes->addChild(shadowResolveSwitch_);
-    passes->addChild(computeDone(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT));
+    shadowGroup->addChild(shadowResolveSwitch_);
+    shadowGroup->addChild(computeDone(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT));
+    shadowPassSwitch_ = vsg::Switch::create();
+    shadowPassSwitch_->addChild(true, shadowGroup);
+    passes->addChild(shadowPassSwitch_);
     // the march, reading this frame's shadow
     marchSwitch_ = vsg::Switch::create();
     for (int k = 0; k < 2; ++k) {
@@ -891,39 +895,55 @@ void main() {
         mapSampler->addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         auto waveSampler = sampler(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, static_cast<float>(kSeaLevels - 1));
         seaDrawSwitch_ = vsg::Switch::create();
-        for (int k = 0; k < 2; ++k) {
-            vsg::ref_ptr<vsg::PipelineLayout> drawLayout;
-            auto set = bindSet(VK_PIPELINE_BIND_POINT_GRAPHICS, VK_SHADER_STAGE_VERTEX_BIT | fs,
-                               {params, table(0, 6), table(1, 7), table(2, 8), table(3, 20), sampled(shadowResolved[k], clampLinear, 9),
-                                sampled(slopes, waveSampler, 21), sampled(foam, waveSampler, 22), texture(seaMap_, mapSampler, 23),
-                                sampled(displacement, waveSampler, 30), sampled(resolved[k], clampLinear, 31),
-                                Bound{32, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, vsg::DescriptorImage::create(clampLinear, shoreData_, 32, 0)}},
-                               true, drawLayout);
-            auto raster = vsg::RasterizationState::create();
-            raster->cullMode = VK_CULL_MODE_NONE;
-            auto depth = vsg::DepthStencilState::create();
-            depth->depthWriteEnable = VK_TRUE;
-            depth->depthTestEnable = VK_TRUE;
-            depth->depthCompareOp = VK_COMPARE_OP_GREATER_OR_EQUAL;
-            auto blend = vsg::ColorBlendState::create();
-            const VkColorComponentFlags rgb = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
-            blend->attachments = {VkPipelineColorBlendAttachmentState{VK_TRUE, VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_OP_ADD,
-                                                                      VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ONE, VK_BLEND_OP_ADD, rgb}};
-            auto input = vsg::VertexInputState::create();
-            input->vertexBindingDescriptions = {VkVertexInputBindingDescription{0, sizeof(vsg::vec2), VK_VERTEX_INPUT_RATE_VERTEX}};
-            input->vertexAttributeDescriptions = {VkVertexInputAttributeDescription{0, 0, VK_FORMAT_R32G32_SFLOAT, 0}};
-            vsg::GraphicsPipelineStates states{input, vsg::InputAssemblyState::create(), raster, vsg::MultisampleState::create(), blend, depth};
-            auto g = vsg::StateGroup::create();
-            g->add(vsg::BindGraphicsPipeline::create(vsg::GraphicsPipeline::create(drawLayout, vsg::ShaderStages{seaVertex, seaFragment}, states)));
-            g->add(set);
-            auto grid = vsg::VertexIndexDraw::create();
-            grid->assignArrays(vsg::DataList{gridUv});
-            grid->assignIndices(gridIndices);
-            grid->indexCount = static_cast<std::uint32_t>(gridIndices->size());
-            grid->instanceCount = 1;
-            g->addChild(grid);
-            seaDrawSwitch_->addChild(k == 0, g);
-        }
+        auto raster = vsg::RasterizationState::create();
+        raster->cullMode = VK_CULL_MODE_NONE;
+        auto depth = vsg::DepthStencilState::create();
+        depth->depthWriteEnable = VK_TRUE;
+        depth->depthTestEnable = VK_TRUE;
+        depth->depthCompareOp = VK_COMPARE_OP_GREATER_OR_EQUAL;
+        auto blend = vsg::ColorBlendState::create();
+        const VkColorComponentFlags rgb = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
+        blend->attachments = {VkPipelineColorBlendAttachmentState{VK_TRUE, VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_OP_ADD,
+                                                                  VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ONE, VK_BLEND_OP_ADD, rgb}};
+        auto input = vsg::VertexInputState::create();
+        input->vertexBindingDescriptions = {VkVertexInputBindingDescription{0, sizeof(vsg::vec2), VK_VERTEX_INPUT_RATE_VERTEX}};
+        input->vertexAttributeDescriptions = {VkVertexInputAttributeDescription{0, 0, VK_FORMAT_R32G32_SFLOAT, 0}};
+        vsg::GraphicsPipelineStates states{input, vsg::InputAssemblyState::create(), raster, vsg::MultisampleState::create(), blend, depth};
+        auto grid = vsg::VertexIndexDraw::create();
+        grid->assignArrays(vsg::DataList{gridUv});
+        grid->assignIndices(gridIndices);
+        grid->indexCount = static_cast<std::uint32_t>(gridIndices->size());
+        grid->instanceCount = 1;
+        vsg::ref_ptr<vsg::PipelineLayout> seaDrawLayout;
+        vsg::ref_ptr<vsg::BindGraphicsPipeline> bindSeaPipeline;
+        // 4 combinations (shadowParity * 2 + cloudParity) share one compiled pipeline so shadow refresh can decouple
+        // from cloud temporal resolve parity (VIS-M12b).
+        for (int sk = 0; sk < 2; ++sk)
+            for (int rk = 0; rk < 2; ++rk) {
+                const std::vector<Bound> bound{
+                    params, table(0, 6), table(1, 7), table(2, 8), table(3, 20), sampled(shadowResolved[sk], clampLinear, 9),
+                    sampled(slopes, waveSampler, 21), sampled(foam, waveSampler, 22), texture(seaMap_, mapSampler, 23),
+                    sampled(displacement, waveSampler, 30), sampled(resolved[rk], clampLinear, 31),
+                    Bound{32, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, vsg::DescriptorImage::create(clampLinear, shoreData_, 32, 0)}};
+                vsg::ref_ptr<vsg::BindDescriptorSet> set;
+                if (!seaDrawLayout) {
+                    set = bindSet(VK_PIPELINE_BIND_POINT_GRAPHICS, VK_SHADER_STAGE_VERTEX_BIT | fs, bound, true, seaDrawLayout);
+                    bindSeaPipeline = vsg::BindGraphicsPipeline::create(
+                        vsg::GraphicsPipeline::create(seaDrawLayout, vsg::ShaderStages{seaVertex, seaFragment}, states));
+                } else {
+                    vsg::Descriptors descriptors;
+                    descriptors.reserve(bound.size());
+                    for (const auto& b : bound) descriptors.push_back(b.descriptor);
+                    set = vsg::BindDescriptorSet::create(
+                        VK_PIPELINE_BIND_POINT_GRAPHICS, seaDrawLayout, 0,
+                        vsg::DescriptorSet::create(seaDrawLayout->setLayouts[0], descriptors));
+                }
+                auto g = vsg::StateGroup::create();
+                g->add(bindSeaPipeline);
+                g->add(set);
+                g->addChild(grid);
+                seaDrawSwitch_->addChild(sk == 0 && rk == 0, g);
+            }
         seaBuilt_ = true;
     }();
 
@@ -973,26 +993,44 @@ void Clouds::update(const vsg::dmat4& view, const vsg::dmat4& projection, const 
     // the images are put in their layout on the first frame recorded with the clouds shown, and only then
     if (shown_ && ++shownFrames_ == 2) firstSwitch_->setAllChildren(false);
     computeSwitch_->setAllChildren(shown_);
+    const double wallNow = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    const double wallDt = lastWallTime_ >= 0.0 ? std::clamp(wallNow - lastWallTime_, 0.0, 1.0) : 1.0;
+    lastWallTime_ = wallNow;
+    const bool timeJump = lastTime_ >= 0.0 && (timeS < lastTime_ - 0.1 || timeS - lastTime_ > 0.5);
+    const double dt = lastTime_ >= 0.0 ? std::clamp(timeS - lastTime_, 0.0, 1.0) : 0.0;
+    const double cadDt = std::max(dt, wallDt);
     parity_ ^= 1;
-    const auto pick = [&](vsg::Switch& s, std::size_t per) {
-        for (std::size_t c = 0; c < s.children.size(); ++c) s.children[c].mask = shown_ && static_cast<int>(c / per) == parity_ ? vsg::MASK_ALL : vsg::MASK_OFF;
+    // Refresh 3-cascade Beer shadow maps at 30 Hz (holding exact world-locked shadow matrices between updates) so
+    // high-refresh frames avoid redundant 512x512x3 shadow raymarches (clouds drift < 0.35 m in 33 ms; VIS-M12b).
+    shadowAccumDt_ += cadDt;
+    const bool shadowDue = shown_ && (shownFrames_ <= 2 || !wasShown || !haveLast_ || timeJump ||
+                                      shadowAccumDt_ >= (1.0 / 30.0) || vsg::length(eyeEcef - lastShadowEye_) > 1500.0);
+    if (shadowDue) {
+        shadowParity_ ^= 1;
+        shadowAccumDt_ = 0.0;
+        lastShadowEye_ = eyeEcef;
+    }
+    const auto pickWith = [&](vsg::Switch& s, std::size_t per, bool active, int pIdx) {
+        for (std::size_t c = 0; c < s.children.size(); ++c)
+            s.children[c].mask = active && static_cast<int>(c / per) == pIdx ? vsg::MASK_ALL : vsg::MASK_OFF;
     };
-    pick(*shadowResolveSwitch_, 1);
-    pick(*marchSwitch_, 1);
-    pick(*resolveSwitch_, 1);
-    pick(*underSwitch_, 1);
-    pick(*overSwitch_, 2);
+    shadowPassSwitch_->setAllChildren(shadowDue);
+    pickWith(*shadowResolveSwitch_, 1, shadowDue, shadowParity_);
+    pickWith(*marchSwitch_, 1, shown_, shadowParity_);
+    pickWith(*resolveSwitch_, 1, shown_, parity_);
+    pickWith(*underSwitch_, 1, shown_, shadowParity_);
+    pickWith(*overSwitch_, 2, shown_, parity_);
     if (seaBuilt_) {
-        seaComputeSwitch_->setAllChildren(seaShown_);
-        // (its draw reads the clouds' shadow from the half of the pair this frame's resolve writes)
+        if (!seaShown_) seaComputeSwitch_->setAllChildren(false);
+        const int seaIdx = shadowParity_ * 2 + parity_;
         for (std::size_t c = 0; c < seaDrawSwitch_->children.size(); ++c)
-            seaDrawSwitch_->children[c].mask = seaShown_ && static_cast<int>(c) == parity_ ? vsg::MASK_ALL : vsg::MASK_OFF;
-        if (seaShown_ && ++seaFrames_ == 2) seaFirstSwitch_->setAllChildren(false);
+            seaDrawSwitch_->children[c].mask = seaShown_ && static_cast<int>(c) == seaIdx ? vsg::MASK_ALL : vsg::MASK_OFF;
     }
     if (!shown_) {
         haveLast_ = false;
         if (!seaShown_) return;
     }
+    lastTime_ = timeS;
 
     Params p{};
     const vsg::dvec3 sun = vsg::normalize(toSunEcef);
@@ -1067,8 +1105,6 @@ void Clouds::update(const vsg::dmat4& view, const vsg::dmat4& projection, const 
     p.shadowLayerMask = vsg::vec4(1.0f, 1.0f, 0.0f, 0.0f);
 
     // the wind carries the weather and the shapes (their velocities, applied to the offsets as CloudsEffect does)
-    const double dt = lastTime_ >= 0.0 ? std::clamp(timeS - lastTime_, 0.0, 1.0) : 0.0;
-    lastTime_ = timeS;
     {
         const double lat = vsg::radians(lla.x), lon = vsg::radians(lla.y);
         const vsg::dvec3 E(-std::sin(lon), std::cos(lon), 0.0);
@@ -1098,16 +1134,17 @@ void Clouds::update(const vsg::dmat4& view, const vsg::dmat4& projection, const 
     p.turbulence = v4(kTurbulenceRepeat, kTurbulenceRepeat, 350.0, 0.0);
 
     // CascadedShadowMaps.update (three-csm's, as takram has it): practical splits up to 100 km, a square orthographic
-    // frustum round each part of the camera's, snapped to the map's texels, the sun far behind it
+    // frustum round each part of the camera's, snapped to the map's texels, the sun far behind it.
+    // On frames between 60 Hz shadow refreshes, keep the exact world-locked shadow projection matching shadowResolved[shadowParity_].
     const double shadowFar = std::min(kShadowMaxFar, cameraFar);
-    double splits[kCascades];
-    for (std::uint32_t i = 0; i < kCascades; ++i) {
-        const double f = static_cast<double>(i + 1) / kCascades;
-        const double uniform = (cameraNear + (shadowFar - cameraNear) * f) / shadowFar;
-        const double logarithmic = cameraNear * std::pow(shadowFar / cameraNear, f) / shadowFar;
-        splits[i] = uniform + (logarithmic - uniform) * kSplitLambda;
-    }
-    {
+    if (shadowDue) {
+        double splits[kCascades];
+        for (std::uint32_t i = 0; i < kCascades; ++i) {
+            const double f = static_cast<double>(i + 1) / kCascades;
+            const double uniform = (cameraNear + (shadowFar - cameraNear) * f) / shadowFar;
+            const double logarithmic = cameraNear * std::pow(shadowFar / cameraNear, f) / shadowFar;
+            splits[i] = uniform + (logarithmic - uniform) * kSplitLambda;
+        }
         // the camera's frustum to the shadows' far end (view space): FrustumCorners.setFromCamera
         vsg::dvec3 nearC[4], farC[4];
         const double cx[4] = {1.0, 1.0, -1.0, -1.0}, cy[4] = {1.0, -1.0, -1.0, 1.0};
@@ -1157,7 +1194,16 @@ void Clouds::update(const vsg::dmat4& view, const vsg::dmat4& projection, const 
             p.inverseShadow[c] = toFloat(vsg::inverse(matrix));
             p.shadowReprojection[c] = toFloat((haveLast_ ? lastShadow_[c] : matrix * translate(-eyeEcef)) * translate(eyeEcef));
             lastShadow_[c] = matrix * translate(-eyeEcef);
-            p.shadowIntervals[c] = v4(c == 0 ? 0.0 : splits[c - 1], splits[c], texel, 0.0); // (z: a texel's width)
+            lastShadowIntervals_[c] = v4(c == 0 ? 0.0 : splits[c - 1], splits[c], texel, 0.0); // (z: a texel's width)
+            p.shadowIntervals[c] = lastShadowIntervals_[c];
+        }
+    } else {
+        for (std::uint32_t c = 0; c < kCascades; ++c) {
+            const vsg::dmat4 matrix = lastShadow_[c] * translate(eyeEcef);
+            p.shadow[c] = toFloat(matrix);
+            p.inverseShadow[c] = toFloat(vsg::inverse(matrix));
+            p.shadowReprojection[c] = p.shadow[c];
+            p.shadowIntervals[c] = lastShadowIntervals_[c];
         }
     }
 
@@ -1240,26 +1286,36 @@ void Clouds::update(const vsg::dmat4& view, const vsg::dmat4& projection, const 
             seaV_ = vsg::dvec3(-std::sin(lat) * std::cos(lon), -std::sin(lat) * std::sin(lon), std::cos(lat)); // north
             seaAnchored_ = true;
         }
-        seaSpectrumSwitch_->setAllChildren(remake || seaFrames_ <= 2);
+        // Throttle ocean FFT + 8-level mip pyramid to 60 Hz below 5 km and 15 Hz at cruise altitude (VIS-M12b).
+        const double seaInterval = lla.z < 5000.0 ? (1.0 / 60.0) : (1.0 / 15.0);
+        seaAccumDt_ += cadDt;
+        const bool runSeaCompute = seaFrames_ < 2 || first || remake || timeJump || seaAccumDt_ >= seaInterval;
+        seaFirstSwitch_->setAllChildren(seaFrames_ == 0);
+        seaSpectrumSwitch_->setAllChildren(remake || seaFrames_ < 2);
+        seaComputeSwitch_->setAllChildren(runSeaCompute);
+        double foamDt = 0.0;
+        if (runSeaCompute) {
+            foamDt = std::min(seaAccumDt_, 1.0 / 30.0);
+            seaAccumDt_ = 0.0;
+            ++seaFrames_;
+        }
         seaClock_ = std::fmod(seaClock_ + dt, kSeaPeriod);
         // JONSWAP for the wind over the open ocean's fetch (Hasselmann et al. 1973, as GodotOceanWaves sets it)
         const double g = 9.81;
         const double fetch = std::min(kSeaFetch, kSeaFullyDeveloped * seaMadeMs_ * seaMadeMs_ / g);
         const double alpha = 0.076 * std::pow(seaMadeMs_ * seaMadeMs_ / (fetch * g), 0.22);
         const double peak = 22.0 * std::cbrt(g * g / (seaMadeMs_ * fetch));
-        // whitecaps from about 4 m/s (Beaufort 3), the foam GodotOceanWaves' "foam amount" makes, per frame
+        // whitecaps from about 4 m/s (Beaufort 3), the foam GodotOceanWaves' "foam amount" makes, per update
         const double foamAmount = std::clamp((windMs - 4.0) / 2.0, 0.0, 5.0);
-        // (a frame's step at most a 30 Hz frame's: a stalled frame - a screenshot written - flooded the sea with foam)
-        const double foamDt = std::min(dt, 1.0 / 30.0);
         const double grow = foamAmount * 7.5 * foamDt, decay = std::max(0.5, 10.0 - foamAmount) * 1.15 * foamDt;
         p.ocean = v4(seaClock_, seaMadeMs_, seaMadeAngle_, shown_ ? 1.0 : 0.0);
         p.oceanSpectrum = v4(alpha, peak, 1000.0, 0.25);
         p.oceanSpectrum2 = v4(0.2, 1.0, 0.5, grow);
-        // Cox & Munk's slopes for a clean sea: the variance along the wind and across it, as it lies along the plane's
-        // axes (east, north)
+        // Cox & Munk's slopes for a clean sea: the variance along the wind and across it, plus CPU-hoisted whitecap cover
         const double up = 0.00316 * windMs, cross = 0.003 + 0.00192 * windMs;
         const double c2 = std::cos(windAngle) * std::cos(windAngle), s2 = 1.0 - c2;
-        p.oceanFoam = v4(decay, up * c2 + cross * s2, up * s2 + cross * c2, 0.0);
+        const double whitecapCover = 3.84e-6 * std::pow(windMs, 3.41);
+        p.oceanFoam = v4(decay, up * c2 + cross * s2, up * s2 + cross * c2, whitecapCover);
         const double ra = 1.0 / ellipsoid.radiusEquator(), rb = 1.0 / ellipsoid.radiusPolar();
         const vsg::dvec3 o(eyeEcef.x * ra, eyeEcef.y * ra, eyeEcef.z * rb);
         p.oceanEye = v4(o.x, o.y, o.z, vsg::dot(o, o) - 1.0);

@@ -29,18 +29,17 @@ constexpr std::uint32_t kAtlas = FlowVolumes::kBricks * FlowVolumes::kBrick;    
 constexpr std::uint32_t kLightAtlas = FlowVolumes::kBricks * FlowVolumes::kLightBrick;  // precomputed light-grid texels a side
 constexpr std::uint32_t kMaxBricks = FlowVolumes::kBricks * FlowVolumes::kBricks * FlowVolumes::kBricks;
 
-/// IEEE half from a float (round to nearest; what the fields hold is never near its range's ends)
-std::uint16_t toHalf(float f) {
+/// IEEE half from a non-negative float (fast-paths zero/sub-threshold smoke/heat voxels).
+inline std::uint16_t toHalf(float f) {
+    if (f <= 6.1035156e-5f) return 0u;
     std::uint32_t x;
     std::memcpy(&x, &f, 4);
-    const std::uint32_t sign = (x >> 16) & 0x8000u;
     const int exponent = static_cast<int>((x >> 23) & 0xffu) - 127 + 15;
-    std::uint32_t mantissa = x & 0x7fffffu;
-    if (exponent <= 0) return static_cast<std::uint16_t>(sign); // (under 6e-5: none)
-    if (exponent >= 31) return static_cast<std::uint16_t>(sign | 0x7bffu);
-    mantissa += 0x1000u; // (round)
-    if (mantissa & 0x800000u) return static_cast<std::uint16_t>(sign | (static_cast<std::uint32_t>(exponent + 1) << 10));
-    return static_cast<std::uint16_t>(sign | (static_cast<std::uint32_t>(exponent) << 10) | (mantissa >> 13));
+    if (exponent <= 0) return 0u;
+    if (exponent >= 31) return 0x7bffu;
+    std::uint32_t mantissa = (x & 0x7fffffu) + 0x1000u;
+    if (mantissa & 0x800000u) return static_cast<std::uint16_t>(static_cast<std::uint32_t>(exponent + 1) << 10);
+    return static_cast<std::uint16_t>((static_cast<std::uint32_t>(exponent) << 10) | (mantissa >> 13));
 }
 
 /// a leaf's place as a key (21 bits an axis: +-1M leaves, 500 km at 0.5 m)
@@ -142,6 +141,8 @@ void FlowVolumes::work(std::shared_ptr<void> started, FlowSolver::Settings setti
     const bool ok = solver.start(settings);
     static_cast<std::promise<bool>*>(started.get())->set_value(ok);
     if (!ok) return;
+    std::uint64_t simStep = 0;
+    std::uint64_t lastPackedFrame = 0;
     std::unique_lock<std::mutex> lock(mutex_);
     for (;;) {
         wake_.wait(lock, [this] { return quit_ || !jobs_.empty(); });
@@ -155,20 +156,33 @@ void FlowVolumes::work(std::shared_ptr<void> started, FlowSolver::Settings setti
         const bool wait = synchronous_;
         busy_ = true;
         lock.unlock();
+        bool packed = false;
         if (wanted) {
+            if (job.clear) {
+                simStep = 0;
+                lastPackedFrame = 0;
+            }
+            // Decouple 60 Hz fluid simulation from 30 Hz NanoVDB export, PCIe readback, CPU packing, and 12 MB atlas
+            // upload when running asynchronously; keep synchronous mode exact on every step (VIS-M12b).
+            const bool doExport = wait || job.clear || (last && ((simStep & 1u) == 0u));
+            ++simStep;
             const auto t0 = std::chrono::steady_clock::now();
-            solver.step(job.dt, job.sources, job.clear, wait, job.ground.enabled ? &job.ground : nullptr);
-            if (last) {
+            solver.step(job.dt, job.sources, job.clear, wait, job.ground.enabled ? &job.ground : nullptr, doExport);
+            const std::uint64_t gotFrame = solver.fields().frame;
+            const bool shouldPack = last && (wait || job.clear || (gotFrame != 0 && gotFrame != lastPackedFrame));
+            if (shouldPack) {
                 const auto p0 = std::chrono::steady_clock::now();
                 pack(solver.fields(), vsg::dvec3(job.eye[0], job.eye[1], job.eye[2]), *back_);
                 back_->epoch = job.epoch;
                 back_->solverGpuMs = solver.gpuMs();
                 back_->packMs = msSince(p0);
                 back_->workerMs = msSince(t0);
+                lastPackedFrame = gotFrame;
+                packed = true;
             }
         }
         lock.lock();
-        if (wanted && last) {
+        if (packed) {
             std::swap(back_, ready_);
             fresh_ = true;
         }
@@ -1097,44 +1111,83 @@ void FlowVolumes::pack(const FlowSolver::Fields& f, const vsg::dvec3& eyeLocal, 
     }
     out.leaves = drawn.size();
     out.brickCoords.resize(drawn.size());
-    // their bricks, and the hash the shader finds them by
-    slots_.clear();
+    // their bricks, and the open-addressed hash table the shader (and neighbor lookup below) finds them by
     std::fill(out.hash.begin(), out.hash.end(), vsg::uivec4(0, 0, 0, 0));
     for (std::uint32_t s = 0; s < drawn.size(); ++s) {
         const int* o = drawn[s]->origin;
         const int L[3] = {o[0] >> 3, o[1] >> 3, o[2] >> 3};
         out.brickCoords[s] = vsg::ivec4(L[0], L[1], L[2], 0);
-        slots_[leafKey(L[0], L[1], L[2])] = s;
         std::uint32_t h = leafHash(L[0], L[1], L[2]) & (kHash - 1);
         while (out.hash[h].w != 0) h = (h + 1) & (kHash - 1);
         out.hash[h] = vsg::uivec4(static_cast<std::uint32_t>(L[0]), static_cast<std::uint32_t>(L[1]), static_cast<std::uint32_t>(L[2]), s + 1);
     }
+    const auto lookupLeaf = [&](int lx, int ly, int lz) -> const FlowSolver::Leaf* {
+        std::uint32_t h = leafHash(lx, ly, lz) & (kHash - 1);
+        const auto ux = static_cast<std::uint32_t>(lx), uy = static_cast<std::uint32_t>(ly), uz = static_cast<std::uint32_t>(lz);
+        for (;;) {
+            const vsg::uivec4 e = out.hash[h];
+            if (e.w == 0) return nullptr;
+            if (e.x == ux && e.y == uy && e.z == uz) return drawn[e.w - 1];
+            h = (h + 1) & (kHash - 1);
+        }
+    };
     vsg::usvec2* atlas = out.atlas.data();
-    const auto texel = [&](std::uint32_t x, std::uint32_t y, std::uint32_t z) { return (static_cast<std::size_t>(z) * kAtlas + y) * kAtlas + x; };
-    // (the bricks shared among threads: each its own, the map only read)
+    // (the bricks shared among threads: each its own, the flat hash table only read)
     const auto fill = [&](std::uint32_t first, std::uint32_t last) {
     for (std::uint32_t s = first; s < last; ++s) {
         const FlowSolver::Leaf& leaf = *drawn[s];
         const int L[3] = {leaf.origin[0] >> 3, leaf.origin[1] >> 3, leaf.origin[2] >> 3};
         // the leaf and its neighbours after it (the brick's last texels: the next leaf's first voxels)
         const FlowSolver::Leaf* next[8] = {&leaf, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr};
-        for (int k = 1; k < 8; ++k) {
-            const auto it = slots_.find(leafKey(L[0] + (k & 1), L[1] + ((k >> 1) & 1), L[2] + ((k >> 2) & 1)));
-            next[k] = it == slots_.end() ? nullptr : drawn[it->second];
-        }
+        for (int n = 1; n < 8; ++n)
+            next[n] = lookupLeaf(L[0] + (n & 1), L[1] + ((n >> 1) & 1), L[2] + ((n >> 2) & 1));
         const std::uint32_t bx = (s % kBricks) * kBrick, by = ((s / kBricks) % kBricks) * kBrick, bz = (s / (kBricks * kBricks)) * kBrick;
-        for (std::uint32_t k = 0; k < kBrick; ++k)
-            for (std::uint32_t j = 0; j < kBrick; ++j)
-                for (std::uint32_t i = 0; i < kBrick; ++i) {
-                    const int n = (i >= 8 ? 1 : 0) | (j >= 8 ? 2 : 0) | (k >= 8 ? 4 : 0);
-                    const FlowSolver::Leaf* from = next[n];
-                    vsg::usvec2 v(0, 0);
-                    if (from) {
-                        const std::uint32_t at = ((i & 7u) << 6) | ((j & 7u) << 3) | (k & 7u); // (x slowest, z fastest)
-                        v = vsg::usvec2(toHalf(from->smoke[at]), toHalf(from->temperature[at]));
-                    }
-                    atlas[texel(bx + i, by + j, bz + k)] = v;
+        const float* const sm0 = leaf.smoke;
+        const float* const tm0 = leaf.temperature;
+        // Interior 8x8x8: branchless streaming writes into atlas rows; skip IEEE half conversion on empty voxels.
+        for (std::uint32_t k = 0; k < 8u; ++k) {
+            const std::size_t rowZ = static_cast<std::size_t>(bz + k) * kAtlas;
+            for (std::uint32_t j = 0; j < 8u; ++j) {
+                vsg::usvec2* dst = atlas + (rowZ + by + j) * kAtlas + bx;
+                const std::uint32_t base = (j << 3) | k;
+                for (std::uint32_t i = 0; i < 8u; ++i) {
+                    const std::uint32_t at = (i << 6) | base;
+                    const float sv = sm0[at], tv = tm0[at];
+                    dst[i] = (sv <= 6.1035156e-5f && tv <= 6.1035156e-5f) ? vsg::usvec2(0, 0) : vsg::usvec2(toHalf(sv), toHalf(tv));
                 }
+                // +X face (i == 8)
+                const FlowSolver::Leaf* fx = next[1];
+                dst[8] = fx ? vsg::usvec2(toHalf(fx->smoke[base]), toHalf(fx->temperature[base])) : vsg::usvec2(0, 0);
+            }
+            // +Y face (j == 8, i = 0..8)
+            vsg::usvec2* dstY = atlas + (rowZ + by + 8u) * kAtlas + bx;
+            const FlowSolver::Leaf* fy = next[2];
+            if (fy) {
+                for (std::uint32_t i = 0; i < 8u; ++i) {
+                    const std::uint32_t at = (i << 6) | k;
+                    dstY[i] = vsg::usvec2(toHalf(fy->smoke[at]), toHalf(fy->temperature[at]));
+                }
+            } else {
+                std::fill_n(dstY, 8u, vsg::usvec2(0, 0));
+            }
+            const FlowSolver::Leaf* fxy = next[3];
+            dstY[8] = fxy ? vsg::usvec2(toHalf(fxy->smoke[k]), toHalf(fxy->temperature[k])) : vsg::usvec2(0, 0);
+        }
+        // +Z face (k == 8, j = 0..8, i = 0..8)
+        const std::size_t rowZ8 = static_cast<std::size_t>(bz + 8u) * kAtlas;
+        for (std::uint32_t j = 0; j < kBrick; ++j) {
+            vsg::usvec2* dst = atlas + (rowZ8 + by + j) * kAtlas + bx;
+            for (std::uint32_t i = 0; i < kBrick; ++i) {
+                const int n = 4 | (i >= 8u ? 1 : 0) | (j >= 8u ? 2 : 0);
+                const FlowSolver::Leaf* from = next[n];
+                if (from) {
+                    const std::uint32_t at = ((i & 7u) << 6) | ((j & 7u) << 3);
+                    dst[i] = vsg::usvec2(toHalf(from->smoke[at]), toHalf(from->temperature[at]));
+                } else {
+                    dst[i] = vsg::usvec2(0, 0);
+                }
+            }
+        }
     }
     };
     pool_->each(static_cast<std::uint32_t>(drawn.size()), fill);

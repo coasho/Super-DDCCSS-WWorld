@@ -39,16 +39,17 @@ void hide() {
 }
 
 void main() {
-  int src = gl_InstanceIndex / CAP, i = gl_InstanceIndex - src * CAP;
-  int ia = (src * CAP + i) * STRIDE, ib = (src * CAP + (i + 1) % CAP) * STRIDE;
+  int i = gl_InstanceIndex;
+  int ia = i * STRIDE, ib = (i + 1) * STRIDE;
   vec4 a0 = samples[ia], b0 = samples[ib];
   vec4 pa = samples[ia + 1], pb = samples[ib + 1];
   // a segment joins two samples taken one after the other (a gap in the sequence is a gap in the trail)
   if (a0.w < 0.0 || b0.w != a0.w + 1.0) { hide(); return; }
   vec4 wa = samples[ia + 2], wb = samples[ib + 2], ma = samples[ia + 3], mb = samples[ib + 3], ta = samples[ia + 4], tb = samples[ib + 4];
   if (max(ta.w, tb.w) <= 0.0) { hide(); return; }
-  // the neighbours, for the planes between segments
-  vec4 before = samples[(src * CAP + (i + CAP - 1) % CAP) * STRIDE], after = samples[(src * CAP + (i + 2) % CAP) * STRIDE];
+  // the neighbours, for the planes between segments (two trailing sentinels keep i+2 in bounds)
+  vec4 before = i > 0 ? samples[(i - 1) * STRIDE] : vec4(0.0, 0.0, 0.0, -10.0);
+  vec4 after = samples[(i + 2) * STRIDE];
 
   vec3 A = a0.xyz, B = b0.xyz;
   vec3 axis = B - A;

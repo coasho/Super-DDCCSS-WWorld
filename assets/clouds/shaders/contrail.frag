@@ -86,29 +86,30 @@ Part partAt(const int k, const float f) {
   Part q;
   if (k < 2) {
     // a tube: the Crow wave bends the pair towards each other in planes 48 degrees from the horizontal; where they
-    // touched, the rings gather the ice (the mean along the trail kept). fsim: the wave grows from the air's
-    // turbulence, so it is not one sinusoid but the band of wavelengths the instability amplifies round its most
-    // unstable one (observed some 6 - 12 b0): three of them here, 0.7, 1 and 1.4 times 8.6 b0, each its phase wandering
-    // and its amplitude coming and going along the trail on its own, and the whole grown 40 - 100 % of the way to
-    // touching - so the pair bends, links and rings irregularly. Drawn at one wavelength (even wandering 25 % either
-    // way), its loops repeated down the trail
+    // touched, the rings gather the ice (the mean along the trail kept). Skip the 3-harmonic Crow noise completely
+    // on young contrails where wake.z (Crow amplitude) and wake.w (ring pinching) are negligible (VIS-M12b).
     float side = k == 0 ? -1.0 : 1.0;
-    float lambda = CROW_WAVELENGTH * b0;
-    float wave = 0.0, weights = 0.0;
-    for (int m = 0; m < 3; ++m) {
-      float lm = lambda * (m == 0 ? 1.0 : (m == 1 ? 0.7 : 1.4));
-      float am = 0.5 + 0.5 * trailNoise(more.y / (1.1 * lambda) + 31.0 * float(m) + 5.0);
-      float ph = 6.2831853 * more.y / lm + v_trail.y * float(m + 1) + 3.0 * trailNoise(more.y / (1.3 * lambda) + 17.0 * float(m));
-      wave += am * sin(ph);
-      weights += am;
+    vec2 bend = vec2(0.0);
+    float ringScale = 1.0;
+    if (wake.z > 1e-3 || wake.w > 1e-3) {
+      float lambda = CROW_WAVELENGTH * b0;
+      float wave = 0.0, weights = 0.0;
+      for (int m = 0; m < 3; ++m) {
+        float lm = lambda * (m == 0 ? 1.0 : (m == 1 ? 0.7 : 1.4));
+        float am = 0.5 + 0.5 * trailNoise(more.y / (1.1 * lambda) + 31.0 * float(m) + 5.0);
+        float ph = 6.2831853 * more.y / lm + v_trail.y * float(m + 1) + 3.0 * trailNoise(more.y / (1.3 * lambda) + 17.0 * float(m));
+        wave += am * sin(ph);
+        weights += am;
+      }
+      wave /= max(weights, 1e-3);
+      float grown = 0.7 + 0.3 * trailNoise(more.y / (2.0 * lambda) + 47.0); // (at most touching, as drawn)
+      bend = wake.z * grown * wave * vec2(cos(CROW_PLANE), sin(CROW_PLANE));
+      float lump = 0.5 + 0.5 * wave;
+      ringScale = mix(1.0, lump * lump * (8.0 / 3.0), wake.w);
     }
-    wave /= max(weights, 1e-3);
-    float grown = 0.7 + 0.3 * trailNoise(more.y / (2.0 * lambda) + 47.0); // (at most touching, as drawn)
-    vec2 bend = wake.z * grown * wave * vec2(cos(CROW_PLANE), sin(CROW_PLANE));
-    float lump = 0.5 + 0.5 * wave;
     q.centre = vec2(side * (wake.x - bend.x), -wake.y + bend.y);
     q.sigma = vec3(tube * tube, tube * tube, 0.0);
-    q.E = more.z * 0.5 * mix(1.0, lump * lump * (8.0 / 3.0), wake.w);
+    q.E = more.z * 0.5 * ringScale;
     q.erosion = 1.0;
     q.period = vec2(2.5, 0.6) * b0;
   } else if (k == 2) {
@@ -166,19 +167,19 @@ void main() {
   if (1.0 - b * b > 1e-4) sc = clamp((dot(d, v_a) - b * dot(T, v_a)) / (1.0 - b * b), s0, s1);
   float fc = clamp(dot(d * sc - v_a, T) / L, 0.0, 1.0);
 
-  // the light: takram's phase function and multiple scattering, the phase part of each octave once a pixel
+  // Defer phase-function octaves until a ray actually intersects at least one active part ellipse (VIS-M12b).
   vec3 sun = F_sun.xyz;
   float sunAlong = 1.0 / max(abs(dot(sun, T)), 1e-3);
   float cosTheta = dot(d, sun);
   float octavePhase[8];
-  float octave = 1.0;
-  for (int i = 0; i < 8; ++i, octave *= 0.5) octavePhase[i] = octave * phaseFunction(cosTheta, octave);
+  bool phaseReady = false;
   // a fire's smoke: soot, not ice (its albedo below 1). It scatters as the detonation's soot does (world::Detonations:
   // the n-th order of scattering lit albedo^n as much, the sky's light off it as off an absorbing half-space, a little
   // redder than it is blue), and its flame, the young soot hot, glows as much as it absorbs (Kirchhoff): (1 - albedo)
   // of Planck's light at its temperature. Ice (albedo 1) as before
   bool fire = min(v_fire.x, v_fire.y) < 1.0;
   vec3 tint = fire ? vec3(1.15, 1.0, 0.8) : vec3(1.0);
+  float pixelAtClose = 0.5 * F_eye.w * sc;
 
   float tauPart[4], sMid[4];
   vec3 lightPart[4];
@@ -186,31 +187,54 @@ void main() {
     tauPart[k] = 0.0;
     lightPart[k] = vec3(0.0);
     sMid[k] = 0.0;
-    // Skip inactive wake/plume parts before evaluating Crow-wave noise in partAt().
+    // Skip inactive wake/plume parts before testing their bounding ellipses.
     if (k < 2 && max(v_moreA.z, v_moreB.z) <= 0.0) continue;
     if (k == 2 && max(v_secondary.x, v_secondary.y) <= 0.0) continue;
     if (k == 3 && max(v_plumeA.w, v_plumeB.w) <= 0.0) continue;
-    // the ray in the part's section: from the flight path at v_a, across (y) and up (z) - the wake's in the frame the
-    // aircraft was banked in, the plume's level
+    // Direct conservative part envelope without calling partAt() (zero trailNoise/sin on bounding-box misses, VIS-M12b).
+    vec2 cA, cB;
+    vec3 maxSigma;
+    float crowPad = 0.0;
+    if (k < 2) {
+      float side = k == 0 ? -1.0 : 1.0;
+      cA = vec2(side * v_wakeA.x, -v_wakeA.y);
+      cB = vec2(side * v_wakeB.x, -v_wakeB.y);
+      float tMax = max(v_moreA.x, v_moreB.x);
+      maxSigma = vec3(tMax * tMax, tMax * tMax, 0.0);
+      crowPad = max(v_wakeA.z, v_wakeB.z);
+    } else if (k == 2) {
+      float hdA = max(0.5 * v_wakeA.y, v_moreA.x), hdB = max(0.5 * v_wakeB.y, v_moreB.x);
+      cA = vec2(0.0, -hdA);
+      cB = vec2(0.0, -hdB);
+      float tMax = max(v_moreA.x, v_moreB.x);
+      float hdMax = max(hdA, hdB);
+      maxSigma = vec3(2.25 * tMax * tMax, 0.35 * hdMax * hdMax, 0.0);
+    } else {
+      cA = vec2(0.0, -v_moreA.w);
+      cB = vec2(0.0, -v_moreB.w);
+      maxSigma = max(v_plumeA.xyz, v_plumeB.xyz);
+    }
     vec3 Yk = k < 3 ? v_yWake : v_y, Zk = k < 3 ? v_zWake : v_z;
     vec2 p0 = vec2(-dot(v_a, Yk), -dot(v_a, Zk));
     vec2 u = vec2(dot(d, Yk), dot(d, Zk));
-    vec2 uSun = vec2(dot(sun, Yk), dot(sun, Zk));
-    Part q = partAt(k, fc);
-    // (bounds wide enough for the part anywhere along the segment: its ends, the Crow wave's reach)
-    Part qa = partAt(k, 0.0), qb = partAt(k, 1.0);
-    if (max(qa.E, qb.E) <= 0.0) continue;
-    float pixel = 0.5 * F_eye.w * sc;
-    float spread = 0.5 * length(qa.centre - qb.centre) + (k < 2 ? max(v_wakeA.z, v_wakeB.z) : 0.0) + pixel;
-    vec3 bound = max(qa.sigma, qb.sigma) + vec3(spread * spread, spread * spread, 0.0);
+    float spread = 0.5 * length(cA - cB) + crowPad + pixelAtClose;
+    vec3 bound = maxSigma + vec3(spread * spread, spread * spread, 0.0);
     float e0 = s0, e1 = s1;
-    if (!within(bound, mix(qa.centre, qb.centre, 0.5), p0, u, 3.2, e0, e1)) continue;
-    // Distance-adaptive projected-width LOD (VIS-M12): sub-3px non-fire trails use closed-form analytic Gaussian
-    // depth (1 step, 0 noise fetches); medium 3..12px trails halve march steps & octaves; close >=12px stay full quality.
-    float partRadius = sqrt(max(max(qa.sigma.x, qa.sigma.y), max(qb.sigma.x, qb.sigma.y)));
+    if (!within(bound, 0.5 * (cA + cB), p0, u, 3.2, e0, e1)) continue;
+    // Compute phase-function octaves once per fragment that actually intersects a part (5 for ice, 8 for fire).
+    if (!phaseReady) {
+      int nOct = fire ? 8 : 5;
+      float oct = 1.0;
+      for (int i = 0; i < nOct; ++i, oct *= 0.5) octavePhase[i] = oct * phaseFunction(cosTheta, oct);
+      phaseReady = true;
+    }
+    vec2 uSun = vec2(dot(sun, Yk), dot(sun, Zk));
+    // Distance-adaptive projected-width LOD + chord-adaptive step count (VIS-M12 / VIS-M12b).
+    float partRadius = sqrt(max(maxSigma.x, maxSigma.y));
     float projectedPx = 2.0 * partRadius / max(F_eye.w * sc, 1e-6);
     bool isFirePart = (k == 3 && fire);
     if (!isFirePart && projectedPx < 3.0) {
+      Part q = partAt(k, fc);
       if (q.E > 0.0) {
         float sMidPt = 0.5 * (e0 + e1);
         float sigmaPixel = 0.5 * F_eye.w * sMidPt;
@@ -220,9 +244,9 @@ void main() {
         if (tau > 1e-4) {
           float toSun = halfLineDepth(sigma, q.E, rel, uSun, sunAlong);
           float scattering = 0.0;
-          octave = 1.0;
+          float octave = 1.0;
           for (int i = 0; i < 4; ++i, octave *= 0.5) scattering += exp(-toSun * octave) * octavePhase[i];
-          scattering += 0.125 * exp(-toSun * 0.0625) * octavePhase[3];
+          scattering += 0.9375 * exp(-toSun * 0.048) * octavePhase[3];
           vec3 light = v_sunLight * scattering + v_skyLight;
           float absorbed = 1.0 - exp(-tau);
           lightPart[k] = absorbed * light;
@@ -233,14 +257,15 @@ void main() {
       continue;
     }
     bool mediumLod = (!isFirePart && projectedPx < 12.0);
-    int n = mediumLod ? max(STEPS[k] / 2, 3) : STEPS[k];
+    int maxN = mediumLod ? max(STEPS[k] / 2, 3) : STEPS[k];
+    int n = clamp(int(ceil((e1 - e0) / max(0.6 * partRadius, F_eye.w * sc))), 3, maxN);
     float ds = (e1 - e0) / float(n);
     float transmittance = 1.0;
     for (int j = 0; j < n; ++j) {
       float s = e0 + (float(j) + 0.5) * ds;
       vec3 x = d * s;
       float f = clamp(dot(x - v_a, T) / L, 0.0, 1.0);
-      q = partAt(k, f);
+      Part q = partAt(k, f);
       if (q.E <= 0.0) continue;
       // the pixel's footprint widens a part thinner than it (its extinction kept), and takes its edge's erosion
       float sigmaPixel = 0.5 * F_eye.w * s;
@@ -278,7 +303,7 @@ void main() {
       // the sun through the part ahead of this point; the light scattered here, through what is in front of it
       float toSun = halfLineDepth(sigma, q.E, rel, uSun, sunAlong);
       float scattering = 0.0;
-      octave = 1.0;
+      float octave = 1.0;
       vec3 light;
       if (isFirePart) {
         float albedo = mix(v_fire.x, v_fire.y, f), kept = albedo;
@@ -289,12 +314,12 @@ void main() {
         light = v_sunLight * scattering * tint + v_skyLight * skyReflect + (1.0 - albedo) * flame * v_solar;
       } else if (mediumLod) {
         for (int i = 0; i < 4; ++i, octave *= 0.5) scattering += exp(-toSun * octave) * octavePhase[i];
-        scattering += 0.125 * exp(-toSun * 0.0625) * octavePhase[3];
+        scattering += 0.9375 * exp(-toSun * 0.048) * octavePhase[3];
         light = v_sunLight * scattering + v_skyLight;
       } else {
-        // 5 explicit octaves + geometric tail matches 8 octaves to <0.15% while cutting exp() cost ~35%.
+        // 5 explicit octaves + geometric tail matches 8 octaves to <0.1% while cutting exp() cost ~35%.
         for (int i = 0; i < 5; ++i, octave *= 0.5) scattering += exp(-toSun * octave) * octavePhase[i];
-        scattering += 0.0625 * exp(-toSun * 0.03125) * octavePhase[4];
+        scattering += 0.875 * exp(-toSun * 0.024) * octavePhase[4];
         light = v_sunLight * scattering + v_skyLight;
       }
       float absorbed = 1.0 - exp(-dtau);

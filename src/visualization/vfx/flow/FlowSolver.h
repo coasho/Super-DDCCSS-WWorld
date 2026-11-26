@@ -79,9 +79,11 @@ public:
     };
     /// One call of the solver: `dt` s (it steps at stepsPerSecond) with these sources;
     /// `clear`: the grid emptied first; `wait`: until the GPU is done, the step's own fields then read (else the
-    /// newest finished, a frame or two old); `ground`: optional surface collider below local z.
+    /// newest finished, a frame or two old); `ground`: optional surface collider below local z;
+    /// `exportFields`: enable NanoVDB export & PCIe readback on this step (set false on intermediate async steps to
+    /// decouple 60 Hz physics from 30 Hz volume readback/upload).
     void step(double dt, const std::vector<Sphere>& sources, bool clear = false, bool wait = false,
-              const GroundPlane* ground = nullptr);
+              const GroundPlane* ground = nullptr, bool exportFields = true);
     /// The newest finished fields (valid until the next step).
     const Fields& fields() const noexcept { return fields_; }
     /// The solver's GPU time in its last finished frame (ms; its profiler's).

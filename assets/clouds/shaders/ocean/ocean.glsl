@@ -26,6 +26,7 @@
 // length, its orbits squashed - its amplitude as sqrt(tanh(k d)), k the cascade's typical wavenumber (the spectrum's
 // peak in the first, which holds it; the middle of its band in the others)
 float shallowAttenuation(const int cascade, const float depth) {
+  if (depth > 350.0) return 1.0;
   float k = cascade == 0 ? P_oceanGrid.z : sqrt(max(P_cascade[cascade].z, 1e-4) * min(P_cascade[cascade].w, 12.0));
   return sqrt(tanh(k * max(depth, 0.0)));
 }

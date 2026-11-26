@@ -100,8 +100,7 @@ public:
     /// Samples kept per trail (the oldest half thinned when full), trails kept.
     static constexpr std::size_t kSamples = 256, kSources = 32;
     /// The ages (s) the young trail is drawn at, between the samples laid (Airflow::update)
-    static constexpr double kYoungAges[] = {0.03, 0.06, 0.09, 0.12, 0.15, 0.18, 0.21, 0.24, 0.27, 0.3,
-                                            0.36, 0.43, 0.52, 0.62, 0.75, 0.9, 1.08, 1.3, 1.55};
+    static constexpr double kYoungAges[] = {0.04, 0.09, 0.15, 0.22, 0.30, 0.42, 0.58, 0.80, 1.10, 1.50};
     /// Samples drawn per trail: those laid, the head, and one at each young age
     static constexpr std::size_t kDrawn = kSamples + std::size(kYoungAges);
     /// The secondary wake's share of the young contrail's ice: a B747-400's at 50 s, its optical depth 0.24 against

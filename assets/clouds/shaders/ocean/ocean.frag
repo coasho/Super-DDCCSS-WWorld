@@ -35,6 +35,7 @@
 #include "fsim/prelude.glsl"
 #include "fsim/atmosphere.glsl"
 #include "core/math.glsl"
+#include "core/interleavedGradientNoise.glsl"
 #include "core/raySphereIntersection.glsl"
 #define OCEAN_SHORE_MAP
 #include "ocean/ocean.glsl"
@@ -70,7 +71,7 @@ float patches(vec2 x) {
 // The clouds a reflected ray sees, from the frame's own clouds (their resolve, in the sky's units, premultiplied by
 // their opacity): the direction is taken to the screen, and read there smeared along the screen's vertical by the
 // spread the waves' slopes give the reflection (sigma, rad). How much of it the screen holds in .w (0 off it).
-vec4 reflectedClouds(const vec3 r, const float sigma, out float onScreen) {
+vec4 reflectedClouds(const vec3 r, const float sigma, const float distM, out float onScreen) {
   onScreen = 0.0;
   vec4 clip = P_projection * (P_view * vec4(r, 0.0));
   if (clip.w <= 1e-6) return vec4(0.0);
@@ -81,12 +82,20 @@ vec4 reflectedClouds(const vec3 r, const float sigma, out float onScreen) {
   float pixelsPerRadian = 0.5 * P_screen.y * abs(P_projection[1][1]);
   float spread = min(2.0 * sigma * pixelsPerRadian, 0.25 * P_screen.y);
   vec2 pixel = uv * P_screen.xy;
-  // (nine taps a Gaussian apart, staggered sideways a little: five, a quarter of the spread apart each, drew each
-  // cloud's edge again and again down the streak)
+  // Single tap when reflection blur is sub-4px; 3 IGN-jittered taps on distant hazed ocean (>25 km);
+  // 5 IGN-jittered Gaussian taps closer up (VIS-M12b).
+  if (spread < 4.0) {
+    vec2 at = clamp(pixel, vec2(0.5), P_screen.xy - 0.5);
+    return texture(cloudsResolved, at / P_alloc.zw);
+  }
+  float jitter = interleavedGradientNoise(gl_FragCoord.xy) - 0.5;
+  int halfTaps = distM > 25000.0 ? 1 : 2;
+  float invHalf = halfTaps == 1 ? 0.85 : 0.5;
   vec4 sum = vec4(0.0);
   float total = 0.0;
-  for (int i = -4; i <= 4; ++i) {
-    float f = float(i) / 4.0, w = exp(-2.0 * f * f);
+  for (int i = -halfTaps; i <= halfTaps; ++i) {
+    float f = (float(i) + 0.5 * jitter) * invHalf;
+    float w = exp(-2.0 * f * f);
     vec2 at = clamp(pixel + vec2(0.15 * spread * ((i & 1) == 0 ? 0.5 : -0.5), f * spread), vec2(0.5), P_screen.xy - 0.5);
     sum += w * texture(cloudsResolved, at / P_alloc.zw);
     total += w;
@@ -230,13 +239,17 @@ void main() {
   if (dot(ty, P_oceanV.xyz) < 0.0) ty = -ty;
 
   // the waves: each cascade's slopes at the pixel's footprint (LEAN), and the whole tile's variance (the top level),
-  // what Cox & Munk measure beyond what the cascades resolve
+  // what Cox & Munk measure beyond what the cascades resolve. Skip fully sub-pixel cascades beyond 20/80 km (where
+  // meanSlope -> 0 and variance_k cancels resolved_k identically) and use the exact far-field whitecap limit beyond
+  // 15 km (0.5 * erfc(-erfinv(1 - 2*cover)) == cover, skipping 6 foamMap fetches + erfinv/erfc; VIS-M12b).
   vec2 plane = vec2(dot(p, P_oceanU.xyz), dot(p, P_oceanV.xyz));
   vec2 planeDx = dFdx(plane), planeDy = dFdy(plane);
   vec2 meanSlope = vec2(0.0), variance = vec2(0.0), resolved = vec2(0.0);
   float foam = 0.0;
   float divMean = 0.0, divVariance = 0.0, divWhole = 0.0; // the displacement's divergence: here, and over the tiles
+  bool farSea = (t > 15000.0);
   for (int k = 0; k < OCEAN_CASCADES; ++k) {
+    if ((k == 2 && t > 20000.0) || (k == 1 && t > 80000.0)) break;
     float tile = P_cascade[k].x;
     vec3 at = vec3(P_cascadePhase[k].xy + plane / tile, float(k));
     vec2 gx = planeDx / tile, gy = planeDy / tile;
@@ -249,10 +262,12 @@ void main() {
     float texels = max(length(gx), length(gy)) * float(OCEAN_MAP_SIZE);
     variance += max(s.zw - s.xy * s.xy, vec2(0.0)) * smoothstep(0.5, 1.5, texels);
     resolved += textureLod(slopeMap, vec3(0.5, 0.5, float(k)), 8.0).zw * shallow * shallow;
-    vec4 fm = textureGrad(foamMap, at, gx, gy);
-    divMean += fm.z * shallow;
-    divVariance += max(fm.w - fm.z * fm.z, 0.0) * shallow * shallow;
-    divWhole += textureLod(foamMap, vec3(0.5, 0.5, float(k)), 8.0).w * shallow * shallow;
+    if (!farSea) {
+      vec4 fm = textureGrad(foamMap, at, gx, gy);
+      divMean += fm.z * shallow;
+      divVariance += max(fm.w - fm.z * fm.z, 0.0) * shallow * shallow;
+      divWhole += textureLod(foamMap, vec3(0.5, 0.5, float(k)), 8.0).w * shallow * shallow;
+    }
   }
   // the sea is not the same everywhere: patches of rougher and smoother water kilometres across (gusts, slicks) -
   // the waves' slopes scaled by them, so far off the tiles' one pattern does not repeat to the horizon
@@ -262,18 +277,19 @@ void main() {
   // (at least a quarter of Cox & Munk's: the capillaries finer than the smallest cascade are always there - with none,
   // the glints near the eye were the smallest cascade's texels, magnified into squares)
   vec2 sigmaSq = (variance + max(OCEAN_COX_MUNK - resolved, 0.25 * OCEAN_COX_MUNK)) * rough * rough + 2e-5;
-  // whitecaps (Dupuy & Bruneton 2012): the crests compressed past a threshold break - the share of the pixel where the
-  // displacement's divergence is below it, from the pixel's mean and variance of it (Gaussian). The threshold is set
-  // so that over the whole sea that share is the whitecap cover observed for the wind (Monahan & O'Muircheartaigh
-  // 1980: 3.84e-6 U^3.41 - 0.3 % at 7 m/s, 1 % at 10, 4 % at 15), more where the water is rougher. Far off the
-  // pixel holds the whole distribution and is that share white; near the eye the foam is on the crests.
+  // whitecaps (Dupuy & Bruneton 2012): far off the pixel holds the whole distribution and is that share white; near
+  // the eye the foam is on the crests.
   {
-    float cover = clamp(3.84e-6 * pow(OCEAN_WIND_SPEED, 3.41) * rough * rough, 0.0, 0.3);
-    float threshold = -sqrt(2.0 * max(divWhole, 1e-8)) * erfinvApprox(1.0 - 2.0 * max(cover, 1e-6));
-    // (at least a twentieth of the whole sea's variance: magnified, the texels' bilinear mean has none, and the foam's
-    // edge followed the texel grid in squares)
-    float local = sqrt(2.0 * (divVariance + 0.05 * divWhole + 1e-8));
-    foam = cover > 1e-5 ? 0.5 * erfcApprox((divMean - threshold) / local) : 0.0;
+    float cover = clamp(P_oceanFoam.w * rough * rough, 0.0, 0.3);
+    if (farSea) {
+      foam = cover;
+    } else if (cover > 1e-4) {
+      float threshold = -sqrt(2.0 * max(divWhole, 1e-8)) * erfinvApprox(1.0 - 2.0 * cover);
+      // (at least a twentieth of the whole sea's variance: magnified, the texels' bilinear mean has none, and the foam's
+      // edge followed the texel grid in squares)
+      float local = sqrt(2.0 * (divVariance + 0.05 * divWhole + 1e-8));
+      foam = 0.5 * erfcApprox((divMean - threshold) / local);
+    }
   }
   // the surf: waves break where the water is shallower than about 0.8 of their height (Miche; McCowan's 0.78), in lines
   // along the depth's contours - along the shore - running in towards it, broken up along their length
@@ -331,9 +347,9 @@ void main() {
   float cover = P_ground.z;
   vec3 overcast = (sunIlluminance * cosSun + skyIrradiance) * (0.35 / PI);
   vec3 skyCovered = mix(sky, overcast, cover * cover);
-  if (P_ocean.w > 0.5) {
+  if (P_ocean.w > 0.5 && fresnel >= 0.04 && cover > 0.005) {
     float onScreen;
-    vec4 clouds = reflectedClouds(r, sigmaV, onScreen);
+    vec4 clouds = reflectedClouds(r, sigmaV, t, onScreen);
     sky = mix(skyCovered, sky * (1.0 - clouds.a) + clouds.rgb, onScreen);
   } else {
     sky = skyCovered;
