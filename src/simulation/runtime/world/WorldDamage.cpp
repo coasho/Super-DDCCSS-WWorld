@@ -742,8 +742,10 @@ std::vector<ipc::EngagementEvent> World::applyDamagePreparedV1(Entry& e, const D
         }
     }
     int newlySeparated = 0;
+    int panelsTorn = 0;
     int killedEngineComp = -1;
     double killedEngineEnergyJ = 0.0;
+    const bool isGunSource = (d.store == "gun");
     for (std::size_t changeIndex=0;changeIndex<changes.size();++changeIndex) {
         const auto& c=changes[changeIndex];
         const auto* donor=changeDonors.empty()?nullptr:changeDonors[changeIndex];
@@ -765,24 +767,59 @@ std::vector<ipc::EngagementEvent> World::applyDamagePreparedV1(Entry& e, const D
                     ev.velocityEcef[k]=(&point.velocity.x)[k];
                 }
             }
-            ev.amountKg = c.tank>=0&&static_cast<std::size_t>(c.tank)<f.tankKg.size()?
+            const double rawSpillKg = c.tank>=0&&static_cast<std::size_t>(c.tank)<f.tankKg.size()?
                 std::min(c.spillKg,f.tankKg[static_cast<std::size_t>(c.tank)]):c.spillKg;
-            if (c.spillKg > 0.0 && c.component >= 0) {
-                // what it throws out at once goes the way the fragments went through it - from the burst, through
-                // the tank, out of its far side - on top of the aircraft's own motion: the fireball is laid along
-                // the aircraft's path, and off it to the side away from the burst
-                double fastest = 0.0;
-                double hitEnergy = 0.0;
-                const auto& sourceImpact=donor?donor->impact:impact;
-                for (const auto& h : sourceImpact.components)
+            double actualSpillKg = rawSpillKg;
+            double fastest = 0.0;
+            double hitEnergy = 0.0;
+            double hitAreaM2 = 0.0;
+            double localBlastPa = 0.0;
+            if (c.component >= 0) {
+                const auto& sourceImpact = donor ? donor->impact : impact;
+                for (const auto& h : sourceImpact.components) {
                     if (h.component == c.component) {
                         fastest = std::max(fastest, h.fastestMs);
                         hitEnergy += h.energyJ;
+                        hitAreaM2 += h.areaM2;
                     }
+                }
+                const int compSec = a.components[static_cast<std::size_t>(c.component)].section;
+                for (const auto& ph : sourceImpact.panels) {
+                    if (ph.panel >= 0 && static_cast<std::size_t>(ph.panel) < a.panels.size() &&
+                        a.panels[static_cast<std::size_t>(ph.panel)].section == compSec) {
+                        localBlastPa = std::max(localBlastPa, ph.overpressurePa);
+                    }
+                }
+            }
+            if (destructionMode_ == DestructionModeV1::LightweightDebris && c.tank >= 0 && rawSpillKg > 0.0) {
+                // Physical damage-grade mapping:
+                // - A single 20/30 mm bullet hole cannot instantaneously atomize 50 kg of JP-8 into a 21 m missile fireball;
+                //   it ignites a realistic streaming fuel-leak flame + dark smoke (actualSpillKg = 0).
+                // - Warhead fragment hits scale instantaneous tank-breach flash strictly by actual fragment energy,
+                //   hole area, and local blast overpressure (glancing Grade 2 hits ignite cleanly without a fake fireball).
+                if (isGunSource) {
+                    actualSpillKg = 0.0;
+                } else {
+                    const double rupture = std::clamp(hitEnergy / 65000.0 + localBlastPa / 260000.0 + hitAreaM2 / 0.025, 0.0, 1.0);
+                    if (rupture < 0.25) {
+                        actualSpillKg = 0.0;
+                    } else if (rupture < 0.65) {
+                        actualSpillKg = rawSpillKg * (rupture - 0.15) * 0.45;
+                    } else {
+                        actualSpillKg = rawSpillKg * rupture;
+                    }
+                }
+            }
+            ev.amountKg = actualSpillKg;
+            if (actualSpillKg > 0.0 && c.component >= 0) {
+                // what it throws out at once goes the way the fragments went through it - from the burst, through
+                // the tank, out of its far side - on top of the aircraft's own motion: the fireball is laid along
+                // the aircraft's path, and off it to the side away from the burst
+                const auto& sourceImpact=donor?donor->impact:impact;
                 const auto actualBurst=donor?sourceImpact.fromBody*sourceImpact.missM:burstBody;
                 const double tankFuelNow = (c.tank >= 0 && static_cast<std::size_t>(c.tank) < f.tankKg.size())
                                                ? f.tankKg[static_cast<std::size_t>(c.tank)]
-                                               : std::max(c.spillKg * 20.0, 20.0);
+                                               : std::max(actualSpillKg * 20.0, 20.0);
                 const double spraySpeed = destructionMode_ == DestructionModeV1::LightweightDebris
                                               ? ms::damage::hydrodynamicRamSpraySpeedMs(hitEnergy, fastest, tankFuelNow)
                                               : (kRamSprayShare * fastest);
@@ -793,9 +830,9 @@ std::vector<ipc::EngagementEvent> World::applyDamagePreparedV1(Entry& e, const D
             }
             if (c.tank >= 0 && static_cast<std::size_t>(c.tank) < f.tankKg.size()) {
                 // what it throws out at once leaves its tank; what leaks on burns on
-                const double kg = std::max(f.tankKg[static_cast<std::size_t>(c.tank)] - c.spillKg, 0.0);
+                const double kg = std::max(f.tankKg[static_cast<std::size_t>(c.tank)] - actualSpillKg, 0.0);
                 if(e.damage->detachedFuelKg(c.tank)) {
-                    e.damage->removeDetachedFuelKg(c.tank,c.spillKg);
+                    e.damage->removeDetachedFuelKg(c.tank,actualSpillKg);
                     synchronizeDetachedFuel(model,*e.damage);
                 } else e.damageReads.tanks[static_cast<std::size_t>(c.tank)].set(kg/kLbsToKg);
                 ev.massKg = e.damage->leakKgS(c.tank, kg, donor?donor->encounter.loadFactor:s.loadFactor, f.dynamicPressurePa);
@@ -806,10 +843,10 @@ std::vector<ipc::EngagementEvent> World::applyDamagePreparedV1(Entry& e, const D
                 // an engine's fire: the fuel its feed was flowing as it failed (an estimate: until it is shut off)
                 ev.rateKgS = model.property("propulsion/engine[" + std::to_string(c.engine) + "]/fuel-flow-rate-pps").get() * kLbsToKg;
                 if (destructionMode_ == DestructionModeV1::LightweightDebris) {
-                    // Realistic turbine manifold/oil fire (0.45-0.78 kg/s): fierce compact 7-10 m flame licking out
-                    // of the engine bay transitioning cleanly into billowing pitch-black hydrocarbon smoke.
+                    // Realistic turbine manifold/oil fire (0.45-0.78 kg/s): streaming flame licking out
+                    // of the engine bay transitioning cleanly into billowing dark smoke (NO fake explosion fireball!).
                     ev.rateKgS = std::clamp(ev.rateKgS * 0.45, 0.45, 0.78);
-                    ev.amountKg = std::max(ev.amountKg, 2.2); // brief turbine/feed-line ignition flash
+                    ev.amountKg = 0.0;
                     e.destruction.engineFireActive = true;
                     e.destruction.engineFireSection = c.component >= 0 ? a.components[static_cast<std::size_t>(c.component)].section : -1;
                     e.destruction.engineFireRateKgS = ev.rateKgS;
@@ -861,6 +898,7 @@ std::vector<ipc::EngagementEvent> World::applyDamagePreparedV1(Entry& e, const D
             break;
         }
         case K::PanelTorn: {
+            ++panelsTorn;
             auto ev = engagementEvent(e, ipc::EngagementKind::PanelTorn, a.sections[static_cast<std::size_t>(c.section)].name);
             ev.index = static_cast<std::uint32_t>(c.panel);
             out.push_back(ev);
@@ -887,7 +925,7 @@ std::vector<ipc::EngagementEvent> World::applyDamagePreparedV1(Entry& e, const D
                 }
             }
             const double rate = std::clamp(0.45 + killedEngineEnergyJ / 120000.0, 0.45, 0.78);
-            ev.amountKg = 2.4;
+            ev.amountKg = 0.0; // streaming turbine fire, never a fake spherical explosion fireball
             ev.rateKgS = rate;
             ev.massKg = rate;
             e.destruction.engineFireActive = true;
@@ -899,7 +937,7 @@ std::vector<ipc::EngagementEvent> World::applyDamagePreparedV1(Entry& e, const D
         }
     }
     evaluateEntryDestruction(e, &impact, pressurePa, newlySeparated, 0.0, &out);
-    // VIS-M11b: Non-catastrophic fragment hits emit localized metallic sparks/aluminium flakes at the struck location
+    // VIS-M11b: Non-catastrophic fragment hits emit grade-scaled localized sparks/tiny flakes at the struck location
     // and immediately publish un-ignited kerosene fuel-mist leak trails for Grade 1 holed tanks.
     if (destructionMode_ == DestructionModeV1::LightweightDebris && impact.fragmentsStriking > 0 && !e.destruction.hullRetired) {
         ms::damage::V3 hitPosSum{};
@@ -928,7 +966,10 @@ std::vector<ipc::EngagementEvent> World::applyDamagePreparedV1(Entry& e, const D
             hb.velocityEcef[0] = hitPt.velocity.x; hb.velocityEcef[1] = hitPt.velocity.y; hb.velocityEcef[2] = hitPt.velocity.z;
             hb.exitDirEcef[0] = exitEcef.x; hb.exitDirEcef[1] = exitEcef.y; hb.exitDirEcef[2] = exitEcef.z;
             hb.fragmentsStriking = impact.fragmentsStriking;
+            hb.panelsTorn = panelsTorn;
+            hb.grade = e.destruction.grade;
             hb.fiery = e.destruction.grade >= ms::damage::DamageGrade::FireAndStall;
+            hb.isGunHit = isGunSource;
             debrisField_.spawnHitBurst(hb, debrisRng_);
         }
         // Emit initial un-ignited fuel-mist trail for perforated tanks that did not ignite.

@@ -959,12 +959,17 @@ int main(int argc, char** argv) {
     }
     betweenPass->addChild(combatParticles.computeNode());
     if (opt.stats > 0.0) betweenPass->addChild(gpuTimer.mark("combat compute"));
-    // True 360-degree 3-D volumetric interleaving:
+    // Strict overPass compositing order:
+    // 0) Aircraft wing vapour & exhaust heat-haze FIRST, immediately after CopySceneColour
+    //    (haze refracts sceneColour with alpha = 1.0; running it after Flow/debris/combat VFX
+    //    would overwrite them with stale pre-overPass background pixels!).
     // 1) Back pass: ground scorch, ocean foam + water curtains / dust / smoke behind Flow center
     // 2) NVIDIA Flow volumetric fireballs & charcoal smoke
     // 3) Front pass: water curtains / dust / smoke / sparks in front of Flow center (soft-blended via flowFrontTex)
     // 4) Unified compute GPU particles & direct HDR combat ribbons/cores (VIS-M13)
     auto overGroup = vsg::Group::create();
+    overGroup->addChild(vapour.node());
+    if (opt.stats > 0.0) overGroup->addChild(gpuTimer.mark("gas"));
     overGroup->addChild(debris.trailNode());
     if (opt.stats > 0.0) overGroup->addChild(gpuTimer.mark("debris trails back"));
     if (flow) {
@@ -975,8 +980,6 @@ int main(int argc, char** argv) {
     if (opt.stats > 0.0) overGroup->addChild(gpuTimer.mark("debris trails front"));
     overGroup->addChild(combatParticles.drawNode());
     if (opt.stats > 0.0) overGroup->addChild(gpuTimer.mark("combat vfx"));
-    overGroup->addChild(vapour.node());
-    if (opt.stats > 0.0) overGroup->addChild(gpuTimer.mark("gas"));
     vsg::ref_ptr<vsg::Node> over = overGroup;
     if (!viewer.setScene(scene, ellipsoid, imgui, beforePass, over, betweenPass)) return 1;
     vapour.compiled();

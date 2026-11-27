@@ -200,24 +200,48 @@ ms::Reason World::dispense(std::uint32_t vehicle, bool flare) {
     if (nextDecoyId_ >= kDesignations) return ms::Reason::NotSupported;
     const auto& s = pool_->states()[e->slot];
     const V v = velocity(s);
-    if (!e->dispenser->dispense(kind, simTime_, {s.positionEcef[0],s.positionEcef[1],s.positionEcef[2]},
-                              {v.x,v.y,v.z}, nextDecoyId_)) return ms::Reason::StoreBusy;
+    // Physical aft-ventral countermeasure dispenser buckets (e.g. AN/ALE-40/47 on tail boom / aft ventral fairing)
+    // alternating left/right ports with pyrotechnic cartridge ejection velocity so flares & chaff clear the
+    // airframe cleanly instead of clipping through the cockpit or fuselage CG.
+    const double sideSign = ((nextDecoyId_ & 1u) == 0u) ? 1.0 : -1.0;
+    double portBody[3] = {-3.6, sideSign * 0.90, 1.05};
+    if (const auto afIt = airframes_.find(e->info.aircraft); afIt != airframes_.end() && afIt->second && !afIt->second->panels.empty()) {
+        double cg[3] = {0.0, 0.0, 0.0};
+        pool_->vehicle(e->slot).cgFromOriginBodyM(cg);
+        double minX = -4.0, maxY = 1.0, maxZ = 0.7;
+        for (const auto& p : afIt->second->panels) {
+            const auto m = p.middle();
+            const double rx = m.x - cg[0];
+            const double ry = std::abs(m.y - cg[1]);
+            const double rz = m.z - cg[2];
+            minX = std::min(minX, rx);
+            maxY = std::max(maxY, ry);
+            maxZ = std::max(maxZ, rz);
+        }
+        portBody[0] = std::clamp(minX * 0.56, -8.5, -2.5);
+        portBody[1] = sideSign * std::clamp(maxY * 0.16, 0.85, 2.0);
+        portBody[2] = std::clamp(maxZ + 0.35, 0.95, 2.5);
+    }
+    const double ejectBody[3] = {flare ? -4.0 : -5.5, sideSign * (flare ? 14.5 : 11.0), flare ? 17.5 : 13.0};
+    double portEcef[3] = {}, ejectEcef[3] = {};
+    ms::geom::toEcef(s, portBody, portEcef);
+    ms::geom::toEcef(s, ejectBody, ejectEcef);
+    const double spawnPos[3] = {s.positionEcef[0] + portEcef[0], s.positionEcef[1] + portEcef[1], s.positionEcef[2] + portEcef[2]};
+    const double spawnVel[3] = {v.x + ejectEcef[0], v.y + ejectEcef[1], v.z + ejectEcef[2]};
+    if (!e->dispenser->dispense(kind, simTime_, {spawnPos[0], spawnPos[1], spawnPos[2]},
+                              {spawnVel[0], spawnVel[1], spawnVel[2]}, nextDecoyId_)) return ms::Reason::StoreBusy;
     ++nextDecoyId_;
     {
-        const double downBody[3] = {0.0, 0.0, 1.0};
-        double downEcef[3];
-        ms::geom::toEcef(s, downBody, downEcef);
+        const double ejectSpd = std::max(std::sqrt(ejectEcef[0] * ejectEcef[0] + ejectEcef[1] * ejectEcef[1] + ejectEcef[2] * ejectEcef[2]), 1e-6);
         ipc::CombatVfxEventWireV1 cmEv{};
         cmEv.kind = static_cast<std::uint8_t>(ipc::CombatVfxEventKindV1::CountermeasureEject);
         cmEv.sourceVehicleId = vehicle;
         cmEv.flags = flare ? static_cast<std::uint8_t>(ipc::DecoyKindV1::Flare) : static_cast<std::uint8_t>(ipc::DecoyKindV1::Chaff);
         for (int k = 0; k < 3; ++k) {
-            cmEv.positionEcef[k] = s.positionEcef[k];
-            cmEv.dirEcef[k] = static_cast<float>(downEcef[k]);
+            cmEv.positionEcef[k] = spawnPos[k];
+            cmEv.velocityEcef[k] = spawnVel[k];
+            cmEv.dirEcef[k] = static_cast<float>(ejectEcef[k] / ejectSpd);
         }
-        cmEv.velocityEcef[0] = v.x;
-        cmEv.velocityEcef[1] = v.y;
-        cmEv.velocityEcef[2] = v.z;
         cmEv.magnitude = flare ? 6000.0f : 10.0f;
         cmEv.param = flare ? 4.0f : 6.0f;
         pushCombatVfxEvent(cmEv);

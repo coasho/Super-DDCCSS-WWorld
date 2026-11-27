@@ -11,6 +11,7 @@
 #include "fsim/Rng.h"
 #include "simulation/flight/GroundProvider.h"
 #include "simulation/mission_systems/damage/Damage.h"
+#include "simulation/mission_systems/damage/Destruction.h"
 #include "simulation/mission_systems/damage/Impact.h"
 
 #include <array>
@@ -88,7 +89,10 @@ struct HitBurstSpawn {
     double velocityEcef[3] = {};
     double exitDirEcef[3] = {0.0, 0.0, 1.0};
     int fragmentsStriking = 1;
+    int panelsTorn = 0;
+    ms::damage::DamageGrade grade = ms::damage::DamageGrade::LightPerforation;
     bool fiery = false;
+    bool isGunHit = false;
 };
 
 struct DamageEmberSpawn {

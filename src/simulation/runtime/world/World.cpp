@@ -4085,13 +4085,40 @@ void World::stepGunProjectiles(double dt) {
                     recordEngagement("damage", *v, v->info.id, "gun", v->crewLost);
                 }
                 {
+                    // Place BulletAirframeHit at the exact struck airframe skin/component coordinate rather than
+                    // segment endpoint p1 (which can overshoot 10-25 m past the nose during a 0.02 s step!).
+                    ms::damage::V3 hitPosSum{};
+                    double hitWeight = 0.0;
+                    const auto& af = v->damage->airframe();
+                    for (const auto& ph : impact.panels) {
+                        if (ph.hits > 0 && ph.panel >= 0 && static_cast<std::size_t>(ph.panel) < af.panels.size()) {
+                            const double w = static_cast<double>(ph.hits) * 2.0;
+                            hitPosSum += af.panels[static_cast<std::size_t>(ph.panel)].middle() * w;
+                            hitWeight += w;
+                        }
+                    }
+                    for (const auto& ch : impact.components) {
+                        if (ch.hits > 0 && ch.component >= 0 && static_cast<std::size_t>(ch.component) < af.components.size()) {
+                            const double w = static_cast<double>(ch.hits);
+                            hitPosSum += af.components[static_cast<std::size_t>(ch.component)].centre * w;
+                            hitWeight += w;
+                        }
+                    }
+                    double impactEcef[3] = {p0[0] + dSeg[0] * tProj, p0[1] + dSeg[1] * tProj, p0[2] + dSeg[2] * tProj};
+                    if (hitWeight > 0.0) {
+                        const ms::damage::V3 hitBody = hitPosSum * (1.0 / hitWeight);
+                        const double relBody[3] = {hitBody.x - cg[0], hitBody.y - cg[1], hitBody.z - cg[2]};
+                        double relEcef[3] = {};
+                        ms::geom::toEcef(stNow, relBody, relEcef);
+                        for (int k = 0; k < 3; ++k) impactEcef[k] = stNow.positionEcef[k] + relEcef[k];
+                    }
                     ipc::CombatVfxEventWireV1 hitEv{};
                     hitEv.kind = static_cast<std::uint8_t>(ipc::CombatVfxEventKindV1::BulletAirframeHit);
                     hitEv.sourceVehicleId = v->info.id;
                     const double spd = std::max(ms::geom::norm3(proj.velocityEcef), 1e-3);
                     const double relSpd2 = relVel.x * relVel.x + relVel.y * relVel.y + relVel.z * relVel.z;
                     for (int k = 0; k < 3; ++k) {
-                        hitEv.positionEcef[k] = p1[k];
+                        hitEv.positionEcef[k] = impactEcef[k];
                         hitEv.velocityEcef[k] = vVel[k];
                         hitEv.dirEcef[k] = static_cast<float>(proj.velocityEcef[k] / spd);
                     }

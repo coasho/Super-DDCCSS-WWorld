@@ -554,27 +554,26 @@ void GpuParticles::update(const ipc::CombatVfxFrameV1* vfxFrame, const ipc::Debr
                 }
                 particleIdleUntil_ = std::max(particleIdleUntil_, clock + 0.6);
             } else if (kind == ipc::CombatVfxEventKindV1::BulletAirframeHit) {
-                // Tight, realistic metallic ricochet sparks + compact HEI impact flash/smoke on struck skin!
+                // Tight, realistic metallic ricochet sparks + compact HEI impact flash/smoke right on the struck skin!
                 const bool isHe = ev.param > 1e-4f;
-                const int nSparks = isHe ? 9 : 6;
+                const int nSparks = isHe ? 6 : 4;
                 const vsg::dvec3 refl = -dir;
                 for (int i = 0; i < nSparks; ++i) {
-                    const vsg::dvec3 randDir = vsg::normalize(refl * 0.35 + randomUnitVec());
-                    const double spd = 22.0 + 68.0 * static_cast<double>(nextRand());
-                    queueParticle(pos, vel + randDir * spd, 0.18f + 0.26f * nextRand(),
-                                  vsg::vec3(1.0f, 0.68f, 0.16f), 0.032f + 0.022f * nextRand(), 1.0f,
-                                  2.2f + 1.1f * nextRand(), 3.2f);
+                    const vsg::dvec3 randDir = vsg::normalize(refl * 0.45 + randomUnitVec());
+                    const double spd = 14.0 + 42.0 * static_cast<double>(nextRand());
+                    queueParticle(pos, vel + randDir * spd, 0.12f + 0.16f * nextRand(),
+                                  vsg::vec3(1.0f, 0.66f, 0.14f), 0.024f + 0.016f * nextRand(), 1.0f,
+                                  2.8f + 1.2f * nextRand(), 2.8f);
                 }
-                const int nPuffs = isHe ? 2 : 1;
-                for (int i = 0; i < nPuffs; ++i) {
+                {
                     const vsg::dvec3 d = randomUnitVec();
-                    queueParticle(pos + d * 0.20, vel * 0.72 + d * (6.0 + 11.0 * static_cast<double>(nextRand())),
-                                  0.38f + 0.35f * nextRand(),
-                                  isHe ? vsg::vec3(0.28f, 0.27f, 0.26f) : vsg::vec3(0.52f, 0.53f, 0.55f),
-                                  isHe ? (0.45f + 0.25f * nextRand()) : (0.24f + 0.14f * nextRand()),
-                                  3.0f, 4.2f, isHe ? 1.80f : 0.75f);
+                    queueParticle(pos + d * 0.12, vel * 0.78 + d * (4.0 + 7.0 * static_cast<double>(nextRand())),
+                                  0.26f + 0.22f * nextRand(),
+                                  isHe ? vsg::vec3(0.26f, 0.25f, 0.24f) : vsg::vec3(0.50f, 0.51f, 0.53f),
+                                  isHe ? (0.26f + 0.16f * nextRand()) : (0.18f + 0.10f * nextRand()),
+                                  3.0f, 4.8f, isHe ? 0.85f : 0.40f);
                 }
-                particleIdleUntil_ = std::max(particleIdleUntil_, clock + 0.9);
+                particleIdleUntil_ = std::max(particleIdleUntil_, clock + 0.7);
             } else if (kind == ipc::CombatVfxEventKindV1::BulletSurfaceImpact) {
                 const auto surf = static_cast<ipc::SurfaceKindV1>(ev.flags);
                 const bool water = (surf == ipc::SurfaceKindV1::Water);
@@ -681,11 +680,13 @@ void GpuParticles::update(const ipc::CombatVfxFrameV1* vfxFrame, const ipc::Debr
                 if (ribbons.size() < kMaxRibbons) {
                     const vsg::dvec3 rel = pos - eyeEcef;
                     const float normInt = std::clamp(std::sqrt(std::max(d.intensityOrSigma, 0.0f) / 6000.0f), 0.12f, 1.35f);
+                    // Brief pyrotechnic cartridge ignition ramp over the first 0.06 s after leaving the dispenser bay.
+                    const float ignite = std::clamp(0.35f + (d.ageS / 0.06f) * 0.65f, 0.35f, 1.0f);
                     RibbonCpu r{};
                     r.posRadius = vsg::vec4(static_cast<float>(rel.x), static_cast<float>(rel.y), static_cast<float>(rel.z),
-                                            2.1f * (0.45f + 0.65f * normInt));
-                    r.dirLength = vsg::vec4(0.0f, 0.0f, 1.0f, 2.1f);
-                    r.colorIntensity = vsg::vec4(1.0f, 0.90f, 0.56f, 1.25f * normInt);
+                                            1.75f * ignite * (0.45f + 0.65f * normInt));
+                    r.dirLength = vsg::vec4(0.0f, 0.0f, 1.0f, 1.75f);
+                    r.colorIntensity = vsg::vec4(1.0f, 0.90f, 0.56f, 1.25f * normInt * ignite);
                     r.params = vsg::vec4(2.0f, std::clamp(d.ageS / std::max(d.lifeS, 0.1f), 0.0f, 1.0f),
                                          static_cast<float>(d.id & 0xFFu) / 255.0f, normInt);
                     ribbons.push_back(r);

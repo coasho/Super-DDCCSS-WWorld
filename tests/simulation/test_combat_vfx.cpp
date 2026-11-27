@@ -13,6 +13,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -20,6 +21,7 @@
 #include <iostream>
 #include <limits>
 #include <string>
+#include <thread>
 #include <unordered_set>
 #include <vector>
 
@@ -256,10 +258,16 @@ TEST_CASE("VIS-M13 native World gun burst and flare/chaff decoys publish live co
         std::unordered_set<std::uint32_t> seenSerials;
         std::unordered_set<std::uint32_t> seenTracerIds;
         firstTracerX = 0.0;
+        double maxGunFireballKg = 0.0;
 
         for (int step = 0; step < 60; ++step) {
             if (step == 22) REQUIRE(world.dispense(target, false) == ms::Reason::None);
             world.step(1);
+            for (const auto& eng : world.takeEngagementEvents()) {
+                if (eng.kind == static_cast<std::uint8_t>(ipc::EngagementKind::Fire)) {
+                    maxGunFireballKg = std::max(maxGunFireballKg, eng.amountKg);
+                }
+            }
             const auto frame = world.combatVfxFrame();
             maxProjectiles = std::max(maxProjectiles, frame.projectiles.size());
             for (const auto& p : frame.projectiles) {
@@ -284,6 +292,15 @@ TEST_CASE("VIS-M13 native World gun burst and flare/chaff decoys publish live co
                 else if (k == ipc::CombatVfxEventKindV1::CountermeasureEject) ++cmEjectEvents;
             }
         }
+        // Physical damage-grade mapping: 20 mm cannon hits ignite streaming fuel/engine fires, never fake 50 kg missile fireballs,
+        // and never flood the air with dozens of half-meter 3-D metal chunks.
+        CHECK(maxGunFireballKg == 0.0);
+        std::size_t gunShards = 0;
+        for (const auto& b : world.debrisField().slots()) {
+            if (b.alive && (b.archetype == ipc::DebrisArchetypeV1::PanelShard || b.archetype == ipc::DebrisArchetypeV1::BurningChunk))
+                ++gunShards;
+        }
+        CHECK(gunShards <= 4u);
         tracerCount = seenTracerIds.size();
     };
 
@@ -416,4 +433,391 @@ TEST_CASE("VIS-M13 visual showcase replay generator", "[combat_vfx][vis-m13][vis
         }
         std::cout << "[VIS-M13 visual-gen] wrote " << opts.recordPath.string() << " (+ .vfx + .debris)\n";
     }
+
+    // --- Showcase 3: Full Live 6-DOF AIM-120C Launch -> Rocket Homing -> Flare/Chaff Defense -> Proximity-Fuze Destruction ---
+    {
+        auto opts = vfxWorldOptions("vis-m13-live-missile", 20261303u);
+        opts.recordPath = outDir / "live_missile_intercept.fsrec";
+        opts.recordIntervalSeconds = 0.02;
+        session::World world(opts);
+        world.setDestructionModeV1(session::World::DestructionModeV1::LightweightDebris);
+
+        constexpr double kDeg = 3.14159265358979323846 / 180.0;
+        const double lat0 = 37.65;
+        const double lon0 = -122.42;
+        const double hdgRad = 75.0 * kDeg;
+        const double cosLat = std::cos(lat0 * kDeg);
+
+        session::VehicleSpec shooterSpec;
+        shooterSpec.name = "viper-blue";
+        shooterSpec.type = "jsbsim:f16c";
+        shooterSpec.initial.latitudeDeg = lat0;
+        shooterSpec.initial.longitudeDeg = lon0;
+        shooterSpec.initial.altitudeMslM = 4000.0;
+        shooterSpec.initial.headingDeg = 75.0;
+        shooterSpec.initial.airspeedTrueMs = 265.0;
+        shooterSpec.initial.fuelFraction = 0.60;
+
+        // Place target 10.5 km ahead flying head-on (255 deg, slight lateral offset 180 m) at 235 m/s:
+        // High PD Doppler closure cleanly filters stationary chaff clouds while the live 6-DOF AIM-120C
+        // homes through bandit-red's defensive flare & chaff volley to a real proximity-fuze hit!
+        const double aheadM = 10500.0;
+        const double rightM = 180.0;
+        const double dNorth = aheadM * std::cos(hdgRad) - rightM * std::sin(hdgRad);
+        const double dEast = aheadM * std::sin(hdgRad) + rightM * std::cos(hdgRad);
+        session::VehicleSpec targetSpec = shooterSpec;
+        targetSpec.name = "bandit-red";
+        targetSpec.initial.latitudeDeg = lat0 + dNorth / 111132.0;
+        targetSpec.initial.longitudeDeg = lon0 + dEast / (111320.0 * cosLat);
+        targetSpec.initial.altitudeMslM = 4030.0;
+        targetSpec.initial.headingDeg = 255.0;
+        targetSpec.initial.airspeedTrueMs = 235.0;
+        targetSpec.initial.fuelFraction = 0.55;
+
+        const std::uint32_t shooter = world.createVehicle(shooterSpec);
+        const std::uint32_t target = world.createVehicle(targetSpec);
+        REQUIRE(shooter != 0u);
+        REQUIRE(target != 0u);
+
+        const std::uint16_t radarIdx = findPayloadByFamily(world, shooter, ms::Family::AirRadar);
+        const std::uint16_t stationsIdx = findPayloadByFamily(world, shooter, ms::Family::StoreStation);
+        const std::uint16_t cmIdx = findPayloadByFamily(world, target, ms::Family::Countermeasures);
+        REQUIRE(world.loadStore(shooter, stationsIdx, 1, "aim-120c") == ms::Reason::None);
+        REQUIRE(world.loadStore(shooter, stationsIdx, 9, "aim-120c") == ms::Reason::None);
+
+        // Hold smooth level flight on both jets via native HSA autopilot so radar lock & launch are clean.
+        auto setHsa = [&](std::uint32_t id, double hdgDeg, double altM, double spdMs) {
+            control::HsaCommand hsa;
+            hsa.headingRad = hdgDeg * kDeg;
+            hsa.altitudeM = altM;
+            hsa.speed = spdMs;
+            (void)world.submit(id, hsa);
+        };
+        setHsa(shooter, 75.0, 4000.0, 265.0);
+        setHsa(target, 255.0, 4030.0, 235.0);
+
+        // Power up radar, store stations, and target countermeasures concurrently.
+        (void)world.submit(shooter, ms::StateCommand{radarIdx, ms::PayloadState::Operate});
+        (void)world.submit(shooter, ms::StateCommand{stationsIdx, ms::PayloadState::Operate});
+        (void)world.submit(target, ms::StateCommand{cmIdx, ms::PayloadState::Operate});
+
+        bool searching = false;
+        bool launched = false;
+        bool detonated = false;
+        double launchTimeS = -1.0;
+        double detTimeS = -1.0;
+        double lastCmTimeS = -10.0;
+        int cmShot = 0;
+        int postDetSteps = 0;
+
+        for (int step = 0; step < 1200; ++step) {
+            world.step(1);
+            const double nowS = world.simTime();
+            const auto* shHost = world.missionSystems(shooter);
+            if (!searching && shHost && shHost->payloads()[radarIdx].state == ms::PayloadState::Operate) {
+                ms::AmtiCommand ac;
+                ac.payload = radarIdx;
+                ac.mode = ms::AmtiMode::TrackWhileScan;
+                ac.task = ms::AmtiTask::Volume;
+                ac.rangeScaleM = 40000.0;
+                ac.azimuthHalfWidthRad = 25.0 * kDeg;
+                ac.bars = 2;
+                if (world.submit(shooter, ac).accepted()) searching = true;
+            }
+            if (!launched && searching && shHost && shHost->payloads()[stationsIdx].state == ms::PayloadState::Operate) {
+                const auto tracks = world.amtiTracks(shooter, radarIdx);
+                if (!tracks.empty()) {
+                    const std::uint32_t desig = world.designate(shooter, radarIdx, tracks.front().id);
+                    if (desig != 0u) {
+                        ms::StrikeCommand sc;
+                        sc.payload = stationsIdx;
+                        sc.store = "aim-120c";
+                        sc.quantity = 1;
+                        sc.target = desig;
+                        sc.consent = true;
+                        if (world.submit(shooter, sc).accepted()) {
+                            launched = true;
+                            launchTimeS = nowS;
+                        }
+                    }
+                }
+            }
+            // Watch live missile closing on target; dispense alternating aft-ventral flares & chaff!
+            const auto wpns = world.weapons();
+            if (!wpns.empty()) {
+                const auto& w = wpns.front();
+                if (!detonated && w.end == ms::WeaponEnd::Detonated) {
+                    detonated = true;
+                    detTimeS = nowS;
+                }
+                if (!detonated && w.end != ms::WeaponEnd::Detonated) {
+                    const auto* wSt = world.vehicleState(w.id);
+                    const auto* tSt = world.vehicleState(target);
+                    if (wSt && tSt) {
+                        const double dx = wSt->positionEcef[0] - tSt->positionEcef[0];
+                        const double dy = wSt->positionEcef[1] - tSt->positionEcef[1];
+                        const double dz = wSt->positionEcef[2] - tSt->positionEcef[2];
+                        const double distM = std::sqrt(dx * dx + dy * dy + dz * dz);
+                        if (distM < 4800.0 && nowS - lastCmTimeS >= 0.40 && cmShot < 8) {
+                            const bool flare = ((cmShot % 2) == 0);
+                            if (world.dispense(target, flare) == ms::Reason::None) {
+                                lastCmTimeS = nowS;
+                                ++cmShot;
+                            }
+                        }
+                    }
+                }
+            }
+            if (detonated) {
+                if (++postDetSteps >= 230) break; // record 4.6 s of post-detonation shockwave, fireball & wreckage!
+            }
+        }
+        const auto* ds = world.destructionState(target);
+        std::cout << "[VIS-M13 visual-gen] wrote " << opts.recordPath.string()
+                  << " | launch=" << launchTimeS << "s det=" << detTimeS << "s cm=" << cmShot
+                  << " grade=" << (ds ? static_cast<int>(ds->grade) : -1)
+                  << " tier=" << (ds ? static_cast<int>(ds->tier) : -1)
+                  << " retired=" << (ds && ds->hullRetired ? 1 : 0)
+                  << " debris=" << world.debrisField().activeCount() << "\n";
+        CHECK(launched);
+        CHECK(detonated);
+    }
+}
+
+TEST_CASE("VIS-M13 live published 1x real-time radar and AIM-120C intercept showcase", "[combat_vfx][vis-m13][live-radar]") {
+    const char* worldName = std::getenv("FSIM_VIS_M13_LIVE_WORLD");
+    if (!worldName || !*worldName) return;
+
+    double durationS = 90.0;
+    if (const char* durEnv = std::getenv("FSIM_VIS_M13_LIVE_DURATION_S"); durEnv && *durEnv) {
+        const double parsed = std::atof(durEnv);
+        if (parsed >= 5.0 && parsed <= 600.0) durationS = parsed;
+    }
+
+    auto opts = vfxWorldOptions(worldName, 20261309u);
+    opts.workers = 2;
+    opts.publish = true;
+    opts.publishIntervalSeconds = 1.0 / 60.0;
+    session::World world(opts);
+    world.setDestructionModeV1(session::World::DestructionModeV1::LightweightDebris);
+
+    constexpr double kDeg = 3.14159265358979323846 / 180.0;
+    const double lat0 = 37.65;
+    const double lon0 = -122.42;
+    const double hdgRad = 75.0 * kDeg;
+
+    session::VehicleSpec shooterSpec;
+    shooterSpec.name = "viper-blue";
+    shooterSpec.type = "jsbsim:f16c";
+    shooterSpec.initial.latitudeDeg = lat0;
+    shooterSpec.initial.longitudeDeg = lon0;
+    shooterSpec.initial.altitudeMslM = 4000.0;
+    shooterSpec.initial.headingDeg = 75.0;
+    shooterSpec.initial.airspeedTrueMs = 265.0;
+    shooterSpec.initial.fuelFraction = 0.65;
+
+    const std::uint32_t shooter = world.createVehicle(shooterSpec);
+    REQUIRE(shooter != 0u);
+
+    auto spawnBanditAhead = [&](const char* name, double aheadM, double rightM, double altM) -> std::uint32_t {
+        const auto* sSt = world.vehicleState(shooter);
+        const double baseLat = sSt ? sSt->latitudeRad / kDeg : lat0;
+        const double baseLon = sSt ? sSt->longitudeRad / kDeg : lon0;
+        const double baseCos = std::cos(baseLat * kDeg);
+        const double dNorth = aheadM * std::cos(hdgRad) - rightM * std::sin(hdgRad);
+        const double dEast = aheadM * std::sin(hdgRad) + rightM * std::cos(hdgRad);
+        session::VehicleSpec spec = shooterSpec;
+        spec.name = name;
+        spec.initial.latitudeDeg = baseLat + dNorth / 111132.0;
+        spec.initial.longitudeDeg = baseLon + dEast / (111320.0 * baseCos);
+        spec.initial.altitudeMslM = altM;
+        spec.initial.headingDeg = 255.0;
+        spec.initial.airspeedTrueMs = 235.0;
+        spec.initial.fuelFraction = 0.55;
+        const std::uint32_t id = world.createVehicle(spec);
+        if (id != 0u) {
+            control::HsaCommand hsa;
+            hsa.headingRad = 255.0 * kDeg;
+            hsa.altitudeM = altM;
+            hsa.speed = 235.0;
+            (void)world.submit(id, hsa);
+            const std::uint16_t bRadar = findPayloadByFamily(world, id, ms::Family::AirRadar);
+            const std::uint16_t bCm = findPayloadByFamily(world, id, ms::Family::Countermeasures);
+            (void)world.submit(id, ms::StateCommand{bRadar, ms::PayloadState::Operate});
+            (void)world.submit(id, ms::StateCommand{bCm, ms::PayloadState::Operate});
+            if (const auto* host = world.missionSystems(id)) {
+                for (const auto& p : host->payloads()) {
+                    if (p.family == ms::Family::Esm) {
+                        (void)world.submit(id, ms::StateCommand{p.index, ms::PayloadState::Operate});
+                    }
+                }
+            }
+        }
+        return id;
+    };
+
+    std::uint32_t target = spawnBanditAhead("bandit-red-1", 16500.0, 220.0, 4040.0);
+    REQUIRE(target != 0u);
+
+    const std::uint16_t radarIdx = findPayloadByFamily(world, shooter, ms::Family::AirRadar);
+    const std::uint16_t stationsIdx = findPayloadByFamily(world, shooter, ms::Family::StoreStation);
+    REQUIRE(world.loadStore(shooter, stationsIdx, 1, "aim-120c") == ms::Reason::None);
+    REQUIRE(world.loadStore(shooter, stationsIdx, 9, "aim-120c") == ms::Reason::None);
+
+    {
+        control::HsaCommand hsa;
+        hsa.headingRad = 75.0 * kDeg;
+        hsa.altitudeM = 4000.0;
+        hsa.speed = 265.0;
+        (void)world.submit(shooter, hsa);
+    }
+    (void)world.submit(shooter, ms::StateCommand{radarIdx, ms::PayloadState::Operate});
+    (void)world.submit(shooter, ms::StateCommand{stationsIdx, ms::PayloadState::Operate});
+    if (const auto* shHost = world.missionSystems(shooter)) {
+        for (const auto& p : shHost->payloads()) {
+            if (p.family == ms::Family::Esm) {
+                (void)world.submit(shooter, ms::StateCommand{p.index, ms::PayloadState::Operate});
+            }
+        }
+    }
+
+    auto startSignalTws = [&](std::uint32_t id, std::uint16_t rIdx) -> bool {
+        ms::AmtiCommand ac;
+        ac.payload = rIdx;
+        ac.mode = ms::AmtiMode::TrackWhileScan;
+        ac.task = ms::AmtiTask::Volume;
+        ac.rangeScaleM = 40000.0;
+        ac.azimuthHalfWidthRad = 25.0 * kDeg;
+        ac.bars = 2;
+        ac.signalLevel = true;
+        return world.submit(id, ac).accepted();
+    };
+
+    bool shooterSearching = false;
+    bool targetSearching = false;
+    bool launchedWave1 = false;
+    bool launchedWave2 = false;
+    bool spawnedWave2 = false;
+    double wave1DetTimeS = -1.0;
+    double wave2SpawnTimeS = -1.0;
+    double lastCmTimeS = -10.0;
+    int cmShot = 0;
+
+    std::cout << "[VIS-M13 live-radar] publishing world='" << worldName << "' duration=" << durationS
+              << "s (1x real-time, signalLevel TWS B-Scope + Range-Doppler)\n"
+              << std::flush;
+
+    const double stepDtS = opts.dt * static_cast<double>(opts.frameSkip);
+    const int totalSteps = static_cast<int>(std::ceil(durationS / stepDtS));
+    const auto wallStart = std::chrono::steady_clock::now();
+
+    for (int step = 0; step < totalSteps; ++step) {
+        world.step(1);
+        const double nowS = world.simTime();
+
+        const auto* shHost = world.missionSystems(shooter);
+        if (!shooterSearching && shHost && shHost->payloads()[radarIdx].state == ms::PayloadState::Operate) {
+            if (startSignalTws(shooter, radarIdx)) {
+                shooterSearching = true;
+                std::cout << "[VIS-M13 live-radar] t=" << nowS << "s viper-blue AN/APG-68 TWS signalLevel ON\n" << std::flush;
+            }
+        }
+        if (!targetSearching && target != 0u) {
+            const auto* tHost = world.missionSystems(target);
+            const std::uint16_t bRadar = findPayloadByFamily(world, target, ms::Family::AirRadar);
+            if (tHost && tHost->payloads()[bRadar].state == ms::PayloadState::Operate) {
+                if (startSignalTws(target, bRadar)) {
+                    targetSearching = true;
+                    std::cout << "[VIS-M13 live-radar] t=" << nowS << "s bandit AN/APG-68 TWS signalLevel ON\n" << std::flush;
+                }
+            }
+        }
+
+        // Wait until t >= 7.0 s for wave 1 so the user sees sweeping B-Scope, confirmed track & Range-Doppler map first.
+        if (!launchedWave1 && nowS >= 7.0 && shooterSearching && shHost &&
+            shHost->payloads()[stationsIdx].state == ms::PayloadState::Operate) {
+            const auto tracks = world.amtiTracks(shooter, radarIdx);
+            if (!tracks.empty()) {
+                const std::uint32_t desig = world.designate(shooter, radarIdx, tracks.front().id);
+                if (desig != 0u) {
+                    ms::StrikeCommand sc;
+                    sc.payload = stationsIdx;
+                    sc.store = "aim-120c";
+                    sc.quantity = 1;
+                    sc.target = desig;
+                    sc.consent = true;
+                    if (world.submit(shooter, sc).accepted()) {
+                        launchedWave1 = true;
+                        std::cout << "[VIS-M13 live-radar] t=" << nowS << "s AIM-120C #1 launched at track "
+                                  << tracks.front().id << "\n" << std::flush;
+                    }
+                }
+            }
+        }
+
+        // Watch active missile(s) & trigger defensive flare/chaff volleys on current live bandit.
+        const auto wpns = world.weapons();
+        for (const auto& w : wpns) {
+            if (wave1DetTimeS < 0.0 && w.end == ms::WeaponEnd::Detonated) {
+                wave1DetTimeS = nowS;
+                const auto* ds = world.destructionState(target);
+                std::cout << "[VIS-M13 live-radar] t=" << nowS << "s AIM-120C detonated! grade="
+                          << (ds ? static_cast<int>(ds->grade) : -1) << " retired="
+                          << (ds && ds->hullRetired ? 1 : 0) << "\n" << std::flush;
+            }
+            if (w.end != ms::WeaponEnd::Detonated && target != 0u) {
+                const auto* wSt = world.vehicleState(w.id);
+                const auto* tSt = world.vehicleState(target);
+                if (wSt && tSt) {
+                    const double dx = wSt->positionEcef[0] - tSt->positionEcef[0];
+                    const double dy = wSt->positionEcef[1] - tSt->positionEcef[1];
+                    const double dz = wSt->positionEcef[2] - tSt->positionEcef[2];
+                    const double distM = std::sqrt(dx * dx + dy * dy + dz * dz);
+                    if (distM < 4800.0 && nowS - lastCmTimeS >= 0.40 && cmShot < 8) {
+                        const bool flare = ((cmShot % 2) == 0);
+                        if (world.dispense(target, flare) == ms::Reason::None) {
+                            lastCmTimeS = nowS;
+                            ++cmShot;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 8 s after wave 1 detonation, spawn bandit-red-2 at 17 km ahead for a second live radar/missile engagement.
+        if (!spawnedWave2 && wave1DetTimeS > 0.0 && nowS >= wave1DetTimeS + 8.0) {
+            target = spawnBanditAhead("bandit-red-2", 17000.0, -260.0, 4120.0);
+            targetSearching = false;
+            cmShot = 0;
+            lastCmTimeS = -10.0;
+            spawnedWave2 = (target != 0u);
+            wave2SpawnTimeS = nowS;
+            std::cout << "[VIS-M13 live-radar] t=" << nowS << "s spawned bandit-red-2 at 17 km\n" << std::flush;
+        }
+        if (spawnedWave2 && !launchedWave2 && nowS >= wave2SpawnTimeS + 6.0 && shHost &&
+            shHost->payloads()[stationsIdx].state == ms::PayloadState::Operate) {
+            const auto tracks = world.amtiTracks(shooter, radarIdx);
+            if (!tracks.empty()) {
+                const std::uint32_t desig = world.designate(shooter, radarIdx, tracks.back().id);
+                if (desig != 0u) {
+                    ms::StrikeCommand sc;
+                    sc.payload = stationsIdx;
+                    sc.store = "aim-120c";
+                    sc.quantity = 1;
+                    sc.target = desig;
+                    sc.consent = true;
+                    if (world.submit(shooter, sc).accepted()) {
+                        launchedWave2 = true;
+                        std::cout << "[VIS-M13 live-radar] t=" << nowS << "s AIM-120C #2 launched at track "
+                                  << tracks.back().id << "\n" << std::flush;
+                    }
+                }
+            }
+        }
+
+        const auto nextWall = wallStart + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                                              std::chrono::duration<double>((step + 1) * stepDtS));
+        std::this_thread::sleep_until(nextWall);
+    }
+    std::cout << "[VIS-M13 live-radar] finished live showcase (" << durationS << " s)\n" << std::flush;
 }

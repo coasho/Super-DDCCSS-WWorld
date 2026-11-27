@@ -507,8 +507,8 @@ void DebrisField::spawnSectionBreakup(const SectionBreakupSpawn& in, Rng& rng) {
     const V3 rootPos = v3(in.rootPositionEcef);
     const V3 secVel = v3(in.sectionVelocityEcef);
 
-    constexpr int kShardCount = 12;
-    constexpr int kSparkCount = 10;
+    constexpr int kShardCount = 8;
+    constexpr int kSparkCount = 8;
     const double totalMass = std::max(in.sectionMassKg, 20.0);
     const double shardPoolMass = in.spawnPrimaryChunk ? totalMass * 0.10 : std::min(totalMass * 0.08, 35.0);
     const double primaryMass = std::max(totalMass - shardPoolMass, 1.0);
@@ -574,17 +574,17 @@ void DebrisField::spawnSectionBreakup(const SectionBreakupSpawn& in, Rng& rng) {
         s.omegaBodyRadS[1] = (rng.uniform() - 0.5) * 12.0;
         s.omegaBodyRadS[2] = (rng.uniform() - 0.5) * 12.0;
         s.massKg = shardM[static_cast<std::size_t>(i)];
-        const double l = 0.32 + 0.58 * rng.uniform();
+        const double l = 0.15 + 0.19 * rng.uniform();
         s.halfExtentsM[0] = l;
-        s.halfExtentsM[1] = l * (0.45 + 0.45 * rng.uniform());
-        s.halfExtentsM[2] = 0.08 + 0.06 * rng.uniform();
+        s.halfExtentsM[1] = l * (0.45 + 0.42 * rng.uniform());
+        s.halfExtentsM[2] = 0.04 + 0.03 * rng.uniform();
         s.areaM2 = 2.2 * s.halfExtentsM[0] * s.halfExtentsM[1];
         s.burning = hotChunk;
-        s.fuelRemainingKg = hotChunk ? 4.0 + 8.0 * rng.uniform() : 0.0;
-        s.burnRateKgS = hotChunk ? 0.35 : 0.0;
-        s.temperatureK = hotChunk ? 1650.0 : 650.0 + 350.0 * rng.uniform();
-        s.smokeIntensity = hotChunk ? 0.85 : 0.18;
-        s.maxAgeS = 45.0;
+        s.fuelRemainingKg = hotChunk ? 3.0 + 5.0 * rng.uniform() : 0.0;
+        s.burnRateKgS = hotChunk ? 0.30 : 0.0;
+        s.temperatureK = hotChunk ? 1650.0 : 620.0 + 280.0 * rng.uniform();
+        s.smokeIntensity = hotChunk ? 0.75 : 0.10;
+        s.maxAgeS = 30.0;
         if (jolt_ && jolt_->initialized) registerJoltBody(s);
     }
 
@@ -644,9 +644,9 @@ void DebrisField::spawnCatastrophicKill(const CatastrophicSpawn& in, Rng& rng) {
     };
 
     constexpr int kSections = 5;
-    constexpr int kVoronoiShards = 18;
-    constexpr int kBurningChunks = 8;
-    constexpr int kSparks = 34;
+    constexpr int kVoronoiShards = 12;
+    constexpr int kBurningChunks = 6;
+    constexpr int kSparks = 24;
     constexpr int kStructuralTotal = kSections + kVoronoiShards + kBurningChunks;
 
     std::array<double, kStructuralTotal> masses{};
@@ -738,9 +738,9 @@ void DebrisField::spawnCatastrophicKill(const CatastrophicSpawn& in, Rng& rng) {
             b.omegaBodyRadS[0] = (rng.uniform() - 0.5) * 14.0;
             b.omegaBodyRadS[1] = (rng.uniform() - 0.5) * 14.0;
             b.omegaBodyRadS[2] = (rng.uniform() - 0.5) * 14.0;
-            b.halfExtentsM[0] = isBurnChunk ? (0.35 + 0.35 * rng.uniform()) : (0.30 + 0.48 * rng.uniform());
-            b.halfExtentsM[1] = b.halfExtentsM[0] * (0.45 + 0.45 * rng.uniform());
-            b.halfExtentsM[2] = isBurnChunk ? 0.16 : 0.08;
+            b.halfExtentsM[0] = isBurnChunk ? (0.18 + 0.18 * rng.uniform()) : (0.14 + 0.20 * rng.uniform());
+            b.halfExtentsM[1] = b.halfExtentsM[0] * (0.45 + 0.42 * rng.uniform());
+            b.halfExtentsM[2] = isBurnChunk ? 0.09 : 0.04;
             b.areaM2 = 2.2 * b.halfExtentsM[0] * b.halfExtentsM[1];
             b.burning = isBurnChunk;
             b.fuelRemainingKg = isBurnChunk ? (3.5 + 6.0 * rng.uniform()) : 0.0;
@@ -1156,47 +1156,88 @@ void DebrisField::spawnHitBurst(const HitBurstSpawn& in, Rng& rng) {
     const V3 vel = v3(in.velocityEcef);
     V3 exitDir = normalized(v3(in.exitDirEcef));
     if (length(exitDir) < 0.5) exitDir = {0.0, 0.0, 1.0};
-    const int sparkCount = std::clamp(4 + in.fragmentsStriking / 12, 4, 16);
-    const int flakeCount = std::clamp(2 + in.fragmentsStriking / 25, 2, 7);
+
+    // Strict grade- and source-aware debris scaling:
+    // - 20/30 mm gun bullets already emit crisp GPU ricochet sparks & HEI puffs via BulletAirframeHit;
+    //   never flood the air with half-meter 3-D metal chunks on every bullet perforation!
+    //   Only emit at most 1 tiny torn skin fleck when an actual panel rips under severe cannon fire.
+    // - Missile warhead fragments scale cleanly from Grade 1 (subtle sparks + at most 1 tiny fleck)
+    //   to Grade 2 (1-2 small flecks) to Grade 3 (2-4 ragged fragments).
+    int sparkCount = 0;
+    int flakeCount = 0;
+    double flakeMinM = 0.07;
+    double flakeSpanM = 0.05;
+    double flakeLifeS = 5.5;
+    bool allowHotFlake = false;
+
+    if (in.isGunHit) {
+        sparkCount = 0;
+        if (in.panelsTorn > 0 && in.grade >= ms::damage::DamageGrade::FireAndStall) {
+            flakeCount = 1;
+            flakeMinM = 0.07;
+            flakeSpanM = 0.05;
+            flakeLifeS = 4.5;
+        }
+    } else if (in.grade <= ms::damage::DamageGrade::LightPerforation) {
+        sparkCount = std::clamp(3 + in.fragmentsStriking / 24, 3, 5);
+        flakeCount = (in.panelsTorn > 0 || in.fragmentsStriking >= 12) ? 1 : 0;
+        flakeMinM = 0.07;
+        flakeSpanM = 0.05;
+        flakeLifeS = 5.5;
+    } else if (in.grade == ms::damage::DamageGrade::FireAndStall) {
+        sparkCount = std::clamp(4 + in.fragmentsStriking / 20, 4, 8);
+        flakeCount = std::clamp((in.panelsTorn > 0 ? 1 : 0) + in.fragmentsStriking / 40, 1, 2);
+        flakeMinM = 0.09;
+        flakeSpanM = 0.07;
+        flakeLifeS = 7.5;
+        allowHotFlake = in.fiery && in.panelsTorn > 0;
+    } else {
+        sparkCount = std::clamp(6 + in.fragmentsStriking / 18, 6, 10);
+        flakeCount = std::clamp(2 + in.fragmentsStriking / 35, 2, 4);
+        flakeMinM = 0.12;
+        flakeSpanM = 0.10;
+        flakeLifeS = 11.0;
+        allowHotFlake = in.fiery;
+    }
 
     for (int i = 0; i < sparkCount; ++i) {
         auto& sp = allocate(ipc::DebrisArchetypeV1::SparkEmber);
         sp.ownerVehicleId = in.ownerVehicleId;
         const V3 randDir = normalized(exitDir * 0.55 + randomUnitSphere(rng) * 0.75);
-        store(sp.positionEcef, pos + randomUnitSphere(rng) * (0.35 + 0.85 * rng.uniform()));
-        store(sp.velocityEcef, vel * (0.82 + 0.14 * rng.uniform()) + randDir * (14.0 + 36.0 * rng.uniform()));
+        store(sp.positionEcef, pos + randomUnitSphere(rng) * (0.25 + 0.60 * rng.uniform()));
+        store(sp.velocityEcef, vel * (0.82 + 0.14 * rng.uniform()) + randDir * (12.0 + 30.0 * rng.uniform()));
         randomUnitQuat(rng, sp.quatBodyToEcef);
         sp.massKg = 0.03;
         sp.areaM2 = 0.006;
-        sp.halfExtentsM[0] = 0.24; sp.halfExtentsM[1] = 0.055; sp.halfExtentsM[2] = 0.055;
+        sp.halfExtentsM[0] = 0.18; sp.halfExtentsM[1] = 0.040; sp.halfExtentsM[2] = 0.040;
         sp.burning = true;
-        sp.temperatureK = in.fiery ? 2400.0 : 2150.0;
+        sp.temperatureK = in.fiery ? 2350.0 : 2100.0;
         sp.smokeIntensity = 0.0;
-        sp.maxAgeS = 0.60 + 0.90 * rng.uniform();
+        sp.maxAgeS = 0.40 + 0.55 * rng.uniform();
     }
     for (int i = 0; i < flakeCount; ++i) {
-        const bool hot = in.fiery && (i < 2);
+        const bool hot = allowHotFlake && (i == 0);
         auto& fl = allocate(hot ? ipc::DebrisArchetypeV1::BurningChunk : ipc::DebrisArchetypeV1::PanelShard);
         fl.ownerVehicleId = in.ownerVehicleId;
         fl.partTag = static_cast<ipc::DebrisPartTagV1>(static_cast<std::uint8_t>(ipc::DebrisPartTagV1::VoronoiShard0) + (i % 6));
         const V3 randDir = normalized(exitDir * 0.60 + randomUnitSphere(rng) * 0.65);
-        store(fl.positionEcef, pos + randomUnitSphere(rng) * (0.4 + 0.9 * rng.uniform()));
-        store(fl.velocityEcef, vel * (0.86 + 0.10 * rng.uniform()) + randDir * (8.0 + 22.0 * rng.uniform()));
+        store(fl.positionEcef, pos + randomUnitSphere(rng) * (0.3 + 0.6 * rng.uniform()));
+        store(fl.velocityEcef, vel * (0.86 + 0.10 * rng.uniform()) + randDir * (7.0 + 18.0 * rng.uniform()));
         randomUnitQuat(rng, fl.quatBodyToEcef);
-        fl.omegaBodyRadS[0] = (rng.uniform() - 0.5) * 16.0;
-        fl.omegaBodyRadS[1] = (rng.uniform() - 0.5) * 16.0;
-        fl.omegaBodyRadS[2] = (rng.uniform() - 0.5) * 16.0;
-        fl.massKg = 1.5 + 3.0 * rng.uniform();
-        fl.halfExtentsM[0] = 0.16 + 0.18 * rng.uniform();
-        fl.halfExtentsM[1] = 0.12 + 0.14 * rng.uniform();
-        fl.halfExtentsM[2] = 0.04;
+        fl.omegaBodyRadS[0] = (rng.uniform() - 0.5) * 18.0;
+        fl.omegaBodyRadS[1] = (rng.uniform() - 0.5) * 18.0;
+        fl.omegaBodyRadS[2] = (rng.uniform() - 0.5) * 18.0;
+        fl.massKg = 0.4 + 1.0 * rng.uniform();
+        fl.halfExtentsM[0] = flakeMinM + flakeSpanM * rng.uniform();
+        fl.halfExtentsM[1] = fl.halfExtentsM[0] * (0.55 + 0.35 * rng.uniform());
+        fl.halfExtentsM[2] = 0.02;
         fl.areaM2 = 2.0 * fl.halfExtentsM[0] * fl.halfExtentsM[1];
         fl.burning = hot;
-        fl.fuelRemainingKg = hot ? 1.5 : 0.0;
-        fl.burnRateKgS = hot ? 0.35 : 0.0;
-        fl.temperatureK = hot ? 1650.0 : 520.0;
-        fl.smokeIntensity = hot ? 0.65 : 0.06;
-        fl.maxAgeS = 18.0 + 12.0 * rng.uniform();
+        fl.fuelRemainingKg = hot ? 0.6 : 0.0;
+        fl.burnRateKgS = hot ? 0.20 : 0.0;
+        fl.temperatureK = hot ? 1550.0 : 480.0;
+        fl.smokeIntensity = hot ? 0.35 : 0.0;
+        fl.maxAgeS = flakeLifeS + 3.0 * rng.uniform();
         if (jolt_ && jolt_->initialized) registerJoltBody(fl);
     }
 }
