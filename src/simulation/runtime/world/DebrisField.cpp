@@ -544,12 +544,13 @@ void DebrisField::spawnSectionBreakup(const SectionBreakupSpawn& in, Rng& rng) {
             body.halfExtentsM[0] = 0.52 * span;
             body.halfExtentsM[1] = 0.58 * span;
             body.halfExtentsM[2] = 0.18;
-            body.areaM2 = std::max(0.9, 0.85 * span * span);
+            // Time-averaged projected tumbling drag area of a sheared wing plate (~0.24 * span^2, not 0.85 * span^2).
+            body.areaM2 = std::clamp(0.24 * span * span, 0.9, 3.8);
         } else {
             body.halfExtentsM[0] = 0.72 * span;
             body.halfExtentsM[1] = 0.44 * span;
             body.halfExtentsM[2] = 0.38 * span;
-            body.areaM2 = std::max(1.0, 0.60 * span * span);
+            body.areaM2 = std::clamp(0.32 * span * span, 1.0, 4.5);
         }
         body.fuelRemainingKg = std::max(0.0, in.fuelKg);
         body.burning = in.burning || (in.fuelKg > 15.0 && rng.uniform() < 0.65);
@@ -653,11 +654,20 @@ void DebrisField::spawnCatastrophicKill(const CatastrophicSpawn& in, Rng& rng) {
     std::array<V3, kStructuralTotal> offsets{};
     V3 sumP{};
 
-    // Reserve 8% of airframe mass for Voronoi skin shards & burning internal chunks, 92% in real 5 sections.
+    // Reserve 8% of airframe mass for Voronoi skin shards & burning internal chunks, 92% in remaining intact sections.
+    // Skip any section already detached earlier in Grade 3 StructuralBreakup so delayed Grade 3 -> Grade 4 never duplicates a wing/tail!
     double sumSec = 0.0;
-    for (int i = 0; i < kSections; ++i) sumSec += kSectionMassShare[i];
     for (int i = 0; i < kSections; ++i) {
-        masses[static_cast<std::size_t>(i)] = totalMass * 0.92 * (kSectionMassShare[i] / sumSec);
+        if ((in.alreadySeparatedMask & (1u << i)) != 0u) continue;
+        sumSec += kSectionMassShare[i];
+    }
+    const double secMassTotal = sumSec > 1e-6 ? totalMass * 0.92 : 0.0;
+    for (int i = 0; i < kSections; ++i) {
+        if ((in.alreadySeparatedMask & (1u << i)) != 0u || !(sumSec > 1e-6)) {
+            masses[static_cast<std::size_t>(i)] = 0.0;
+            continue;
+        }
+        masses[static_cast<std::size_t>(i)] = secMassTotal * (kSectionMassShare[i] / sumSec);
         const double ox = in.hasSectionOffsets ? in.sectionOffsetsBodyM[i][0] : kDefaultOffsets[i][0];
         const double oy = in.hasSectionOffsets ? in.sectionOffsetsBodyM[i][1] : kDefaultOffsets[i][1];
         const double oz = in.hasSectionOffsets ? in.sectionOffsetsBodyM[i][2] : kDefaultOffsets[i][2];
@@ -677,9 +687,10 @@ void DebrisField::spawnCatastrophicKill(const CatastrophicSpawn& in, Rng& rng) {
         sw[static_cast<std::size_t>(j)] = (j < kBurningChunks ? 2.0 : 0.8) * (0.6 + 0.8 * rng.uniform());
         shardWeightSum += sw[static_cast<std::size_t>(j)];
     }
+    const double shardPoolTotal = totalMass - secMassTotal;
     for (int j = 0; j < kVoronoiShards + kBurningChunks; ++j) {
         const std::size_t idx = static_cast<std::size_t>(kSections + j);
-        masses[idx] = totalMass * 0.08 * (sw[static_cast<std::size_t>(j)] / shardWeightSum);
+        masses[idx] = shardPoolTotal * (sw[static_cast<std::size_t>(j)] / shardWeightSum);
         const V3 dir = randomUnitSphere(rng);
         offsets[idx] = dir * (0.6 + 2.4 * rng.uniform());
         const double spd = blastScale * (j < kBurningChunks ? (0.50 + 0.55 * rng.uniform()) : (0.75 + 0.85 * rng.uniform()));
@@ -692,6 +703,7 @@ void DebrisField::spawnCatastrophicKill(const CatastrophicSpawn& in, Rng& rng) {
     const double fuelPerSection = std::max(0.0, in.remainingFuelKg) * 0.65 / 4.0;
     for (int i = 0; i < kStructuralTotal; ++i) {
         const bool isSection = i < kSections;
+        if (isSection && !(masses[static_cast<std::size_t>(i)] > 0.0)) continue;
         const bool isBurnChunk = !isSection && i < (kSections + kBurningChunks);
         const ipc::DebrisArchetypeV1 arch =
             isSection ? kSectionArch[i] : (isBurnChunk ? ipc::DebrisArchetypeV1::BurningChunk : ipc::DebrisArchetypeV1::PanelShard);
@@ -1135,6 +1147,78 @@ void DebrisField::spawnSlideSparks(const SlideSparkSpawn& in, Rng& rng) {
         sc.temperatureK = 320.0;
         sc.smokeIntensity = 0.82;
         sc.maxAgeS = 25.0;
+    }
+}
+
+void DebrisField::spawnHitBurst(const HitBurstSpawn& in, Rng& rng) {
+    if (in.fragmentsStriking <= 0) return;
+    const V3 pos = v3(in.positionEcef);
+    const V3 vel = v3(in.velocityEcef);
+    V3 exitDir = normalized(v3(in.exitDirEcef));
+    if (length(exitDir) < 0.5) exitDir = {0.0, 0.0, 1.0};
+    const int sparkCount = std::clamp(4 + in.fragmentsStriking / 12, 4, 16);
+    const int flakeCount = std::clamp(2 + in.fragmentsStriking / 25, 2, 7);
+
+    for (int i = 0; i < sparkCount; ++i) {
+        auto& sp = allocate(ipc::DebrisArchetypeV1::SparkEmber);
+        sp.ownerVehicleId = in.ownerVehicleId;
+        const V3 randDir = normalized(exitDir * 0.55 + randomUnitSphere(rng) * 0.75);
+        store(sp.positionEcef, pos + randomUnitSphere(rng) * (0.35 + 0.85 * rng.uniform()));
+        store(sp.velocityEcef, vel * (0.82 + 0.14 * rng.uniform()) + randDir * (14.0 + 36.0 * rng.uniform()));
+        randomUnitQuat(rng, sp.quatBodyToEcef);
+        sp.massKg = 0.03;
+        sp.areaM2 = 0.006;
+        sp.halfExtentsM[0] = 0.24; sp.halfExtentsM[1] = 0.055; sp.halfExtentsM[2] = 0.055;
+        sp.burning = true;
+        sp.temperatureK = in.fiery ? 2400.0 : 2150.0;
+        sp.smokeIntensity = 0.0;
+        sp.maxAgeS = 0.60 + 0.90 * rng.uniform();
+    }
+    for (int i = 0; i < flakeCount; ++i) {
+        const bool hot = in.fiery && (i < 2);
+        auto& fl = allocate(hot ? ipc::DebrisArchetypeV1::BurningChunk : ipc::DebrisArchetypeV1::PanelShard);
+        fl.ownerVehicleId = in.ownerVehicleId;
+        fl.partTag = static_cast<ipc::DebrisPartTagV1>(static_cast<std::uint8_t>(ipc::DebrisPartTagV1::VoronoiShard0) + (i % 6));
+        const V3 randDir = normalized(exitDir * 0.60 + randomUnitSphere(rng) * 0.65);
+        store(fl.positionEcef, pos + randomUnitSphere(rng) * (0.4 + 0.9 * rng.uniform()));
+        store(fl.velocityEcef, vel * (0.86 + 0.10 * rng.uniform()) + randDir * (8.0 + 22.0 * rng.uniform()));
+        randomUnitQuat(rng, fl.quatBodyToEcef);
+        fl.omegaBodyRadS[0] = (rng.uniform() - 0.5) * 16.0;
+        fl.omegaBodyRadS[1] = (rng.uniform() - 0.5) * 16.0;
+        fl.omegaBodyRadS[2] = (rng.uniform() - 0.5) * 16.0;
+        fl.massKg = 1.5 + 3.0 * rng.uniform();
+        fl.halfExtentsM[0] = 0.16 + 0.18 * rng.uniform();
+        fl.halfExtentsM[1] = 0.12 + 0.14 * rng.uniform();
+        fl.halfExtentsM[2] = 0.04;
+        fl.areaM2 = 2.0 * fl.halfExtentsM[0] * fl.halfExtentsM[1];
+        fl.burning = hot;
+        fl.fuelRemainingKg = hot ? 1.5 : 0.0;
+        fl.burnRateKgS = hot ? 0.35 : 0.0;
+        fl.temperatureK = hot ? 1650.0 : 520.0;
+        fl.smokeIntensity = hot ? 0.65 : 0.06;
+        fl.maxAgeS = 18.0 + 12.0 * rng.uniform();
+        if (jolt_ && jolt_->initialized) registerJoltBody(fl);
+    }
+}
+
+void DebrisField::spawnDamageEmbers(const DamageEmberSpawn& in, Rng& rng) {
+    const V3 pos = v3(in.positionEcef);
+    const V3 vel = v3(in.velocityEcef);
+    const double inten = std::clamp(in.intensity, 0.2, 1.0);
+    const int count = inten > 0.65 ? 2 : 1;
+    for (int i = 0; i < count; ++i) {
+        auto& sp = allocate(ipc::DebrisArchetypeV1::SparkEmber);
+        sp.ownerVehicleId = in.ownerVehicleId;
+        store(sp.positionEcef, pos + randomUnitSphere(rng) * (0.35 + 0.55 * rng.uniform()));
+        store(sp.velocityEcef, vel * (0.76 + 0.14 * rng.uniform()) + randomUnitSphere(rng) * (4.0 + 10.0 * inten));
+        randomUnitQuat(rng, sp.quatBodyToEcef);
+        sp.massKg = 0.025;
+        sp.areaM2 = 0.008;
+        sp.halfExtentsM[0] = 0.22; sp.halfExtentsM[1] = 0.055; sp.halfExtentsM[2] = 0.055;
+        sp.burning = true;
+        sp.temperatureK = 2100.0 + 350.0 * rng.uniform();
+        sp.smokeIntensity = 0.0;
+        sp.maxAgeS = 0.65 + 0.90 * rng.uniform();
     }
 }
 

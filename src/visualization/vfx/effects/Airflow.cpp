@@ -332,7 +332,7 @@ void Airflow::ignite(std::size_t slot, const std::string& component, double rate
             f.rateKgS = rateKgS, f.mistKgS = std::max(mistKgS, 0.0);
             return;
         }
-    if (rateKgS > 0.0) fires_.push_back(Fire{slot, component, rateKgS, now, std::max(mistKgS, 0.0)});
+    if (rateKgS > 0.0 || mistKgS > 0.0) fires_.push_back(Fire{slot, component, rateKgS, now, std::max(mistKgS, 0.0)});
 }
 
 void Airflow::smokeFrom(std::size_t i, const sim::VehicleState& st, const VehicleVisuals::Shape& shape, const cocip::AirAt& air, double now) {
@@ -636,8 +636,9 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
             for (const auto& c : visuals.shape(i).components)
                 if (c.name == fire.component) { part = &c; break; }
         const bool burning = part && fire.rateKgS > 0.0 && now >= fire.since;
-        // its unburnt fuel's mist: a trail of its own from the same place, while the fire's leak throws one out
-        const bool misting = burning && fire.mistKgS > 0.0 && fireHandOver_ <= 0.0;
+        // Un-ignited fuel leaks (rateKgS <= 0, mistKgS > 0) ALWAYS emit pure white vaporizing kerosene mist (Grade 1)
+        // even while NVIDIA Flow handles ignited fires; ignited fires emit separate mist only without Flow handover.
+        const bool misting = part && fire.mistKgS > 0.0 && now >= fire.since && (!burning || fireHandOver_ <= 0.0);
         if (Source* mist = source(kFireKey + 4096 + static_cast<int>(f), misting)) {
             mist->used = true;
             if (!misting) mist->forming = false;
@@ -647,10 +648,13 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
                 const double V = finite(st.airspeedTrueMs), altitude = finite(st.altitudeMslM);
                 if (!mist->forming || now - mist->lastCommit >= kInterval) {
                     const cocip::Shear shear{kShear, kShear * 2.0 / 3.14159265358979323846};
-                    Sample m = layFire(fire.rateKgS, V, altitude, shear, air, at, now);
+                    Sample m = layFire(std::max(fire.rateKgS, fire.mistKgS), V, altitude, shear, air, at, now);
                     m.fire = false, m.mist = true, m.albedo = 1.0; // (white: droplets that scatter)
-                    m.smokePrimaryE = fire.mistKgS * kMistExtinction / std::max(V, 1.0);
-                    m.plume.width = m.plume.depth = kFireWidth * fireScale(fire.rateKgS + fire.mistKgS); // (all the leak's spray)
+                    // Pure un-ignited fuel leaks (Grade 1) form a tight, streamlined vaporizing kerosene ribbon rather than
+                    // an oversized cloud blob swallowing the fuselage.
+                    m.smokePrimaryE = fire.mistKgS * kMistExtinction * (!burning ? 1.55 : 1.0) / std::max(V, 1.0);
+                    const double mistWidthScale = !burning ? 0.36 : 1.0;
+                    m.plume.width = m.plume.depth = kFireWidth * mistWidthScale * fireScale(std::max(fire.rateKgS + fire.mistKgS, 0.25));
                     m.flown = mist->samples.empty() ? 0.0 : mist->samples.back().flown + vsg::length(at - mist->samples.back().at);
                     m.gapBefore = !mist->forming;
                     m.up = -bodyAxisEcef(st, 2);

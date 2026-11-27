@@ -742,6 +742,8 @@ std::vector<ipc::EngagementEvent> World::applyDamagePreparedV1(Entry& e, const D
         }
     }
     int newlySeparated = 0;
+    int killedEngineComp = -1;
+    double killedEngineEnergyJ = 0.0;
     for (std::size_t changeIndex=0;changeIndex<changes.size();++changeIndex) {
         const auto& c=changes[changeIndex];
         const auto* donor=changeDonors.empty()?nullptr:changeDonors[changeIndex];
@@ -799,9 +801,21 @@ std::vector<ipc::EngagementEvent> World::applyDamagePreparedV1(Entry& e, const D
                 ev.massKg = e.damage->leakKgS(c.tank, kg, donor?donor->encounter.loadFactor:s.loadFactor, f.dynamicPressurePa);
                 ev.rateKgS = std::min(ev.massKg, ms::damage::kBurnMostKgS); // (what burns of it; the rest its mist)
                 e.fireRates[c.tank] = ev.massKg;
+                e.leakMistRates.erase(c.tank);
             } else if (c.engine >= 0) {
                 // an engine's fire: the fuel its feed was flowing as it failed (an estimate: until it is shut off)
                 ev.rateKgS = model.property("propulsion/engine[" + std::to_string(c.engine) + "]/fuel-flow-rate-pps").get() * kLbsToKg;
+                if (destructionMode_ == DestructionModeV1::LightweightDebris) {
+                    // Realistic turbine manifold/oil fire (0.45-0.78 kg/s): fierce compact 7-10 m flame licking out
+                    // of the engine bay transitioning cleanly into billowing pitch-black hydrocarbon smoke.
+                    ev.rateKgS = std::clamp(ev.rateKgS * 0.45, 0.45, 0.78);
+                    ev.amountKg = std::max(ev.amountKg, 2.2); // brief turbine/feed-line ignition flash
+                    e.destruction.engineFireActive = true;
+                    e.destruction.engineFireSection = c.component >= 0 ? a.components[static_cast<std::size_t>(c.component)].section : -1;
+                    e.destruction.engineFireRateKgS = ev.rateKgS;
+                    e.engineFireComponent = component;
+                    e.engineFireElapsedS = 0.0;
+                }
                 ev.massKg = ev.rateKgS;
             }
             out.push_back(ev);
@@ -809,6 +823,16 @@ std::vector<ipc::EngagementEvent> World::applyDamagePreparedV1(Entry& e, const D
         }
         case K::EngineOut: {
             model.seizeEngine(c.engine);
+            if (destructionMode_ == DestructionModeV1::LightweightDebris && c.component >= 0) {
+                const auto& sourceImpact = donor ? donor->impact : impact;
+                double eJ = 0.0;
+                for (const auto& h : sourceImpact.components)
+                    if (h.component == c.component) eJ += h.energyJ;
+                if (eJ > killedEngineEnergyJ) {
+                    killedEngineEnergyJ = eJ;
+                    killedEngineComp = c.component;
+                }
+            }
             auto ev = engagementEvent(e, ipc::EngagementKind::EngineOut, component);
             ev.index = static_cast<std::uint32_t>(std::max(c.engine, 0));
             out.push_back(ev);
@@ -846,7 +870,92 @@ std::vector<ipc::EngagementEvent> World::applyDamagePreparedV1(Entry& e, const D
             break;
         }
     }
+    // VIS-M11b: High-energy turbine case perforation ignites hot fuel/oil feed lines in LightweightDebris mode
+    // using the independent destructionRng stream (preserving damageRng bit-identity for LegacyCompatible).
+    if (destructionMode_ == DestructionModeV1::LightweightDebris && !e.destruction.engineFireActive &&
+        killedEngineComp >= 0 && killedEngineEnergyJ >= 12000.0 &&
+        static_cast<std::size_t>(killedEngineComp) < a.components.size()) {
+        const double pIgnite = std::clamp(0.45 + (killedEngineEnergyJ - 12000.0) / 45000.0, 0.45, 0.88);
+        if (e.destructionRng.uniform() < pIgnite) {
+            const auto& comp = a.components[static_cast<std::size_t>(killedEngineComp)];
+            auto ev = engagementEvent(e, ipc::EngagementKind::Fire, comp.name);
+            const auto point = ms::weapon::materialPoint(s, v3(cg), comp.centre);
+            if (point.valid) {
+                for (int k = 0; k < 3; ++k) {
+                    ev.positionEcef[k] = (&point.position.x)[k];
+                    ev.velocityEcef[k] = (&point.velocity.x)[k];
+                }
+            }
+            const double rate = std::clamp(0.45 + killedEngineEnergyJ / 120000.0, 0.45, 0.78);
+            ev.amountKg = 2.4;
+            ev.rateKgS = rate;
+            ev.massKg = rate;
+            e.destruction.engineFireActive = true;
+            e.destruction.engineFireSection = comp.section;
+            e.destruction.engineFireRateKgS = rate;
+            e.engineFireComponent = comp.name;
+            e.engineFireElapsedS = 0.0;
+            out.push_back(ev);
+        }
+    }
     evaluateEntryDestruction(e, &impact, pressurePa, newlySeparated, 0.0, &out);
+    // VIS-M11b: Non-catastrophic fragment hits emit localized metallic sparks/aluminium flakes at the struck location
+    // and immediately publish un-ignited kerosene fuel-mist leak trails for Grade 1 holed tanks.
+    if (destructionMode_ == DestructionModeV1::LightweightDebris && impact.fragmentsStriking > 0 && !e.destruction.hullRetired) {
+        ms::damage::V3 hitPosSum{};
+        double hitWeight = 0.0;
+        for (const auto& ch : impact.components) {
+            if (ch.hits > 0 && ch.component >= 0 && static_cast<std::size_t>(ch.component) < a.components.size()) {
+                const double w = static_cast<double>(ch.hits) * 2.0;
+                hitPosSum += a.components[static_cast<std::size_t>(ch.component)].centre * w;
+                hitWeight += w;
+            }
+        }
+        for (const auto& ph : impact.panels) {
+            if (ph.hits > 0 && ph.panel >= 0 && static_cast<std::size_t>(ph.panel) < a.panels.size()) {
+                const double w = static_cast<double>(ph.hits);
+                hitPosSum += a.panels[static_cast<std::size_t>(ph.panel)].middle() * w;
+                hitWeight += w;
+            }
+        }
+        const ms::damage::V3 hitBody = hitWeight > 0.0 ? (hitPosSum * (1.0 / hitWeight)) : (impact.fromBody * 2.0);
+        const auto hitPt = ms::weapon::materialPoint(s, v3(cg), hitBody);
+        if (hitPt.valid) {
+            const ms::damage::V3 exitEcef = rotate(s, ms::damage::normalized(hitBody - burstBody));
+            HitBurstSpawn hb;
+            hb.ownerVehicleId = e.info.id;
+            hb.positionEcef[0] = hitPt.position.x; hb.positionEcef[1] = hitPt.position.y; hb.positionEcef[2] = hitPt.position.z;
+            hb.velocityEcef[0] = hitPt.velocity.x; hb.velocityEcef[1] = hitPt.velocity.y; hb.velocityEcef[2] = hitPt.velocity.z;
+            hb.exitDirEcef[0] = exitEcef.x; hb.exitDirEcef[1] = exitEcef.y; hb.exitDirEcef[2] = exitEcef.z;
+            hb.fragmentsStriking = impact.fragmentsStriking;
+            hb.fiery = e.destruction.grade >= ms::damage::DamageGrade::FireAndStall;
+            debrisField_.spawnHitBurst(hb, debrisRng_);
+        }
+        // Emit initial un-ignited fuel-mist trail for perforated tanks that did not ignite.
+        for (const auto& [tankIdx, tankState] : e.damage->tanks()) {
+            if (tankState.burning || !(tankState.holeM2 > 0.0)) continue;
+            if (tankIdx < 0 || static_cast<std::size_t>(tankIdx) >= f.tankKg.size()) continue;
+            const double kg = f.tankKg[static_cast<std::size_t>(tankIdx)];
+            const double leak = e.damage->leakKgS(tankIdx, kg, s.loadFactor, f.dynamicPressurePa);
+            if (!(leak > 0.02)) continue;
+            const int compIdx = tankState.component;
+            if (compIdx < 0 || static_cast<std::size_t>(compIdx) >= a.components.size()) continue;
+            const auto& comp = a.components[static_cast<std::size_t>(compIdx)];
+            auto ev = engagementEvent(e, ipc::EngagementKind::Fire, comp.name);
+            const auto pt = ms::weapon::materialPoint(s, v3(cg), comp.centre);
+            if (pt.valid) {
+                for (int k = 0; k < 3; ++k) {
+                    ev.positionEcef[k] = (&pt.position.x)[k];
+                    ev.velocityEcef[k] = (&pt.velocity.x)[k];
+                }
+            }
+            ev.amountKg = 0.0;
+            ev.rateKgS = 0.0; // un-ignited: pure white kerosene mist!
+            ev.massKg = leak;
+            e.leakMistRates[tankIdx] = leak;
+            out.push_back(ev);
+        }
+    }
     pool_->refreshState(e.slot);
     // Optional read-only native application witness. Its phase is post-apply,
     // not an assumed pre-release label; an actual release event/serial proves
@@ -1575,6 +1684,9 @@ void World::stepDamage() {
         damageFlight(*e, f);
         // the holed tanks leak; a burning one's rate recorded as it changes, its end when it is dry
         bool hasBurningTank = false;
+        double activeFireRateKgS = 0.0;
+        ms::damage::V3 emberBodyPos{};
+        bool haveEmberPos = false;
         for (const auto& [tank, state] : e->damage->tanks()) {
             if (tank < 0 || static_cast<std::size_t>(tank) >= f.tankKg.size()) continue;
             const double kg = f.tankKg[static_cast<std::size_t>(tank)];
@@ -1584,8 +1696,45 @@ void World::stepDamage() {
                 else if(static_cast<std::size_t>(tank)<e->damageReads.tanks.size())
                     e->damageReads.tanks[static_cast<std::size_t>(tank)].set(std::max(kg-leak*dt,0.0)/kLbsToKg);
             }
-            if (!state.burning) continue;
-            if (kg > 0.0) hasBurningTank = true;
+            if (!state.burning) {
+                if (destructionMode_ == DestructionModeV1::LightweightDebris && e->info.role == ms::Role::Aircraft &&
+                    state.holeM2 > 0.0 && state.component >= 0 &&
+                    static_cast<std::size_t>(state.component) < e->damage->airframe().components.size()) {
+                    const double mistNow = leak > 0.02 ? leak : 0.0;
+                    const auto lastMist = e->leakMistRates.find(tank);
+                    const double prevMist = lastMist == e->leakMistRates.end() ? 0.0 : lastMist->second;
+                    if (std::abs(mistNow - prevMist) > kRateReported * std::max(prevMist, 0.05) &&
+                        !(prevMist == 0.0 && mistNow == 0.0)) {
+                        const auto& comp = e->damage->airframe().components[static_cast<std::size_t>(state.component)];
+                        auto ev = engagementEvent(*e, ipc::EngagementKind::Fire, comp.name);
+                        double cg[3];
+                        if (model.cgFromOriginBodyM(cg)) {
+                            const auto point = ms::weapon::materialPoint(e->working, v3(cg), comp.centre);
+                            if (point.valid) {
+                                for (int k = 0; k < 3; ++k) {
+                                    ev.positionEcef[k] = (&point.position.x)[k];
+                                    ev.velocityEcef[k] = (&point.velocity.x)[k];
+                                }
+                            }
+                        }
+                        ev.amountKg = 0.0;
+                        ev.rateKgS = 0.0;
+                        ev.massKg = mistNow;
+                        engage(ev);
+                        e->leakMistRates[tank] = mistNow;
+                    }
+                }
+                continue;
+            }
+            if (kg > 0.0) {
+                hasBurningTank = true;
+                activeFireRateKgS += std::min(leak, ms::damage::kBurnMostKgS);
+                if (!haveEmberPos && state.component >= 0 &&
+                    static_cast<std::size_t>(state.component) < e->damage->airframe().components.size()) {
+                    emberBodyPos = e->damage->airframe().components[static_cast<std::size_t>(state.component)].centre;
+                    haveEmberPos = true;
+                }
+            }
             const auto last = e->fireRates.find(tank);
             const double before = last == e->fireRates.end() ? 0.0 : last->second;
             if (std::abs(leak - before) > kRateReported * std::max(before, 1e-3) && !(before == 0.0 && leak == 0.0)) {
@@ -1605,6 +1754,60 @@ void World::stepDamage() {
                 e->fireRates[tank] = leak;
             }
         }
+        // VIS-M11b: Persistent in-flight engine-bay fire draws real fuel from remaining tanks and extinguishes when dry/spent.
+        if (destructionMode_ == DestructionModeV1::LightweightDebris && e->info.role == ms::Role::Aircraft &&
+            e->destruction.engineFireActive && !e->destruction.hullRetired) {
+            e->engineFireElapsedS += dt;
+            double burned = 0.0;
+            const double wantKg = e->destruction.engineFireRateKgS * dt;
+            double rem = wantKg;
+            for (auto& tankProp : e->damageReads.tanks) {
+                if (!(rem > 0.0) || !tankProp.valid()) continue;
+                const double curKg = std::max(0.0, tankProp.get() * kLbsToKg);
+                const double take = std::min(curKg, rem);
+                tankProp.set((curKg - take) / kLbsToKg);
+                rem -= take;
+                burned += take;
+            }
+            if (burned <= 1e-4 || e->engineFireElapsedS > 22.0) {
+                e->destruction.engineFireActive = false;
+                e->destruction.engineFireRateKgS = 0.0;
+                if (!e->engineFireComponent.empty()) {
+                    engage(engagementEvent(*e, ipc::EngagementKind::Fire, e->engineFireComponent));
+                }
+            } else {
+                activeFireRateKgS += e->destruction.engineFireRateKgS;
+                if (!haveEmberPos) {
+                    for (const auto& comp : e->damage->airframe().components) {
+                        if (comp.name == e->engineFireComponent) {
+                            emberBodyPos = comp.centre;
+                            haveEmberPos = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        // Shed periodic incandescent sparks/embers from in-flight burning engine or fuel bays (Grade 2-3).
+        if (destructionMode_ == DestructionModeV1::LightweightDebris && e->info.role == ms::Role::Aircraft &&
+            haveEmberPos && activeFireRateKgS > 0.25 && !e->destruction.hullRetired) {
+            e->fireEmberAccumS += dt;
+            if (e->fireEmberAccumS >= 0.09) {
+                e->fireEmberAccumS = 0.0;
+                double cg[3];
+                if (model.cgFromOriginBodyM(cg)) {
+                    const auto pt = ms::weapon::materialPoint(e->working, v3(cg), emberBodyPos);
+                    if (pt.valid) {
+                        DamageEmberSpawn es;
+                        es.ownerVehicleId = e->info.id;
+                        es.positionEcef[0] = pt.position.x; es.positionEcef[1] = pt.position.y; es.positionEcef[2] = pt.position.z;
+                        es.velocityEcef[0] = pt.velocity.x; es.velocityEcef[1] = pt.velocity.y; es.velocityEcef[2] = pt.velocity.z;
+                        es.intensity = std::clamp(activeFireRateKgS / 4.0, 0.3, 1.0);
+                        debrisField_.spawnDamageEmbers(es, debrisRng_);
+                    }
+                }
+            }
+        }
         if(e->info.role==ms::Role::Debris) {
             synchronizeDetachedFuel(model,*e->damage);
         }
@@ -1615,7 +1818,7 @@ void World::stepDamage() {
             ++stepSeparated;
         }
         if (destructionMode_ == DestructionModeV1::LightweightDebris && e->info.role == ms::Role::Aircraft &&
-            (hasBurningTank || stepSeparated > 0)) {
+            (hasBurningTank || e->destruction.engineFireActive || stepSeparated > 0)) {
             evaluateEntryDestruction(*e, nullptr, f.airPressurePa, stepSeparated, dt, nullptr);
         }
     }
@@ -1660,7 +1863,7 @@ void World::separated(Entry& e, int section, const sim::VehicleState* as, const 
 }
 
 void World::separatedAt(Entry& e, int section, const sim::VehicleState* as, const Thrown* thrown,
-                         std::vector<ipc::EngagementEvent>* events) {
+                         std::vector<ipc::EngagementEvent>* events, bool forceBurning) {
     const auto& a = e.damage->airframe();
     const auto& sec = a.sections[static_cast<std::size_t>(section)];
     auto& model = pool_->vehicle(e.slot);
@@ -1695,7 +1898,7 @@ void World::separatedAt(Entry& e, int section, const sim::VehicleState* as, cons
     model.endMassChange(sec.inertia.data(), nullptr);
 
     const auto emit=[&](ipc::EngagementEvent event){ if (events) events->push_back(event); else engage(event); };
-    bool sectionBurning = false;
+    bool sectionBurning = forceBurning;
     if (inherited) {
         for (const auto& [tank, state] : inherited->tanks())
             if (state.burning) sectionBurning = true;
@@ -1759,6 +1962,20 @@ void World::separatedAt(Entry& e, int section, const sim::VehicleState* as, cons
         model.applyImpulse(restNs, restNms);
         debrisSpawn.spawnPrimaryChunk = true;
         debrisField_.spawnSectionBreakup(debrisSpawn, debrisRng_);
+        // Localized fiery snap at the torn root if fuel/fire was present in the sheared section (Grade 3 visual punch).
+        if (!e.destruction.hullRetired && (part.fuelKg > 10.0 || sectionBurning)) {
+            ipc::EngagementEvent rootFlash = engagementEvent(e, ipc::EngagementKind::Fire, sec.name);
+            rootFlash.positionEcef[0] = rootPosEcef.x;
+            rootFlash.positionEcef[1] = rootPosEcef.y;
+            rootFlash.positionEcef[2] = rootPosEcef.z;
+            rootFlash.velocityEcef[0] = secVelEcef.x;
+            rootFlash.velocityEcef[1] = secVelEcef.y;
+            rootFlash.velocityEcef[2] = secVelEcef.z;
+            rootFlash.amountKg = std::clamp(part.fuelKg * 0.14, 7.0, 24.0);
+            rootFlash.rateKgS = 0.0;
+            rootFlash.massKg = 0.0;
+            emit(rootFlash);
+        }
     } else {
         // LegacyCompatible mode: retain jsbsim:<piece> child vehicles & MaterialOwnerHandoffV3 for SIM-M02/M03 tests,
         // while also populating passive fracture shards in DebrisField.
@@ -2283,18 +2500,42 @@ void World::evaluateEntryDestruction(Entry& e, const ms::damage::Impact* impact,
     stepIn.airPressurePa = std::isfinite(pressurePa) && pressurePa > 0.0 ? pressurePa : 101325.0;
     stepIn.newlySeparatedCount = newlySeparated;
     stepIn.dtS = dtS;
+    stepIn.engineFireActive = e.destruction.engineFireActive;
+    stepIn.engineFireSection = e.destruction.engineFireSection;
+    stepIn.engineFireRateKgS = e.destruction.engineFireRateKgS;
+    if (impact) {
+        stepIn.fragmentsStriking = impact->fragmentsStriking;
+        stepIn.hitFromBody = impact->fromBody;
+        stepIn.hasHitDirection = ms::damage::length(impact->fromBody) > 1e-6;
+    }
 
     // Max blast overpressure across struck panels and per-section hit energy.
     std::vector<double> sectionBlastPa(a.sections.size(), 0.0);
+    std::vector<double> sectionBlastWeightedSum(a.sections.size(), 0.0);
+    std::vector<double> sectionBlastAreaSum(a.sections.size(), 0.0);
     std::vector<double> sectionEnergyJ(a.sections.size(), 0.0);
     if (impact) {
         for (const auto& p : impact->panels) {
             stepIn.maxBlastOverpressurePa = std::max(stepIn.maxBlastOverpressurePa, p.overpressurePa);
             if (p.panel >= 0 && static_cast<std::size_t>(p.panel) < a.panels.size()) {
-                const int sec = a.panels[static_cast<std::size_t>(p.panel)].section;
-                if (sec >= 0 && static_cast<std::size_t>(sec) < sectionBlastPa.size())
+                const auto& panel = a.panels[static_cast<std::size_t>(p.panel)];
+                const int sec = panel.section;
+                if (sec >= 0 && static_cast<std::size_t>(sec) < sectionBlastPa.size()) {
+                    const double area = std::max(panel.areaM2, 0.25);
+                    sectionBlastWeightedSum[static_cast<std::size_t>(sec)] += p.overpressurePa * area;
+                    sectionBlastAreaSum[static_cast<std::size_t>(sec)] += area;
                     sectionBlastPa[static_cast<std::size_t>(sec)] = std::max(sectionBlastPa[static_cast<std::size_t>(sec)], p.overpressurePa);
+                }
             }
+        }
+        stepIn.hasSectionBlast = true;
+        for (std::size_t s = 0; s < sectionBlastPa.size() && s < stepIn.sectionBlastPa.size(); ++s) {
+            // For non-root centre fuselage collapse, use area-weighted mean blast across struck centre panels
+            // so a localized blast on one outer wing-root strake corner does not crush the entire fuselage box.
+            const bool isCentre = !a.sections[s].hasRoot;
+            stepIn.sectionBlastPa[s] = (isCentre && sectionBlastAreaSum[s] > 0.0)
+                                           ? (sectionBlastWeightedSum[s] / sectionBlastAreaSum[s])
+                                           : sectionBlastPa[s];
         }
         for (const auto& c : impact->components) {
             if (c.component >= 0 && static_cast<std::size_t>(c.component) < a.components.size()) {
@@ -2305,42 +2546,84 @@ void World::evaluateEntryDestruction(Entry& e, const ms::damage::Impact* impact,
         }
     }
 
-    // Populate actual fuel-tank ullage state (B-58).
+    // Populate actual fuel-tank ullage state (B-58 / VIS-M11b: aggregate multi-box tanks by physical tank index
+    // with true section tank capacity, separating centre fuselage main tanks from outboard wet wing fuel cells).
+    std::map<int, double> trueTankCapacityKg;
+    for (const auto& sec : a.sections) {
+        for (const auto& st : sec.tanks) {
+            if (st.index >= 0 && st.capacityKg > 0.0) trueTankCapacityKg[st.index] = st.capacityKg;
+        }
+    }
     double totalFuelKg = 0.0;
     std::set<int> burningSections;
+    double activeFuelFireRateKgS = 0.0;
     for (const auto& [tankIdx, tankState] : e.damage->tanks()) {
-        if (tankState.burning && tankState.component >= 0 && static_cast<std::size_t>(tankState.component) < a.components.size())
+        if (tankState.burning && tankState.component >= 0 && static_cast<std::size_t>(tankState.component) < a.components.size()) {
             burningSections.insert(a.components[static_cast<std::size_t>(tankState.component)].section);
+            if (const auto fr = e.fireRates.find(tankIdx); fr != e.fireRates.end()) {
+                activeFuelFireRateKgS += std::min(fr->second, ms::damage::kBurnMostKgS);
+            }
+        }
     }
+    stepIn.activeFuelFireRateKgS = activeFuelFireRateKgS;
+    std::map<int, std::size_t> tankSlotByIndex;
     for (std::size_t compIdx = 0; compIdx < a.components.size(); ++compIdx) {
         const auto& comp = a.components[compIdx];
         if (comp.kind != "fuel" || comp.tank < 0) continue;
         if (comp.section >= 0 && static_cast<std::size_t>(comp.section) < e.damage->sections().size() &&
             e.damage->sections()[static_cast<std::size_t>(comp.section)].separated)
             continue;
-        ms::damage::TankUllageInput ti;
-        ti.tankIndex = comp.tank;
-        ti.section = comp.section;
-        ti.capacityKg = comp.fuelKg;
-        if (static_cast<std::size_t>(comp.tank) < e.damageReads.tanks.size() && e.damageReads.tanks[static_cast<std::size_t>(comp.tank)].valid())
-            ti.fuelKg = std::max(0.0, e.damageReads.tanks[static_cast<std::size_t>(comp.tank)].get() * kLbsToKg);
-        else
-            ti.fuelKg = 0.5 * comp.fuelKg;
-        if (ti.capacityKg < ti.fuelKg) ti.capacityKg = ti.fuelKg;
-        totalFuelKg += ti.fuelKg;
-        const auto tankIt = e.damage->tanks().find(comp.tank);
-        ti.burning = tankIt != e.damage->tanks().end() && tankIt->second.burning;
-        if (comp.section >= 0 && static_cast<std::size_t>(comp.section) < sectionBlastPa.size())
-            ti.blastOverpressurePa = sectionBlastPa[static_cast<std::size_t>(comp.section)];
+        auto [itSlot, inserted] = tankSlotByIndex.emplace(comp.tank, stepIn.tanks.size());
+        if (inserted) {
+            ms::damage::TankUllageInput ti;
+            ti.tankIndex = comp.tank;
+            ti.section = comp.section;
+            ti.isCentreSection = (comp.section < 0 || static_cast<std::size_t>(comp.section) >= a.sections.size() ||
+                                  !a.sections[static_cast<std::size_t>(comp.section)].hasRoot);
+            const auto capIt = trueTankCapacityKg.find(comp.tank);
+            ti.capacityKg = (capIt != trueTankCapacityKg.end()) ? capIt->second : comp.fuelKg;
+            if (static_cast<std::size_t>(comp.tank) < e.damageReads.tanks.size() && e.damageReads.tanks[static_cast<std::size_t>(comp.tank)].valid())
+                ti.fuelKg = std::max(0.0, e.damageReads.tanks[static_cast<std::size_t>(comp.tank)].get() * kLbsToKg);
+            else
+                ti.fuelKg = 0.5 * ti.capacityKg;
+            if (ti.capacityKg < ti.fuelKg) ti.capacityKg = ti.fuelKg;
+            totalFuelKg += ti.fuelKg;
+            const auto tankIt = e.damage->tanks().find(comp.tank);
+            ti.burning = tankIt != e.damage->tanks().end() && tankIt->second.burning;
+            stepIn.tanks.push_back(ti);
+        }
+        auto& ti = stepIn.tanks[itSlot->second];
         if (impact) {
+            // Compute local blast overpressure at THIS tank box's own 3D position from adjacent struck panels,
+            // accounting for structural fuselage skin attenuation for internal baffled centre tanks vs wet wing cells.
+            double localBlastPa = 0.0;
+            bool adjacentTorn = false;
+            const double searchRadiusM = ti.isCentreSection ? 1.85 : 2.10;
+            for (const auto& p : impact->panels) {
+                if (p.panel < 0 || static_cast<std::size_t>(p.panel) >= a.panels.size()) continue;
+                const auto& panel = a.panels[static_cast<std::size_t>(p.panel)];
+                if (panel.section != comp.section) continue;
+                const double dist = ms::damage::length(panel.middle() - comp.centre);
+                if (dist <= searchRadiusM) {
+                    const double w = 1.0 / (1.0 + 0.35 * dist * dist);
+                    localBlastPa = std::max(localBlastPa, p.overpressurePa * w);
+                    if (e.damage->panelTorn(p.panel)) adjacentTorn = true;
+                }
+            }
+            if (localBlastPa <= 0.0 && comp.section >= 0 && static_cast<std::size_t>(comp.section) < sectionBlastPa.size()) {
+                localBlastPa = sectionBlastPa[static_cast<std::size_t>(comp.section)] * (ti.isCentreSection ? 0.35 : 0.65);
+            }
+            // Internal fuselage tanks sit behind outer skin + frames + equipment bays unless adjacent panels tear open.
+            const double boxBlast = (ti.isCentreSection && !adjacentTorn) ? (localBlastPa * 0.45) : localBlastPa;
+            ti.blastOverpressurePa = std::max(ti.blastOverpressurePa, boxBlast);
             for (const auto& ch : impact->components) {
                 if (ch.component == static_cast<int>(compIdx)) {
+                    ti.hitCount += std::max(ch.hits, ch.energyJ > 0.0 ? 1 : 0);
                     ti.hitEnergyJ += ch.energyJ;
                     ti.fastestFragmentMs = std::max(ti.fastestFragmentMs, ch.fastestMs);
                 }
             }
         }
-        stepIn.tanks.push_back(ti);
     }
     if (totalFuelKg <= 0.0) {
         const double aboardFuel = model.energy().fuelKg;
@@ -2379,9 +2662,48 @@ void World::evaluateEntryDestruction(Entry& e, const ms::damage::Impact* impact,
 
     const bool allowCatastrophic = (destructionMode_ == DestructionModeV1::LightweightDebris);
     const auto outcome = ms::damage::evaluateDestruction(e.destruction, stepIn, allowCatastrophic, e.destructionRng);
+
+    // Apply progressive thermal root weakening from active bay fires (LightweightDebris mode only).
+    if (allowCatastrophic) {
+        for (std::size_t s = 0; s < a.sections.size() && s < outcome.thermalStrengthDelta.size(); ++s) {
+            if (outcome.thermalStrengthDelta[s] > 0.0) {
+                e.damage->weakenSectionThermal(static_cast<int>(s), outcome.thermalStrengthDelta[s]);
+            }
+        }
+    }
+
+    // Localized outboard wing-tank ullage blow-off -> shears THAT wing cleanly into Grade 3 StructuralBreakup!
+    if (allowCatastrophic && !outcome.catastrophicTriggered && outcome.rupturedWingSection >= 0 &&
+        static_cast<std::size_t>(outcome.rupturedWingSection) < a.sections.size() &&
+        !e.damage->sections()[static_cast<std::size_t>(outcome.rupturedWingSection)].separated) {
+        if (e.damage->separate(outcome.rupturedWingSection)) {
+            separatedAt(e, outcome.rupturedWingSection, nullptr, nullptr, events, true);
+            if (static_cast<std::size_t>(outcome.rupturedWingSection) < e.destruction.sectionDamage.size())
+                e.destruction.sectionDamage[static_cast<std::size_t>(outcome.rupturedWingSection)] = 1.0;
+            e.destruction.tier = ms::damage::DestructionTier::StructuralBreakup;
+            e.destruction.grade = std::max(e.destruction.grade, ms::damage::DamageGrade::StructuralBreakup);
+            LOG_INFO("session") << e.info.name << ": wing fuel-cell ullage rupture sheared "
+                                << a.sections[static_cast<std::size_t>(outcome.rupturedWingSection)].name
+                                << " (Grade 3 StructuralBreakup)";
+        }
+    }
+    if (allowCatastrophic && impact && impact->fragmentsStriking > 0 && !outcome.catastrophicTriggered) {
+        int holedTanks = 0, burningTanks = 0;
+        for (const auto& [tiIdx, tState] : e.damage->tanks()) {
+            (void)tiIdx;
+            if (tState.holeM2 > 0.0) ++holedTanks;
+            if (tState.burning) ++burningTanks;
+        }
+        LOG_INFO("session") << e.info.name << ": damage grade=" << static_cast<int>(e.destruction.grade)
+                            << " aspect=" << static_cast<int>(e.destruction.hitAspect)
+                            << " frags=" << impact->fragmentsStriking
+                            << " engineFire=" << (e.destruction.engineFireActive ? 1 : 0)
+                            << " holedTanks=" << holedTanks << " burningTanks=" << burningTanks
+                            << " engineOut=" << (e.damage->anyEngineOut() ? 1 : 0);
+    }
     if (!outcome.catastrophicTriggered) return;
 
-    // --- Catastrophic mid-air disintegration (Tier 3, B-58) ---
+    // --- Catastrophic mid-air disintegration (Tier 3 / Grade 4, B-58) ---
     sim::VehicleState st;
     model.state(st);
     const double massKg = std::isfinite(model.energy().massKg) && model.energy().massKg > 100.0 ? model.energy().massKg : 8000.0;
@@ -2433,6 +2755,10 @@ void World::evaluateEntryDestruction(Entry& e, const ms::damage::Impact* impact,
         for (int si = 0; si < 5; ++si) {
             const int idx = e.damage->airframe().section(kNames[si]);
             if (idx >= 0 && static_cast<std::size_t>(idx) < e.damage->airframe().sections.size()) {
+                if (static_cast<std::size_t>(idx) < e.damage->sections().size() &&
+                    e.damage->sections()[static_cast<std::size_t>(idx)].separated) {
+                    spawn.alreadySeparatedMask |= static_cast<std::uint8_t>(1u << si);
+                }
                 const auto& sec = e.damage->airframe().sections[static_cast<std::size_t>(idx)];
                 spawn.sectionOffsetsBodyM[si][0] = sec.cg.x - cgBody[0];
                 spawn.sectionOffsetsBodyM[si][1] = sec.cg.y - cgBody[1];

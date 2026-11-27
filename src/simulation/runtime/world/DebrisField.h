@@ -77,6 +77,25 @@ struct CatastrophicSpawn {
     /// Zero-initialized falls back to representative fighter proportions.
     double sectionOffsetsBodyM[5][3] = {};
     bool hasSectionOffsets = false;
+    /// Bitmask of sections already detached earlier in Grade 3 StructuralBreakup (never duplicated!):
+    /// bit 0=nose, 1=centre, 2=left wing, 3=right wing, 4=tail.
+    std::uint8_t alreadySeparatedMask = 0;
+};
+
+struct HitBurstSpawn {
+    std::uint32_t ownerVehicleId = 0;
+    double positionEcef[3] = {};
+    double velocityEcef[3] = {};
+    double exitDirEcef[3] = {0.0, 0.0, 1.0};
+    int fragmentsStriking = 1;
+    bool fiery = false;
+};
+
+struct DamageEmberSpawn {
+    std::uint32_t ownerVehicleId = 0;
+    double positionEcef[3] = {};
+    double velocityEcef[3] = {};
+    double intensity = 1.0; ///< 0..1 scaled by active fire rate
 };
 
 struct ImpactCloudSpawn {
@@ -140,6 +159,12 @@ public:
 
     /// Spawn continuous scrape sparks, billowing dust clouds, and charred ground skid marks during belly-slide.
     void spawnSlideSparks(const SlideSparkSpawn& in, Rng& rng);
+
+    /// Spawn a localized burst of metallic skin-perforation sparks & tiny aluminium flakes on non-catastrophic hits (Grade 1-3).
+    void spawnHitBurst(const HitBurstSpawn& in, Rng& rng);
+
+    /// Spawn periodic glowing embers trailing behind an in-flight burning engine or fuel bay (Grade 2-3).
+    void spawnDamageEmbers(const DamageEmberSpawn& in, Rng& rng);
 
     /// Register a real JoltPhysics 6-DOF dynamic rigid body for a surviving ground-wreck fuselage resting on terrain.
     /// Returns an opaque handle (0 on failure) queried each step via queryGroundWreck().

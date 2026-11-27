@@ -1245,6 +1245,81 @@ TEST_CASE("an airframe's breakup sections are joints at their breaks, what is mo
     CHECK(std::abs(shape.jets[0].exit.x + 6.0) < 0.05);
 }
 
+TEST_CASE("hiding a detached wing removes its wingtip rail from the parent airframe and keeps it on the severed wing", "[render][visuals][vis-m11b]") {
+    const std::filesystem::path dir = FSIM_TEST_AIRCRAFT_DIR;
+    REQUIRE(std::filesystem::exists(dir / "f16c" / "f16c.glb"));
+    world::VehicleVisuals::Settings settings;
+    settings.modelDirs.push_back(dir);
+    world::VehicleVisuals visuals(1, settings, vsg::Options::create(vsgXchange::all::create()));
+    visuals.setModel(0, {}, "jsbsim:f16c");
+
+    // Helper: measure drawn triangle vertices in body space, skipping any zero-scaled hidden transforms.
+    struct VisibleBounds : public vsg::ConstVisitor {
+        vsg::dmat4 matrix;
+        vsg::dbox box;
+        void apply(const vsg::Object& o) override { o.traverse(*this); }
+        void apply(const vsg::Transform& t) override {
+            const vsg::dmat4 outer = matrix;
+            matrix = t.transform(matrix);
+            t.traverse(*this);
+            matrix = outer;
+        }
+        void apply(const vsg::MatrixTransform& t) override {
+            const vsg::dvec3 sx(t.matrix[0][0], t.matrix[0][1], t.matrix[0][2]);
+            const vsg::dvec3 sy(t.matrix[1][0], t.matrix[1][1], t.matrix[1][2]);
+            const vsg::dvec3 sz(t.matrix[2][0], t.matrix[2][1], t.matrix[2][2]);
+            if (vsg::length(sx) < 1e-3 || vsg::length(sy) < 1e-3 || vsg::length(sz) < 1e-3) return;
+            std::string name;
+            if (t.getValue("name", name) && (name.rfind("fsim:afterburner", 0) == 0 || name.rfind("fsim:cover:", 0) == 0)) return;
+            apply(static_cast<const vsg::Transform&>(t));
+        }
+        void apply(const vsg::VertexIndexDraw& d) override {
+            if (d.arrays.empty() || !d.arrays[0] || !d.arrays[0]->data || !d.indices || !d.indices->data) return;
+            auto verts = d.arrays[0]->data.cast<vsg::vec3Array>();
+            if (!verts) return;
+            auto scan = [&](const auto& idxArr) {
+                for (std::size_t i = 0; i < d.indexCount && d.firstIndex + i < idxArr.size(); ++i) {
+                    const std::int64_t vi = static_cast<std::int64_t>(idxArr[d.firstIndex + i]) + d.vertexOffset;
+                    if (vi >= 0 && static_cast<std::size_t>(vi) < verts->size()) {
+                        const auto& v = verts->at(static_cast<std::size_t>(vi));
+                        box.add(matrix * vsg::dvec3(v.x, v.y, v.z));
+                    }
+                }
+            };
+            if (auto u16 = d.indices->data.cast<vsg::ushortArray>()) scan(*u16);
+            else if (auto u32 = d.indices->data.cast<vsg::uintArray>()) scan(*u32);
+        }
+    };
+
+    std::vector<sim::VehicleState> states(1);
+    visuals.update(Span<const sim::VehicleState>(states));
+
+    VisibleBounds intact;
+    visuals.pose(0).normal->accept(intact);
+    REQUIRE(intact.box.valid());
+    CHECK(intact.box.min.y < -4.65);
+    CHECK(intact.box.max.y > 4.65);
+
+    // Detach left wing: parent airframe must leave zero wingtip launcher rail triangles on the left (y < -3.5 m),
+    // while retaining the intact right wing + right wingtip rail (y > +4.65 m).
+    visuals.hideSection(0, "left wing");
+    visuals.update(Span<const sim::VehicleState>(states));
+    VisibleBounds afterBreak;
+    visuals.pose(0).normal->accept(afterBreak);
+    REQUIRE(afterBreak.box.valid());
+    CHECK(afterBreak.box.min.y > -3.5);
+    CHECK(afterBreak.box.max.y > 4.65);
+
+    // Detached GLB debris section for "left-wing" must carry its wingtip launcher rail cleanly out to full span.
+    const auto sections = visuals.sectionVisualsOf(0);
+    auto it = std::find_if(sections.begin(), sections.end(), [](const auto& s) { return s.section == "left-wing"; });
+    REQUIRE(it != sections.end());
+    VisibleBounds detachedWing;
+    it->node->accept(detachedWing);
+    REQUIRE(detachedWing.box.valid());
+    CHECK((it->centroidBodyM.y + detachedWing.box.min.y) < -4.65);
+}
+
 TEST_CASE("a reheat's temperature is its engine's own: from the thrust its ratings say it adds", "[render][visuals][exhaust]") {
     using world::Exhaust;
     // lit, the burner heats the same flow at the same pressure: the thrust goes as the square root of the temperature.

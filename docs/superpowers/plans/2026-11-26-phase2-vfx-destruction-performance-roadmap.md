@@ -274,8 +274,9 @@ To maximize immediate user-visible quality and unblock visual inspection early, 
 | Sprint | Milestone | Status | Delivery Commit | Evidence Document |
 | --- | --- | --- | --- | --- |
 | Sprint 1 | **VIS-M12 + VIS-M12b** — Volumetric Fire/Explosion, Contrail, Cloud, Ocean & Vapour GPU Optimization | Delivered (2026-11-26; 4K 160 fps locked) | `d40f1b6b` + `0795eedc` on `main` | [vis-m12-volumetric-vfx-perf.md](../../sdk/vis-m12-volumetric-vfx-perf.md) |
-| Sprint 2 | **VIS-M11** — Vehicle Destruction & Lightweight `DebrisField` Redesign | Delivered (2026-11-26; 4K 156–161 fps) | `VIS-M11` on `main` | [vis-m11-destruction-debris.md](../../sdk/vis-m11-destruction-debris.md) |
-| Sprint 3 | **VIS-M13** — Unified GPU Particle Engine & Missing Combat VFX | Ready (Next) | — | `docs/sdk/vis-m13-gpu-particles-combat-vfx.md` (planned) |
+| Sprint 2 | **VIS-M11 + VIS-M11 v2** — Vehicle Destruction, JoltPhysics 6-DOF `DebrisField`, 360° Interleaving & Retirement | Delivered (2026-11-26; 4K 156–160 fps) | `c8e6e882` + `4eeda5ea` on `main` | [vis-m11-destruction-debris.md](../../sdk/vis-m11-destruction-debris.md) |
+| Sprint 2b | **VIS-M11b** — Multi-Grade Progressive Combat Damage & Dynamic Escalation (Position × Aspect × Fragment Density: Leak -> Fire/Stall -> Section Breakup -> Catastrophic Disintegration + Runtime Wingtip Rail Reparenting) | Delivered (2026-11-26; 4K 158.5–160.8 fps) | committed on `main` | [vis-m11-destruction-debris.md](../../sdk/vis-m11-destruction-debris.md) |
+| Sprint 3 | **VIS-M13** — Unified GPU Particle Engine & Missing Combat VFX | Active (Next) | — | `docs/sdk/vis-m13-gpu-particles-combat-vfx.md` (planned) |
 | Sprint 4 | **SIM-M11** — HC-45 Parallel `WeaponSensor` & On-Rail IR Acceleration | Pending | — | `docs/sdk/sim-m11-weapon-sensor-perf.md` (planned) |
 | Sprint 5 | **VIS-M14** — Tactical & EMSO 3-D Overlays, Multi-Camera & Fleet VFX | Pending | — | `docs/sdk/vis-m14-emso-overlays-cameras.md` (planned) |
 | Sprint 6 | **VIS-M15** — Physical-Fidelity Showcase (Sensor MFDs, Fog-of-War, X-Ray & Debrief) | Pending | — | `docs/sdk/vis-m15-avionics-showcase-debrief.md` (planned) |

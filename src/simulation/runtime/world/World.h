@@ -835,8 +835,12 @@ private:
             std::vector<PropertyHandle> tanks;
         } damageReads;
         std::map<int, double> fireRates;   ///< each burning tank's leak as last recorded (kg/s)
+        std::map<int, double> leakMistRates; ///< each un-ignited holed tank's fuel-mist leak as last recorded (kg/s)
         double wreckFireUntilS = 0.0;      ///< a ground strike's fire burns on until then (0: none)
         std::string wreckFireName;         ///< the component its Fire events name
+        std::string engineFireComponent;   ///< engine component name for persistent in-flight engine-bay fire (VIS-M11b)
+        double engineFireElapsedS = 0.0;   ///< elapsed seconds of in-flight engine-bay burn
+        double fireEmberAccumS = 0.0;      ///< throttle accumulator for in-flight burning sparks/embers
         bool crewLost = false;             ///< its controls held where they were
         ms::damage::VehicleDestructionState destruction;
         Rng destructionRng;
@@ -1047,7 +1051,7 @@ private:
         std::optional<ms::damage::V3> sharedCgFromOriginBodyM;
     };
     void separatedAt(Entry& e, int section, const sim::VehicleState* as, const Thrown* thrown,
-                     std::vector<ipc::EngagementEvent>* events);
+                     std::vector<ipc::EngagementEvent>* events, bool forceBurning = false);
     std::uint32_t launchPiece(Entry& from, int section, const Parting& part);
     void stepDamage();
     bool pendingDetonationEffects() const noexcept;

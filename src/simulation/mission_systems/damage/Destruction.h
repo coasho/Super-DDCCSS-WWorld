@@ -28,6 +28,27 @@ enum class DestructionTier : std::uint8_t {
     WaterImpact = 5,
 };
 
+/// Native combat damage grade progression driven strictly by physical hit location,
+/// aspect, fragment count/energy, component kills, and thermal/structural evolution (VIS-M11b).
+enum class DamageGrade : std::uint8_t {
+    Intact = 0,            ///< Zero structural/component/leak damage
+    LightPerforation = 1,  ///< Sparse/glancing hits: skin holes, un-ignited fuel mist leak, minor drag/scorch
+    FireAndStall = 2,      ///< Engine/control loss and/or sustained fire -> thrust/control loss, stall/spiral, thermal soak
+    StructuralBreakup = 3, ///< Localized major section detachment (wing/tail/nose) + asymmetric tumbling
+    CatastrophicKill = 4,  ///< Rapid or delayed mid-air ullage explosion, cook-off, or multi-section/centre collapse
+    SurfaceImpact = 5,     ///< GroundWreck or WaterImpact crash termination
+};
+
+enum class HitAspect : std::uint8_t {
+    Unknown = 0,
+    Front = 1,
+    Rear = 2,
+    Left = 3,
+    Right = 4,
+    Dorsal = 5,
+    Ventral = 6,
+};
+
 enum class CatastrophicCause : std::uint8_t {
     None = 0,
     UllageOverpressure = 1,
@@ -38,8 +59,14 @@ enum class CatastrophicCause : std::uint8_t {
 // Physical thresholds (MIL-HDBK-2069 / Ball combat survivability; estimates noted):
 inline constexpr double kUllageMinFraction = 0.12;        ///< minimum vapour-air headspace fraction for ignition
 inline constexpr double kUllageMaxFraction = 0.96;        ///< above this, tank is nearly dry of fuel vapour
-inline constexpr double kUllageFragmentEnergyJ = 18000.0; ///< high-energy incendiary/fragment ullage ignition threshold
-inline constexpr double kUllageBlastPa = 240000.0;        ///< blast overpressure capable of rupturing/igniting ullage (~35 psi)
+inline constexpr double kUllageFragmentEnergyJ = 18000.0; ///< direct unit-test single-strike ullage ignition threshold
+inline constexpr double kUllageCoreEnergyJ = 95000.0;     ///< concentrated multi-fragment core tank ullage threshold
+inline constexpr double kUllageCoreSingleEnergyJ = 160000.0; ///< extreme high-energy core saturation threshold
+inline constexpr int kUllageCoreMinHits = 14;             ///< minimum concentrated penetrations into baffled centre tank ullage
+inline constexpr double kUllageWingEnergyJ = 20000.0;     ///< concentrated outboard wing-tank blow-off energy threshold
+inline constexpr int kUllageWingMinHits = 4;              ///< minimum penetrations into outboard wing tank for blow-off
+inline constexpr double kUllageBlastPa = 280000.0;        ///< blast overpressure capable of rupturing/igniting core ullage (~41 psi)
+inline constexpr double kUllageWingBlastPa = 180000.0;    ///< localized blast capable of blowing open a wing fuel cell (~26 psi)
 inline constexpr double kUllageCollapsePa = 350000.0;     ///< confined bay overpressure that ruptures fuselage structure (~50 psi)
 inline constexpr double kUllagePeakDeflagrationPa = 720000.0; ///< stoichiometric kerosene vapour deflagration peak (~7.2 bar)
 inline constexpr double kUllageEnergyDensityJM3 = 2.8e6;  ///< stoichiometric JP-8 vapour combustion energy per m^3 headspace
@@ -47,6 +74,9 @@ inline constexpr double kTntEnergyJKg = 4.184e6;          ///< 1 kg TNT equivale
 inline constexpr double kCookoffHitEnergyJ = 12000.0;     ///< direct fragment strike energy inducing sympathetic store detonation
 inline constexpr double kCookoffBlastPa = 250000.0;       ///< sympathetic detonation shock pressure threshold
 inline constexpr double kCookoffThermalS = 6.0;           ///< sustained section fuel fire soak time to ordnance cook-off
+inline constexpr double kCentreThermalRunawayS = 6.0;     ///< sustained intense centre-bay fire soak to delayed ullage explosion
+inline constexpr double kThermalWeakenOnsetS = 1.2;       ///< fire soak before structural aluminium 2024-T3 root weakening begins
+inline constexpr double kThermalWeakenRatePerS = 0.085;   ///< root removed-fraction growth per second of active bay fire
 inline constexpr double kFuselageCollapseRemoved = 0.65;  ///< centre-fuselage skin-removal collapse threshold
 inline constexpr double kFuselageCollapseBlastPa = 450000.0; ///< catastrophic fuselage blast crush (~65 psi)
 
@@ -59,6 +89,8 @@ struct TankUllageInput {
     double fastestFragmentMs = 0.0;
     double blastOverpressurePa = 0.0;
     bool burning = false;
+    int hitCount = 0;           ///< nonzero when populated from live warhead impact rows
+    bool isCentreSection = true; ///< true for centre fuselage main tanks; false for outboard wing fuel cells
 };
 
 struct CarriedOrdnanceInput {
@@ -78,6 +110,15 @@ struct DestructionStepInput {
     double dtS = 0.0;
     std::vector<TankUllageInput> tanks;
     std::vector<CarriedOrdnanceInput> ordnance;
+    int fragmentsStriking = 0;
+    V3 hitFromBody{};
+    bool hasHitDirection = false;
+    bool hasSectionBlast = false;
+    std::array<double, ipc::kMaxSectionScorchV1> sectionBlastPa{};
+    bool engineFireActive = false;
+    int engineFireSection = -1;
+    double engineFireRateKgS = 0.0;
+    double activeFuelFireRateKgS = 0.0;
 };
 
 struct DestructionOutcome {
@@ -87,10 +128,15 @@ struct DestructionOutcome {
     double fireballFuelKg = 0.0;          ///< actual remaining fuel dispersed into mid-air fireball
     double ullageOverpressurePa = 0.0;    ///< peak confined tank ullage overpressure (Pa)
     double hydrodynamicRamSprayMs = 0.0;  ///< physically derived hydrodynamic-ram spray exit speed (m/s, B-58)
+    int rupturedWingSection = -1;         ///< >= 0 when outboard wing-tank ullage blow-off shears that wing (Grade 3)
+    double rupturedWingSpillKg = 0.0;     ///< localized fuel flash emitted from the blown wing root (kg)
+    std::array<double, ipc::kMaxSectionScorchV1> thermalStrengthDelta{}; ///< root weakening delta per burning section this step
 };
 
 struct VehicleDestructionState {
     DestructionTier tier = DestructionTier::Intact;
+    DamageGrade grade = DamageGrade::Intact;
+    HitAspect hitAspect = HitAspect::Unknown;
     CatastrophicCause cause = CatastrophicCause::None;
     SurfaceKind surface = SurfaceKind::Soil;
     bool hullRetired = false;
@@ -98,13 +144,23 @@ struct VehicleDestructionState {
     double overallDamage = 0.0;
     double scorchIntensity = 0.0;
     std::array<double, ipc::kMaxSectionScorchV1> sectionDamage{};
+    std::array<double, ipc::kMaxSectionScorchV1> sectionThermalS{};
     std::uint8_t sectionCount = 0;
+    int hitFragmentsTotal = 0;
+    double hitEnergyTotalJ = 0.0;
     double cookoffExposureS = 0.0;
+    double centreThermalRunawayS = 0.0;
+    bool engineFireActive = false;
+    int engineFireSection = -1;
+    double engineFireRateKgS = 0.0;
     double wreckFuelKg = 0.0;
     double wreckBurnRateKgS = 0.0;
     double totalFuelBurnedKg = 0.0;
     double slideSpeedMs = 0.0;
 };
+
+/// Classify primary impact aspect from body-frame burst direction (+x fwd, +y right, +z down).
+HitAspect classifyHitAspect(const V3& fromBody) noexcept;
 
 /// Hydrodynamic-ram fuel spray exit speed (m/s, B-58) derived from fragment
 /// kinetic energy deposited in kerosene (rho = 800 kg/m^3) rather than an

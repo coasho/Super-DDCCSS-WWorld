@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
+#include <functional>
 #include <set>
 #include <sstream>
 
@@ -86,28 +87,28 @@ bool isBreakCapStateGroup(const vsg::StateGroup& sg) {
 /// MatrixTransform named "fsim:breakcap" so Rig::find / Rig::copy duplicates ONLY that joint per slot
 /// (keeping all geometry shared across instances while hiding caps on intact airframes and showing them
 /// on broken airframes and detached GLB debris sections).
-vsg::ref_ptr<vsg::Node> tagBreakCapsInNode(const vsg::ref_ptr<vsg::Node>& node) {
+vsg::ref_ptr<vsg::Node> tagBreakCapsInNode(const vsg::ref_ptr<vsg::Node>& node, const std::string& secName) {
     if (!node) return node;
     if (node.cast<vsg::MatrixTransform>()) return node; // never cross into mounted child joints
     if (auto sg = node.cast<vsg::StateGroup>()) {
         if (isBreakCapStateGroup(*sg)) {
             auto mt = vsg::MatrixTransform::create();
-            mt->setValue("name", std::string("fsim:breakcap"));
+            mt->setValue("name", secName.empty() ? std::string("fsim:breakcap") : ("fsim:breakcap:" + secName));
             mt->addChild(node);
             return mt;
         }
         return node;
     }
     if (auto cn = node.cast<vsg::CullNode>()) {
-        cn->child = tagBreakCapsInNode(cn->child);
+        cn->child = tagBreakCapsInNode(cn->child, secName);
         return node;
     }
     if (auto cg = node.cast<vsg::CullGroup>()) {
-        for (auto& ch : cg->children) ch = tagBreakCapsInNode(ch);
+        for (auto& ch : cg->children) ch = tagBreakCapsInNode(ch, secName);
         return node;
     }
     if (auto grp = node.cast<vsg::Group>()) {
-        for (auto& ch : grp->children) ch = tagBreakCapsInNode(ch);
+        for (auto& ch : grp->children) ch = tagBreakCapsInNode(ch, secName);
         return node;
     }
     return node;
@@ -119,11 +120,272 @@ public:
     void apply(vsg::MatrixTransform& t) override {
         std::string name;
         if (t.getValue("name", name) && name.rfind("fsim:section:", 0) == 0) {
-            for (auto& ch : t.children) ch = tagBreakCapsInNode(ch);
+            const std::string secName = name.substr(13);
+            for (auto& ch : t.children) ch = tagBreakCapsInNode(ch, secName);
         }
         t.traverse(*this);
     }
 };
+
+/// Move outboard wingtip appendage triangles (e.g. LAU-129 wingtip missile rails, wingtip EW pods,
+/// winglets) that Hangar's 2-D wing-planform slicer left inside `fsim:section:centre` / `tail` / `nose`
+/// onto `fsim:section:left-wing` or `fsim:section:right-wing` at load time, without modifying on-disk GLBs.
+/// Artificial cut-cap triangles generated across those rails are dropped so detached wings keep intact
+/// wingtip hardware and the parent fuselage leaves zero floating fragments behind.
+void reparentOutboardWingtipIslands(vsg::Node& root) {
+    struct SectionRef {
+        std::string name;
+        vsg::MatrixTransform* node = nullptr;
+        vsg::dmat4 inModel;
+    };
+    struct CollectSections : public vsg::Visitor {
+        std::vector<SectionRef> sections;
+        vsg::dmat4 matrix;
+        void apply(vsg::Object& o) override { o.traverse(*this); }
+        void apply(vsg::MatrixTransform& t) override {
+            const vsg::dmat4 outer = matrix;
+            matrix = matrix * t.matrix;
+            std::string name;
+            if (t.getValue("name", name) && name.rfind("fsim:section:", 0) == 0)
+                sections.push_back({name.substr(13), &t, matrix});
+            t.traverse(*this);
+            matrix = outer;
+        }
+    };
+    CollectSections collect;
+    root.accept(collect);
+
+    const SectionRef* leftWing = nullptr;
+    const SectionRef* rightWing = nullptr;
+    for (const auto& s : collect.sections) {
+        if (s.name == "left-wing") leftWing = &s;
+        else if (s.name == "right-wing") rightWing = &s;
+    }
+    if (!leftWing || !rightWing) return;
+
+    auto measureSectionBox = [](const SectionRef& sec) {
+        vsg::dbox box;
+        struct BoxWalk : public vsg::ConstVisitor {
+            vsg::dbox& box;
+            vsg::dmat4 matrix;
+            explicit BoxWalk(vsg::dbox& b, const vsg::dmat4& m) : box(b), matrix(m) {}
+            void apply(const vsg::Object& o) override { o.traverse(*this); }
+            void apply(const vsg::Transform& t) override {
+                const vsg::dmat4 outer = matrix;
+                matrix = t.transform(matrix);
+                t.traverse(*this);
+                matrix = outer;
+            }
+            void apply(const vsg::MatrixTransform& t) override {
+                std::string name;
+                if (t.getValue("name", name) &&
+                    (name.rfind("fsim:cover:", 0) == 0 || name.rfind("fsim:gear:", 0) == 0 ||
+                     name.rfind("fsim:station:", 0) == 0 || isExhaustNode(t)))
+                    return;
+                apply(static_cast<const vsg::Transform&>(t));
+            }
+            void addArrays(const vsg::BufferInfoList& arrays) {
+                if (arrays.empty() || !arrays[0] || !arrays[0]->data) return;
+                auto verts = arrays[0]->data.cast<vsg::vec3Array>();
+                if (!verts) return;
+                for (const auto& v : *verts) box.add(matrix * vsg::dvec3(v.x, v.y, v.z));
+            }
+            void apply(const vsg::VertexIndexDraw& d) override { addArrays(d.arrays); }
+            void apply(const vsg::VertexDraw& d) override { addArrays(d.arrays); }
+            void apply(const vsg::Geometry& g) override { addArrays(g.arrays); }
+        };
+        BoxWalk walk(box, sec.inModel);
+        for (const auto& ch : sec.node->children)
+            if (ch) ch->accept(walk);
+        return box;
+    };
+
+    const vsg::dbox leftBox = measureSectionBox(*leftWing);
+    const vsg::dbox rightBox = measureSectionBox(*rightWing);
+    if (!leftBox.valid() || !rightBox.valid()) return;
+
+    const double halfSpan = 0.5 * (rightBox.max.y - leftBox.min.y);
+    if (halfSpan < 2.0) return;
+    const double centerY = 0.5 * (leftBox.min.y + rightBox.max.y);
+    const double yCut = 0.88 * halfSpan;
+    const double xMin = std::min(leftBox.min.x, rightBox.min.x) - 1.2;
+    const double xMax = std::max(leftBox.max.x, rightBox.max.x) + 1.2;
+    const double zMin = std::min(leftBox.min.z, rightBox.min.z) - 0.8;
+    const double zMax = std::max(leftBox.max.z, rightBox.max.z) + 0.8;
+
+    auto classifyPoint = [&](const vsg::dvec3& p) -> int {
+        if (p.x < xMin || p.x > xMax || p.z < zMin || p.z > zMax) return 0;
+        const double dy = p.y - centerY;
+        if (dy < -yCut) return -1;
+        if (dy > yCut) return 1;
+        return 0;
+    };
+
+    auto attachMovedDraw = [](const SectionRef& wing, const vsg::dmat4& curMat,
+                              const std::vector<const vsg::StateGroup*>& sgStack,
+                              const vsg::ref_ptr<vsg::VertexIndexDraw>& movedDraw) {
+        vsg::ref_ptr<vsg::Node> payload = movedDraw;
+        if (!sgStack.empty()) {
+            auto movedSg = vsg::StateGroup::create();
+            for (const auto* s : sgStack)
+                for (const auto& cmd : s->stateCommands) movedSg->add(cmd);
+            movedSg->addChild(movedDraw);
+            payload = movedSg;
+        }
+        auto relXf = vsg::MatrixTransform::create(vsg::inverse(wing.inModel) * curMat);
+        relXf->addChild(payload);
+        wing.node->addChild(relXf);
+    };
+
+    auto splitDraw = [&](vsg::VertexIndexDraw& draw, const vsg::dmat4& curMat,
+                         const std::vector<const vsg::StateGroup*>& sgStack) -> bool {
+        if (draw.arrays.empty() || !draw.arrays[0] || !draw.arrays[0]->data) return false;
+        if (!draw.indices || !draw.indices->data || draw.indexCount < 3) return false;
+        auto verts = draw.arrays[0]->data.cast<vsg::vec3Array>();
+        if (!verts || verts->empty()) return false;
+
+        bool isCap = false;
+        for (const auto* s : sgStack)
+            if (isBreakCapStateGroup(*s)) isCap = true;
+
+        auto runTyped = [&](const auto& arr) -> bool {
+            using ArrayT = typename std::decay_t<decltype(arr)>::element_type;
+            using IndexT = typename ArrayT::value_type;
+            const std::size_t first = static_cast<std::size_t>(draw.firstIndex);
+            const std::size_t count = static_cast<std::size_t>(draw.indexCount);
+            if (first + count > arr->size()) return false;
+
+            std::vector<IndexT> keepIdx, leftIdx, rightIdx;
+            keepIdx.reserve(count);
+            for (std::size_t i = 0; i + 2 < count; i += 3) {
+                const IndexT ia = arr->at(first + i);
+                const IndexT ib = arr->at(first + i + 1);
+                const IndexT ic = arr->at(first + i + 2);
+                const std::int64_t va = static_cast<std::int64_t>(ia) + draw.vertexOffset;
+                const std::int64_t vb = static_cast<std::int64_t>(ib) + draw.vertexOffset;
+                const std::int64_t vc = static_cast<std::int64_t>(ic) + draw.vertexOffset;
+                if (va < 0 || vb < 0 || vc < 0 || static_cast<std::size_t>(va) >= verts->size() ||
+                    static_cast<std::size_t>(vb) >= verts->size() || static_cast<std::size_t>(vc) >= verts->size()) {
+                    keepIdx.push_back(ia);
+                    keepIdx.push_back(ib);
+                    keepIdx.push_back(ic);
+                    continue;
+                }
+                const auto& a = verts->at(static_cast<std::size_t>(va));
+                const auto& b = verts->at(static_cast<std::size_t>(vb));
+                const auto& c = verts->at(static_cast<std::size_t>(vc));
+                const int ca = classifyPoint(curMat * vsg::dvec3(a.x, a.y, a.z));
+                const int cb = classifyPoint(curMat * vsg::dvec3(b.x, b.y, b.z));
+                const int cc = classifyPoint(curMat * vsg::dvec3(c.x, c.y, c.z));
+                if (ca < 0 && cb < 0 && cc < 0) {
+                    leftIdx.push_back(ia);
+                    leftIdx.push_back(ib);
+                    leftIdx.push_back(ic);
+                } else if (ca > 0 && cb > 0 && cc > 0) {
+                    rightIdx.push_back(ia);
+                    rightIdx.push_back(ib);
+                    rightIdx.push_back(ic);
+                } else {
+                    keepIdx.push_back(ia);
+                    keepIdx.push_back(ib);
+                    keepIdx.push_back(ic);
+                }
+            }
+            if (leftIdx.empty() && rightIdx.empty()) return false;
+
+            if (!isCap) {
+                auto emit = [&](const SectionRef& wing, const std::vector<IndexT>& moved) {
+                    if (moved.empty()) return;
+                    auto movedArr = ArrayT::create(moved.size());
+                    std::copy(moved.begin(), moved.end(), movedArr->begin());
+                    auto movedDraw = vsg::VertexIndexDraw::create();
+                    movedDraw->arrays = draw.arrays;
+                    movedDraw->assignIndices(movedArr);
+                    movedDraw->indexCount = static_cast<std::uint32_t>(moved.size());
+                    movedDraw->instanceCount = draw.instanceCount;
+                    movedDraw->firstIndex = 0;
+                    movedDraw->vertexOffset = draw.vertexOffset;
+                    movedDraw->firstInstance = draw.firstInstance;
+                    attachMovedDraw(wing, curMat, sgStack, movedDraw);
+                };
+                emit(*leftWing, leftIdx);
+                emit(*rightWing, rightIdx);
+            }
+
+            if (keepIdx.empty()) return true; // remove emptied draw from parent
+            auto keepArr = ArrayT::create(keepIdx.size());
+            std::copy(keepIdx.begin(), keepIdx.end(), keepArr->begin());
+            draw.assignIndices(keepArr);
+            draw.indexCount = static_cast<std::uint32_t>(keepIdx.size());
+            draw.firstIndex = 0;
+            return false;
+        };
+
+        if (auto u16 = draw.indices->data.cast<vsg::ushortArray>()) return runTyped(u16);
+        if (auto u32 = draw.indices->data.cast<vsg::uintArray>()) return runTyped(u32);
+        return false;
+    };
+
+    std::function<bool(const vsg::ref_ptr<vsg::Node>&, const vsg::dmat4&, std::vector<const vsg::StateGroup*>&)> walk;
+    walk = [&](const vsg::ref_ptr<vsg::Node>& node, const vsg::dmat4& curMat, std::vector<const vsg::StateGroup*>& sgStack) -> bool {
+        if (!node) return false;
+        if (auto mt = node.cast<vsg::MatrixTransform>()) {
+            std::string name;
+            if (mt->getValue("name", name) && isJointName(name)) return false; // never descend into mounted joints
+            const vsg::dmat4 nextMat = curMat * mt->matrix;
+            for (auto it = mt->children.begin(); it != mt->children.end();) {
+                if (walk(*it, nextMat, sgStack)) it = mt->children.erase(it);
+                else ++it;
+            }
+            return false;
+        }
+        if (auto sg = node.cast<vsg::StateGroup>()) {
+            sgStack.push_back(sg.get());
+            for (auto it = sg->children.begin(); it != sg->children.end();) {
+                if (walk(*it, curMat, sgStack)) it = sg->children.erase(it);
+                else ++it;
+            }
+            sgStack.pop_back();
+            return false;
+        }
+        if (auto cn = node.cast<vsg::CullNode>()) {
+            if (walk(cn->child, curMat, sgStack)) cn->child.reset();
+            return !cn->child;
+        }
+        if (auto cg = node.cast<vsg::CullGroup>()) {
+            for (auto it = cg->children.begin(); it != cg->children.end();) {
+                if (walk(*it, curMat, sgStack)) it = cg->children.erase(it);
+                else ++it;
+            }
+            return false;
+        }
+        if (auto grp = node.cast<vsg::Group>()) {
+            for (auto it = grp->children.begin(); it != grp->children.end();) {
+                if (walk(*it, curMat, sgStack)) it = grp->children.erase(it);
+                else ++it;
+            }
+            return false;
+        }
+        if (auto vid = node.cast<vsg::VertexIndexDraw>()) return splitDraw(*vid, curMat, sgStack);
+        return false;
+    };
+
+    std::vector<const vsg::StateGroup*> sgStack;
+    for (const auto& src : collect.sections) {
+        if (src.name == "left-wing" || src.name == "right-wing") continue;
+        sgStack.clear();
+        for (auto it = src.node->children.begin(); it != src.node->children.end();) {
+            if (walk(*it, src.inModel, sgStack)) it = src.node->children.erase(it);
+            else ++it;
+        }
+    }
+}
+
+void prepareLoadedModel(vsg::Node& model) {
+    reparentOutboardWingtipIslands(model);
+    TagSectionBreakCaps tagCaps;
+    model.accept(tagCaps);
+}
 
 /// The widest point of a node's children across its own x axis (their
 /// geometry in its frame): how big a jet an afterburner node's flame mesh is
@@ -374,6 +636,7 @@ VehicleVisuals::VehicleVisuals(std::size_t count, const Settings& settings, vsg:
     bool loaded = false;
     if (!settings.modelPath.empty()) default_.normal = loadModel(settings, options);
     if (default_.normal) {
+        prepareLoadedModel(*default_.normal);
         default_.highlighted = default_.normal; // a loaded model keeps its look; the label marks the selection
         loaded = true;
     } else {
@@ -545,9 +808,10 @@ bool VehicleVisuals::Joint::parse(const std::string& name, Joint& joint) {
         joint.blurred = false;
         return true;
     }
-    // internal breakup section cross-section cap (tagged at load time; hidden on intact aircraft)
-    if (terms == "breakcap") {
+    // internal breakup section cross-section cap (tagged at load time; hidden on intact aircraft & intact sections)
+    if (terms == "breakcap" || terms.rfind("breakcap:", 0) == 0) {
         joint.kind = BreakCap;
+        joint.section = terms.size() > 9 ? terms.substr(9) : std::string();
         return true;
     }
     // a breakup section of the airframe: fsim:section:<name>
@@ -1154,8 +1418,7 @@ const VehicleVisuals::Model& VehicleVisuals::modelFor(const std::string& key) {
         Model m;
         m.normal = loadModel(s, options_);
         if (m.normal) {
-            TagSectionBreakCaps tagCaps;
-            m.normal->accept(tagCaps);
+            prepareLoadedModel(*m.normal);
             m.highlighted = m.normal;
             m.rig = Rig::find(m.normal);
             m.shape = measure(m.normal, m.rig, s);
@@ -1466,14 +1729,16 @@ void VehicleVisuals::update(Span<const sim::VehicleState> states) {
         transforms_[i]->matrix = m;
         if (i < segTransforms_.size()) segTransforms_[i]->matrix = m;
         Pose& pose = poses_[i];
-        const bool showBreakCaps = !sectionsGone_[i].empty() || !sectionOnly_[i].empty();
         sampleWeaponControls(i,std::isfinite(finRenderClock_)?finRenderClock_:states[i].simTime);
         for (std::size_t j = 0; j < pose.transforms.size(); ++j) {
             const int flame = j < pose.flames.size() ? pose.flames[j] : -1;
             if (flame < 0 || !exhaustOn_) {
                 Joint& joint = pose.joints[j];
                 if (joint.kind == Joint::BreakCap) {
-                    pose.transforms[j]->matrix = showBreakCaps ? joint.rest : vsg::scale(0.0, 0.0, 0.0);
+                    const bool showCap = !sectionOnly_[i].empty()
+                                             ? (joint.section == sectionOnly_[i] || joint.section.empty())
+                                             : (!sectionsGone_[i].empty() && (joint.section == "centre" || joint.section.empty()));
+                    pose.transforms[j]->matrix = showCap ? joint.rest : vsg::scale(0.0, 0.0, 0.0);
                     continue;
                 }
                 if(joint.kind==Joint::Fin) {

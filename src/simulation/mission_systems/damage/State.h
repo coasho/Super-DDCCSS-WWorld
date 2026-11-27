@@ -105,9 +105,12 @@ public:
     const std::map<int, Tank>& tanks() const noexcept { return tanks_; }
     const std::vector<Section>& sections() const noexcept { return sections_; }
     bool engineOut(int engine) const noexcept;
+    bool anyEngineOut() const noexcept { return !engines_out_.empty(); }
     bool crewLost() const noexcept { return crewLost_; }
     const std::vector<std::string>& lostChannels() const noexcept { return lostChannels_; }
     bool panelTorn(int panel) const noexcept { return panel >= 0 && panel < static_cast<int>(torn_.size()) && torn_[static_cast<std::size_t>(panel)]; }
+    /// Additive thermal weakening for active bay fires in LightweightDebris mode (VIS-M11b).
+    void weakenSectionThermal(int section, double deltaRemoved) noexcept;
 
     /// A hit: what its fragments and blast break, its chances drawn from `rng`; what changed.
     std::vector<Change> apply(const Impact& impact, double airPressurePa, Rng& rng);

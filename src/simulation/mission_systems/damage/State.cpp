@@ -125,6 +125,13 @@ void VehicleDamage::weaken(int s, const V3& where, double removedM2) {
     st.strength = std::pow(std::max(0.0, 1.0 - std::min(st.removed, 1.0)), kCompressionExponent);
 }
 
+void VehicleDamage::weakenSectionThermal(int s, double deltaRemoved) noexcept {
+    if (s < 0 || !sectionAttached(s) || !std::isfinite(deltaRemoved) || !(deltaRemoved > 0.0)) return;
+    auto& st = sections_[static_cast<std::size_t>(s)];
+    st.removed = std::min(1.0, st.removed + deltaRemoved);
+    st.strength = std::pow(std::max(0.0, 1.0 - st.removed), kCompressionExponent);
+}
+
 std::vector<Change> VehicleDamage::apply(const Impact& impact, double airPressurePa, Rng& rng) {
     return apply(impact,airPressurePa,rng,{});
 }
