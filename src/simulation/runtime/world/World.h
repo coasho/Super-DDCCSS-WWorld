@@ -861,6 +861,9 @@ private:
         double guidanceDecisionTimeS=std::numeric_limits<double>::quiet_NaN();
         struct OnRailSeekerV2 {
             const ms::StoreCard* card=nullptr;
+            std::optional<ms::weapon::Spec> configuredSpec;
+            std::shared_ptr<const ms::components::ProfileV1> profile;
+            const ms::components::DescriptorV1* seekerDescriptor=nullptr;
             std::unique_ptr<ms::components::SeekerProviderV1> provider;
             ms::components::SeekerResultV2 result;
             std::vector<std::uint32_t> attributions;
@@ -981,8 +984,11 @@ private:
     };
 
     Entry* entry(std::uint32_t id) noexcept;
-    std::uint32_t createVehicleChecked(const VehicleSpec&,const std::function<bool(sim::FlightModel&)>&);
-    std::uint32_t launchWeaponChecked(std::uint32_t,const ms::WeaponLaunch&,const std::function<bool(sim::FlightModel&)>&);
+    std::uint32_t createVehicleChecked(const VehicleSpec&,const std::function<bool(sim::FlightModel&)>&,
+        std::unique_ptr<sim::FlightModel> preloaded=nullptr);
+    std::uint32_t launchWeaponChecked(std::uint32_t,const ms::WeaponLaunch&,const std::function<bool(sim::FlightModel&)>&,
+        std::unique_ptr<sim::FlightModel> preloaded=nullptr);
+    bool buildWeaponLaunchSpec(const Entry& from,const ms::WeaponLaunch& launch,VehicleSpec& outSpec) const;
     /// After a binding was recorded: the platform's grants and policy activities made the bindings' (bindMaService).
     void settleMaOwnership(Entry& e, std::uint32_t platform, control::ControllerId bound);
     const Entry* entry(std::uint32_t id) const noexcept;
@@ -1073,12 +1079,18 @@ private:
     ms::weapon::WeaponLinkPathV1 weaponLinkPathV1(const Entry&,const Entry&,const ms::WeaponLinkProfileV1&) const;
     bool resolveWeaponTarget(std::uint32_t launcher, std::uint32_t target, sim::VehicleState& out) const;
     ms::Reason weaponLaunchEligibility(const Entry& launcher, std::uint16_t store, std::uint32_t target) const;
+    struct ThermalSnapshotV1;
     std::uint32_t onRailSeekerObservation(const Entry& launcher, const ms::StoreCard& card, std::uint16_t store) const;
     const Entry::OnRailSeekerV2* sampleOnRailSeeker(const Entry&,const ms::StoreCard&,std::uint16_t) const;
+    void evaluateOnRailSeekerV1(const Entry& launcher,std::uint16_t store,Entry::OnRailSeekerV2& cached,
+        const std::vector<ms::countermeasure::Dispenser*>& activeDispensers,
+        const std::vector<ThermalSnapshotV1>& thermalSnapshots) const;
     void sampleOnRailSeekers();
     std::optional<ms::damage::AttachedGeometryView> seekerGeometryV1(const Entry&) const;
     std::optional<ms::components::ImageExtentV2> projectedSeekerExtent(const Entry&,
         const sim::VehicleState& observer) const;
+    std::optional<ms::components::ImageExtentV2> projectedSeekerExtentWithCgV1(const Entry&,
+        const sim::VehicleState& observer,const double cg[3]) const;
     void finishEngagements();
     bool groundWeaponContact(Entry&,const sim::TerrainContactSnapshotV1&,double age,double offset);
     void detonateArrestedWeapon(Entry&,double fraction);

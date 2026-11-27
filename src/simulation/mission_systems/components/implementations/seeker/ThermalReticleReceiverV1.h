@@ -1,10 +1,22 @@
 #pragma once
 #include "ThermalImageReceiverV1.h"
 #include "simulation/mission_systems/components/interfaces/ThermalReticleSeekerExecutionV1.h"
+#include <memory>
+#include <mutex>
 #include <random>
 #include <functional>
 
 namespace fsim::ms::components {
+/// Scoped guard used by outer parallel pools (e.g. World VehiclePool) to avoid
+/// nested OS thread-pool oversubscription inside reticle inverse routines.
+struct ReticleNestedPoolGuardV1 {
+    bool previous=false;
+    explicit ReticleNestedPoolGuardV1(bool block=true) noexcept;
+    ~ReticleNestedPoolGuardV1() noexcept;
+    ReticleNestedPoolGuardV1(const ReticleNestedPoolGuardV1&)=delete;
+    ReticleNestedPoolGuardV1& operator=(const ReticleNestedPoolGuardV1&)=delete;
+    static bool blocked() noexcept;
+};
 /// One synchronous unit-field work report. No retained observer state.
 struct ThermalGroundWorkV2 {
     double totalMicros=0,originalMicros=0;
@@ -120,6 +132,11 @@ public:
     static std::optional<std::vector<double>> unitGroundFieldV1(const ThermalImageConfigV1&,
         weapon::V3 pointing,weapon::V3 up,double cutoff,
         const std::optional<std::array<double,4>>& sourceRegion=std::nullopt,bool* accelerated=nullptr);
+    /// Fast continuous sky/ground horizon background radiance (same < 1e-11
+    /// quadrature used by reticle background; returns nullopt if fallback needed).
+    static std::optional<std::vector<double>> fastBackgroundRadianceV1(
+        const ThermalImageConfigV1&,weapon::V3 pointing,weapon::V3 up,
+        double skyRadianceWm2Sr,double groundRadianceWm2Sr,double groundHorizonCosine);
     /// V2 synchronous memo provider returns the exact original native unit
     /// background for this policy/pointing/up/cutoff; no authority is retained.
     static std::optional<std::vector<double>> unitGroundFieldMemoV2(const ThermalImageConfigV1&,
@@ -131,12 +148,48 @@ public:
         const std::optional<std::array<double,4>>& sourceRegion,
         const std::function<const std::vector<double>*()>& nativeBackground,ThermalGroundWorkV2*,bool* accelerated=nullptr);
 private:
+    struct PrecomputedV1 {
+        std::vector<double> weights,timeWeights,solidAngles,flat,templates;
+        std::vector<double> templateInvNorm2;    ///< 1/inner(template, template) for valid point templates, else 0
+        std::vector<double> weightedWeights;     ///< (solidAngles[i] / pixelArea) * weights[i*count + j]
+        std::vector<double> projWeightedWeights; ///< project(filtered(weightedWeights[i], alpha)) for fast spot()
+        std::vector<double> symWeightedWeights;  ///< symmetric column-pair sum for (width+1)/2 cols
+        std::vector<double> rowFullWave;         ///< per-row sum of weightedWeights across all columns
+        std::vector<double> rowFullWavePrefix;   ///< (height+1)*count prefix sum of rowFullWave
+        std::vector<double> rowColPrefix;        ///< height*(width+1)*count column prefix sum of weightedWeights
+        std::array<std::vector<double>,5> rowMomentWave; ///< per-row x^m moments (m=0..4) of weightedWeights
+        std::vector<double> projRowFullWavePrefix;       ///< (height+1)*count prefix sum of project(filtered(rowFullWave))
+        std::array<std::vector<double>,5> projRowMomentWave; ///< project(filtered(rowMomentWave[m], alpha))
+        std::vector<double> rowFullUniformDotPrefix;     ///< (height+1) prefix sum of inner(filtered(rowFullWave), uniform)
+        std::vector<double> rowFullTransientDotPrefix;   ///< (height+1) prefix sum of inner(filtered(rowFullWave), transient)
+        std::array<std::vector<double>,5> rowMomentUniformDot;   ///< per-row inner(filtered(rowMomentWave[m]), uniform)
+        std::array<std::vector<double>,5> rowMomentTransientDot; ///< per-row inner(filtered(rowMomentWave[m]), transient)
+        std::vector<double> projSymWeightedWeights;      ///< height*symCols*count projected symmetric column-pair basis
+        std::vector<double> symUniformDot;               ///< height*symCols inner(filtered(symWeightedWeights), uniform)
+        std::vector<double> symTransientDot;             ///< height*symCols inner(filtered(symWeightedWeights), transient)
+        std::vector<double> projRowPrefix;       ///< height*(width+1)*count column prefix sum of projWeightedWeights
+        std::vector<double> projColPrefix;       ///< (height+1)*width*count row prefix sum of projWeightedWeights
+        std::vector<double> projPrefix2D;        ///< (height+1)*(width+1)*count 2D prefix sum of projWeightedWeights
+        std::vector<double> supportPrefix;
+        unsigned supportColumns=0,supportRows=0,supportMargin=0;
+        double supportPitch=0;
+        std::vector<std::vector<double>> nuisance;
+        struct SupportRectEntry {
+            int row=0,col=0;
+            unsigned row0=0,row1=0,col0=0,col1=0;
+            double x=0,y=0,invRawNorm2=0;
+        };
+        struct SupportSizeGroup {
+            unsigned width=0,height=0;
+            double widthRad=0,heightRad=0;
+            std::size_t begin=0,end=0;
+        };
+        mutable std::once_flag supportNormOnce;
+        mutable std::vector<SupportSizeGroup> supportGroups;
+        mutable std::vector<SupportRectEntry> supportRects;
+    };
     ThermalReticleConfigV1 config_;
-    std::vector<double> weights_,timeWeights_,solidAngles_,flat_,templates_;
-    std::vector<double> supportPrefix_;
-    unsigned supportColumns_=0,supportRows_=0,supportMargin_=0;
-    double supportPitch_=0;
-    std::vector<std::vector<double>> nuisance_;
+    std::shared_ptr<const PrecomputedV1> precomputed_;
     double startedS_=-1,lastTimeS_=-1,lastDetectorSampleTimeS_=-1,detectorCharge_=0,expectedCharge_=0;
     std::mt19937_64 rng_;
     bool seeded_=false;

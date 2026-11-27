@@ -53,6 +53,16 @@ public:
         return std::isfinite(timeS)&&timeS>=0&&timeS>lastTimeS_&&
             (!seeded_||timeS+1e-12>=nextSampleS_);
     }
+    /// Non-virtual helper: true only when an actual RF detector dwell can run at timeS
+    /// (skips midcourse ground-clutter path tracing before active-radar activation window elapses).
+    bool radioExposureDueV1(double timeS) const noexcept {
+        if(!sceneCaptureDueV1(timeS))return false;
+        if(radioConfig_&&spec_.seeker!="semi_active_radar") {
+            const double completeWindow=std::max(radioConfig_->observationWindowS,RadioReceiverV1::durationS(radioConfig_->waveform));
+            if(!radioActiveSinceS_||timeS-*radioActiveSinceS_<completeWindow)return false;
+        }
+        return true;
+    }
     /// Independent deterministic method seams, also used by execution.
     static double rfSnr(const weapon::SeekerConfigV1&,const SeekerSceneV3&,bool semi,double exposureS) noexcept;
     static double irSnr(const weapon::SeekerConfigV1&,const SeekerSceneV3&,double strength) noexcept;

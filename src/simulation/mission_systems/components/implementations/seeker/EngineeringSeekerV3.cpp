@@ -650,11 +650,11 @@ SeekerResultV2 EngineeringSeekerV3::sampleImpl(const SeekerFrameV2& f,const Ther
                     }
                 }
             } else if(dualFrame) {
-                const auto image=thermalDual_.expose(*dualFrame,pointing_,f.receiverSeed);
+                const auto image=thermalDual_.exposeFastBackgroundV1(*dualFrame,pointing_,f.receiverSeed);
                 if(!image.valid)return {};
                 for(const auto& feature:image.features)features.push_back(feature);
             } else {
-                const auto image=thermal_.expose(*thermalFrame,pointing_,f.receiverSeed,spec_.seeker=="imaging_infrared");
+                const auto image=thermal_.exposeFastBackgroundV1(*thermalFrame,pointing_,f.receiverSeed,spec_.seeker=="imaging_infrared");
                 if(!image.valid)return {};
                 features=image.features;
                 if(spec_.seeker=="infrared"&&features.size()==1) {

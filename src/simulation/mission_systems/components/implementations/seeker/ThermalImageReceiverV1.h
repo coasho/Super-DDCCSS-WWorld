@@ -60,6 +60,10 @@ public:
     const ThermalImageResultV1* latest() const noexcept {return cached_.valid?&cached_:nullptr;}
     ThermalImageResultV1 expose(const ThermalSceneFrameV1&,weapon::V3 pointing,
         std::uint64_t seed,bool imaging);
+    /// Same detector/optics pipeline as expose(), using fast continuous
+    /// horizon background quadrature (< 1e-11 vs adaptive Simpson oracle).
+    ThermalImageResultV1 exposeFastBackgroundV1(const ThermalSceneFrameV1&,weapon::V3 pointing,
+        std::uint64_t seed,bool imaging);
     /// Planck band radiance of a grey surface: epsilon*sigma*T^4*f_band/pi.
     static double bandRadiance(double temperatureK,double emissivity,double lowUm,double highUm) noexcept;
     static std::optional<ThermalIncidentFieldV1> incidentFieldV1(
@@ -68,6 +72,8 @@ public:
 private:
     friend class ThermalDualBandReceiverV1;
     friend class ThermalReticleReceiverV1;
+    ThermalImageResultV1 exposeImplV1(const ThermalSceneFrameV1&,weapon::V3 pointing,
+        std::uint64_t seed,bool imaging,const std::vector<double>* precomputedBackground);
     static std::optional<ThermalIncidentFieldV1> incidentFieldImplV1(
         const ThermalSceneFrameV1&,weapon::V3,const ThermalImageConfigV1&,const std::vector<double>*);
     static std::optional<ThermalIncidentFieldV1> incidentFieldProfileV2(

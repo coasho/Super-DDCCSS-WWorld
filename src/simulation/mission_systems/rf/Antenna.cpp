@@ -1,8 +1,12 @@
 #include "simulation/mission_systems/rf/Antenna.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstring>
 #include <functional>
+#include <mutex>
+#include <vector>
 
 namespace fsim::ms::rf {
 namespace {
@@ -11,6 +15,23 @@ constexpr double kPi = 3.14159265358979323846;
 constexpr double kLight = 299792458.0;
 constexpr int kIntervals = 2048; ///< Simpson's rule across the aperture (even)
 constexpr double kStep = 1.0 / 32.0; ///< the table's spacing in u: 32 samples a lobe
+
+bool doubleBitsEqual(double a, double b) noexcept {
+    std::uint64_t ba = 0, bb = 0;
+    std::memcpy(&ba, &a, sizeof(ba));
+    std::memcpy(&bb, &b, sizeof(bb));
+    return ba == bb;
+}
+
+bool patternCacheKeyEqual(const ApertureSpec& a, double fa, const ApertureSpec& b, double fb) noexcept {
+    return a.shape == b.shape && a.taper == b.taper && a.taylorNbar == b.taylorNbar &&
+           a.electronic == b.electronic && doubleBitsEqual(fa, fb) &&
+           doubleBitsEqual(a.widthM, b.widthM) && doubleBitsEqual(a.heightM, b.heightM) &&
+           doubleBitsEqual(a.pedestal, b.pedestal) && doubleBitsEqual(a.taylorSidelobeDb, b.taylorSidelobeDb) &&
+           doubleBitsEqual(a.efficiency, b.efficiency) && doubleBitsEqual(a.peakGainDbi, b.peakGainDbi) &&
+           doubleBitsEqual(a.floorDbi, b.floorDbi) && doubleBitsEqual(a.backDbi, b.backDbi) &&
+           doubleBitsEqual(a.scanExponent, b.scanExponent);
+}
 
 /// Taylor's line-source illumination (T. T. Taylor, "Design of line-source antennas for narrow beamwidth and low side
 /// lobes", IRE Trans. AP-3, 1955): 1 + 2 sum F_m cos(2 pi m x) over x in [-1/2, 1/2].
@@ -57,7 +78,8 @@ std::function<double(double)> circularIllumination(const ApertureSpec& s) {
 }
 
 /// Simpson's rule of g over [a, b].
-double simpson(const std::function<double(double)>& g, double a, double b) {
+template <typename Fn>
+double simpson(Fn&& g, double a, double b) {
     const double h = (b - a) / kIntervals;
     double s = g(a) + g(b);
     for (int i = 1; i < kIntervals; ++i) s += g(a + i * h) * (i % 2 ? 4.0 : 2.0);
@@ -76,7 +98,30 @@ double Pattern::Table::at(double u) const noexcept {
 }
 
 Pattern::Pattern(const ApertureSpec& spec, double frequencyHz) : spec_(spec), wavelengthM_(kLight / frequencyHz) {
-    auto tabulate = [&](Table& t, double extentM, const std::function<double(double)>& transform) {
+    struct CachedPattern {
+        ApertureSpec spec;
+        double frequencyHz = 0.0;
+        double peakDbi = 0.0, peak = 1.0, floor = 0.1, back = 0.01, taperEfficiency = 1.0;
+        Table horizontal, vertical;
+    };
+    static std::mutex cacheMutex;
+    static std::vector<CachedPattern> cache;
+    {
+        std::lock_guard<std::mutex> lock(cacheMutex);
+        for (const auto& entry : cache) {
+            if (patternCacheKeyEqual(entry.spec, entry.frequencyHz, spec, frequencyHz)) {
+                peakDbi_ = entry.peakDbi;
+                peak_ = entry.peak;
+                floor_ = entry.floor;
+                back_ = entry.back;
+                taperEfficiency_ = entry.taperEfficiency;
+                horizontal_ = entry.horizontal;
+                vertical_ = entry.vertical;
+                return;
+            }
+        }
+    }
+    auto tabulate = [&](Table& t, double extentM, auto&& transform) {
         t.extentWavelengths = extentM / wavelengthM_;
         t.du = kStep;
         const double uMax = 2.0 * t.extentWavelengths + 2.0; // sine differences reach 2
@@ -88,8 +133,24 @@ Pattern::Pattern(const ApertureSpec& spec, double frequencyHz) : spec_(spec), wa
     double areaM2 = 0.0;
     if (spec.shape == ApertureShape::Circular) {
         auto a = circularIllumination(spec);
+        // Pre-evaluate aperture illumination * r * Simpson weight once across the 2049 nodes.
+        std::array<double, kIntervals + 1> rGrid{};
+        std::array<double, kIntervals + 1> wGrid{};
+        const double h = 0.5 / kIntervals;
+        for (int i = 0; i <= kIntervals; ++i) {
+            const double r = static_cast<double>(i) * h;
+            const double sw = (i == 0 || i == kIntervals) ? 1.0 : ((i & 1) ? 4.0 : 2.0);
+            rGrid[static_cast<std::size_t>(i)] = r;
+            wGrid[static_cast<std::size_t>(i)] = a(r) * r * sw;
+        }
+        const double hOver3 = h / 3.0;
         tabulate(horizontal_, spec.widthM, [&](double rho) {
-            return simpson([&](double r) { return a(r) * std::cyl_bessel_j(0.0, 2.0 * kPi * rho * r) * r; }, 0.0, 0.5);
+            const double c = 2.0 * kPi * rho;
+            double s = wGrid[0] * std::cyl_bessel_j(0.0, c * rGrid[0]) +
+                       wGrid[kIntervals] * std::cyl_bessel_j(0.0, c * rGrid[kIntervals]);
+            for (int i = 1; i < kIntervals; ++i)
+                s += wGrid[static_cast<std::size_t>(i)] * std::cyl_bessel_j(0.0, c * rGrid[static_cast<std::size_t>(i)]);
+            return s * hOver3;
         });
         vertical_ = horizontal_;
         const double s1 = simpson([&](double r) { return a(r) * 2.0 * kPi * r; }, 0.0, 0.5);
@@ -98,7 +159,23 @@ Pattern::Pattern(const ApertureSpec& spec, double frequencyHz) : spec_(spec), wa
         areaM2 = kPi / 4.0 * spec.widthM * spec.widthM;
     } else {
         auto a = lineIllumination(spec);
-        auto transform = [&](double u) { return simpson([&](double x) { return a(x) * std::cos(2.0 * kPi * u * x); }, -0.5, 0.5); };
+        std::array<double, kIntervals + 1> xGrid{};
+        std::array<double, kIntervals + 1> wGrid{};
+        const double h = 1.0 / kIntervals;
+        for (int i = 0; i <= kIntervals; ++i) {
+            const double x = -0.5 + static_cast<double>(i) * h;
+            const double sw = (i == 0 || i == kIntervals) ? 1.0 : ((i & 1) ? 4.0 : 2.0);
+            xGrid[static_cast<std::size_t>(i)] = x;
+            wGrid[static_cast<std::size_t>(i)] = a(x) * sw;
+        }
+        const double hOver3 = h / 3.0;
+        auto transform = [&](double u) {
+            const double c = 2.0 * kPi * u;
+            double s = wGrid[0] * std::cos(c * xGrid[0]) + wGrid[kIntervals] * std::cos(c * xGrid[kIntervals]);
+            for (int i = 1; i < kIntervals; ++i)
+                s += wGrid[static_cast<std::size_t>(i)] * std::cos(c * xGrid[static_cast<std::size_t>(i)]);
+            return s * hOver3;
+        };
         tabulate(horizontal_, spec.widthM, transform);
         tabulate(vertical_, spec.heightM, transform);
         const double s1 = simpson(a, -0.5, 0.5);
@@ -112,6 +189,16 @@ Pattern::Pattern(const ApertureSpec& spec, double frequencyHz) : spec_(spec), wa
                    : 10.0 * std::log10(4.0 * kPi * areaM2 * taperEfficiency_ * std::clamp(spec.efficiency, 1e-6, 1.0) /
                                        (wavelengthM_ * wavelengthM_));
     peak_ = std::pow(10.0, peakDbi_ / 10.0), floor_ = std::pow(10.0, spec.floorDbi / 10.0), back_ = std::pow(10.0, spec.backDbi / 10.0);
+    {
+        std::lock_guard<std::mutex> lock(cacheMutex);
+        bool exists = false;
+        for (const auto& entry : cache) {
+            if (patternCacheKeyEqual(entry.spec, entry.frequencyHz, spec, frequencyHz)) { exists = true; break; }
+        }
+        if (!exists && cache.size() < 256) {
+            cache.push_back(CachedPattern{spec, frequencyHz, peakDbi_, peak_, floor_, back_, taperEfficiency_, horizontal_, vertical_});
+        }
+    }
 }
 
 double Pattern::field(double u, bool vertical) const noexcept { return (vertical ? vertical_ : horizontal_).at(u); }

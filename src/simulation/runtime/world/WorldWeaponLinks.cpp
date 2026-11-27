@@ -26,6 +26,20 @@ ms::weapon::NavigationStrapdownInputV2 nativeNavigationInputV2(const sim::Vehicl
         c[3]*body[0]+c[4]*body[1]+c[5]*body[2],c[6]*body[0]+c[7]*body[1]+c[8]*body[2]};
     return in;
 }
+ms::weapon::NavigationStrapdownInputV2 nativeNavigationInputV2(const sim::JsbsimModel::NavigationReadV2& state,double time,bool gnss) noexcept {
+    using V=ms::weapon::V3;
+    ms::weapon::NavigationStrapdownInputV2 in;in.timeS=time;in.gnssAvailable=gnss;
+    in.position={state.positionEcef[0],state.positionEcef[1],state.positionEcef[2]};
+    const auto* c=state.rotationBodyToEcef;const auto* v=state.velocityBodyMs;
+    in.velocity={c[0]*v[0]+c[1]*v[1]+c[2]*v[2],c[3]*v[0]+c[4]*v[1]+c[5]*v[2],c[6]*v[0]+c[7]*v[1]+c[8]*v[2]};
+    in.bodyToEcef={V{c[0],c[3],c[6]},V{c[1],c[4],c[7]},V{c[2],c[5],c[8]}};
+    const auto* w=state.angularRateBodyRadS;const auto* a=state.accelerationBodyMs2;
+    in.angularRateBodyRelativeEcefRadS={w[0],w[1],w[2]};
+    const double body[3]={a[0]+w[1]*v[2]-w[2]*v[1],a[1]+w[2]*v[0]-w[0]*v[2],a[2]+w[0]*v[1]-w[1]*v[0]};
+    in.acceleration={c[0]*body[0]+c[1]*body[1]+c[2]*body[2],
+        c[3]*body[0]+c[4]*body[1]+c[5]*body[2],c[6]*body[0]+c[7]*body[1]+c[8]*body[2]};
+    return in;
+}
 bool estimate(const ms::FusedEntityV1& entity,double now,sim::VehicleState& state) {
     if(entity.state==ms::FusionStateV1::Lost||now>entity.validUntilS||entity.timeS>now)return false;
     const auto dt=now-entity.timeS;
@@ -193,9 +207,16 @@ sim::NativeStepObserverV1 World::weaponNavigationObserverV2(Entry& weapon,sim::F
         // control/World boundary. Avoid a differently rounded duplicate epoch.
         if(!substeps||substep>=substeps||binding.navigationCaptureFailedV2)return;
         try {
-            sim::VehicleState state;binding.navigationNativeModelV2->state(state);
             const double epoch=binding.navigationNativeStartV2+binding.navigationNativeDtV2*static_cast<double>(substep)/static_cast<double>(substeps);
-            if(!binding.navigationCapturesV2.observe(*binding.strapdownNavigation,nativeNavigationInputV2(state,epoch,binding.navigationNativeGnssV2),false))binding.navigationCaptureFailedV2=true;
+            sim::JsbsimModel::NavigationReadV2 nav{};
+            ms::weapon::NavigationStrapdownInputV2 input{};
+            if(static_cast<const sim::JsbsimModel*>(binding.navigationNativeModelV2)->readNavigationStateV2(nav)) {
+                input=nativeNavigationInputV2(nav,epoch,binding.navigationNativeGnssV2);
+            } else {
+                sim::VehicleState state;binding.navigationNativeModelV2->state(state);
+                input=nativeNavigationInputV2(state,epoch,binding.navigationNativeGnssV2);
+            }
+            if(!binding.navigationCapturesV2.observe(*binding.strapdownNavigation,input,false))binding.navigationCaptureFailedV2=true;
         } catch(...) {binding.navigationCaptureFailedV2=true;}
     }};
 }

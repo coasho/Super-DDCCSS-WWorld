@@ -353,7 +353,8 @@ std::uint32_t World::createVehicle(const VehicleSpec& spec) {
     return createVehicleChecked(spec,{});
 }
 
-std::uint32_t World::createVehicleChecked(const VehicleSpec& spec,const std::function<bool(sim::FlightModel&)>& validate) {
+std::uint32_t World::createVehicleChecked(const VehicleSpec& spec,const std::function<bool(sim::FlightModel&)>& validate,
+                                          std::unique_ptr<sim::FlightModel> preloaded) {
     std::string family, aircraft;
     if (!parseType(spec.type, family, aircraft)) {
         LOG_ERROR("session") << "bad vehicle type '" << spec.type << "'";
@@ -381,12 +382,22 @@ std::uint32_t World::createVehicleChecked(const VehicleSpec& spec,const std::fun
         terrain_->prefetch(units::degreesToRadians(spec.initial.latitudeDeg), units::degreesToRadians(spec.initial.longitudeDeg),
                            options_.terrainPrefetchRadiusM);
     if (slot == static_cast<std::size_t>(-1)) {
-        auto model = std::make_unique<sim::JsbsimModel>(options_.dt, ground_);
         const sim::AircraftSpec files{aircraft, jsbsimRoot_,
                                       spec.aircraftDir.empty() ? io::AssetResolver{}.findAircraft(aircraft, jsbsimRoot_) : spec.aircraftDir};
-        if (!model->load(files, spec.initial)) {
-            LOG_ERROR("session") << "failed to load aircraft '" << aircraft << "'";
-            return 0;
+        std::unique_ptr<sim::FlightModel> model;
+        if (preloaded) {
+            model = std::move(preloaded);
+            if (!model->loaded()) {
+                LOG_ERROR("session") << "failed to load aircraft '" << aircraft << "'";
+                return 0;
+            }
+        } else {
+            auto jsb = std::make_unique<sim::JsbsimModel>(options_.dt, ground_);
+            if (!jsb->load(files, spec.initial)) {
+                LOG_ERROR("session") << "failed to load aircraft '" << aircraft << "'";
+                return 0;
+            }
+            model = std::move(jsb);
         }
         if (validate && !validate(*model)) return 0;
         if (!profiles_.count(aircraft)) {
@@ -2564,24 +2575,115 @@ void World::flyReleases() {
     // (launching makes entities: the launchers' ids first, each looked up again after)
     std::vector<std::uint32_t> launchers;
     for (const auto& e : entries_)
-        if (e) launchers.push_back(e->info.id);
+        if (e && e->ms.releasing()) launchers.push_back(e->info.id);
+    struct PendingLauncherReleases {
+        std::uint32_t launcher = 0;
+        std::vector<ms::Host::Release> releases;
+        std::map<ms::ActivityId, ms::Reason> refusals;
+    };
+    std::vector<PendingLauncherReleases> pending;
+    pending.reserve(launchers.size());
     for (const std::uint32_t launcher : launchers) {
         Entry* e = entry(launcher);
         if (!e) continue;
-        auto releases = e->ms.takeReleases();
+        PendingLauncherReleases batch;
+        batch.launcher = launcher;
+        batch.releases = e->ms.takeReleases();
         // Validate every due member of an activity before spawning any. A
         // native execution refusal preserves its actual reason and earlier
         // released weapons. Generic cancellation keeps its queued semantics.
-        std::map<ms::ActivityId, ms::Reason> refusals;
-        for (const auto& release : releases) if (!release.jettisoned && !refusals.count(release.activity)) {
+        for (const auto& release : batch.releases) if (!release.jettisoned && !batch.refusals.count(release.activity)) {
             const auto reason = weaponLaunchEligibility(*e, release.store, release.target);
-            if (reason != ms::Reason::None) refusals.emplace(release.activity, reason);
+            if (reason != ms::Reason::None) batch.refusals.emplace(release.activity, reason);
         }
-        for (auto it = refusals.begin(); it != refusals.end();) {
-            if (!e->ms.releaseRefused(it->first, it->second, simTime_)) it = refusals.erase(it);
+        for (auto it = batch.refusals.begin(); it != batch.refusals.end();) {
+            if (!e->ms.releaseRefused(it->first, it->second, simTime_)) it = batch.refusals.erase(it);
             else ++it;
         }
-        for (auto& r : releases) {
+        pending.push_back(std::move(batch));
+    }
+    // Preload fresh JSBSim weapon flight models concurrently on pool workers when
+    // >= 2 due releases require new XML loads (no matching free slot). Serial
+    // entity/ID/RNG/event creation and launcher mass updates remain in exact order.
+    struct PreloadJob {
+        std::size_t batchIdx = 0;
+        std::size_t relIdx = 0;
+        sim::AircraftSpec files;
+        sim::InitialConditions ic;
+        std::unique_ptr<sim::FlightModel> model;
+        bool loaded = false;
+    };
+    std::vector<PreloadJob> preloadJobs;
+    if (pool_->workers() > 1u) {
+        std::unordered_map<std::string, std::size_t> freeCount;
+        for (std::size_t s : freeSlots_) ++freeCount[slotAircraft_[s]];
+        io::AssetResolver resolver;
+        for (std::size_t bi = 0; bi < pending.size(); ++bi) {
+            const auto& batch = pending[bi];
+            const Entry* le = entry(batch.launcher);
+            if (!le) continue;
+            double cg[3];
+            pool_->vehicle(le->slot).cgFromOriginBodyM(cg);
+            for (std::size_t ri = 0; ri < batch.releases.size(); ++ri) {
+                const auto& r = batch.releases[ri];
+                if (batch.refusals.count(r.activity)) continue;
+                std::string family, aircraft;
+                if (!parseType(r.launch.type, family, aircraft) || family != "jsbsim") continue;
+                if (auto fcIt = freeCount.find(aircraft); fcIt != freeCount.end() && fcIt->second > 0u) {
+                    --fcIt->second;
+                    continue;
+                }
+                ms::WeaponLaunch launch = r.launch;
+                for (int k = 0; k < 3; ++k) launch.offsetBodyM[k] -= cg[k];
+                VehicleSpec spec;
+                if (!buildWeaponLaunchSpec(*le, launch, spec)) continue;
+                if (terrain_)
+                    terrain_->prefetch(units::degreesToRadians(spec.initial.latitudeDeg),
+                                       units::degreesToRadians(spec.initial.longitudeDeg),
+                                       options_.terrainPrefetchRadiusM);
+                PreloadJob job;
+                job.batchIdx = bi;
+                job.relIdx = ri;
+                job.files = sim::AircraftSpec{aircraft, jsbsimRoot_, resolver.findAircraft(aircraft, jsbsimRoot_)};
+                job.ic = spec.initial;
+                preloadJobs.push_back(std::move(job));
+            }
+        }
+        if (preloadJobs.size() >= 2u) {
+            pool_->forEach(preloadJobs.size(), [&](std::size_t j) {
+                auto& job = preloadJobs[j];
+                auto jsb = std::make_unique<sim::JsbsimModel>(options_.dt, ground_);
+                if (jsb->load(job.files, job.ic)) {
+                    job.model = std::move(jsb);
+                    job.loaded = true;
+                }
+            });
+        } else {
+            preloadJobs.clear();
+        }
+    }
+    std::size_t nextPreload = 0;
+    for (std::size_t bi = 0; bi < pending.size(); ++bi) {
+        const std::uint32_t launcher = pending[bi].launcher;
+        Entry* e = entry(launcher);
+        if (!e) continue;
+        auto& releases = pending[bi].releases;
+        auto& refusals = pending[bi].refusals;
+        for (std::size_t ri = 0; ri < releases.size(); ++ri) {
+            auto& r = releases[ri];
+            std::unique_ptr<sim::FlightModel> preloadedModel;
+            sim::InitialConditions preloadedIc{};
+            bool hasPreloaded = false;
+            if (nextPreload < preloadJobs.size() &&
+                preloadJobs[nextPreload].batchIdx == bi &&
+                preloadJobs[nextPreload].relIdx == ri) {
+                if (preloadJobs[nextPreload].loaded) {
+                    preloadedModel = std::move(preloadJobs[nextPreload].model);
+                    preloadedIc = preloadJobs[nextPreload].ic;
+                    hasPreloaded = true;
+                }
+                ++nextPreload;
+            }
             if (refusals.count(r.activity)) continue;
             // the station's place is from the carrier's model origin (its empty CG); the state is at its CG now
             double cg[3];
@@ -2716,7 +2818,26 @@ void World::flyReleases() {
                 configurationError="loaded native component identity differs from the selected card profile";
                 nativeBindingRefused=true;return false;
             };
-            const std::uint32_t weapon = launchWeaponChecked(launcher,r.launch,validate);
+            if (hasPreloaded && preloadedModel) {
+                // If an earlier release from the same launcher shifted its CG/state,
+                // apply the exact updated initial conditions via O(0.1ms) reset().
+                VehicleSpec actualSpec;
+                const auto sameIc = [](const sim::InitialConditions& a, const sim::InitialConditions& b) noexcept {
+                    return a.latitudeDeg == b.latitudeDeg && a.longitudeDeg == b.longitudeDeg &&
+                           a.altitudeMslM == b.altitudeMslM && a.headingDeg == b.headingDeg &&
+                           a.pitchDeg == b.pitchDeg && a.rollDeg == b.rollDeg &&
+                           a.airspeedTrueMs == b.airspeedTrueMs && a.onGround == b.onGround &&
+                           a.enginesRunning == b.enginesRunning &&
+                           a.velocityNedMs[0] == b.velocityNedMs[0] && a.velocityNedMs[1] == b.velocityNedMs[1] &&
+                           a.velocityNedMs[2] == b.velocityNedMs[2] &&
+                           a.bodyRatesRadS[0] == b.bodyRatesRadS[0] && a.bodyRatesRadS[1] == b.bodyRatesRadS[1] &&
+                           a.bodyRatesRadS[2] == b.bodyRatesRadS[2];
+                };
+                if (buildWeaponLaunchSpec(*e, r.launch, actualSpec) && !sameIc(preloadedIc, actualSpec.initial)) {
+                    if (!preloadedModel->reset(actualSpec.initial)) preloadedModel.reset();
+                }
+            }
+            const std::uint32_t weapon = launchWeaponChecked(launcher,r.launch,validate,std::move(preloadedModel));
             if (nativeBindingRefused) {refuse();continue;}
             if (Entry* w = weapon ? entry(weapon) : nullptr) {
                 const auto& info = entry(launcher)->ms.stores();
@@ -3629,18 +3750,8 @@ void World::publishMission() {
     }
 }
 
-std::uint32_t World::launchWeapon(std::uint32_t launcher, const ms::WeaponLaunch& launch) {
-    return launchWeaponChecked(launcher,launch,{});
-}
-
-std::uint32_t World::launchWeaponChecked(std::uint32_t launcher,const ms::WeaponLaunch& launch,
-    const std::function<bool(sim::FlightModel&)>& validate) {
-    const Entry* from = entry(launcher);
-    if (!from) {
-        LOG_ERROR("session") << "launchWeapon: no vehicle " << launcher;
-        return 0;
-    }
-    const sim::VehicleState& ls = pool_->states()[from->slot];
+bool World::buildWeaponLaunchSpec(const Entry& from, const ms::WeaponLaunch& launch, VehicleSpec& spec) const {
+    const sim::VehicleState& ls = pool_->states()[from.slot];
     // the launcher's body axes in NED (3-2-1: yaw, pitch, roll)
     const double cr = std::cos(ls.eulerRad[0]), sr = std::sin(ls.eulerRad[0]);
     const double cp = std::cos(ls.eulerRad[1]), sp = std::sin(ls.eulerRad[1]);
@@ -3656,7 +3767,7 @@ std::uint32_t World::launchWeaponChecked(std::uint32_t launcher,const ms::Weapon
     toNed(launch.ejectionBodyMs, push);
     double lat, lon;
     geo::offsetLatLon(ls.latitudeRad, ls.longitudeRad, offset[0], offset[1], lat, lon);
-    VehicleSpec spec;
+    spec = VehicleSpec{};
     spec.type = launch.type;
     spec.initial.latitudeDeg = units::radiansToDegrees(lat);
     spec.initial.longitudeDeg = units::radiansToDegrees(lon);
@@ -3676,8 +3787,24 @@ std::uint32_t World::launchWeaponChecked(std::uint32_t launcher,const ms::Weapon
     spec.initial.enginesRunning = !launch.inert;
     std::string family, model;
     parseType(launch.type, family, model);
-    spec.name = launch.name.empty() ? from->info.name + "-" + model + "-" + std::to_string(nextId_) : launch.name;
-    const std::uint32_t id = createVehicleChecked(spec,validate);
+    spec.name = launch.name.empty() ? from.info.name + "-" + model + "-" + std::to_string(nextId_) : launch.name;
+    return true;
+}
+
+std::uint32_t World::launchWeapon(std::uint32_t launcher, const ms::WeaponLaunch& launch) {
+    return launchWeaponChecked(launcher,launch,{});
+}
+
+std::uint32_t World::launchWeaponChecked(std::uint32_t launcher,const ms::WeaponLaunch& launch,
+    const std::function<bool(sim::FlightModel&)>& validate,std::unique_ptr<sim::FlightModel> preloaded) {
+    const Entry* from = entry(launcher);
+    if (!from) {
+        LOG_ERROR("session") << "launchWeapon: no vehicle " << launcher;
+        return 0;
+    }
+    VehicleSpec spec;
+    buildWeaponLaunchSpec(*from, launch, spec);
+    const std::uint32_t id = createVehicleChecked(spec,validate,std::move(preloaded));
     Entry* e = entry(id);
     if (!e) return 0;
     e->info.role = ms::Role::Weapon;

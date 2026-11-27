@@ -42,8 +42,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
+#include <mutex>
 #include <stdexcept>
 #include <limits>
+#include <unordered_map>
 #include <utility>
 
 namespace fsim::sim {
@@ -56,24 +59,55 @@ namespace {
 int generatedIntegrationSubsteps(const AircraftSpec& aircraft) {
     const auto base = aircraft.aircraftDir.empty() ? aircraft.jsbsimRoot / "aircraft" : aircraft.aircraftDir;
     const auto file = base / aircraft.name / (aircraft.name + ".xml");
+    struct CachedSubsteps {
+        std::uintmax_t size = 0;
+        std::filesystem::file_time_type mtime{};
+        int substeps = 1;
+        bool invalid = false;
+    };
+    static std::mutex cacheMutex;
+    static std::unordered_map<std::string, CachedSubsteps> cache;
+    std::error_code ec;
+    const auto fSize = std::filesystem::file_size(file, ec);
+    const auto fTime = ec ? std::filesystem::file_time_type{} : std::filesystem::last_write_time(file, ec);
+    const std::string key = file.string();
+    if (!ec) {
+        std::lock_guard<std::mutex> lock(cacheMutex);
+        const auto it = cache.find(key);
+        if (it != cache.end() && it->second.size == fSize && it->second.mtime == fTime) {
+            if (it->second.invalid) throw std::runtime_error("invalid generated integration-v1 metadata");
+            return it->second.substeps;
+        }
+    }
     JSBSim::FGXMLFileRead reader;
-    auto root = reader.LoadXMLDocument(SGPath(file.string()), false);
+    auto root = reader.LoadXMLDocument(SGPath(key), false);
     if (!root) return 1; // The ordinary loader reports the missing/invalid file.
     auto fcs = root->FindElement("flight_control");
-    if (!fcs) return 1;
-    double version = 0.0, count = 1.0, rotational = 1.0;
-    for (auto property = fcs->FindElement("property"); property; property = fcs->FindNextElement("property")) {
-        if (!property->GetNumDataLines()) continue;
-        const auto name = property->GetDataLine();
-        if (name == "fsim/integration-v1/version") version = property->GetAttributeValueAsNumber("value");
-        if (name == "fsim/integration-v1/substeps") count = property->GetAttributeValueAsNumber("value");
-        if (name == "fsim/integration-v1/rotational-rate-method") rotational = property->GetAttributeValueAsNumber("value");
+    int result = 1;
+    bool invalid = false;
+    if (fcs) {
+        double version = 0.0, count = 1.0, rotational = 1.0;
+        for (auto property = fcs->FindElement("property"); property; property = fcs->FindNextElement("property")) {
+            if (!property->GetNumDataLines()) continue;
+            const auto name = property->GetDataLine();
+            if (name == "fsim/integration-v1/version") version = property->GetAttributeValueAsNumber("value");
+            if (name == "fsim/integration-v1/substeps") count = property->GetAttributeValueAsNumber("value");
+            if (name == "fsim/integration-v1/rotational-rate-method") rotational = property->GetAttributeValueAsNumber("value");
+        }
+        if (version != 0.0 || count != 1.0) {
+            if ((version != 1.0 && version != 2.0) || !std::isfinite(count) || count < 1.0 || count > 4096.0 || count != std::floor(count) ||
+                (version == 2.0 && rotational != 4.0))
+                invalid = true;
+            else
+                result = static_cast<int>(count);
+        }
     }
-    if (version == 0.0 && count == 1.0) return 1;
-    if ((version != 1.0 && version != 2.0) || !std::isfinite(count) || count < 1.0 || count > 4096.0 || count != std::floor(count) ||
-        (version == 2.0 && rotational != 4.0))
-        throw std::runtime_error("invalid generated integration-v1 metadata");
-    return static_cast<int>(count);
+    if (!ec) {
+        std::lock_guard<std::mutex> lock(cacheMutex);
+        if (cache.size() < 256) cache[key] = CachedSubsteps{fSize, fTime, result, invalid};
+    }
+    if (invalid) throw std::runtime_error("invalid generated integration-v1 metadata");
+    return result;
 }
 
 void applyGeneratedRateIntegrator(JSBSim::FGFDMExec& fdm) {
@@ -1214,25 +1248,34 @@ void JsbsimModel::step(const ControlInputs& in) {
             observer.observe(observer.context,static_cast<unsigned>(substep+1),static_cast<unsigned>(substeps));
         if (substep == 0) ++stepCount_;
         const auto ground = fdm_->GetGroundReactions();
-        const auto prop = fdm_->GetPropagate();
-        const double vNorth = units::feetToMetres(prop->GetVel(1));
-        const double vEast = units::feetToMetres(prop->GetVel(2));
-        const double vDown = units::feetToMetres(prop->GetVel(3));
-        const double tangSpd = std::hypot(vNorth, vEast);
+        const int numGears = ground->GetNumGearUnits();
         structuralContact_ = false;
-        for (int k = 0; k < ground->GetNumGearUnits(); ++k) {
-            const auto contact = ground->GetGearUnit(k);
-            const double compM = units::feetToMetres(contact->GetCompLen());
-            if (!(compM > 0.0)) continue;
-            if (!contact->IsBogey()) {
-                structuralContact_ = true;
-                contactLoad_.structuralContact = true;
-                contactLoad_.maxBellyDepthM = std::max(contactLoad_.maxBellyDepthM, compM);
-                contactLoad_.tangentSpeedMs = std::max(contactLoad_.tangentSpeedMs, tangSpd);
-            } else if (vDown > 0.0) {
-                contactLoad_.maxGearSinkMs = std::max(contactLoad_.maxGearSinkMs, vDown);
-                contactLoad_.tangentSpeedMs = std::max(contactLoad_.tangentSpeedMs, tangSpd);
-                if (vDown > 6.5) contactLoad_.gearOverload = true;
+        if (numGears > 0 &&
+            static_cast<const ProviderGroundCallback*>(groundCallback_)->deepestFt() <= 10.0) {
+            bool velLoaded = false;
+            double vDown = 0.0, tangSpd = 0.0;
+            for (int k = 0; k < numGears; ++k) {
+                const auto contact = ground->GetGearUnit(k);
+                const double compM = units::feetToMetres(contact->GetCompLen());
+                if (!(compM > 0.0)) continue;
+                if (!velLoaded) {
+                    const auto prop = fdm_->GetPropagate();
+                    const double vNorth = units::feetToMetres(prop->GetVel(1));
+                    const double vEast = units::feetToMetres(prop->GetVel(2));
+                    vDown = units::feetToMetres(prop->GetVel(3));
+                    tangSpd = std::hypot(vNorth, vEast);
+                    velLoaded = true;
+                }
+                if (!contact->IsBogey()) {
+                    structuralContact_ = true;
+                    contactLoad_.structuralContact = true;
+                    contactLoad_.maxBellyDepthM = std::max(contactLoad_.maxBellyDepthM, compM);
+                    contactLoad_.tangentSpeedMs = std::max(contactLoad_.tangentSpeedMs, tangSpd);
+                } else if (vDown > 0.0) {
+                    contactLoad_.maxGearSinkMs = std::max(contactLoad_.maxGearSinkMs, vDown);
+                    contactLoad_.tangentSpeedMs = std::max(contactLoad_.tangentSpeedMs, tangSpd);
+                    if (vDown > 6.5) contactLoad_.gearOverload = true;
+                }
             }
         }
         if(structuralContact_ && !wasContact && !structuralObservedValid_) {
@@ -1242,7 +1285,7 @@ void JsbsimModel::step(const ControlInputs& in) {
             structuralObserved_.substeps=static_cast<unsigned>(substeps);
             structuralObservedValid_=cgFromOriginBodyM(structuralObserved_.cgFromOriginBodyM);
         }
-        if (checkDivergence()) checkTerrainStrike();
+        if (checkDivergence(substep + 1 == substeps)) checkTerrainStrike();
         if (crashed_ || diverged_) break;
     }
 }
@@ -1311,7 +1354,7 @@ void JsbsimModel::setEffectors(const EffectorInputs& e) {
     if (!std::isnan(e.pitchTrim)) pitchTrimCmd_.set(e.pitchTrim);
 }
 
-bool JsbsimModel::checkDivergence() {
+bool JsbsimModel::checkDivergence(bool updateLastGood) {
     // A NaN anywhere in position/velocity poisons everything downstream;
     // mark the vehicle so the environment terminates and resets it (design 13).
     const auto prop = fdm_->GetPropagate();
@@ -1328,7 +1371,7 @@ bool JsbsimModel::checkDivergence() {
         LOG_WARN("sim") << "vehicle diverged (non-finite state) at step " << stepCount_ << "; last good state: lat "
                         << lastGood_.latDeg << " lon " << lastGood_.lonDeg << " alt " << lastGood_.altM << " m, agl "
                         << lastGood_.aglM << " m, |v| " << lastGood_.speedMs << " m/s, on ground " << lastGood_.onGround;
-    } else if (ok) {
+    } else if (ok && updateLastGood) {
         // Keep a compact copy of the last finite state for the divergence report.
         lastGood_.latDeg = prop->GetGeodLatitudeDeg();
         lastGood_.lonDeg = prop->GetLongitudeDeg();
@@ -1338,6 +1381,37 @@ bool JsbsimModel::checkDivergence() {
         lastGood_.onGround = fdm_->GetGroundReactions()->GetWOW();
     }
     return !diverged_;
+}
+
+bool JsbsimModel::readNavigationStateV2(NavigationReadV2& out) const noexcept {
+    using namespace units;
+    if (crashed_) {
+        for (int i = 0; i < 3; ++i) {
+            out.positionEcef[i] = crashState_.positionEcef[i];
+            out.velocityBodyMs[i] = crashState_.velocityBodyMs[i];
+            out.angularRateBodyRadS[i] = crashState_.angularRateBodyRadS[i];
+            out.accelerationBodyMs2[i] = crashState_.accelerationBodyMs2[i];
+        }
+        for (int i = 0; i < 9; ++i) out.rotationBodyToEcef[i] = crashState_.rotationBodyToEcef[i];
+        return true;
+    }
+    if (!loaded_) return false;
+    const auto prop = fdm_->GetPropagate();
+    const auto accel = fdm_->GetAccelerations();
+    const JSBSim::FGLocation& loc = prop->GetLocation();
+    const auto& uvw = prop->GetUVW();
+    const auto& pqr = prop->GetPQR();
+    const auto& uvwDot = accel->GetUVWdot();
+    const JSBSim::FGMatrix33& tb2ec = prop->GetTb2ec();
+    for (unsigned i = 1; i <= 3; ++i) {
+        out.positionEcef[i - 1] = feetToMetres(loc(i));
+        out.velocityBodyMs[i - 1] = feetToMetres(uvw(i));
+        out.angularRateBodyRadS[i - 1] = pqr(i);
+        out.accelerationBodyMs2[i - 1] = feetToMetres(uvwDot(i));
+    }
+    for (unsigned r = 1; r <= 3; ++r)
+        for (unsigned c = 1; c <= 3; ++c) out.rotationBodyToEcef[(r - 1) * 3 + (c - 1)] = tb2ec(r, c);
+    return true;
 }
 
 void JsbsimModel::state(VehicleState& out) const {

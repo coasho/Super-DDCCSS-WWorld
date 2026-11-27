@@ -4,6 +4,8 @@
 #include "simulation/mission_systems/components/support/MeasuredSeekerV2.h"
 #include "simulation/mission_systems/components/support/GuidanceOwnFrameV2.h"
 #include "simulation/mission_systems/components/implementations/seeker/EngineeringSeekerV3.h"
+#include "simulation/mission_systems/components/implementations/seeker/ThermalDualBandReceiverV1.h"
+#include "simulation/mission_systems/components/implementations/seeker/ThermalReticleReceiverV1.h"
 #include "simulation/mission_systems/components/support/ReceiverConfigurationV1.h"
 #include "simulation/flight/NativeThermalSourceV1.h"
 #include "simulation/flight/GroundProvider.h"
@@ -16,7 +18,9 @@
 #include "foundation/core/Attitude.h"
 #include <algorithm>
 #include <cmath>
+#include <exception>
 #include <set>
+#include <thread>
 
 namespace fsim::session {
 namespace {
@@ -43,12 +47,38 @@ ms::rf::Terminal terminal(V p) {
 }
 bool opticalClear(V from,V to,const sim::GroundProvider* ground) {
     if(!ground)return false;
-    const double range=length(delta(to,from));
-    const double spacing=std::clamp(ground->resolutionM(),30.,2000.);
+    const V d=delta(to,from);
+    const double range=length(d);
+    const double res=ground->resolutionM();
+    const double spacing=std::clamp(res,30.,2000.);
     const unsigned count=static_cast<unsigned>(std::clamp(std::ceil(range/spacing),2.,2000.));
+    if(!std::isfinite(res)) {
+        // Constant-height flat ground over convex WGS-84 ellipsoid: ellipsoidal
+        // height along a straight chord is strictly unimodal, so its minimum on
+        // {1..count-1} lies at endpoints or adjacent to the exact ellipsoidal closest point.
+        const double groundH=ground->pointHeightAboveEllipsoidM(0.,0.);
+        if(!std::isfinite(groundH))return false;
+        constexpr double kInvOneMinusF=1.0/(1.0-1.0/298.257223563);
+        constexpr double kZ2=kInvOneMinusF*kInvOneMinusF;
+        const double denom=d.x*d.x+d.y*d.y+d.z*d.z*kZ2;
+        const double wStar=(denom>0.)?std::clamp(-(from.x*d.x+from.y*d.y+from.z*d.z*kZ2)/denom,0.,1.):0.5;
+        const int center=static_cast<int>(std::floor(wStar*static_cast<double>(count)));
+        const int maxI=static_cast<int>(count)-1;
+        const int probes[5]={1,maxI,std::clamp(center-1,1,maxI),std::clamp(center,1,maxI),std::clamp(center+1,1,maxI)};
+        for(int idx=0;idx<5;++idx) {
+            const int i=probes[idx];
+            bool dup=false;
+            for(int prev=0;prev<idx;++prev)if(probes[prev]==i){dup=true;break;}
+            if(dup)continue;
+            const double w=static_cast<double>(i)/static_cast<double>(count);
+            const auto p=terminal(ms::components::measured::add(from,ms::components::measured::scale(d,w)));
+            if(p.heightM<groundH)return false;
+        }
+        return true;
+    }
     for(unsigned i=1;i<count;++i) {
         const double w=static_cast<double>(i)/count;
-        const auto p=terminal(ms::components::measured::add(from,ms::components::measured::scale(delta(to,from),w)));
+        const auto p=terminal(ms::components::measured::add(from,ms::components::measured::scale(d,w)));
         const double height=ground->pointHeightAboveEllipsoidM(p.latitudeRad,p.longitudeRad);
         if(!std::isfinite(height)||p.heightM<height)return false;
     }
@@ -104,13 +134,12 @@ V directionRate(V relative,V relativeVelocity) {
     const double range=norm(relative);const auto ray=unit(relative);
     return range>0?scale(subtract(relativeVelocity,scale(ray,ms::components::measured::dot(relativeVelocity,ray))),1/range):V{};
 }
-void appendThermalAircraft(ms::components::ThermalSceneFrameV1& frame,const ms::components::ReceiverScenePolicyV1& policy,
-    const sim::VehicleState& own,const sim::VehicleState& target,sim::FlightModel& model,
+void appendThermalAircraftFromSnapshot(ms::components::ThermalSceneFrameV1& frame,const ms::components::ReceiverScenePolicyV1& policy,
+    const sim::VehicleState& own,const sim::VehicleState& target,
+    const sim::NativeThermalSnapshotV1& temperatures,bool hasCg,const double cg[3],
     const ms::damage::AttachedGeometryView& geometry,const ms::components::ImageExtentV2& extent,std::size_t source) {
     using namespace ms::components::measured;
-    sim::NativeThermalSnapshotV1 temperatures;
-    const auto* native=dynamic_cast<const sim::NativeThermalSourceV1*>(&model);
-    if(!native||!native->nativeThermalSnapshotV1(temperatures)||!temperatures.ambientAvailable)return;
+    if(!temperatures.ambientAvailable)return;
     double hottest=temperatures.ambientTemperatureK;
     for(std::size_t i=0;i<temperatures.engineGasTemperatureK.size();++i)
         if(temperatures.engineGasTemperatureKind[i]!=sim::NativeGasTemperatureKindV1::Unavailable)
@@ -126,7 +155,7 @@ void appendThermalAircraft(ms::components::ThermalSceneFrameV1& frame,const ms::
     body.transmission=std::exp(-policy.extinctionPerM*range);
     body.pathRadianceWm2Sr=ms::components::ThermalImageReceiverV1::bandRadiance(temperatures.ambientTemperatureK,1,policy.lowUm,policy.highUm);
     frame.patches.push_back(body);frame.refereeAttributionIndices.push_back(source);
-    double cg[3];if(!model.cgFromOriginBodyM(cg))return;
+    if(!hasCg)return;
     const V forward{target.rotationBodyToEcef[0],target.rotationBodyToEcef[3],target.rotationBodyToEcef[6]};
     for(const auto index:geometry.componentIndices()) {
         const auto& c=geometry.airframe().components[index];
@@ -146,6 +175,13 @@ void appendThermalAircraft(ms::components::ThermalSceneFrameV1& frame,const ms::
     }
 }
 }
+
+struct World::ThermalSnapshotV1 {
+    bool hasCg=false;
+    double cg[3]={0.,0.,0.};
+    bool hasThermal=false;
+    sim::NativeThermalSnapshotV1 thermal{};
+};
 
 ms::components::SeekerNavigationPoseV1 World::weaponNavigationPoseV1(const Entry& e) const {
     ms::components::SeekerNavigationPoseV1 result;
@@ -280,8 +316,42 @@ std::vector<ms::EngagementEvent> World::engagementEvents(std::uint64_t since) co
 void World::prepareEngagements() {
     const double dt = options_.dt*options_.frameSkip;
     decoyTrajectories_.clear();
-    for (auto& e : entries_) if (e && e->guidance && !e->weaponEnded) {
-        if(e->arrestedBurst)continue;
+    std::vector<Entry*> liveWeapons;
+    bool needThermalSnapshots = false;
+    for (auto& e : entries_) if (e && e->guidance && !e->weaponEnded && !e->arrestedBurst) {
+        liveWeapons.push_back(e.get());
+        if (e->seekerProvider && infrared(e->guidance->spec().seeker)) needThermalSnapshots = true;
+    }
+    const auto activeDispensers = dispensers();
+    std::vector<ThermalSnapshotV1> thermalSnapshots;
+    if (needThermalSnapshots) {
+        thermalSnapshots.resize(entries_.size());
+        for (std::size_t slot = 0; slot < entries_.size(); ++slot) {
+            const auto& cand = entries_[slot];
+            if (!cand || cand->info.role != ms::Role::Aircraft) continue;
+            auto& snap = thermalSnapshots[slot];
+            auto& model = pool_->vehicle(slot);
+            if (model.cgFromOriginBodyM(snap.cg) &&
+                std::all_of(snap.cg, snap.cg + 3, [](double v) { return std::isfinite(v); })) {
+                snap.hasCg = true;
+            }
+            if (const auto* native = dynamic_cast<const sim::NativeThermalSourceV1*>(&model)) {
+                snap.hasThermal = native->nativeThermalSnapshotV1(snap.thermal) && snap.thermal.ambientAvailable;
+            }
+        }
+    }
+    struct PendingEngagementEvent {
+        std::string kind;
+        std::uint32_t target = 0;
+    };
+    std::vector<std::vector<PendingEngagementEvent>> pendingEvents(liveWeapons.size());
+    const bool useParallel = liveWeapons.size() > 1u && pool_->workers() > 1u;
+    const bool allowDualParallel = pool_->workers() > liveWeapons.size();
+    const auto processWeapon = [&](std::size_t wi) {
+        ms::components::ReticleNestedPoolGuardV1 nestedGuard(useParallel);
+        ms::components::DualBandParallelGuardV1 dualGuard(allowDualParallel);
+        Entry* e = liveWeapons[wi];
+        auto& eventsOut = pendingEvents[wi];
         const auto& s=pool_->states()[e->slot];
         const auto spec=e->guidance->spec();
         const bool heat=infrared(spec.seeker);
@@ -306,7 +376,7 @@ void World::prepareEngagements() {
             e->origin.timeToGoS=output.timeToGoS;e->origin.timeToActiveS=output.timeToActiveS;
             e->origin.burning=e->plantProviders.propulsion && e->plantProviders.propulsion->burning(totalWeaponThrust(s));
             e->guidanceDemand[0]=output.acceleration.x;e->guidanceDemand[1]=output.acceleration.y;e->guidanceDemand[2]=output.acceleration.z;
-            continue;
+            return;
         }
         const auto& seeker=e->seekerProvider->config();
         const bool finiteSensor=seeker.engineering.version==3;
@@ -322,7 +392,7 @@ void World::prepareEngagements() {
         const bool thermalReceiver=reticle||(receiver&&(receiver->kind==ms::components::PhysicalReceiverKindV1::Image||receiver->kind==ms::components::PhysicalReceiverKindV1::Quadrant));
         const bool radioReceiver=receiver&&receiver->kind==ms::components::PhysicalReceiverKindV1::Radio;
         const auto* sceneClock=dynamic_cast<const ms::components::SeekerSceneClockV1*>(e->seekerProvider.get());
-        const bool captureGroundScene=!sceneClock||sceneClock->sceneCaptureDueV1(simTime_);
+        bool captureGroundScene=!sceneClock||sceneClock->sceneCaptureDueV1(simTime_);
         std::vector<ms::components::SeekerSceneV3> sensorScenes;
         const auto* d=designation(e->origin.target);
         const Entry* launcher=entry(e->info.launcher);
@@ -450,7 +520,7 @@ void World::prepareEngagements() {
             }
             in.visible.push_back({candidate->info.id,point(target.positionEcef),tv,false,signal,acquire});
         }
-        for (const auto* dispenser : dispensers()) for (const auto& decoy : dispenser->decoys()) {
+        for (const auto* dispenser : activeDispensers) for (const auto& decoy : dispenser->decoys()) {
             if (heat != (decoy.kind==ms::countermeasure::Kind::Flare)) continue;
             const V p{decoy.position.x,decoy.position.y,decoy.position.z}, v{decoy.velocity.x,decoy.velocity.y,decoy.velocity.z};
             if (!illuminatedCandidate(p)) continue;
@@ -498,8 +568,12 @@ void World::prepareEngagements() {
                     sample.rangeM=range;
                     sample.rangeRateMs=dot(delta(observation.velocity,physicalVelocity),sample.direction);
                 }
-                if(spec.seeker=="imaging_infrared")if(const auto* target=entry(observation.id))
-                    sample.imageExtent=projectedSeekerExtent(*target,s);
+                std::optional<ms::components::ImageExtentV2> cachedExtent;
+                const Entry* targetEntry=(spec.seeker=="imaging_infrared"||thermalReceiver)?entry(observation.id):nullptr;
+                if(targetEntry&&targetEntry->slot<thermalSnapshots.size()&&thermalSnapshots[targetEntry->slot].hasCg) {
+                    cachedExtent=projectedSeekerExtentWithCgV1(*targetEntry,s,thermalSnapshots[targetEntry->slot].cg);
+                    if(spec.seeker=="imaging_infrared")sample.imageExtent=cachedExtent;
+                }
                 if(semi) {
                     sample.illuminator=frame.configuredIlluminator;
                     // Both actual path queries have passed above; no unrelated
@@ -508,14 +582,17 @@ void World::prepareEngagements() {
                 }
                 if(finiteSensor&&index<sensorScenes.size())sample.scene=sensorScenes[index];
                 if(thermalReceiver) {
-                    if(const auto* target=entry(observation.id);target) {
-                        if(const auto geometry=seekerGeometryV1(*target))if(const auto extent=projectedSeekerExtent(*target,s)) {
-                            appendThermalAircraft(thermalScene,*thermalScenePolicy,s,
-                                pool_->states()[target->slot],pool_->vehicle(target->slot),*geometry,*extent,index);
-                            if(dualThermal)appendThermalAircraft(secondThermalScene,*receiverEnvelope->secondBandScene,s,
-                                pool_->states()[target->slot],pool_->vehicle(target->slot),*geometry,*extent,index);
+                    if(targetEntry) {
+                        if(cachedExtent&&targetEntry->slot<thermalSnapshots.size()&&thermalSnapshots[targetEntry->slot].hasCg) {
+                            const auto& snap=thermalSnapshots[targetEntry->slot];
+                            if(snap.hasThermal)if(const auto geometry=seekerGeometryV1(*targetEntry)) {
+                                appendThermalAircraftFromSnapshot(thermalScene,*thermalScenePolicy,s,
+                                    pool_->states()[targetEntry->slot],snap.thermal,snap.hasCg,snap.cg,*geometry,*cachedExtent,index);
+                                if(dualThermal)appendThermalAircraftFromSnapshot(secondThermalScene,*receiverEnvelope->secondBandScene,s,
+                                    pool_->states()[targetEntry->slot],snap.thermal,snap.hasCg,snap.cg,*geometry,*cachedExtent,index);
+                            }
                         }
-                    } else for(const auto* dispenser:dispensers())for(const auto& decoy:dispenser->decoys())if(decoy.id==observation.id) {
+                    } else for(const auto* dispenser:activeDispensers)for(const auto& decoy:dispenser->decoys())if(decoy.id==observation.id) {
                         const double age=std::max(0.,simTime_-decoy.launchTimeS);
                         const auto rate=directionRate(relative,delta(observation.velocity,physicalVelocity));
                         appendThermalFlare(thermalScene,*thermalScenePolicy,sample.direction,rate,range,age,index);
@@ -555,6 +632,16 @@ void World::prepareEngagements() {
                 } else if(auto* detector=dynamic_cast<ms::components::ThermalSeekerExecutionV1*>(e->seekerProvider.get()))result=detector->sampleThermalV1(frame,thermalScene);
             } else if(radioReceiver) {
                 radioScene.navigation=navigation;
+                // Skip ground-clutter path tracing when no RF detector dwell can run
+                // (e.g. active radar during midcourse before warm-up completes, or
+                // unilluminated SARH). Servo, navigation, and SARH clock stay active.
+                if(captureGroundScene) {
+                    if(semi) {
+                        captureGroundScene=radioScene.illuminationAvailable;
+                    } else if(const auto* nativeSeeker=dynamic_cast<const ms::components::EngineeringSeekerV3*>(e->seekerProvider.get())) {
+                        captureGroundScene=nativeSeeker->radioExposureDueV1(simTime_);
+                    }
+                }
                 // Same bounded physical ground-patch quadrature as the native
                 // radar: explicit backscatter, actual terrain height and own
                 // motion. Patches have no target/referee identity.
@@ -567,29 +654,59 @@ void World::prepareEngagements() {
                 // Clutter paths are consumed only at an actual detector exposure.
                 // Keep the scene epoch/navigation and SARH illumination clock
                 // every control step; servo and delivery timing are unchanged.
-                for(unsigned band=0;captureGroundScene&&band<receiver->scene.groundRangeBands&&maximum>h;++band) {
-                    const double dr=(maximum-h)/receiver->scene.groundRangeBands,range=h+(band+.5)*dr;
-                    const double down=std::clamp(((earth+h)*(earth+h)+range*range-earth*earth)/(2*(earth+h)*range),0.,1.);
-                    const double horizontal=std::sqrt(1-down*down),grazing=std::clamp(((earth+h)*(earth+h)-range*range-earth*earth)/(2*earth*range),0.,1.);
-                    for(unsigned az=0;az<receiver->scene.groundAzimuthSamples;++az) {
-                        const double phi=2*3.14159265358979323846*(az+.5)/receiver->scene.groundAzimuthSamples;
-                        const auto ray=ms::components::measured::add(ms::components::measured::scale(up,-down),
-                            ms::components::measured::add(ms::components::measured::scale(north,horizontal*std::cos(phi)),ms::components::measured::scale(east,horizontal*std::sin(phi))));
-                        auto at=ms::components::measured::add(physicalPosition,ms::components::measured::scale(ray,range));auto place=terminal(at);
-                        const double terrain=ground_?ground_->pointHeightAboveEllipsoidM(place.latitudeRad,place.longitudeRad):0;
-                        if(!std::isfinite(terrain))continue;
-                        double xyz[3];ms::rf::geodeticToEcef(place.latitudeRad,place.longitudeRad,terrain,xyz);at=point(xyz);
-                        const double area=2*3.14159265358979323846*range*dr/receiver->scene.groundAzimuthSamples;
-                        const double sigma=(terrain<=0?receiver->scene.groundSigma0Sea:receiver->scene.groundSigma0Land)*std::pow(grazing,receiver->scene.groundGrazingExponent)*area;
-                        const auto physical=sceneFor(at,sigma);if(!physical)continue;
-                        ms::components::RadioEchoSceneV1 echo;echo.direction=ms::components::measured::unit(delta(at,physicalPosition));echo.receiverRangeM=physical->rangeM;
-                        echo.transmitterRangeM=physical->transmitterRangeM;echo.delayRangeM=semi?.5*(echo.receiverRangeM+echo.transmitterRangeM):echo.receiverRangeM;
-                        const double wavelength=299792458./radioScene.frequencyHz;echo.dopplerHz=dot(physicalVelocity,echo.direction)/wavelength;
-                        if(semi&&launcher){const auto& tx=pool_->states()[launcher->slot];echo.dopplerHz+=dot(velocity(tx),ms::components::measured::unit(delta(at,point(tx.positionEcef))))/wavelength;}
-                        else echo.dopplerHz*=2;
-                        echo.rcsM2=sigma;echo.transmitterPowerW=physical->transmitterPowerW;echo.transmitterGainLinear=physical->transmitterGainLinear;
-                        echo.receiverExcessLossDb=physical->receiverExcessLossDb;echo.transmitterExcessLossDb=physical->transmitterExcessLossDb;
-                        radioScene.groundPatches.push_back(echo);
+                if (captureGroundScene && receiver->scene.groundRangeBands > 0u && maximum > h) {
+                    const unsigned totalBands = receiver->scene.groundRangeBands;
+                    const unsigned azSamples = receiver->scene.groundAzimuthSamples;
+                    const auto buildBandRange = [&](unsigned bBegin, unsigned bEnd,
+                                                    std::vector<ms::components::RadioEchoSceneV1>& outPatches) {
+                        outPatches.reserve(static_cast<std::size_t>(bEnd - bBegin) * azSamples);
+                        for (unsigned band = bBegin; band < bEnd; ++band) {
+                            const double dr = (maximum - h) / totalBands, range = h + (band + .5) * dr;
+                            const double down = std::clamp(((earth + h) * (earth + h) + range * range - earth * earth) / (2 * (earth + h) * range), 0., 1.);
+                            const double horizontal = std::sqrt(1 - down * down), grazing = std::clamp(((earth + h) * (earth + h) - range * range - earth * earth) / (2 * earth * range), 0., 1.);
+                            for (unsigned az = 0; az < azSamples; ++az) {
+                                const double phi = 2 * 3.14159265358979323846 * (az + .5) / azSamples;
+                                const auto ray = ms::components::measured::add(ms::components::measured::scale(up, -down),
+                                    ms::components::measured::add(ms::components::measured::scale(north, horizontal * std::cos(phi)), ms::components::measured::scale(east, horizontal * std::sin(phi))));
+                                auto at = ms::components::measured::add(physicalPosition, ms::components::measured::scale(ray, range));
+                                auto place = terminal(at);
+                                const double terrain = ground_ ? ground_->pointHeightAboveEllipsoidM(place.latitudeRad, place.longitudeRad) : 0;
+                                if (!std::isfinite(terrain)) continue;
+                                double xyz[3]; ms::rf::geodeticToEcef(place.latitudeRad, place.longitudeRad, terrain, xyz); at = point(xyz);
+                                const double area = 2 * 3.14159265358979323846 * range * dr / azSamples;
+                                const double sigma = (terrain <= 0 ? receiver->scene.groundSigma0Sea : receiver->scene.groundSigma0Land) * std::pow(grazing, receiver->scene.groundGrazingExponent) * area;
+                                const auto physical = sceneFor(at, sigma); if (!physical) continue;
+                                ms::components::RadioEchoSceneV1 echo;
+                                echo.direction = ms::components::measured::unit(delta(at, physicalPosition));
+                                echo.receiverRangeM = physical->rangeM;
+                                echo.transmitterRangeM = physical->transmitterRangeM;
+                                echo.delayRangeM = semi ? .5 * (echo.receiverRangeM + echo.transmitterRangeM) : echo.receiverRangeM;
+                                const double wavelength = 299792458. / radioScene.frequencyHz;
+                                echo.dopplerHz = dot(physicalVelocity, echo.direction) / wavelength;
+                                if (semi && launcher) {
+                                    const auto& tx = pool_->states()[launcher->slot];
+                                    echo.dopplerHz += dot(velocity(tx), ms::components::measured::unit(delta(at, point(tx.positionEcef)))) / wavelength;
+                                } else echo.dopplerHz *= 2;
+                                echo.rcsM2 = sigma; echo.transmitterPowerW = physical->transmitterPowerW; echo.transmitterGainLinear = physical->transmitterGainLinear;
+                                echo.receiverExcessLossDb = physical->receiverExcessLossDb; echo.transmitterExcessLossDb = physical->transmitterExcessLossDb;
+                                outPatches.push_back(echo);
+                            }
+                        }
+                    };
+                    if (allowDualParallel && totalBands >= 2u) {
+                        const unsigned split = totalBands / 2u;
+                        std::vector<ms::components::RadioEchoSceneV1> hiPatches;
+                        std::exception_ptr hiErr;
+                        std::thread hiThread([&]() noexcept {
+                            try { buildBandRange(split, totalBands, hiPatches); }
+                            catch (...) { hiErr = std::current_exception(); }
+                        });
+                        buildBandRange(0u, split, radioScene.groundPatches);
+                        hiThread.join();
+                        if (hiErr) std::rethrow_exception(hiErr);
+                        radioScene.groundPatches.insert(radioScene.groundPatches.end(), hiPatches.begin(), hiPatches.end());
+                    } else {
+                        buildBandRange(0u, totalBands, radioScene.groundPatches);
                     }
                 }
                 if(auto* detector=dynamic_cast<ms::components::RadioSeekerExecutionV1*>(e->seekerProvider.get()))result=detector->sampleRadioV1(frame,radioScene);
@@ -623,11 +740,21 @@ void World::prepareEngagements() {
         e->origin.burning=e->plantProviders.propulsion ? e->plantProviders.propulsion->burning(totalWeaponThrust(s)) : totalWeaponThrust(s)>.1;
         e->guidanceDemand[0]=output.acceleration.x; e->guidanceDemand[1]=output.acceleration.y; e->guidanceDemand[2]=output.acceleration.z;
         if (output.active && !heat && spec.seeker!="semi_active_radar" &&
-                (old.phase==ms::WeaponPhase::Midcourse || old.phase==ms::WeaponPhase::Unguided)) recordEngagement("activation",*e);
-        if (old.tracking && !output.tracking) recordEngagement("track_loss",*e,old.holding);
-        if (!old.tracking && output.tracking) recordEngagement("acquisition",*e,output.holding);
+                (old.phase==ms::WeaponPhase::Midcourse || old.phase==ms::WeaponPhase::Unguided)) eventsOut.push_back({"activation", 0});
+        if (old.tracking && !output.tracking) eventsOut.push_back({"track_loss", old.holding});
+        if (!old.tracking && output.tracking) eventsOut.push_back({"acquisition", output.holding});
         if (output.holding!=old.holding && output.holding>=ms::kDecoyIds && output.holding<kDesignations)
-            recordEngagement("decoy_capture",*e,output.holding);
+            eventsOut.push_back({"decoy_capture", output.holding});
+    };
+    if (useParallel) {
+        pool_->forEach(liveWeapons.size(), processWeapon);
+    } else {
+        for (std::size_t wi = 0; wi < liveWeapons.size(); ++wi) processWeapon(wi);
+    }
+    // Commit engagement events serially in deterministic weapon-slot order so
+    // combat serials and event order are bit-identical regardless of worker count.
+    for (std::size_t wi = 0; wi < liveWeapons.size(); ++wi) {
+        for (const auto& ev : pendingEvents[wi]) recordEngagement(ev.kind, *liveWeapons[wi], ev.target);
     }
     // Observe t0 first, then advance each decoy in its own local environment.
     // The owned trajectories retain t0 and the final partial live interval even
@@ -635,7 +762,7 @@ void World::prepareEngagements() {
     const double direction=environment_.windDirectionDeg*ms::geom::kPi/180;
     const double north=-environment_.windSpeedMs*std::cos(direction);
     const double east=-environment_.windSpeedMs*std::sin(direction);
-    for (auto* dispenser : dispensers()) {
+    for (auto* dispenser : activeDispensers) {
         auto trajectories=dispenser->advance(dt,[&](const auto& d) {
             const auto geo=terminal({d.position.x,d.position.y,d.position.z});
             const double sl=std::sin(geo.latitudeRad),cl=std::cos(geo.latitudeRad);
@@ -1018,6 +1145,39 @@ void World::finishEngagements() {
             std::uint32_t physicalVictim=0;
             // Physical geometry is independent of seeker holding/tracking.
             // Include the launcher: initial overlap is handled by the pure core.
+            double ownMaxDisp=0.0,ownMaxNoseDist=0.0;
+            bool ownBoundOk=true;
+            const auto ownP0=e->engagementPath.front().position;
+            for(const auto& sample:e->engagementPath) {
+                const double d=length(delta(sample.position,ownP0));
+                if(!std::isfinite(d)){ownBoundOk=false;break;}
+                ownMaxDisp=std::max(ownMaxDisp,d);
+            }
+            for(const auto& cgOpt:e->engagementCg) {
+                if(!cgOpt){ownBoundOk=false;break;}
+                const auto dv=*e->contactNoseFromOriginBodyM-*cgOpt;
+                const double d=std::sqrt(dv.x*dv.x+dv.y*dv.y+dv.z*dv.z);
+                if(!std::isfinite(d)){ownBoundOk=false;break;}
+                ownMaxNoseDist=std::max(ownMaxNoseDist,d);
+            }
+            std::unordered_map<const ms::damage::Airframe*,double> frameRadii;
+            const auto airframeMaxRadius=[&](const ms::damage::Airframe& af)->double {
+                if(const auto it=frameRadii.find(&af);it!=frameRadii.end())return it->second;
+                double maxR2=0.0;
+                const auto accCorner=[&](ms::damage::V3 pt) noexcept {
+                    const double r2=pt.x*pt.x+pt.y*pt.y+pt.z*pt.z;
+                    if(r2>maxR2)maxR2=r2;
+                };
+                for(const auto& p:af.panels) {
+                    if(p.surface)for(const auto& corner:p.corners)accCorner(corner);
+                    else accCorner({std::abs(p.centre.x)+std::abs(p.half.x),std::abs(p.centre.y)+std::abs(p.half.y),std::abs(p.centre.z)+std::abs(p.half.z)});
+                }
+                for(const auto& c:af.components)
+                    accCorner({std::abs(c.centre.x)+std::abs(c.half.x),std::abs(c.centre.y)+std::abs(c.half.y),std::abs(c.centre.z)+std::abs(c.half.z)});
+                const double r=std::sqrt(maxR2);
+                frameRadii.emplace(&af,r);
+                return r;
+            };
             for (const auto& candidate : entries_) if (candidate && candidate->info.role==ms::Role::Aircraft &&
                     candidate->info.id!=e->info.id && candidate->slot<stepStates_.size() && contactEnd>0) {
                 const auto frame=airframes_.find(candidate->info.aircraft);
@@ -1026,6 +1186,32 @@ void World::finishEngagements() {
                     candidate->engagementCg.size()!=candidate->engagementPath.size()) continue;
                 const auto& targetPath=candidate->engagementPath;
                 const auto& targetStates=candidate->engagementStates;
+                // Exact triangle-inequality broad-phase reject: when the initial CG
+                // separation exceeds max travel + nose offset + airframe radius + 1 m,
+                // swept airframe contact is mathematically impossible.
+                if (ownBoundOk && !targetPath.empty()) {
+                    const auto targetP0=targetPath.front().position;
+                    double targetMaxDisp=0.0,targetMaxCg=0.0;
+                    bool tgtBoundOk=true;
+                    for(const auto& sample:targetPath) {
+                        const double d=length(delta(sample.position,targetP0));
+                        if(!std::isfinite(d)){tgtBoundOk=false;break;}
+                        targetMaxDisp=std::max(targetMaxDisp,d);
+                    }
+                    for(const auto& cgOpt:candidate->engagementCg) {
+                        if(!cgOpt){tgtBoundOk=false;break;}
+                        const double d=std::sqrt(cgOpt->x*cgOpt->x+cgOpt->y*cgOpt->y+cgOpt->z*cgOpt->z);
+                        if(!std::isfinite(d)){tgtBoundOk=false;break;}
+                        targetMaxCg=std::max(targetMaxCg,d);
+                    }
+                    if(tgtBoundOk) {
+                        const double afRadius=airframeMaxRadius(*frame->second);
+                        const double bound=ownMaxDisp+targetMaxDisp+ownMaxNoseDist+targetMaxCg+afRadius+1.0;
+                        const auto sep=delta(ownP0,targetP0);
+                        const double sep2=sep.x*sep.x+sep.y*sep.y+sep.z*sep.z;
+                        if(std::isfinite(bound) && sep2>bound*bound) continue;
+                    }
+                }
                 double end=contactEnd;
                 bool exclusiveEnd=exclusive;
                 if (!targetStates.back().crashed && targetPath.back().offsetS<end) {
@@ -1288,32 +1474,43 @@ std::optional<ms::damage::AttachedGeometryView> World::seekerGeometryV1(const En
     // must not depend on, allocate or reseed the lazy damage-state instance.
     return ms::damage::AttachedGeometryView(*frame->second);
 }
-std::optional<ms::components::ImageExtentV2> World::projectedSeekerExtent(const Entry& target,
-    const sim::VehicleState& observer) const {
+std::optional<ms::components::ImageExtentV2> World::projectedSeekerExtentWithCgV1(const Entry& target,
+    const sim::VehicleState& observer,const double cg[3]) const {
     using namespace ms::components::measured;
     using ms::components::measured::dot;
     const auto attached=seekerGeometryV1(target);if(!attached)return std::nullopt;
     const auto& state=pool_->states()[target.slot];
-    const auto ray=unit(subtract(point(state.positionEcef),point(observer.positionEcef)));
+    const V relOrigin=subtract(point(state.positionEcef),point(observer.positionEcef));
+    const auto ray=unit(relOrigin);
     const V observerDown{observer.rotationBodyToEcef[2],observer.rotationBodyToEcef[5],observer.rotationBodyToEcef[8]};
     auto right=unit(cross(observerDown,ray));if(!(norm(right)>0))return std::nullopt;
     const auto up=unit(cross(ray,right));
-    double cg[3];pool_->vehicle(target.slot).cgFromOriginBodyM(cg);
     if(!std::all_of(cg,cg+3,[](double v){return std::isfinite(v);}))return std::nullopt;
-    const auto* rotation=state.rotationBodyToEcef;
-    double lowX=std::numeric_limits<double>::infinity(),highX=-lowX,lowY=lowX,highY=-lowX;
-    const auto project=[&](ms::damage::V3 pointBody) {
-        const double b[3]={pointBody.x-cg[0],pointBody.y-cg[1],pointBody.z-cg[2]};
-        V at=point(state.positionEcef);
-        at.x+=rotation[0]*b[0]+rotation[1]*b[1]+rotation[2]*b[2];
-        at.y+=rotation[3]*b[0]+rotation[4]*b[1]+rotation[5]*b[2];
-        at.z+=rotation[6]*b[0]+rotation[7]*b[1]+rotation[8]*b[2];
-        const auto relative=subtract(at,point(observer.positionEcef));const auto forward=dot(relative,ray);
-        if(!(forward>0)||!finite(relative))return;
-        const auto x=std::atan2(dot(relative,right),forward),y=std::atan2(dot(relative,up),forward);
-        lowX=std::min(lowX,x);highX=std::max(highX,x);lowY=std::min(lowY,y);highY=std::max(highY,y);
+    const auto* r=state.rotationBodyToEcef;
+    // Combine body->ECEF and ECEF->(right, up, ray) into a single 3x3 matrix once
+    // per target and use monotonicity of atan() to avoid 400+ atan2 calls per target.
+    const double m00=right.x*r[0]+right.y*r[3]+right.z*r[6], m01=right.x*r[1]+right.y*r[4]+right.z*r[7], m02=right.x*r[2]+right.y*r[5]+right.z*r[8];
+    const double m10=up.x*r[0]+up.y*r[3]+up.z*r[6],          m11=up.x*r[1]+up.y*r[4]+up.z*r[7],          m12=up.x*r[2]+up.y*r[5]+up.z*r[8];
+    const double m20=ray.x*r[0]+ray.y*r[3]+ray.z*r[6],       m21=ray.x*r[1]+ray.y*r[4]+ray.z*r[7],       m22=ray.x*r[2]+ray.y*r[5]+ray.z*r[8];
+    const double baseR=dot(relOrigin,right)-(m00*cg[0]+m01*cg[1]+m02*cg[2]);
+    const double baseU=dot(relOrigin,up)-(m10*cg[0]+m11*cg[1]+m12*cg[2]);
+    const double baseF=dot(relOrigin,ray)-(m20*cg[0]+m21*cg[1]+m22*cg[2]);
+    double lowTx=std::numeric_limits<double>::infinity(),highTx=-lowTx,lowTy=lowTx,highTy=-lowTx;
+    const auto project=[&](ms::damage::V3 pointBody) noexcept {
+        const double px=pointBody.x,py=pointBody.y,pz=pointBody.z;
+        const double forward=baseF+m20*px+m21*py+m22*pz;
+        if(!(forward>0))return;
+        const double rx=baseR+m00*px+m01*py+m02*pz;
+        const double ry=baseU+m10*px+m11*py+m12*pz;
+        if(!std::isfinite(rx)||!std::isfinite(ry)||!std::isfinite(forward))return;
+        const double invF=1.0/forward;
+        const double tx=rx*invF,ty=ry*invF;
+        if (tx < lowTx) lowTx = tx;
+        if (tx > highTx) highTx = tx;
+        if (ty < lowTy) lowTy = ty;
+        if (ty > highTy) highTy = ty;
     };
-    const auto box=[&](ms::damage::V3 centre,ms::damage::V3 half) {
+    const auto box=[&](ms::damage::V3 centre,ms::damage::V3 half) noexcept {
         for(int x:{-1,1})for(int y:{-1,1})for(int z:{-1,1})
             project(centre+ms::damage::V3{x*half.x,y*half.y,z*half.z});
     };
@@ -1323,25 +1520,24 @@ std::optional<ms::components::ImageExtentV2> World::projectedSeekerExtent(const 
         else box(p.centre,p.half);
     }
     for(const auto i:attached->componentIndices()) {const auto& c=frame.components[i];box(c.centre,c.half);}
-    ms::components::ImageExtentV2 extent{highX-lowX,highY-lowY};
+    if(!(highTx>=lowTx)||!(highTy>=lowTy))return std::nullopt;
+    ms::components::ImageExtentV2 extent{std::atan(highTx)-std::atan(lowTx),std::atan(highTy)-std::atan(lowTy)};
     return validExtent(extent)?std::optional<ms::components::ImageExtentV2>{extent}:std::nullopt;
 }
 
-const World::Entry::OnRailSeekerV2* World::sampleOnRailSeeker(const Entry& launcher,
-    const ms::StoreCard& card,std::uint16_t store) const {
-    std::string error;const auto configured=configuredWeaponSpec(card,error);if(!configured)return nullptr;
-    const auto profile=payloadProfile(card,error);if(!profile)return nullptr;
-    const auto* descriptor=profile->find("seeker");
-    if(!descriptor||!descriptor->bindings.count("measurement_model"))return nullptr;
-    auto& cached=launcher.onRailSeekers[store];
-    if(cached.card!=&card) {
-        cached={};cached.card=&card;cached.startedTimeS=simTime_;
-        ms::components::ProviderContextV1 context{card,*profile,*configured,std::nullopt};
-        cached.provider=payloadProviders_.seeker.create(*descriptor,context,error);
-    }
+std::optional<ms::components::ImageExtentV2> World::projectedSeekerExtent(const Entry& target,
+    const sim::VehicleState& observer) const {
+    double cg[3];pool_->vehicle(target.slot).cgFromOriginBodyM(cg);
+    return projectedSeekerExtentWithCgV1(target,observer,cg);
+}
+
+void World::evaluateOnRailSeekerV1(const Entry& launcher,std::uint16_t store,Entry::OnRailSeekerV2& cached,
+    const std::vector<ms::countermeasure::Dispenser*>& activeDispensers,
+    const std::vector<ThermalSnapshotV1>& thermalSnapshots) const {
     auto* sensor=dynamic_cast<ms::components::SeekerExecutionV2*>(cached.provider.get());
-    if(!sensor)return nullptr;
-    if(cached.timeS==simTime_)return &cached;
+    const auto* descriptor=cached.seekerDescriptor;
+    if(!sensor||!descriptor||!cached.configuredSpec)return;
+    const auto& configured=*cached.configuredSpec;
     const auto& own=pool_->states()[launcher.slot];
     const auto& config=cached.provider->config();ms::components::SeekerFrameV2 frame;
     ms::components::ReceiverConfigurationV2 receiverScratch;
@@ -1374,25 +1570,35 @@ const World::Entry::OnRailSeekerV2* World::sampleOnRailSeeker(const Entry& launc
         const auto tv=velocity(target);
         const V targetForward{target.rotationBodyToEcef[0],target.rotationBodyToEcef[3],target.rotationBodyToEcef[6]};
         const auto aspect=finiteSensor?ms::components::EngineeringSeekerV3::sourceAspectCosineV3(relative,targetForward):dot(relative,tv)/(range*std::max(length(tv),config.aspectSpeedFloorMs));
-        const auto reach=cached.provider->infraredRange(configured->acquireM,aspect,target.afterburner[0]>config.afterburnerThreshold);
+        const auto reach=cached.provider->infraredRange(configured.acquireM,aspect,target.afterburner[0]>config.afterburnerThreshold);
         if(!finiteSensor&&range>reach)continue;
         if(physicalThermal){if(!opticalClear(frame.position,point(target.positionEcef),ground_.get()))continue;}
         else {const auto path=radioPath(launcher.info.id,candidate->info.id,{});if(path&&path->terrainMasked)continue;}
         ms::components::SeekerSampleV2 sample;sample.direction=ray;sample.signal=config.aircraftSignal;
         if(finiteSensor){sample.scene=ms::components::SeekerSceneV3{};sample.scene->rangeM=range;
-            if(configured->acquireM>0)sample.signal*=std::pow(reach/configured->acquireM,2);}
-        if(configured->seeker=="imaging_infrared")sample.imageExtent=projectedSeekerExtent(*candidate,own);
-        if(physicalThermal)if(const auto geometry=seekerGeometryV1(*candidate))if(const auto extent=projectedSeekerExtent(*candidate,own)) {
-            appendThermalAircraft(thermalScene,*thermalScenePolicy,own,target,pool_->vehicle(candidate->slot),*geometry,*extent,frame.samples.size());
-            if(dualThermal)appendThermalAircraft(secondThermalScene,*receiverEnvelope->secondBandScene,own,target,pool_->vehicle(candidate->slot),*geometry,*extent,frame.samples.size());
+            if(configured.acquireM>0)sample.signal*=std::pow(reach/configured.acquireM,2);}
+        const bool snapAvailable=candidate->slot<thermalSnapshots.size()&&thermalSnapshots[candidate->slot].hasCg;
+        std::optional<ms::components::ImageExtentV2> cachedExtent;
+        if(snapAvailable&&(configured.seeker=="imaging_infrared"||physicalThermal)) {
+            cachedExtent=projectedSeekerExtentWithCgV1(*candidate,own,thermalSnapshots[candidate->slot].cg);
+            if(configured.seeker=="imaging_infrared")sample.imageExtent=cachedExtent;
+        }
+        if(physicalThermal&&snapAvailable&&cachedExtent) {
+            const auto& snap=thermalSnapshots[candidate->slot];
+            if(snap.hasThermal)if(const auto geometry=seekerGeometryV1(*candidate)) {
+                appendThermalAircraftFromSnapshot(thermalScene,*thermalScenePolicy,own,target,
+                    snap.thermal,snap.hasCg,snap.cg,*geometry,*cachedExtent,frame.samples.size());
+                if(dualThermal)appendThermalAircraftFromSnapshot(secondThermalScene,*receiverEnvelope->secondBandScene,own,target,
+                    snap.thermal,snap.hasCg,snap.cg,*geometry,*cachedExtent,frame.samples.size());
+            }
         }
         frame.samples.push_back(sample);cached.attributions.push_back(candidate->info.id);
     }
-    for(const auto* dispenser:dispensers())for(const auto& decoy:dispenser->decoys()) {
+    for(const auto* dispenser:activeDispensers)for(const auto& decoy:dispenser->decoys()) {
         if(decoy.kind!=ms::countermeasure::Kind::Flare)continue;
         const V at{decoy.position.x,decoy.position.y,decoy.position.z};
         const auto relative=delta(at,frame.position);const auto range=length(relative);
-        if(range<config.minimumRangeM||(!finiteSensor&&range>configured->acquireM))continue;
+        if(range<config.minimumRangeM||(!finiteSensor&&range>configured.acquireM))continue;
         const auto ray=ms::components::measured::unit(relative);
         if(dot(ray,frame.boresight)<=std::cos(config.launchFovRad))continue;
         ms::rf::PathOptions path;path.ground=ground_.get();
@@ -1461,10 +1667,52 @@ const World::Entry::OnRailSeekerV2* World::sampleOnRailSeeker(const Entry& launc
     const double retention=std::max(3.,config.engineering.processingDelayS+config.engineering.memoryS+2*config.engineering.samplePeriodS);
     while(!cached.sceneAttributionsV3.empty()&&(cached.sceneAttributionsV3.begin()->first<simTime_-retention||cached.sceneAttributionsV3.size()>2048))
         cached.sceneAttributionsV3.erase(cached.sceneAttributionsV3.begin());
-    cached.timeS=simTime_;return &cached;
+    cached.timeS=simTime_;
+}
+
+const World::Entry::OnRailSeekerV2* World::sampleOnRailSeeker(const Entry& launcher,
+    const ms::StoreCard& card,std::uint16_t store) const {
+    if(const auto existing=launcher.onRailSeekers.find(store);
+       existing!=launcher.onRailSeekers.end()&&existing->second.card==&card&&
+       existing->second.timeS==simTime_&&existing->second.provider) {
+        return dynamic_cast<const ms::components::SeekerExecutionV2*>(existing->second.provider.get())?&existing->second:nullptr;
+    }
+    auto& cached=launcher.onRailSeekers[store];
+    if(cached.card!=&card) {
+        std::string error;const auto configured=configuredWeaponSpec(card,error);if(!configured)return nullptr;
+        const auto profile=payloadProfile(card,error);if(!profile)return nullptr;
+        const auto* descriptor=profile->find("seeker");
+        if(!descriptor||!descriptor->bindings.count("measurement_model"))return nullptr;
+        cached={};cached.card=&card;cached.startedTimeS=simTime_;
+        cached.configuredSpec=configured;cached.profile=profile;cached.seekerDescriptor=descriptor;
+        ms::components::ProviderContextV1 context{card,*profile,*configured,std::nullopt};
+        cached.provider=payloadProviders_.seeker.create(*descriptor,context,error);
+    }
+    if(!dynamic_cast<ms::components::SeekerExecutionV2*>(cached.provider.get()))return nullptr;
+    if(cached.timeS==simTime_)return &cached;
+    const auto activeDispensers=dispensers();
+    std::vector<ThermalSnapshotV1> thermalSnapshots(entries_.size());
+    for(std::size_t slot=0;slot<entries_.size();++slot) {
+        const auto& cand=entries_[slot];
+        if(!cand||cand->info.role!=ms::Role::Aircraft)continue;
+        auto& snap=thermalSnapshots[slot];
+        auto& model=pool_->vehicle(slot);
+        if(model.cgFromOriginBodyM(snap.cg)&&std::all_of(snap.cg,snap.cg+3,[](double v){return std::isfinite(v);}))
+            snap.hasCg=true;
+        if(const auto* native=dynamic_cast<const sim::NativeThermalSourceV1*>(&model))
+            snap.hasThermal=native->nativeThermalSnapshotV1(snap.thermal)&&snap.thermal.ambientAvailable;
+    }
+    evaluateOnRailSeekerV1(launcher,store,cached,activeDispensers,thermalSnapshots);
+    return &cached;
 }
 
 void World::sampleOnRailSeekers() {
+    struct OnRailJob {
+        const Entry* launcher=nullptr;
+        std::uint16_t store=0;
+        Entry::OnRailSeekerV2* cached=nullptr;
+    };
+    std::vector<OnRailJob> jobs;
     for(const auto& launcher:entries_)if(launcher) {
         std::set<std::uint16_t> installed;
         for(const auto& store:launcher->ms.stores()) {
@@ -1473,19 +1721,63 @@ void World::sampleOnRailSeekers() {
                 store.status==ms::StoreStatus::Releasing||store.status==ms::StoreStatus::PoweringDown;
             if(!attached)continue;
             const auto* card=launcher->ms.storeCard(store.index);if(!card||!infrared(card->seeker))continue;
-            if(!observable) {
-                std::string error;const auto profile=payloadProfile(*card,error);
-                const auto* descriptor=profile?profile->find("seeker"):nullptr;
-                if(!descriptor||!descriptor->bindings.count("receiver_model"))continue;
+            auto existingIt=launcher->onRailSeekers.find(store.index);
+            if(existingIt!=launcher->onRailSeekers.end()&&existingIt->second.card==card) {
+                if(!observable&&(!existingIt->second.seekerDescriptor||!existingIt->second.seekerDescriptor->bindings.count("receiver_model")))
+                    continue;
+                installed.insert(store.index);
+                if(existingIt->second.timeS!=simTime_&&
+                   dynamic_cast<ms::components::SeekerExecutionV2*>(existingIt->second.provider.get())) {
+                    jobs.push_back({launcher.get(),store.index,&existingIt->second});
+                }
+                continue;
             }
+            std::string error;const auto profile=payloadProfile(*card,error);
+            const auto* descriptor=profile?profile->find("seeker"):nullptr;
+            if(!observable&&(!descriptor||!descriptor->bindings.count("receiver_model")))continue;
             // Read availability is not component lifetime or processing time.
             // Keep the powered receiver's optical/servo/processing clocks
             // running while preparation gates its public on-rail query.
             installed.insert(store.index);
-            sampleOnRailSeeker(*launcher,*card,store.index);
+            if(!descriptor||!descriptor->bindings.count("measurement_model"))continue;
+            const auto configured=configuredWeaponSpec(*card,error);if(!configured)continue;
+            auto& cached=launcher->onRailSeekers[store.index];
+            cached={};cached.card=card;cached.startedTimeS=simTime_;
+            cached.configuredSpec=configured;cached.profile=profile;cached.seekerDescriptor=descriptor;
+            ms::components::ProviderContextV1 context{*card,*profile,*configured,std::nullopt};
+            cached.provider=payloadProviders_.seeker.create(*descriptor,context,error);
+            if(dynamic_cast<ms::components::SeekerExecutionV2*>(cached.provider.get())) {
+                jobs.push_back({launcher.get(),store.index,&cached});
+            }
         }
         for(auto it=launcher->onRailSeekers.begin();it!=launcher->onRailSeekers.end();)
             if(!installed.count(it->first))it=launcher->onRailSeekers.erase(it);else ++it;
+    }
+    if(jobs.empty())return;
+    const auto activeDispensers=dispensers();
+    std::vector<ThermalSnapshotV1> thermalSnapshots(entries_.size());
+    for(std::size_t slot=0;slot<entries_.size();++slot) {
+        const auto& cand=entries_[slot];
+        if(!cand||cand->info.role!=ms::Role::Aircraft)continue;
+        auto& snap=thermalSnapshots[slot];
+        auto& model=pool_->vehicle(slot);
+        if(model.cgFromOriginBodyM(snap.cg)&&std::all_of(snap.cg,snap.cg+3,[](double v){return std::isfinite(v);}))
+            snap.hasCg=true;
+        if(const auto* native=dynamic_cast<const sim::NativeThermalSourceV1*>(&model))
+            snap.hasThermal=native->nativeThermalSnapshotV1(snap.thermal)&&snap.thermal.ambientAvailable;
+    }
+    const bool useParallel=jobs.size()>1u&&pool_->workers()>1u;
+    const bool allowDualParallel=pool_->workers()>jobs.size();
+    const auto runJob=[&](std::size_t ji) {
+        ms::components::ReticleNestedPoolGuardV1 nestedGuard(useParallel);
+        ms::components::DualBandParallelGuardV1 dualGuard(allowDualParallel);
+        const auto& job=jobs[ji];
+        evaluateOnRailSeekerV1(*job.launcher,job.store,*job.cached,activeDispensers,thermalSnapshots);
+    };
+    if(useParallel) {
+        pool_->forEach(jobs.size(),runJob);
+    } else {
+        for(std::size_t ji=0;ji<jobs.size();++ji)runJob(ji);
     }
 }
 } // namespace fsim::session

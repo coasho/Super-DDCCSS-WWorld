@@ -152,10 +152,84 @@ double bullingtonFlatDb(int n, double spacing, double hts, double hrs, double la
     const double srim = hrs > 0.0 ? best(d - std::sqrt(2.0 * hrs / ce), slopeR) : slopeR(n - 2);
     const double amax = best(d / 2.0 + (hts - hrs) / (ce * d), above); // (a concave quadratic in d_i)
     return bullingtonEnd(stim, srim, amax, d, hts, hrs, lambda, [&] {
-        double vmax = -std::numeric_limits<double>::infinity();
-        for (int i = 1; i < n - 1; ++i) {
+        auto vAt = [&](int i) noexcept {
             const double di = spacing * i;
-            vmax = std::max(vmax, above(i) * std::sqrt(2.0 * d / (lambda * di * (d - di))));
+            return above(i) * std::sqrt(2.0 * d / (lambda * di * (d - di)));
+        };
+        double vmax = -std::numeric_limits<double>::infinity();
+        if (n <= 32) {
+            for (int i = 1; i < n - 1; ++i) vmax = std::max(vmax, vAt(i));
+            return vmax;
+        }
+        auto checkNeighborhood = [&](int center) noexcept {
+            const int lo = std::max(1, center - 2);
+            const int hi = std::min(n - 2, center + 2);
+            for (int i = lo; i <= hi; ++i) vmax = std::max(vmax, vAt(i));
+        };
+        // Endpoints and midpoint always checked.
+        checkNeighborhood(1);
+        checkNeighborhood(n - 2);
+        checkNeighborhood((n - 1) / 2);
+        // Let t = d_i / d in (0,1), w = t / (1 - t) > 0, u = sqrt(w) > 0, C = ce * d^2 / 2.
+        // v(t) = sqrt(2 / (lambda * d)) * (C * u / (1 + u^2) - hts / u - hrs * u).
+        // Stationary points satisfy dv/du = 0 <=> cubic P(w) = a3 w^3 + a2 w^2 + a1 w + a0 = 0.
+        const double C = 0.5 * ce * d * d;
+        const double a3 = -hrs;
+        const double a2 = hts - 2.0 * hrs - C;
+        const double a1 = 2.0 * hts - hrs + C;
+        const double a0 = hts;
+        auto testRoot = [&](double w) noexcept {
+            if (!std::isfinite(w) || !(w > 0.0)) return;
+            // Two Newton polish steps on P(w) to machine precision.
+            for (int iter = 0; iter < 2; ++iter) {
+                const double pw = ((a3 * w + a2) * w + a1) * w + a0;
+                const double dpw = (3.0 * a3 * w + 2.0 * a2) * w + a1;
+                if (std::fabs(dpw) > 0.0) {
+                    const double nw = w - pw / dpw;
+                    if (std::isfinite(nw) && nw > 0.0) w = nw;
+                }
+            }
+            const double t = w / (1.0 + w);
+            const int idx = std::clamp(static_cast<int>(std::floor(t * (n - 1))), 1, n - 2);
+            checkNeighborhood(idx);
+        };
+        const double scale = std::max({1.0, std::fabs(a2), std::fabs(a1), std::fabs(a0)});
+        if (std::fabs(a3) <= 1e-18 * scale) {
+            const double qScale = std::max({1.0, std::fabs(a1), std::fabs(a0)});
+            if (std::fabs(a2) <= 1e-18 * qScale) {
+                if (std::fabs(a1) > 0.0) testRoot(-a0 / a1);
+            } else {
+                const double disc = a1 * a1 - 4.0 * a2 * a0;
+                if (disc >= 0.0) {
+                    const double sq = std::sqrt(disc);
+                    const double q = -0.5 * (a1 + std::copysign(sq, a1));
+                    if (q != 0.0) {
+                        testRoot(q / a2);
+                        testRoot(a0 / q);
+                    } else {
+                        testRoot((-a1 - sq) / (2.0 * a2));
+                        testRoot((-a1 + sq) / (2.0 * a2));
+                    }
+                }
+            }
+        } else {
+            const double b = a2 / a3, c = a1 / a3, d0 = a0 / a3;
+            const double p = c - b * b / 3.0;
+            const double q = (2.0 * b * b * b - 9.0 * b * c + 27.0 * d0) / 27.0;
+            const double disc = 0.25 * q * q + (p * p * p) / 27.0;
+            const double shift = b / 3.0;
+            if (disc > 0.0) {
+                const double sq = std::sqrt(disc);
+                testRoot(std::cbrt(-0.5 * q + sq) + std::cbrt(-0.5 * q - sq) - shift);
+            } else if (p < 0.0) {
+                const double rad = 2.0 * std::sqrt(-p / 3.0);
+                const double phi = std::acos(std::clamp(3.0 * q / (p * rad), -1.0, 1.0)) / 3.0;
+                testRoot(rad * std::cos(phi) - shift);
+                testRoot(rad * std::cos(phi + 2.0 * kPi / 3.0) - shift);
+                testRoot(rad * std::cos(phi + 4.0 * kPi / 3.0) - shift);
+            } else {
+                testRoot(-shift);
+            }
         }
         return vmax;
     });
@@ -187,45 +261,67 @@ PathResult computePath(const Terminal& a, const Terminal& b, const PathOptions& 
     if (o.profileSpacingM <= 0.0 && o.ground) spacing = std::max(30.0, std::min(o.ground->resolutionM(), 1000.0));
     const int n = std::clamp(static_cast<int>(std::ceil(d / spacing)) + 1, 3, 2001);
     spacing = d / (n - 1);
-    std::vector<double> profile(static_cast<std::size_t>(n), 0.0);
-    if (o.ground && d > 0.0) o.ground->profile(a.latitudeRad, a.longitudeRad, b.latitudeRad, b.longitudeRad, n, spacing, profile.data());
-    // One pass: the sea's surface under the ground, the straight ray's clearance of the terrain in the 4/3 earth, and the
-    // least-squares line's sums (smoothSurface's, in its order)
-    double sy = 0.0, sxy = 0.0;
     const double rise = (b.heightM - a.heightM) / std::max(d, 1e-9), bulge = 1.0 / (2.0 * kEffectiveRadiusM);
-    for (int i = 0; i < n; ++i) {
-        double& h = profile[static_cast<std::size_t>(i)];
-        h = std::max(0.0, h);
-        if (i > 0 && i < n - 1) {
-            const double di = spacing * i;
-            const double ray = a.heightM + rise * di - di * (d - di) * bulge;
-            r.clearanceM = std::min(r.clearanceM, ray - h);
+    std::vector<double> profile;
+    double flatGroundH = 0.0;
+    double s0 = 0.0, s1 = 0.0, groundA = a.heightM, groundB = b.heightM;
+    if (o.ground && d > 0.0 && std::isfinite(o.ground->resolutionM())) {
+        profile.assign(static_cast<std::size_t>(n), 0.0);
+        o.ground->profile(a.latitudeRad, a.longitudeRad, b.latitudeRad, b.longitudeRad, n, spacing, profile.data());
+        // One pass: the sea's surface under the ground, the straight ray's clearance of the terrain in the 4/3 earth, and the
+        // least-squares line's sums (smoothSurface's, in its order)
+        double sy = 0.0, sxy = 0.0;
+        for (int i = 0; i < n; ++i) {
+            double& h = profile[static_cast<std::size_t>(i)];
+            h = std::max(0.0, h);
+            if (i > 0 && i < n - 1) {
+                const double di = spacing * i;
+                const double ray = a.heightM + rise * di - di * (d - di) * bulge;
+                r.clearanceM = std::min(r.clearanceM, ray - h);
+            }
+            sy += h, sxy += static_cast<double>(i) * h;
         }
-        sy += h, sxy += static_cast<double>(i) * h;
-    }
-    r.terrainMasked = r.clearanceM < 0.0;
-
-    // The terminals over the profile's smooth surface (P.526-15 4.5.4) - P.528's heights.
-    double s0, s1;
-    {
+        // The terminals over the profile's smooth surface (P.526-15 4.5.4) - P.528's heights.
         const double nn = static_cast<double>(n);
         const double sx = nn * (nn - 1.0) / 2.0, sxx = (nn - 1.0) * nn * (2.0 * nn - 1.0) / 6.0; // (sums of i and i^2: exact)
         const double den = nn * sxx - sx * sx;
         const double slope = den > 0.0 ? (nn * sxy - sx * sy) / den : 0.0;
         const double intercept = (sy - slope * sx) / nn;
-        s0 = intercept, s1 = intercept + slope * (nn - 1.0);
+        s0 = std::min(intercept, profile.front());
+        s1 = std::min(intercept + slope * (nn - 1.0), profile.back()); // (no terminal below the surface's ground)
+        groundA = a.heightM - profile.front();
+        groundB = b.heightM - profile.back();
+    } else {
+        // Constant-height flat ground (or sea level without a ground): ray(di) - flatH is strictly convex in di.
+        // Exact discrete minimum over i in [1, n - 2] lies at an endpoint or adjacent to xStar = 0.5 * (d - rise / bulge).
+        if (o.ground && d > 0.0) {
+            flatGroundH = std::max(0.0, o.ground->pointHeightAboveEllipsoidM(a.latitudeRad, a.longitudeRad));
+            s0 = s1 = flatGroundH;
+            groundA = a.heightM - flatGroundH;
+            groundB = b.heightM - flatGroundH;
+        }
+        auto rayAt = [&](int i) noexcept {
+            const double di = spacing * i;
+            return a.heightM + rise * di - di * (d - di) * bulge - flatGroundH;
+        };
+        r.clearanceM = std::min(r.clearanceM, std::min(rayAt(1), rayAt(n - 2)));
+        if (spacing > 0.0) {
+            const double xStar = 0.5 * (d - rise / bulge);
+            const int lo = std::clamp(static_cast<int>(std::floor(xStar / spacing)), 1, n - 2);
+            for (int i = std::max(1, lo - 1); i <= std::min(n - 2, lo + 2); ++i)
+                r.clearanceM = std::min(r.clearanceM, rayAt(i));
+        }
     }
-    s0 = std::min(s0, profile.front()), s1 = std::min(s1, profile.back()); // (no terminal below the surface's ground)
+    r.terrainMasked = r.clearanceM < 0.0;
     const double hte = std::max(a.heightM - s0, kP528MinM), hre = std::max(b.heightM - s1, kP528MinM);
-    const double groundA = a.heightM - profile.front(), groundB = b.heightM - profile.back();
 
     const double fMhz = o.frequencyHz / 1e6;
     const bool itmFits = o.model == PathModel::Itm && fMhz >= 20.0 && fMhz <= 20000.0 && d >= 1000.0 && d <= 2000e3 &&
                          groundA >= kItmMinM && groundA <= kItmMaxM && groundB >= kItmMinM && groundB <= kItmMaxM;
     if (itmFits) {
-        std::vector<double> pfl(static_cast<std::size_t>(n) + 2);
+        std::vector<double> pfl(static_cast<std::size_t>(n) + 2, flatGroundH);
         pfl[0] = n - 1, pfl[1] = spacing;
-        std::copy(profile.begin(), profile.end(), pfl.begin() + 2);
+        if (!profile.empty()) std::copy(profile.begin(), profile.end(), pfl.begin() + 2);
         ntia::ItmResult itm;
         r.code = ntia::itmP2p(groundA, groundB, pfl.data(), o.climate, o.surfaceRefractivity, fMhz, o.polarization, o.permittivity,
                               o.conductivity, 0x0 /* single message */, o.timePercent, 50.0, 50.0, itm);
@@ -248,9 +344,19 @@ PathResult computePath(const Terminal& a, const Terminal& b, const PathOptions& 
             r.basicDb = r.freeSpaceDb + r.gasDb;
         }
         // The terrain's excess over the smooth earth: delta-Bullington (P.526-15 4.5.4)
-        const double actual = bullingtonFastDb(profile.data(), n, spacing, a.heightM, b.heightM, lambda, kEffectiveRadiusM);
-        const double smooth = bullingtonFlatDb(n, spacing, hte, hre, lambda, kEffectiveRadiusM);
-        r.terrainDb = std::max(0.0, actual - smooth);
+        if (profile.empty()) {
+            if (groundA == hte && groundB == hre) {
+                r.terrainDb = 0.0;
+            } else {
+                const double actual = bullingtonFlatDb(n, spacing, groundA, groundB, lambda, kEffectiveRadiusM);
+                const double smooth = bullingtonFlatDb(n, spacing, hte, hre, lambda, kEffectiveRadiusM);
+                r.terrainDb = std::max(0.0, actual - smooth);
+            }
+        } else {
+            const double actual = bullingtonFastDb(profile.data(), n, spacing, a.heightM, b.heightM, lambda, kEffectiveRadiusM);
+            const double smooth = bullingtonFlatDb(n, spacing, hte, hre, lambda, kEffectiveRadiusM);
+            r.terrainDb = std::max(0.0, actual - smooth);
+        }
     }
 
     // Rain below the rain height, along the straight path.

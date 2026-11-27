@@ -88,11 +88,13 @@ private:
         Span<const ControlInputs> inputs;
         int frameSkip = 1;
         bool refreshOnly = false;
+        bool reverseOrder = false;
         const std::function<void(std::size_t)>* task = nullptr; ///< forEach's: run for each index of `count`
         std::size_t count = 0;
     };
 
     void workerLoop(unsigned index);
+    void runItem(std::size_t i, const Job& job);
     void runRange(std::size_t begin, std::size_t end, const Job& job);
     void dispatch(const Job& job);
     void rangeFor(unsigned worker, std::size_t n, std::size_t& begin, std::size_t& end) const noexcept;
@@ -111,13 +113,14 @@ private:
     bool pinWorkers_;
     std::vector<std::thread> threads_;
 
-    // Generation-based dispatch: main bumps `generation_` and workers run the
-    // current job once, then increment `done_`.
+    // Generation-based dispatch: main bumps `generation_` and workers claim
+    // independent items dynamically via `nextIndex_`, then increment `done_`.
     std::mutex mutex_;
     std::condition_variable wake_;
     std::condition_variable finished_;
     std::uint64_t generation_ = 0;
     unsigned done_ = 0;
+    std::atomic<std::size_t> nextIndex_{0};
     Job job_;
     bool stopping_ = false;
 

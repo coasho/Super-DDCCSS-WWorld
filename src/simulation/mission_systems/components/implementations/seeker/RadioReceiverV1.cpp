@@ -256,6 +256,7 @@ RadioReceiverResultV1 RadioReceiverV1::expose(const RadioSceneFrameV1& scene,V p
     }
     std::vector<std::size_t> groundOrder(scene.groundPatches.size());std::iota(groundOrder.begin(),groundOrder.end(),0);
     std::sort(groundOrder.begin(),groundOrder.end(),[&](auto a,auto b){return physicalKey(scene.groundPatches[a])<physicalKey(scene.groundPatches[b]);});
+    std::vector<double> profile;
     if(!semi||scene.illuminationAvailable)for(const auto index:groundOrder) {
         const auto& patch=scene.groundPatches[index];
         const double snr=energySnr(c,patch,gain(patch.direction),scene.frequencyHz,dwell,semi);
@@ -267,17 +268,42 @@ RadioReceiverResultV1 RadioReceiverV1::expose(const RadioSceneFrameV1& scene,V p
             const int first=static_cast<int>(std::floor(range));
             const double centre=(patch.dopplerHz/iv.prfHz-std::floor(patch.dopplerHz/iv.prfHz))*m;
             const double sigma=2*c.clutterRateSigmaMs/wavelength/iv.prfHz*m;
-            std::vector<double> profile(static_cast<std::size_t>(m));double total=0;
-            for(int k=0;k<m;++k) {
-                double fraction=1./m;
-                if(sigma<m) {
-                    fraction=0;const int images=static_cast<int>(std::ceil(8*sigma/m));
-                    for(int image=-images;image<=images;++image)fraction+=.5*(
-                        std::erf((k+.5-centre+image*m)/(std::sqrt(2.)*sigma))-
-                        std::erf((k-.5-centre+image*m)/(std::sqrt(2.)*sigma)));
+            profile.resize(static_cast<std::size_t>(m));
+            double total=0;
+            int activeLo=0,activeHi=m-1;
+            if(sigma<m) {
+                std::fill(profile.begin(),profile.end(),0.);
+                const int images=static_cast<int>(std::ceil(8*sigma/m));
+                const double denom=std::sqrt(2.)*sigma;
+                // In binary64, std::erf(x) == +-1 identically for |x| >= 6.5, so erf(right) - erf(left) == 0 outside this band.
+                const double halfSpan=6.5*denom;
+                activeLo=m;activeHi=-1;
+                for(int image=-images;image<=images;++image) {
+                    const double shift=centre-static_cast<double>(image)*m;
+                    const int kLo=std::max(0,static_cast<int>(std::floor(shift-halfSpan-0.5)));
+                    const int kHi=std::min(m-1,static_cast<int>(std::ceil(shift+halfSpan+0.5)));
+                    if(kLo>kHi)continue;
+                    if(kLo<activeLo)activeLo=kLo;
+                    if(kHi>activeHi)activeHi=kHi;
+                    double prevErf=std::erf((kLo-.5-centre+image*m)/denom);
+                    for(int k=kLo;k<=kHi;++k) {
+                        const double curErf=std::erf((k+.5-centre+image*m)/denom);
+                        profile[static_cast<std::size_t>(k)]+=.5*(curErf-prevErf);
+                        prevErf=curErf;
+                    }
                 }
-                profile[static_cast<std::size_t>(k)]=std::max(0.,fraction);total+=std::max(0.,fraction);
+                for(int k=activeLo;k<=activeHi;++k) {
+                    const double v=std::max(0.,profile[static_cast<std::size_t>(k)]);
+                    profile[static_cast<std::size_t>(k)]=v;
+                    total+=v;
+                }
+            } else {
+                const double uniformFrac=1./m;
+                std::fill(profile.begin(),profile.end(),uniformFrac);
+                total=static_cast<double>(m)*uniformFrac;
             }
+            if(!(total>0)||activeLo>activeHi)continue;
+            const double invTotal=1./total;
             const double chips=iv.pulseS*light/(2*waveform.gateM),period=iv.ambiguousRangeM/waveform.gateM;
             if(passiveBistatic) {
                 int gates[2]={first,first+1};double weights[2]={0.,0.};
@@ -287,18 +313,18 @@ RadioReceiverResultV1 RadioReceiverV1::expose(const RadioSceneFrameV1& scene,V p
                     gates[1]=0;weights[1]=std::max(0.,1.-std::abs(period-range));
                     if(gates[0]==0)weights[1]=0.;
                 }
-                for(int s=0;s<2;++s)if(weights[s]>0&&gates[s]>=0&&gates[s]<iv.gates&&total>0) {
-                    const double energy=snr*observed->energyFraction.at(j)*m*weights[s]*weights[s];
-                    for(int k=0;k<m;++k)clutter[j][static_cast<std::size_t>(gates[s])*static_cast<std::size_t>(m)+static_cast<std::size_t>(k)]+=
-                        energy*profile[static_cast<std::size_t>(k)]/total;
+                for(int s=0;s<2;++s)if(weights[s]>0&&gates[s]>=0&&gates[s]<iv.gates) {
+                    const double energyScale=snr*observed->energyFraction.at(j)*m*weights[s]*weights[s]*invTotal;
+                    double* dst=clutter[j].data()+static_cast<std::size_t>(gates[s])*static_cast<std::size_t>(m);
+                    for(int k=activeLo;k<=activeHi;++k)dst[k]+=energyScale*profile[static_cast<std::size_t>(k)];
                 }
             } else {
-                for(int gate=first;gate<=first+1;++gate)if(gate>=iv.blankedGates&&gate<iv.gates&&total>0) {
+                for(int gate=first;gate<=first+1;++gate)if(gate>=iv.blankedGates&&gate<iv.gates) {
                     const double response=radar::signal::gateResponse(range,gate,chips,period);
-                    const double energy=observed?snr*observed->energyFraction.at(j)*m*response*response:
-                        snr/static_cast<double>(waveform.intervals.size())*m*response*response;
-                    for(int k=0;k<m;++k)clutter[j][static_cast<std::size_t>(gate-iv.blankedGates)*static_cast<std::size_t>(m)+static_cast<std::size_t>(k)]+=
-                        energy*profile[static_cast<std::size_t>(k)]/total;
+                    const double energyScale=(observed?snr*observed->energyFraction.at(j)*m*response*response:
+                        snr/static_cast<double>(waveform.intervals.size())*m*response*response)*invTotal;
+                    double* dst=clutter[j].data()+static_cast<std::size_t>(gate-iv.blankedGates)*static_cast<std::size_t>(m);
+                    for(int k=activeLo;k<=activeHi;++k)dst[k]+=energyScale*profile[static_cast<std::size_t>(k)];
                 }
             }
         }

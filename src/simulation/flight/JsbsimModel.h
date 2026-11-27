@@ -36,6 +36,14 @@ public:
     void step(const ControlInputs& inputs) override;
     void setEffectors(const EffectorInputs& effectors) override;
     void state(VehicleState& out) const override;
+    struct NavigationReadV2 {
+        double positionEcef[3];
+        double velocityBodyMs[3];
+        double rotationBodyToEcef[9];
+        double angularRateBodyRadS[3];
+        double accelerationBodyMs2[3];
+    };
+    bool readNavigationStateV2(NavigationReadV2& out) const noexcept;
     PropertyHandle property(std::string_view path) override;
     std::vector<std::pair<std::string, double>> properties(std::string_view prefix) const override;
 
@@ -105,7 +113,7 @@ private:
     bool advancePassivePlantV1();
     void saveInitialProperties();
     void restoreInitialProperties();
-    bool checkDivergence();
+    bool checkDivergence(bool updateLastGood = true);
     void checkTerrainStrike();
     void checkSpawnInTerrain(const InitialConditions& ic);
     double stopOnTerrain(double liftM); ///< crashed_: crashState_ = its state lifted by liftM along the vertical, at rest; its speed was

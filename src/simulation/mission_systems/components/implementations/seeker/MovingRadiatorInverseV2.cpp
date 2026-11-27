@@ -1116,7 +1116,8 @@ public:
             for(unsigned j=0;j<count;++j)if(!regionalKnown[j])jobs.push_back(j);
         }
         if(jobs.empty())return true;
-        const unsigned workers=std::min({maximumPhaseWorkersV5,std::thread::hardware_concurrency(),static_cast<unsigned>(jobs.size())});
+        const unsigned workers=ReticleNestedPoolGuardV1::blocked()?1u:
+            std::min({maximumPhaseWorkersV5,std::thread::hardware_concurrency(),static_cast<unsigned>(jobs.size())});
         if(workers<2)return false;
         std::fenv_t environment{};if(std::fegetenv(&environment)!=0)return false;
 #if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)

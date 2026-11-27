@@ -5,6 +5,7 @@
 #include "simulation/mission_systems/rf/Ntia.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <complex>
 #include <math.h>
@@ -20,7 +21,11 @@ namespace fsim_ntia_p528 {
 #include "p528/src/p528/FindKForYpiAt99Percent.cpp"
 #include "p528/src/p528/GetPathLoss.cpp"
 #include "p528/src/p528/InverseComplementaryCumulativeDistributionFunction.cpp"
+void LineOfSightExact(Path *path, Terminal *terminal_1, Terminal *terminal_2, LineOfSightParams *los_params,
+    double f__mhz, double A_dML__db, double p, double d__km, int T_pol, Result *result, double *K_LOS);
+#define LineOfSight LineOfSightExact
 #include "p528/src/p528/LineOfSight.cpp"
+#undef LineOfSight
 #include "p528/src/p528/LinearInterpolation.cpp"
 #include "p528/src/p528/LongTermVariability.cpp"
 #include "p528/src/p528/NakagamiRice.cpp"
@@ -37,7 +42,11 @@ namespace fsim_ntia_p528 {
 #include "p528/src/p676/LineShapeFactor.cpp"
 #include "p528/src/p676/NonresonantDebyeAttenuation.cpp"
 #include "p528/src/p676/OxygenData.cpp"
+void RayTraceExact(double f__ghz, double h_1__km, double h_2__km, double beta_1__rad,
+                   RayTraceConfig config, SlantPathAttenuationResult* result);
+#define RayTrace RayTraceExact
 #include "p528/src/p676/RayTrace.cpp"
+#undef RayTrace
 #include "p528/src/p676/RefractiveIndex.cpp"
 #include "p528/src/p676/Refractivity.cpp"
 #include "p528/src/p676/SlantPath.cpp"
@@ -106,6 +115,7 @@ struct GeometryTable {
     double fMhz = 0.0;
     std::mutex fill;
     std::unique_ptr<GeometryNode[]> nodes{new GeometryNode[kGeometryNodes]};
+    GeometryNode minHeightNode; // exact cache for P.528's 1.5 m (0.0015 km) minimum terminal height
 };
 std::atomic<bool> tabulateGeometry{true};
 std::mutex geometryMutex;
@@ -140,10 +150,36 @@ const double* geometryNode(GeometryTable& t, int k) {
     }
     return g.v;
 }
+const double* geometryMinHeightNode(GeometryTable& t) {
+    GeometryNode& g = t.minHeightNode;
+    if (!g.ready.load(std::memory_order_acquire)) {
+        std::lock_guard<std::mutex> lock(t.fill);
+        if (!g.ready.load(std::memory_order_relaxed)) {
+            SlantPathAttenuationResult r{};
+            SlantPathAttenuation(t.fMhz / 1000, 0, 0.0015, PI / 2, &r);
+            g.v[0] = r.angle__rad, g.v[1] = r.A_gas__db, g.v[2] = r.a__km, g.v[3] = r.bending__rad;
+            g.ready.store(true, std::memory_order_release);
+        }
+    }
+    return g.v;
+}
 } // namespace
 
 void TerminalGeometry(double f__mhz, Terminal* terminal) {
     GeometryTable* t = tabulate.load(std::memory_order_relaxed) && tabulateGeometry.load(std::memory_order_relaxed) ? geometryFor(f__mhz) : nullptr;
+    if (t && terminal->h_r__km == 0.0015) {
+        const double* v = geometryMinHeightNode(*t);
+        const double theta_tx__rad = 0;
+        terminal->theta__rad = PI / 2 - v[0];
+        terminal->A_a__db = v[1];
+        terminal->a__km = v[2];
+        const double central_angle = ((PI / 2 - v[0]) - theta_tx__rad + v[3]);
+        terminal->d_r__km = a_0__km * central_angle;
+        terminal->phi__rad = terminal->d_r__km / a_e__km;
+        terminal->h_e__km = (a_e__km / cos(terminal->phi__rad)) - a_e__km;
+        terminal->delta_h__km = terminal->h_r__km - terminal->h_e__km;
+        return;
+    }
     const double u = std::sqrt(std::max(terminal->h_r__km, 0.0));
     const double s = (u - kGeometryU0) / kGeometryDu;
     if (!t || !(s >= 1.0) || s >= kGeometryNodes - 2.0) return TerminalGeometryExact(f__mhz, terminal); // (the table's ends: exact)
@@ -175,6 +211,231 @@ void GetLayerProperties(double f__ghz, double h_i__km, RayTraceConfig config, do
     const double w = s - static_cast<double>(i);
     *n = t->n[i] + (t->n[i + 1] - t->n[i]) * w;
     *gamma = t->gamma[i] + (t->gamma[i + 1] - t->gamma[i]) * w;
+}
+
+void RayTrace(double f__ghz, double h_1__km, double h_2__km, double beta_1__rad,
+              RayTraceConfig config, SlantPathAttenuationResult* result) {
+    const bool reference = config.temperature == GlobalTemperature && config.dry_pressure == GlobalPressure &&
+                           config.wet_pressure == GlobalWetPressure;
+    const LayerTable* t = reference && tabulate.load(std::memory_order_relaxed) && h_1__km >= 0.0 && h_2__km > h_1__km && h_2__km < kTopKm - 2.0
+                              ? tableFor(f__ghz)
+                              : nullptr;
+    if (!t) return RayTraceExact(f__ghz, h_1__km, h_2__km, beta_1__rad, config, result);
+
+    const double kExp01 = std::exp(0.01);
+    const double kExp01m1 = kExp01 - 1.0;
+    const double kInvExp01m1 = 1.0 / kExp01m1;
+    const double kLayerScale = 1e4 * kExp01m1;
+    const double kIndexFactor = 100.0 * kPerLayer;
+
+    const int i_lower = static_cast<int>(std::floor(100.0 * std::log(kLayerScale * h_1__km + 1.0) + 1.0));
+    const int i_upper = static_cast<int>(std::ceil(100.0 * std::log(kLayerScale * h_2__km + 1.0) + 1.0));
+    const double expLower = std::exp((i_lower - 1) / 100.0);
+    const double expUpper = std::exp(i_upper / 100.0);
+    const double expLowerPlus1 = expLower * kExp01;
+    const double m = ((std::exp(0.02) - kExp01) / (expUpper - expLowerPlus1)) * (h_2__km - h_1__km);
+
+    result->A_gas__db = 0.0;
+    result->bending__rad = 0.0;
+    result->a__km = 0.0;
+    result->delta_L__km = 0.0;
+    result->angle__rad = beta_1__rad;
+
+    const double* const nTab = t->n.data();
+    const double* const gTab = t->gamma.data();
+    const std::size_t tabMax = t->n.size() - 2;
+    auto lookup = [&](double hKm, double expRef, double lnExpRef, double& nOut, double& gOut) noexcept {
+        const double x = kLayerScale * hKm + 1.0;
+        const double r = x / expRef;
+        double lnX;
+        if (r > 0.90 && r < 1.11) {
+            const double u = (r - 1.0) / (r + 1.0);
+            const double u2 = u * u;
+            lnX = lnExpRef + 2.0 * u * (1.0 + u2 * (1.0 / 3.0 + u2 * (1.0 / 5.0)));
+        } else {
+            lnX = std::log(x);
+        }
+        const double s = kIndexFactor * lnX;
+        const std::size_t idx = std::min(static_cast<std::size_t>(s), tabMax);
+        const double w = s - static_cast<double>(idx);
+        nOut = nTab[idx] + (nTab[idx + 1] - nTab[idx]) * w;
+        gOut = gTab[idx] + (gTab[idx + 1] - gTab[idx]) * w;
+    };
+
+    double expCur = expLower;
+    double lnExpCur = (i_lower - 1) * 0.01;
+    double delta_i__km = m * expCur;
+    double h_i__km = h_1__km;
+    double n_i = 0.0, gamma_i = 0.0;
+    lookup(h_i__km + 0.5 * delta_i__km, expCur, lnExpCur, n_i, gamma_i);
+    double r_i__km = a_0__km + h_i__km;
+
+    const double n1r1Sin = n_i * r_i__km * std::sin(beta_1__rad);
+    double lastSinAlpha = std::sin(beta_1__rad);
+
+    for (int i = i_lower; i <= i_upper - 1; ++i) {
+        const double expNext = expCur * kExp01;
+        const double lnExpNext = lnExpCur + 0.01;
+        const double delta_ii__km = m * expNext;
+        const double h_ii__km = h_1__km + m * ((expNext - expLower) * kInvExp01m1);
+        double n_ii = 0.0, gamma_ii = 0.0;
+        lookup(h_ii__km + 0.5 * delta_ii__km, expNext, lnExpNext, n_ii, gamma_ii);
+        const double r_ii__km = a_0__km + h_ii__km;
+
+        const double sinBetaI = std::min(1.0, n1r1Sin / (n_i * r_i__km));
+        const double cosBetaI = std::sqrt(std::max(0.0, 1.0 - sinBetaI * sinBetaI));
+        const double rCos = r_i__km * cosBetaI;
+        const double a_i__km = -rCos + std::sqrt(rCos * rCos + delta_i__km * (2.0 * r_i__km + delta_i__km));
+
+        result->a__km += a_i__km;
+        result->A_gas__db += a_i__km * gamma_i;
+        result->delta_L__km += a_i__km * (n_i - 1.0);
+
+        const double sinAlphaI = std::min(1.0, n1r1Sin / (n_i * r_ii__km));
+        lastSinAlpha = sinAlphaI;
+        if (i != i_upper - 1) {
+            const double sinBetaII = std::min(1.0, (n_i / n_ii) * sinAlphaI);
+            const double dSin = sinBetaII - sinAlphaI;
+            if (sinAlphaI < 0.999 && sinBetaII < 0.999 && std::fabs(dSin) < 1e-4) {
+                const double sMid = 0.5 * (sinAlphaI + sinBetaII);
+                result->bending__rad += dSin / std::sqrt(1.0 - sMid * sMid);
+            } else {
+                result->bending__rad += std::asin(sinBetaII) - std::asin(sinAlphaI);
+            }
+        }
+
+        expCur = expNext;
+        lnExpCur = lnExpNext;
+        delta_i__km = delta_ii__km;
+        h_i__km = h_ii__km;
+        n_i = n_ii;
+        gamma_i = gamma_ii;
+        r_i__km = r_ii__km;
+    }
+
+    if (i_lower <= i_upper - 1) result->angle__rad = std::asin(lastSinAlpha);
+}
+
+namespace {
+struct LosHeaderKey {
+    double fMhz = 0.0, h1Km = 0.0, h2Km = 0.0, dDKm = 0.0, dMlKm = 0.0, aDmlDb = 0.0;
+    int tPol = 0;
+    bool operator==(const LosHeaderKey& o) const noexcept {
+        return fMhz == o.fMhz && h1Km == o.h1Km && h2Km == o.h2Km &&
+               dDKm == o.dDKm && dMlKm == o.dMlKm && aDmlDb == o.aDmlDb && tPol == o.tPol;
+    }
+};
+struct LosHeaderEntry {
+    bool valid = false;
+    LosHeaderKey key{};
+    double psiLimit = 0.0;
+    double d0Km = 0.0;
+    double aLosD0Db = 0.0;
+};
+constexpr std::size_t kLosHeaderCacheSize = 16;
+thread_local std::array<LosHeaderEntry, kLosHeaderCacheSize> losHeaderCache{};
+thread_local std::size_t losHeaderNextSlot = 0;
+} // namespace
+
+void LineOfSight(Path *path, Terminal *terminal_1, Terminal *terminal_2, LineOfSightParams *los_params,
+    double f__mhz, double A_dML__db, double p, double d__km, int T_pol, Result *result, double *K_LOS) {
+    if (!tabulate.load(std::memory_order_relaxed)) {
+        LineOfSightExact(path, terminal_1, terminal_2, los_params, f__mhz, A_dML__db, p, d__km, T_pol, result, K_LOS);
+        return;
+    }
+    const double lambda__km = 0.2997925 / f__mhz;
+    const LosHeaderKey key{f__mhz, terminal_1->h_r__km, terminal_2->h_r__km, path->d_d__km, path->d_ML__km, A_dML__db, T_pol};
+    const LosHeaderEntry* hit = nullptr;
+    for (const auto& e : losHeaderCache) {
+        if (e.valid && e.key == key) { hit = &e; break; }
+    }
+    double psi_limit = 0.0;
+    double aLosD0 = 0.0;
+    double R_Tg = 0.0;
+    if (hit) {
+        psi_limit = hit->psiLimit;
+        path->d_0__km = hit->d0Km;
+        aLosD0 = hit->aLosD0Db;
+    } else {
+        const double terminate = lambda__km / 1e6;
+        psi_limit = FindPsiAtDeltaR(lambda__km / 2, path, terminal_1, terminal_2, terminate);
+        const double d_y6__km = FindDistanceAtDeltaR(lambda__km / 6, path, terminal_1, terminal_2, terminate);
+        if (terminal_1->d_r__km >= path->d_d__km || path->d_d__km >= path->d_ML__km) {
+            if (terminal_1->d_r__km > d_y6__km || d_y6__km > path->d_ML__km)
+                path->d_0__km = terminal_1->d_r__km;
+            else
+                path->d_0__km = d_y6__km;
+        } else if (path->d_d__km < d_y6__km && d_y6__km < path->d_ML__km) {
+            path->d_0__km = d_y6__km;
+        } else {
+            path->d_0__km = path->d_d__km;
+        }
+        double d_temp__km = path->d_0__km;
+        while (true) {
+            const double psiWalk = FindPsiAtDistance(d_temp__km, path, terminal_1, terminal_2);
+            LineOfSightParams los_result;
+            RayOptics(terminal_1, terminal_2, psiWalk, &los_result);
+            if (los_result.d__km >= path->d_0__km || (d_temp__km + 0.001) >= path->d_ML__km) {
+                path->d_0__km = los_result.d__km;
+                break;
+            }
+            d_temp__km += 0.001;
+        }
+        const double psi_d0 = FindPsiAtDistance(path->d_0__km, path, terminal_1, terminal_2);
+        RayOptics(terminal_1, terminal_2, psi_d0, los_params);
+        GetPathLoss(psi_d0, path, f__mhz, psi_limit, A_dML__db, 0, T_pol, los_params, &R_Tg);
+        aLosD0 = los_params->A_LOS__db;
+        losHeaderCache[losHeaderNextSlot] = LosHeaderEntry{true, key, psi_limit, path->d_0__km, aLosD0};
+        losHeaderNextSlot = (losHeaderNextSlot + 1) % kLosHeaderCacheSize;
+    }
+
+    const double psi = FindPsiAtDistance(d__km, path, terminal_1, terminal_2);
+    RayOptics(terminal_1, terminal_2, psi, los_params);
+    GetPathLoss(psi, path, f__mhz, psi_limit, A_dML__db, aLosD0, T_pol, los_params, &R_Tg);
+
+    SlantPathAttenuationResult result_slant;
+    SlantPathAttenuation(f__mhz / 1000, terminal_1->h_r__km, terminal_2->h_r__km, PI / 2 - los_params->theta_h1__rad, &result_slant);
+    result->A_a__db = result_slant.A_gas__db;
+    result->A_fs__db = 20.0 * log10(los_params->r_0__km) + 20.0 * log10(f__mhz) + 32.45;
+
+    double f_theta_h;
+    if (los_params->theta_h1__rad <= 0.0) f_theta_h = 1.0;
+    else if (los_params->theta_h1__rad >= 1.0) f_theta_h = 0.0;
+    else f_theta_h = MAX(0.5 - (1 / PI) * (atan(20.0 * log10(32.0 * los_params->theta_h1__rad))), 0);
+
+    double Y_e__db, Y_e_50__db, A_Y;
+    LongTermVariability(terminal_1->d_r__km, terminal_2->d_r__km, d__km, f__mhz, p, f_theta_h, los_params->A_LOS__db, &Y_e__db, &A_Y);
+    LongTermVariability(terminal_1->d_r__km, terminal_2->d_r__km, d__km, f__mhz, 50, f_theta_h, los_params->A_LOS__db, &Y_e_50__db, &A_Y);
+
+    double F_AY;
+    if (A_Y <= 0.0) F_AY = 1.0;
+    else if (A_Y >= 9.0) F_AY = 0.1;
+    else F_AY = (1.1 + (0.9 * cos((A_Y / 9.0) * PI))) / 2.0;
+
+    double F_delta_r;
+    if (los_params->delta_r__km >= (lambda__km / 2.0)) F_delta_r = 1.0;
+    else if (los_params->delta_r__km <= lambda__km / 6.0) F_delta_r = 0.1;
+    else F_delta_r = 0.5 * (1.1 - (0.9 * cos(((3.0 * PI) / lambda__km) * (los_params->delta_r__km - (lambda__km / 6.0)))));
+
+    const double R_s = R_Tg * F_delta_r * F_AY;
+    const double Y_pi_99__db = 10.0 * log10(f__mhz * pow(result_slant.a__km, 3)) - 84.26;
+    const double K_t = FindKForYpiAt99Percent(Y_pi_99__db);
+    const double W_a = pow(10.0, K_t / 10.0);
+    const double W_R = R_s * R_s + 0.0001;
+    const double W = W_R + W_a;
+    if (W <= 0.0) {
+        *K_LOS = -40.0;
+    } else {
+        *K_LOS = 10.0 * log10(W);
+        if (*K_LOS < -40.0) *K_LOS = -40.0;
+    }
+    const double Y_pi_50__db = 0.0;
+    const double Y_pi__db = NakagamiRice(*K_LOS, p);
+    const double Y_total__db = -CombineDistributions(Y_e_50__db, Y_e__db, Y_pi_50__db, Y_pi__db, p);
+
+    result->d__km = los_params->d__km;
+    result->A__db = result->A_fs__db + result->A_a__db - los_params->A_LOS__db + Y_total__db;
+    result->theta_h1__rad = los_params->theta_h1__rad;
 }
 } // namespace fsim_ntia_p528
 

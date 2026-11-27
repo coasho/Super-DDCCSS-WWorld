@@ -1316,3 +1316,12 @@ add_dependencies(fsim_combat_vfx_test fsim_m03_native_runtime)
 fsim_set_warnings(fsim_combat_vfx_test)
 add_test(NAME combat_vfx COMMAND fsim_combat_vfx_test)
 set_tests_properties(combat_vfx PROPERTIES LABELS "vis-m13;combat-vfx;native-engagement" TIMEOUT 300 RUN_SERIAL TRUE)
+
+# SIM-M11 (HC-45): Parallel WeaponSensor, RF clutter fast path, and on-rail/reticle IR acceleration.
+add_executable(fsim_sim_m11_weapon_perf_test simulation/test_sim_m11_weapon_perf.cpp)
+target_link_libraries(fsim_sim_m11_weapon_perf_test PRIVATE fsim::sdk fsim::ms Catch2::Catch2WithMain)
+target_compile_definitions(fsim_sim_m11_weapon_perf_test PRIVATE FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
+add_dependencies(fsim_sim_m11_weapon_perf_test fsim_m03_native_runtime)
+fsim_set_warnings(fsim_sim_m11_weapon_perf_test)
+add_test(NAME sim_m11_weapon_perf COMMAND fsim_sim_m11_weapon_perf_test)
+set_tests_properties(sim_m11_weapon_perf PROPERTIES LABELS "sim-m11;native-engagement;performance" TIMEOUT 300 RUN_SERIAL TRUE)

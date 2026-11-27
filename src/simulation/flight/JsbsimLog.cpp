@@ -59,8 +59,12 @@ private:
 } // namespace
 
 void installJsbsimLogBridge() {
-    static std::once_flag once;
-    std::call_once(once, [] { JSBSim::SetLogger(std::make_shared<LogBridge>()); });
+    static const auto bridge = std::make_shared<LogBridge>();
+    thread_local bool installed = false;
+    if (!installed) {
+        JSBSim::SetLogger(bridge);
+        installed = true;
+    }
 }
 
 } // namespace fsim::sim

@@ -231,18 +231,27 @@ static std::vector<Hit> dwellImpl(const Waveform& waveform, const std::vector<Ec
             for (int r = std::max(0, static_cast<int>(std::floor(periodGates - chips)) - g0); r < rows; ++r)
                 share[static_cast<std::size_t>(r)] = noiseShare(g0 + r, chips, periodGates);
         }
+        thread_local std::vector<std::uint8_t> rowHasClutter;
+        rowHasClutter.assign(static_cast<std::size_t>(rows), 0u);
         const double sdWhole = std::sqrt(0.5 * m);
         for (int r = 0; r < rows; ++r) {
             const double heard = m * share[static_cast<std::size_t>(r)];
+            const double sdRow = share[static_cast<std::size_t>(r)] < 1.0 ? std::sqrt(0.5 * heard) : sdWhole;
             if (cl) {
                 const double* c = cl + static_cast<std::size_t>(r) * static_cast<std::size_t>(m);
+                std::uint8_t hasClutter = 0u;
                 for (int k = 0; k < m; ++k) {
-                    const double s = std::sqrt(0.5 * (heard + c[k]));
+                    const double ck = c[k];
+                    double s = sdRow;
+                    if (ck != 0.0) {
+                        hasClutter = 1u;
+                        s = std::sqrt(0.5 * (heard + ck));
+                    }
                     noise[static_cast<std::size_t>(k)] = C(s * stream.normal(), s * stream.normal());
                 }
+                rowHasClutter[static_cast<std::size_t>(r)] = hasClutter;
             } else {
-                const double sd = share[static_cast<std::size_t>(r)] < 1.0 ? std::sqrt(0.5 * heard) : sdWhole;
-                for (int k = 0; k < m; ++k) noise[static_cast<std::size_t>(k)] = C(sd * stream.normal(), sd * stream.normal());
+                for (int k = 0; k < m; ++k) noise[static_cast<std::size_t>(k)] = C(sdRow * stream.normal(), sdRow * stream.normal());
             }
             windowed(noise.data(), grid.data() + static_cast<std::size_t>(r) * static_cast<std::size_t>(m), m);
         }
@@ -321,7 +330,22 @@ static std::vector<Hit> dwellImpl(const Waveform& waveform, const std::vector<Ec
         const int half = settings.cfarCells / 2, guard = settings.cfarGuard;
         double alpha[64] = {};
         for (int c = 1; c <= std::min(63, settings.cfarCells); ++c) alpha[c] = cfarAlpha(c, settings.pfaInterval);
-        auto at = [&](int r, int k) { return power[static_cast<std::size_t>(r) * static_cast<std::size_t>(m) + static_cast<std::size_t>((k + m) % m)]; };
+        const double negLogPfa = -std::log(settings.pfaInterval);
+        constexpr int kTapRadius = Window::kTaps - 1;
+        double tapSq[2 * Window::kTaps - 1] = {};
+        for (int t = -kTapRadius; t <= kTapRadius; ++t) {
+            const double tap = t == 0 ? Window::a[0] : 0.5 * Window::a[std::abs(t)];
+            tapSq[t + kTapRadius] = tap * tap;
+        }
+        auto at = [&](int r, int k) noexcept {
+            int kk = k;
+            if (kk < 0) kk += m;
+            else if (kk >= m) kk -= m;
+            return power[static_cast<std::size_t>(r) * static_cast<std::size_t>(m) + static_cast<std::size_t>(kk)];
+        };
+        const double* powerData = power.data();
+        const double* shareData = share.data();
+        const std::uint8_t* rowClutterData = rowHasClutter.data();
         thread_local std::vector<double> prefix;
         prefix.resize(static_cast<std::size_t>(rows) + 1);
         // the processor's notches: filters (as fractions of the PRF's band) it does not test
@@ -334,19 +358,23 @@ static std::vector<Hit> dwellImpl(const Waveform& waveform, const std::vector<Ec
         const bool mainBeam = std::isfinite(settings.mainBeamRateMs) && settings.notchMs > 0.0;
         const bool altitude = std::isfinite(settings.altitudeM) && settings.notchMs > 0.0;
         const double altitudeGate = altitude ? std::fmod(settings.altitudeM, iv.ambiguousRangeM) / waveform.gateM - g0 : -1e9;
+        const double normalization = 1.0 / (m * noiseGain);
         for (int k = 0; k < m; ++k) {
             if (mainBeam && nearRate(k, settings.mainBeamRateMs)) continue;
             const bool zeroRate = altitude && nearRate(k, 0.0);
             // the filter's powers summed along range: a reference window's sum two lookups
+            double acc = 0.0;
             prefix[0] = 0.0;
-            for (int r = 0; r < rows; ++r)
-                prefix[static_cast<std::size_t>(r) + 1] = prefix[static_cast<std::size_t>(r)] + power[static_cast<std::size_t>(r) * static_cast<std::size_t>(m) + static_cast<std::size_t>(k)];
+            for (int r = 0; r < rows; ++r) {
+                acc += powerData[static_cast<std::size_t>(r) * static_cast<std::size_t>(m) + static_cast<std::size_t>(k)];
+                prefix[static_cast<std::size_t>(r) + 1] = acc;
+            }
             for (int r = 0; r < rows; ++r) {
                 if (zeroRate && std::fabs(r - altitudeGate) <= 2.0) continue;
                 double mean=0,threshold=0;
                 if(settings.knownNoiseThreshold) {
-                    mean=m*share[static_cast<std::size_t>(r)]*noiseGain;
-                    threshold=-std::log(settings.pfaInterval);
+                    mean=m*shareData[r]*noiseGain;
+                    threshold=negLogPfa;
                 } else {
                     const int lo0 = std::max(0, r - guard - half), lo1 = std::max(0, r - guard);
                     const int hi0 = std::min(rows, r + guard + 1), hi1 = std::min(rows, r + guard + half + 1);
@@ -356,19 +384,21 @@ static std::vector<Hit> dwellImpl(const Waveform& waveform, const std::vector<Ec
                     if (count < 4) continue;
                     mean=sum/count;threshold=alpha[count];
                 }
+                const std::size_t cell = static_cast<std::size_t>(r) * static_cast<std::size_t>(m) + static_cast<std::size_t>(k);
                 if(diagnosticShown) {
-                    const auto cell=static_cast<std::size_t>(r)*static_cast<std::size_t>(m)+static_cast<std::size_t>(k);
-                    const double normalization=1/(m*noiseGain),thermal=m*share[static_cast<std::size_t>(r)]*noiseGain;
+                    const double thermal=m*shareData[r]*noiseGain;
                     double clutterPower=0;
-                    if(cl) {
+                    if(cl && rowClutterData[r]) {
                         const double* expected=cl+static_cast<std::size_t>(r)*static_cast<std::size_t>(m);
-                        for(int tapIndex=-(Window::kTaps-1);tapIndex<Window::kTaps;++tapIndex) {
-                            const double tap=tapIndex==0?Window::a[0]:.5*Window::a[std::abs(tapIndex)];
-                            clutterPower+=tap*tap*expected[((k-tapIndex)%m+m)%m];
+                        for(int tapIndex=-kTapRadius;tapIndex<=kTapRadius;++tapIndex) {
+                            int kk = k - tapIndex;
+                            if (kk < 0) kk += m;
+                            else if (kk >= m) kk -= m;
+                            clutterPower+=tapSq[tapIndex + kTapRadius]*expected[kk];
                         }
                     }
                     const double cfar=threshold*mean;
-                    const double clutterThreshold=clutterPower>.1*thermal?-std::log(settings.pfaInterval)*(thermal+clutterPower):0;
+                    const double clutterThreshold=clutterPower>.1*thermal?negLogPfa*(thermal+clutterPower):0;
                     diagnostics->tested[cell]=1;
                     diagnostics->thermalNoiseRelative[cell]=static_cast<float>(thermal*normalization);
                     diagnostics->localNoiseRelative[cell]=static_cast<float>(mean*normalization);
@@ -376,20 +406,22 @@ static std::vector<Hit> dwellImpl(const Waveform& waveform, const std::vector<Ec
                     diagnostics->clutterThresholdRelative[cell]=static_cast<float>(clutterThreshold*normalization);
                     diagnostics->decisionThresholdRelative[cell]=static_cast<float>(std::max(cfar,clutterThreshold)*normalization);
                 }
-                const double here=at(r,k);
+                const double here = powerData[cell];
                 if (!(here > threshold * mean)) continue;
                 // where the ground's clutter is (above a tenth of the noise), the clutter map's threshold too: the
                 // cell's expected power - the noise's and the clutter's through the window's taps - times -ln(p) (an
                 // exponential of known mean crosses it with probability p, however the clutter varies around it)
-                if (cl) {
+                if (cl && rowClutterData[r]) {
                     const double* c = cl + static_cast<std::size_t>(r) * static_cast<std::size_t>(m);
                     double clutterPart = 0.0;
-                    for (int t = -(Window::kTaps - 1); t < Window::kTaps; ++t) {
-                        const double tap = t == 0 ? Window::a[0] : 0.5 * Window::a[std::abs(t)];
-                        clutterPart += tap * tap * c[((k - t) % m + m) % m];
+                    for (int t = -kTapRadius; t <= kTapRadius; ++t) {
+                        int kk = k - t;
+                        if (kk < 0) kk += m;
+                        else if (kk >= m) kk -= m;
+                        clutterPart += tapSq[t + kTapRadius] * c[kk];
                     }
-                    const double noisePart = m * share[static_cast<std::size_t>(r)] * noiseGain;
-                    if (clutterPart > 0.1 * noisePart && !(here > -std::log(settings.pfaInterval) * (noisePart + clutterPart))) continue;
+                    const double noisePart = m * shareData[r] * noiseGain;
+                    if (clutterPart > 0.1 * noisePart && !(here > negLogPfa * (noisePart + clutterPart))) continue;
                 }
                 bool largest = true;
                 for (int dr = -1; dr <= 1 && largest; ++dr)
@@ -416,7 +448,6 @@ static std::vector<Hit> dwellImpl(const Waveform& waveform, const std::vector<Ec
                 pk.rateMs = -nu * iv.prfHz * lambda / 2.0;
                 pk.snr = std::max(0.0, here / mean - 1.0) * noiseGain / (Window::a[0] * Window::a[0]);
                 // the difference channels: the echoes' sum-channel parts times their ratio, and their own noise
-                const std::size_t cell = static_cast<std::size_t>(r) * static_cast<std::size_t>(m) + static_cast<std::size_t>(k);
                 const C sum0 = grid[cell];
                 C dAz(0.0, 0.0), dEl(0.0, 0.0);
                 double strongest = mean; // (an echo must outweigh the noise to own the cell)

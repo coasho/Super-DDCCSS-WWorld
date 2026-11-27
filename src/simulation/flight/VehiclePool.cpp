@@ -56,28 +56,30 @@ void VehiclePool::rangeFor(unsigned worker, std::size_t n, std::size_t& begin, s
     end = (n * (worker + 1)) / w;
 }
 
-void VehiclePool::runRange(std::size_t begin, std::size_t end, const Job& job) {
+void VehiclePool::runItem(std::size_t i, const Job& job) {
     if (job.task) {
-        for (std::size_t i = begin; i < end; ++i) (*job.task)(i);
+        (*job.task)(i);
         return;
     }
-    for (std::size_t i = begin; i < end; ++i) {
-        FlightModel& m = *models_[i];
-        if (!job.refreshOnly && active_[i]) {
-            if (preStep_) {
-                ControlInputs in = job.inputs[i];
-                for (int k = 0; k < job.frameSkip; ++k) {
-                    preStep_(i, k, m, in);
-                    observedStep(m,in,nativeObserverFactoryV1_?nativeObserverFactoryV1_(i,k,m):NativeStepObserverV1{});
-                }
-            } else {
-                const ControlInputs& in = job.inputs[i];
-                for (int k = 0; k < job.frameSkip; ++k)
-                    observedStep(m,in,nativeObserverFactoryV1_?nativeObserverFactoryV1_(i,k,m):NativeStepObserverV1{});
+    FlightModel& m = *models_[i];
+    if (!job.refreshOnly && active_[i]) {
+        if (preStep_) {
+            ControlInputs in = job.inputs[i];
+            for (int k = 0; k < job.frameSkip; ++k) {
+                preStep_(i, k, m, in);
+                observedStep(m,in,nativeObserverFactoryV1_?nativeObserverFactoryV1_(i,k,m):NativeStepObserverV1{});
             }
+        } else {
+            const ControlInputs& in = job.inputs[i];
+            for (int k = 0; k < job.frameSkip; ++k)
+                observedStep(m,in,nativeObserverFactoryV1_?nativeObserverFactoryV1_(i,k,m):NativeStepObserverV1{});
         }
-        m.state(states_[i]);
     }
+    m.state(states_[i]);
+}
+
+void VehiclePool::runRange(std::size_t begin, std::size_t end, const Job& job) {
+    for (std::size_t i = begin; i < end; ++i) runItem(i, job);
 }
 
 void VehiclePool::dispatch(const Job& job) {
@@ -89,6 +91,7 @@ void VehiclePool::dispatch(const Job& job) {
         std::lock_guard<std::mutex> lock(mutex_);
         job_ = job;
         done_ = 0;
+        nextIndex_.store(0, std::memory_order_relaxed);
         ++generation_;
     }
     wake_.notify_all();
@@ -114,9 +117,13 @@ void VehiclePool::workerLoop(unsigned index) {
             job = job_;
         }
 
-        std::size_t begin, end;
-        rangeFor(index, job.task ? job.count : models_.size(), begin, end);
-        runRange(begin, end, job);
+        const std::size_t total = job.task ? job.count : models_.size();
+        for (;;) {
+            const std::size_t k = nextIndex_.fetch_add(1, std::memory_order_relaxed);
+            if (k >= total) break;
+            const std::size_t i = job.reverseOrder ? (total - 1u - k) : k;
+            runItem(i, job);
+        }
 
         {
             std::lock_guard<std::mutex> lock(mutex_);
@@ -133,6 +140,9 @@ void VehiclePool::step(Span<const ControlInputs> inputs, int frameSkip) {
     Job job;
     job.inputs = inputs;
     job.frameSkip = frameSkip;
+    // Weapons (higher substep counts) sit at higher slot indices after aircraft;
+    // dispatching descending starts heavy vehicles first on distinct workers.
+    job.reverseOrder = true;
     dispatch(job);
 }
 
