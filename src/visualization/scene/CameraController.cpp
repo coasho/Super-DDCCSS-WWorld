@@ -87,7 +87,7 @@ void CameraController::zoom(double factor) noexcept { targetDistance_ = std::cla
 void CameraController::turn(double radians) noexcept { azimuth_ = wrapAngle(azimuth_ + radians); }
 
 double CameraController::minDistance() const noexcept {
-    if (detached()) return kMinDistanceDetached;
+    if (detached() && !heldAltitude_) return kMinDistanceDetached;
     return targetRadius_ > 0.0 ? std::clamp(kMinDistanceRadii * targetRadius_, kMinDistanceSmallest, kMinDistance) : kMinDistance;
 }
 
@@ -365,10 +365,30 @@ void CameraController::apply(vsg::ScrollWheelEvent& e) {
 }
 
 void CameraController::update(const sim::VehicleState* target, double dtSeconds) {
+    const bool hadTarget = hasTarget_;
     hasTarget_ = target != nullptr;
-    if (target) lastTargetPos_ = positionEcef(*target);
+    if (target) {
+        if (!hadTarget) {
+            heldAltitude_ = false;
+            if (foldedHeadingOnDetach_) {
+                if (mode_ == Mode::Chase) azimuth_ = wrapAngle(azimuth_ - detachedHeading_);
+                foldedHeadingOnDetach_ = false;
+            }
+        }
+        lastTargetPos_ = positionEcef(*target);
+    } else if (hadTarget && vsg::length(lastTargetPos_) > 1.0) {
+        // Followed aircraft was destroyed/retired: hold camera cleanly at its exact final 3-D point & orientation!
+        if (mode_ == Mode::Chase && haveHeading_) {
+            azimuth_ = wrapAngle(azimuth_ + smoothedHeading_);
+            detachedHeading_ = smoothedHeading_;
+            foldedHeadingOnDetach_ = true;
+            haveHeading_ = false;
+        }
+        focus_ = lastTargetPos_;
+        heldAltitude_ = true;
+    }
     const bool followVehicle = target && mode_ != Mode::Free;
-    if (!followVehicle && ground_ && !(heldAltitude_ && mode_ == Mode::Free)) {
+    if (!followVehicle && ground_ && !heldAltitude_) {
         // Keep the detached focus on the terrain surface (tiles arrive over time).
         vsg::dvec3 lla = ellipsoid_->convertECEFToLatLongAltitude(focus_);
         if (auto h = ground_(lla.x * kDeg, lla.y * kDeg); h && std::abs(*h - lla.z) > 0.5) {
@@ -464,8 +484,8 @@ void CameraController::update(const sim::VehicleState* target, double dtSeconds)
         // (a vehicle smaller than the close-range clearance is followed that much closer to the ground)
         const double close = followVehicle && targetRadius_ > 0.0 ? std::clamp(targetRadius_, kMinDistanceSmallest, kEyeClearanceM) : kEyeClearanceM;
         const double clearance = std::min(kEyeClearanceMaxM, close + kEyeClearanceRatio * distance_);
-        // Detached, the focus is on the ground: never look up at it from below.
-        double minElevation = followVehicle ? -kPi / 2.0 : std::asin(std::clamp(clearance / distance_, -1.0, 1.0));
+        // Detached on the ground, never look up from below; when following or holding a mid-air explosion point, allow looking up freely.
+        double minElevation = (followVehicle || heldAltitude_) ? -kPi / 2.0 : std::asin(std::clamp(clearance / distance_, -1.0, 1.0));
 
         // Twice: lifting the eye moves it over different ground, which may be
         // higher than the ground it was over before.

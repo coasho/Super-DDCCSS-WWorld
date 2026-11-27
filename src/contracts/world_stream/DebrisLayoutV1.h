@@ -24,6 +24,36 @@ inline constexpr std::uint8_t kDebrisFlagBurning = 1u << 0;
 inline constexpr std::uint8_t kDebrisFlagGrounded = 1u << 1;
 inline constexpr std::uint8_t kDebrisFlagWater = 1u << 2;
 inline constexpr std::uint8_t kDebrisFlagSmoking = 1u << 3;
+inline constexpr std::uint8_t kDebrisPartShift = 4u;
+inline constexpr std::uint8_t kDebrisPartMask = 0xF0u;
+
+/// Sub-kind / real aircraft GLB section tag packed into bits 4..7 of DebrisBodyWireV1::flags.
+/// Preserves frozen 104-byte wire stride, reserved[2] == 0, and validDebrisBodyV1 compatibility.
+enum class DebrisPartTagV1 : std::uint8_t {
+    Generic = 0,
+    SectionNose = 1,
+    SectionCentre = 2,
+    SectionLeftWing = 3,
+    SectionRightWing = 4,
+    SectionTail = 5,
+    VoronoiShard0 = 6,
+    VoronoiShard1 = 7,
+    VoronoiShard2 = 8,
+    VoronoiShard3 = 9,
+    VoronoiShard4 = 10,
+    VoronoiShard5 = 11,
+    DustPlume = 12,
+    FoamWake = 13,
+    ScorchMark = 14,
+};
+
+inline constexpr std::uint8_t packDebrisPartTagV1(DebrisPartTagV1 tag) noexcept {
+    return static_cast<std::uint8_t>((static_cast<std::uint8_t>(tag) & 0x0Fu) << kDebrisPartShift);
+}
+
+inline constexpr DebrisPartTagV1 debrisPartTagV1(std::uint8_t flags) noexcept {
+    return static_cast<DebrisPartTagV1>((flags & kDebrisPartMask) >> kDebrisPartShift);
+}
 
 enum class DestructionTierV1 : std::uint8_t {
     Intact = 0,

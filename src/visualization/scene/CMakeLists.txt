@@ -52,7 +52,7 @@ add_library(fsim::world ALIAS fsim_world)
 
 fsim_include_view(fsim_world DIRECTORIES . ../vfx/effects)
 target_link_libraries(fsim_world PUBLIC fsim::render fsim::core fsim::ipc vsg::vsg)
-target_link_libraries(fsim_world PRIVATE fsim::io) # (PNG reading: the clouds' textures)
+target_link_libraries(fsim_world PRIVATE fsim::io manifold::manifold) # (PNG reading + manifold3d GLB fracture slicing)
 # NVIDIA Flow's solver, the optional GPU target, is visualization/vfx/flow's (fsim_flow).
 target_link_libraries(fsim_world PUBLIC fsim::flow)
 fsim_set_warnings(fsim_world)

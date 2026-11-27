@@ -818,7 +818,6 @@ int main(int argc, char** argv) {
         if (flow) flow->setAircraft(slot, m ? m->wingspanM : 0.0, m ? m->emptyMassKg + m->pointMassKg : 0.0);
     };
     addBackdrop(airflow.node());
-    addBackdrop(debris.trailNode());
     // the engagement's detonations and fires (MS-7h), solved as a fluid by NVIDIA Flow: the one way they are drawn
     flow = std::make_unique<world::FlowVolumes>(viewer.options(), cloudFiles ? *cloudFiles / "shaders" : std::filesystem::path{},
                                                 clouds.atmosphere(), viewer.coarseShading());
@@ -895,6 +894,10 @@ int main(int argc, char** argv) {
     if (flow && !flow->buildOffscreen(viewer.sceneDepth(), viewer.window()->extent2D().width, viewer.window()->extent2D().height)) {
         LOG_WARN("viewer") << "Flow offscreen half-res pass unavailable; using direct page rendering";
     }
+    // Scene-depth soft-particle debris smoke, water geysers, foam, dust & sparks with Flow depth interleaving (VIS-M11 v2).
+    if (!debris.buildTrails(viewer.sceneDepth(), flow ? flow->halfFrontImage() : vsg::ref_ptr<vsg::ImageInfo>{})) {
+        LOG_WARN("viewer") << "debris soft-particle trail pass unavailable";
+    }
     auto beforePass = vsg::Group::create();
     // --stats: the GPU's time per pass too (timestamps between them)
     render::GpuTimer gpuTimer;
@@ -914,7 +917,7 @@ int main(int argc, char** argv) {
         const std::vector<std::pair<vsg::ref_ptr<vsg::Node>, std::string>> named{
             {clouds.under(), "clouds under"}, {visuals.node(), "vehicles+exhaust"}, {debris.solidNode(), "debris solid"},
             {clouds.over(), "clouds over"}, {trails.node(), "trails"}, {airflow.node(), "contrails"},
-            {debris.trailNode(), "debris trails"}, {flow ? flow->node() : vsg::ref_ptr<vsg::Node>{}, "flow"}};
+            {flow ? flow->node() : vsg::ref_ptr<vsg::Node>{}, "flow"}};
         auto marked = vsg::Group::create();
         marked->addChild(gpuTimer.mark("prepass, pass begin"));
         for (const auto& child : scene->children) {
@@ -935,18 +938,26 @@ int main(int argc, char** argv) {
         betweenPass->addChild(flow->marchCompute());
         if (opt.stats > 0.0) betweenPass->addChild(gpuTimer.mark("flow march"));
     }
-    // Volumetric fire composite + gas round the aircraft, drawn over the scene (after colour/depth copy).
+    // True 360-degree 3-D volumetric interleaving:
+    // 1) Back pass: ground scorch, ocean foam + water curtains / dust / smoke behind Flow center
+    // 2) NVIDIA Flow volumetric fireballs & charcoal smoke
+    // 3) Front pass: water curtains / dust / smoke / sparks in front of Flow center (soft-blended via flowFrontTex)
     auto overGroup = vsg::Group::create();
+    overGroup->addChild(debris.trailNode());
+    if (opt.stats > 0.0) overGroup->addChild(gpuTimer.mark("debris trails back"));
     if (flow) {
         overGroup->addChild(flow->compositeNode());
         if (opt.stats > 0.0) overGroup->addChild(gpuTimer.mark("flow composite"));
     }
+    overGroup->addChild(debris.frontTrailNode());
+    if (opt.stats > 0.0) overGroup->addChild(gpuTimer.mark("debris trails front"));
     overGroup->addChild(vapour.node());
     if (opt.stats > 0.0) overGroup->addChild(gpuTimer.mark("gas"));
     vsg::ref_ptr<vsg::Node> over = overGroup;
     if (!viewer.setScene(scene, ellipsoid, imgui, beforePass, over, betweenPass)) return 1;
     vapour.compiled();
     if (flow) flow->compiled();
+    debris.compiled();
     try {
         clouds.build(viewer.window()->extent2D().width, viewer.window()->extent2D().height,
                      [&viewer](vsg::ref_ptr<vsg::Node> node) { return viewer.compile(node); });
@@ -1159,6 +1170,17 @@ int main(int argc, char** argv) {
         }
     };
     int strikeSelected = -1;
+    bool hadFollowedVehicle = false;
+    bool cameraHeldAfterDeath = false;
+    bool deathGlideActive = false;
+    bool deathGlideSawDebris = false;
+    std::uint32_t lastFollowedVehicleId = 0;
+    vsg::dvec3 lastLiveVelEcef(0.0, 0.0, 0.0);
+    double deathClockS = 0.0;
+    double lastGlideClockS = 0.0;
+    int lastSelectedSlot = -1;
+    std::vector<vsg::dvec3> lastLivePosEcef(slots, vsg::dvec3(0.0, 0.0, 0.0));
+    std::vector<unsigned char> hasLastLivePos(slots, 0);
     if (strikeCapture) LOG_INFO("strike") << "capture ready; waiting for native world '" << opt.worldName << "'";
     while (viewer.active() && !controls->quit.load(std::memory_order_relaxed)) {
         // each vehicle's flight status: a live world's from its segment, a replay's from its samples
@@ -1201,6 +1223,13 @@ int main(int argc, char** argv) {
                 interpolator = world::Interpolator(slots);
                 visuals.clearWeaponControls();
                 std::fill(alive.begin(), alive.end(), 0);
+                std::fill(hasLastLivePos.begin(), hasLastLivePos.end(), 0);
+                hadFollowedVehicle = false;
+                cameraHeldAfterDeath = false;
+                deathGlideActive = false;
+                deathGlideSawDebris = false;
+                lastFollowedVehicleId = 0;
+                debris.clear();
                 meta.assign(slots, ui::MonitorGui::VehicleMeta{});
                 for (auto& m : meta) m.alive = false;
                 for (std::size_t i = 0; i < slots; ++i) { visuals.setVisible(i, false); trails.setEnabled(i, false); }
@@ -1211,6 +1240,13 @@ int main(int argc, char** argv) {
                 interpolator = world::Interpolator(slots);
                 visuals.clearWeaponControls();
                 std::fill(alive.begin(), alive.end(), 0);
+                std::fill(hasLastLivePos.begin(), hasLastLivePos.end(), 0);
+                hadFollowedVehicle = false;
+                cameraHeldAfterDeath = false;
+                deathGlideActive = false;
+                deathGlideSawDebris = false;
+                lastFollowedVehicleId = 0;
+                debris.clear();
                 meta.assign(slots, ui::MonitorGui::VehicleMeta{});
                 for (auto& m : meta) m.alive = false;
                 for (std::size_t i = 0; i < slots; ++i) { visuals.setVisible(i, false); trails.setEnabled(i, false); }
@@ -1247,6 +1283,11 @@ int main(int argc, char** argv) {
                         visuals.setVisible(slot, row.alive != 0);
                         trails.setEnabled(slot, row.alive != 0);
                     }
+                    for (const auto& [slot, sample] : frames[f].samples)
+                        if (slot < slots && alive[slot]) {
+                            lastLivePosEcef[slot] = vsg::dvec3(sample.state.positionEcef[0], sample.state.positionEcef[1], sample.state.positionEcef[2]);
+                            hasLastLivePos[slot] = 1;
+                        }
                     // Keep each frame's stores with its entity table, including frames skipped during playback.
                     for (const auto& [slot, stores] : frames[f].storeChanges)
                         if (slot < slots) {
@@ -1485,8 +1526,19 @@ int main(int argc, char** argv) {
             }
         }
         if (selected < 0 || static_cast<std::size_t>(selected) >= slots || !alive[static_cast<std::size_t>(selected)]) {
-            for (std::size_t i = 0; i < slots; ++i)
-                if (alive[i]) { selected = static_cast<int>(i); break; }
+            if (!hadFollowedVehicle) {
+                for (std::size_t i = 0; i < slots; ++i)
+                    if (alive[i]) { selected = static_cast<int>(i); break; }
+            } else {
+                // Keep camera frozen at the destroyed aircraft's final 3-D point until user selects another vehicle or replay loops.
+                selected = -1;
+            }
+        }
+        if (selected >= 0 && static_cast<std::size_t>(selected) < slots && alive[static_cast<std::size_t>(selected)]) {
+            hadFollowedVehicle = true;
+            lastSelectedSlot = selected;
+            if (visualVehicleSeen[static_cast<std::size_t>(selected)] != 0)
+                lastFollowedVehicleId = visualVehicleSeen[static_cast<std::size_t>(selected)];
         }
         if (strikeCapture && batch && mirror.valid() && std::any_of(alive.begin(), alive.end(), [](unsigned char a) { return a != 0; })) {
             followPending = false;
@@ -1548,8 +1600,124 @@ int main(int argc, char** argv) {
         if (controls->cameraReset.exchange(false)) camera->resetView();
         const sim::VehicleState* target = (batch && anyAlive && selected >= 0)
             ? &(opt.interpolate ? interpolator.states() : batch->states)[static_cast<std::size_t>(selected)] : nullptr;
+        if (target) {
+            cameraHeldAfterDeath = false;
+            deathGlideActive = false;
+            deathGlideSawDebris = false;
+            const double* R = target->rotationBodyToEcef;
+            const double* vb = target->velocityBodyMs;
+            lastLiveVelEcef = vsg::dvec3(
+                R[0] * vb[0] + R[1] * vb[1] + R[2] * vb[2],
+                R[3] * vb[0] + R[4] * vb[1] + R[5] * vb[2],
+                R[6] * vb[0] + R[7] * vb[1] + R[8] * vb[2]);
+        } else if (camera->hasTarget()) {
+            cameraHeldAfterDeath = true;
+            deathGlideActive = (lastFollowedVehicleId != 0);
+            deathGlideSawDebris = false;
+            deathClockS = debrisClock;
+            lastGlideClockS = debrisClock;
+        } else if (!cameraHeldAfterDeath) {
+            const int holdSlot = (lastSelectedSlot >= 0 && static_cast<std::size_t>(lastSelectedSlot) < slots &&
+                                  hasLastLivePos[static_cast<std::size_t>(lastSelectedSlot)])
+                                     ? lastSelectedSlot
+                                     : [&]() {
+                                           for (std::size_t i = 0; i < slots; ++i)
+                                               if (hasLastLivePos[i]) return static_cast<int>(i);
+                                           return -1;
+                                       }();
+            if (holdSlot >= 0) {
+                camera->holdAt(lastLivePosEcef[static_cast<std::size_t>(holdSlot)]);
+                cameraHeldAfterDeath = true;
+            }
+        }
         camera->setTargetRadius(target ? visuals.shape(static_cast<std::size_t>(selected)).reach() : 0.0);
         camera->update(target, viewer.frameSeconds());
+        // After an aircraft explodes and its simulation instance is destroyed, smoothly track the major breaking-apart
+        // airframe sections (nose/centre/wings/tail) until the airframe thoroughly disperses, then ease smoothly to a stop!
+        if (!target && deathGlideActive && debrisFramePtr && lastFollowedVehicleId != 0) {
+            const double dtSim = debrisClock - lastGlideClockS;
+            lastGlideClockS = debrisClock;
+            if (dtSim > 0.0 && dtSim < 0.25) {
+                vsg::dvec3 posSum(0.0, 0.0, 0.0);
+                vsg::dvec3 velSum(0.0, 0.0, 0.0);
+                double wSum = 0.0;
+                bool hasMajor = false;
+                for (const auto& b : debrisFramePtr->bodies) {
+                    if (b.ownerVehicleId != lastFollowedVehicleId) continue;
+                    const auto arch = static_cast<ipc::DebrisArchetypeV1>(b.archetype);
+                    if (arch == ipc::DebrisArchetypeV1::AirframeHull || arch == ipc::DebrisArchetypeV1::WingFragment) {
+                        hasMajor = true;
+                        break;
+                    }
+                }
+                for (const auto& b : debrisFramePtr->bodies) {
+                    if (b.ownerVehicleId != lastFollowedVehicleId) continue;
+                    const auto arch = static_cast<ipc::DebrisArchetypeV1>(b.archetype);
+                    if (arch == ipc::DebrisArchetypeV1::SparkEmber || arch == ipc::DebrisArchetypeV1::SplashPlume) continue;
+                    if (hasMajor && arch != ipc::DebrisArchetypeV1::AirframeHull && arch != ipc::DebrisArchetypeV1::WingFragment) continue;
+                    const double w = (arch == ipc::DebrisArchetypeV1::AirframeHull) ? 2.0 : 1.0;
+                    posSum += vsg::dvec3(b.positionEcef[0], b.positionEcef[1], b.positionEcef[2]) * w;
+                    velSum += vsg::dvec3(b.velocityEcef[0], b.velocityEcef[1], b.velocityEcef[2]) * w;
+                    wSum += w;
+                }
+                if (wSum > 0.0) {
+                    if (!deathGlideSawDebris) {
+                        deathGlideSawDebris = true;
+                        deathClockS = debrisClock;
+                    }
+                    const vsg::dvec3 cPos = posSum / wSum;
+                    const vsg::dvec3 cVel = velSum / wSum;
+                    double varSum = 0.0;
+                    for (const auto& b : debrisFramePtr->bodies) {
+                        if (b.ownerVehicleId != lastFollowedVehicleId) continue;
+                        const auto arch = static_cast<ipc::DebrisArchetypeV1>(b.archetype);
+                        if (arch == ipc::DebrisArchetypeV1::SparkEmber || arch == ipc::DebrisArchetypeV1::SplashPlume) continue;
+                        if (hasMajor && arch != ipc::DebrisArchetypeV1::AirframeHull && arch != ipc::DebrisArchetypeV1::WingFragment) continue;
+                        const double w = (arch == ipc::DebrisArchetypeV1::AirframeHull) ? 2.0 : 1.0;
+                        const vsg::dvec3 d = vsg::dvec3(b.positionEcef[0], b.positionEcef[1], b.positionEcef[2]) - cPos;
+                        varSum += vsg::length2(d) * w;
+                    }
+                    const double spreadM = std::sqrt(varSum / wSum);
+                    const double deadAge = std::max(0.0, debrisClock - deathClockS);
+                    const auto smooth01 = [](double e0, double e1, double x) {
+                        const double t = std::clamp((x - e0) / (e1 - e0), 0.0, 1.0);
+                        return t * t * (3.0 - 2.0 * t);
+                    };
+                    // Track major airframe breakup closely, easing gently to a stop once sections disperse (> 95 m or > 3.2 s).
+                    const double bySpread = 1.0 - smooth01(28.0, 95.0, spreadM);
+                    const double byAge = 1.0 - smooth01(1.35, 3.25, deadAge);
+                    const double followW = bySpread * byAge;
+                    if (followW > 1e-4) {
+                        deathGlideSawDebris = true;
+                        vsg::dvec3 stepDelta = cVel * (followW * dtSim);
+                        // Keep camera focus from ever dipping below surface level during low-altitude impact glides.
+                        const vsg::dvec3 curFocus = camera->focus();
+                        const vsg::dvec3 upHat = vsg::length(curFocus) > 1.0 ? vsg::normalize(curFocus) : vsg::dvec3(0.0, 0.0, 1.0);
+                        const vsg::dvec3 focusLla = ellipsoid->convertECEFToLatLongAltitude(curFocus);
+                        double floorAlt = 3.0;
+                        if (cameraGround) {
+                            if (const auto h = cameraGround->cachedHeightAboveEllipsoidM(vsg::radians(focusLla.x), vsg::radians(focusLla.y)))
+                                floorAlt = *h + 3.0;
+                        }
+                        const double radialStep = vsg::dot(stepDelta, upHat);
+                        if (focusLla.z + radialStep < floorAlt) {
+                            stepDelta += upHat * (floorAlt - (focusLla.z + radialStep));
+                        }
+                        camera->driftFocus(stepDelta);
+                        camera->update(nullptr, 0.0);
+                    } else {
+                        deathGlideActive = false;
+                    }
+                } else if (!deathGlideSawDebris && (debrisClock - deathClockS) < 0.45) {
+                    // Interpolation clock lags batch->simTime by ~2 frames (~0.04 s): bridge seamlessly at the aircraft's
+                    // last live velocity until the debris frame catches up instead of terminating the glide prematurely!
+                    camera->driftFocus(lastLiveVelEcef * dtSim);
+                    camera->update(nullptr, 0.0);
+                } else {
+                    deathGlideActive = false;
+                }
+            }
+        }
         if (closeIn && target) {
             camera->resetView();
             closeIn = false;
@@ -1633,19 +1801,12 @@ int main(int argc, char** argv) {
                 airflow.setFuelFlows(fuelFlows);
                 airflow.setClock(drawnTime);
                 airflow.update(drawn, alive, visuals, viewer.camera()->projectionMatrix->transform(), viewer.lookAt()->eye, *ellipsoid, sunDir);
-                if (debrisFramePtr) {
-                    const vsg::dvec3 camFwd = vsg::normalize(viewer.lookAt()->center - viewer.lookAt()->eye);
-                    const vsg::dvec3 camRight = vsg::normalize(vsg::cross(camFwd, viewer.lookAt()->up));
-                    const vsg::dvec3 camUp = vsg::normalize(vsg::cross(camRight, camFwd));
-                    debris.update(*debrisFramePtr, viewer.lookAt()->eye, camRight, camUp, sunDir, light, debrisClock);
-                } else {
-                    debris.clear();
-                }
+                world::DebrisVisuals::FlowInterleave flowRef;
                 if (flow) {
                     const vsg::dmat4 viewMat = viewer.camera()->viewMatrix->transform();
                     flow->update(drawnTime, drawn, alive, visuals, viewer.camera()->projectionMatrix->transform(), viewer.lookAt()->eye,
-                                 *ellipsoid, sunDir, &viewMat);
-                    viewer.setSceneDepthCopied(flow->active());
+                                 *ellipsoid, sunDir, &viewMat, debrisFramePtr);
+                    flowRef.active = flow->activeCenterEcef(flowRef.centerEcef, flowRef.laid, flowRef.scale);
                     if (opt.stats > 0.0) {
                         const auto& c = flow->cost();
                         stats.flowGpu += c.solverGpuMs, stats.flowCpu += c.cpuMs, stats.flowPack += c.packMs;
@@ -1656,9 +1817,22 @@ int main(int argc, char** argv) {
                         stats.flowPages = std::max<std::uint64_t>(stats.flowPages, c.pages);
                         ++stats.flowFrames;
                     }
-                } else {
-                    viewer.setSceneDepthCopied(false);
                 }
+                if (debrisFramePtr) {
+                    const vsg::dvec3 camFwd = vsg::normalize(viewer.lookAt()->center - viewer.lookAt()->eye);
+                    const vsg::dvec3 camRight = vsg::normalize(vsg::cross(camFwd, viewer.lookAt()->up));
+                    const vsg::dvec3 camUp = vsg::normalize(vsg::cross(camRight, camFwd));
+                    std::unordered_map<std::uint32_t, std::size_t> slotByVehicleId;
+                    for (std::size_t i = 0; i < slots; ++i)
+                        if (visualVehicleSeen[i] != 0) slotByVehicleId[visualVehicleSeen[i]] = i;
+                    const auto ext = viewer.window()->extent2D();
+                    debris.update(*debrisFramePtr, visuals, slotByVehicleId, viewer.camera()->projectionMatrix->transform(),
+                                  ext.width, ext.height, viewer.lookAt()->eye, camRight, camUp, sunDir, light, debrisClock,
+                                  flowRef.active ? &flowRef : nullptr);
+                } else {
+                    debris.clear();
+                }
+                viewer.setSceneDepthCopied((flow && flow->active()) || debris.trailQuadCount() > 0);
                 vapour.update(drawn, alive, visuals, viewer.camera()->viewMatrix->transform(), viewer.camera()->projectionMatrix->transform(),
                               viewer.lookAt()->eye, sunDir, light);
             }

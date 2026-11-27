@@ -94,7 +94,7 @@
     "include/fsim/Vision.h": {"domain": "adapters", "kind": "facade"}
   },
   "public_exceptions": [],
-  "external_targets": ["fsim::jsbsim", "libJSBSim", "fsim_flow_headers", "winmm", "winhttp", "ws2_32", "vsg::vsg", "vsgXchange::vsgXchange", "vsgImGui::vsgImGui", "cpython::abi3"],
+  "external_targets": ["fsim::jsbsim", "libJSBSim", "Jolt::Jolt", "manifold::manifold", "fsim_flow_headers", "winmm", "winhttp", "ws2_32", "vsg::vsg", "vsgXchange::vsgXchange", "vsgImGui::vsgImGui", "cpython::abi3"],
   "python": {
     "package_root": "python/fsim",
     "package": "fsim",

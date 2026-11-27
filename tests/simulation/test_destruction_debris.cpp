@@ -5,6 +5,8 @@
 // Rock impact physics (B-55), additive DebrisSegmentV1 IPC & .debris replay.
 
 #include "contracts/world_stream/DebrisLayoutV1.h"
+#include "foundation/io/TerrainTiles.h"
+#include "foundation/platform/Paths.h"
 #include "foundation/transport/DebrisSegmentV1.h"
 #include "foundation/transport/Recording.h"
 #include "mode_flights.h"
@@ -84,6 +86,9 @@ TEST_CASE("VIS-M11 wire contracts, ullage flammability, hydrodynamic-ram spray, 
     body.id = 7;
     body.ownerVehicleId = 1;
     body.archetype = static_cast<std::uint8_t>(ipc::DebrisArchetypeV1::WingFragment);
+    body.flags = static_cast<std::uint8_t>(ipc::kDebrisFlagBurning | ipc::kDebrisFlagSmoking | ipc::packDebrisPartTagV1(ipc::DebrisPartTagV1::SectionLeftWing));
+    CHECK(ipc::debrisPartTagV1(body.flags) == ipc::DebrisPartTagV1::SectionLeftWing);
+    CHECK((body.flags & ipc::kDebrisFlagBurning) != 0);
     CHECK(ipc::validDebrisBodyV1(body));
     body.id = 0;
     CHECK_FALSE(ipc::validDebrisBodyV1(body)); // id must be nonzero
@@ -266,8 +271,9 @@ TEST_CASE("VIS-M11 Catastrophic kill via ullage overpressure, sympathetic cook-o
         const auto events = w.detonate(det);
         CHECK_FALSE(events.empty());
 
-        // Zero jsbsim:<piece> child vehicles created even during complete mid-air disintegration
-        CHECK(w.vehicleIds().size() == 1);
+        // Zero jsbsim:<piece> child vehicles created AND destroyed airframe simulation instance retired cleanly!
+        CHECK(w.vehicleIds().empty());
+        CHECK(w.vehicleState(target) == nullptr);
         CHECK(countRoleDebris(w) == 0);
 
         const auto* ds = w.destructionState(target);
@@ -340,13 +346,15 @@ TEST_CASE("VIS-M11 Ground belly-slide with tank fuel burn-down, steep dive, and 
         const double speedStart = vecLen(atImpact.velocityNedMs);
         const double fuelAtImpact = atImpact.fuelKg;
 
-        // Step 3.0 s post-impact: wreck slides smoothly across terrain while decelerating & burning real fuel
+        // Step 3.0 s post-impact: wreck slides smoothly across terrain while decelerating & burning real fuel,
+        // resting ON TOP of terrain via JoltPhysics (never sunk underground!).
         w.step(stepsFor(w, 3.0));
         const sim::VehicleState afterSlide = *w.vehicleState(id);
         const double slideDistM = vecDist(atImpact.positionEcef, afterSlide.positionEcef);
         const double speedEnd = vecLen(afterSlide.velocityNedMs);
         CHECK(slideDistM > 30.0);
         CHECK(speedEnd < speedStart);
+        CHECK(afterSlide.altitudeAglM >= 1.2);
         CHECK(ds->totalFuelBurnedKg > 0.0);
         CHECK(afterSlide.fuelKg < fuelAtImpact);
         CHECK(w.debrisField().activeCount() > 0);
@@ -370,10 +378,12 @@ TEST_CASE("VIS-M11 Ground belly-slide with tank fuel burn-down, steep dive, and 
         bool down = false;
         for (unsigned k = 0; k < stepsFor(w, 8.0) && !down; ++k) {
             w.step(1);
-            if (w.vehicleState(id)->crashed) down = true;
+            const auto* st = w.vehicleState(id);
+            if (!st || st->crashed) down = true;
         }
         REQUIRE(down);
-        CHECK(w.vehicleIds().size() == 1);
+        CHECK(w.vehicleIds().empty());
+        CHECK(w.vehicleState(id) == nullptr);
         const auto* ds = w.destructionState(id);
         REQUIRE(ds != nullptr);
         CHECK(ds->tier == dmg::DestructionTier::GroundWreck);
@@ -381,7 +391,7 @@ TEST_CASE("VIS-M11 Ground belly-slide with tank fuel burn-down, steep dive, and 
         CHECK(w.debrisField().activeCount() >= 20);
     }
 
-    // 3. Water impact (B-55): WaterImpact tier, hydrodynamic SplashPlume cloud, zero jsbsim:<piece>
+    // 3. High-speed Water impact (B-55): shatters violently into skipping sections + hydrodynamic SplashPlume (never intact shark-fin skim)
     {
         session::World w(lightweightOptions("vis-m11-water", 305));
         w.setDestructionModeV1(session::World::DestructionModeV1::LightweightDebris);
@@ -399,14 +409,19 @@ TEST_CASE("VIS-M11 Ground belly-slide with tank fuel burn-down, steep dive, and 
         bool down = false;
         for (unsigned k = 0; k < stepsFor(w, 10.0) && !down; ++k) {
             w.step(1);
-            if (w.vehicleState(id)->crashed) down = true;
+            const auto* st = w.vehicleState(id);
+            if (!st || st->crashed) down = true;
         }
         REQUIRE(down);
-        CHECK(w.vehicleIds().size() == 1);
+        CHECK(w.vehicleIds().empty());
+        CHECK(w.vehicleState(id) == nullptr);
         const auto* ds = w.destructionState(id);
         REQUIRE(ds != nullptr);
         CHECK(ds->tier == dmg::DestructionTier::WaterImpact);
         CHECK(ds->surface == dmg::SurfaceKind::Water);
+        CHECK(ds->hullRetired);
+        CHECK_FALSE(ds->groundSliding);
+        CHECK(hasArchetype(w.debrisField(), ipc::DebrisArchetypeV1::AirframeHull));
         CHECK(hasArchetype(w.debrisField(), ipc::DebrisArchetypeV1::SplashPlume));
     }
 }
@@ -470,6 +485,14 @@ TEST_CASE("VIS-M11 Bit-identical determinism, DebrisSegmentV1 live IPC, and .deb
     std::string debErr;
     REQUIRE(replay.load(debPath, &debErr));
     REQUIRE(replay.frameCount() >= 20);
+
+    // Zero-teleport regression: before detonation (t = 0.10 s < 0.20 s) there are zero debris bodies
+    // and hullRetired == 0; before the first recorded frame, atTime returns false (never clamps forward!).
+    ipc::DebrisFrameV1 pre{};
+    CHECK_FALSE(replay.atTime(replay.frames().front().simTime - 0.10, pre, true));
+    REQUIRE(replay.atTime(0.10, pre, true));
+    CHECK(pre.bodies.empty());
+    for (const auto& v : pre.vehicles) CHECK(v.hullRetired == 0);
 
     // Mid-timeline interpolated query produces valid unit quaternions and live debris
     const double midT = 0.5 * (replay.frames().front().simTime + replay.frames().back().simTime);
@@ -554,10 +577,26 @@ TEST_CASE("VIS-M11 optional native visual acceptance replay generator", "[vis-m1
         w.step(stepsFor(w, 4.6));
     }
 
-    // Scenario 2: Shallow ground belly-slide across KSFO flat terrain (alt 32 m, 150 m/s, -5 deg pitch)
+    // Scenario 2: Shallow ground belly-slide across real KSFO Terrarium terrain (matching Viewer's z12 meshDimension=64 elevation!)
     {
         auto opt = lightweightOptions("vis-m11-vis-slide", 902);
         opt.recordPath = (dir / "ground_slide.fsrec").string();
+        std::filesystem::path mapsDir = platform::executableDir() / ".." / "maps";
+        if (!std::filesystem::is_directory(mapsDir)) {
+            const auto repoMaps = std::filesystem::current_path() / "assets" / "maps";
+            if (std::filesystem::is_directory(repoMaps)) mapsDir = repoMaps;
+            else mapsDir = platform::mapsDir();
+        }
+        io::TerrainTiles::Options to;
+        to.zoom = 12;          // matches config/viewer.json elevationMaxLevel
+        to.meshDimension = 64; // matches EarthSettings::elevationMeshDimension
+        to.offline = true;
+        to.cacheDir = mapsDir;
+        auto ksfoGround = std::make_shared<io::TerrainTiles>(to);
+        ksfoGround->prefetch(37.6188 * kDeg, -122.375 * kDeg, 4000.0);
+        const double ksfoGroundM = ksfoGround->heightAboveEllipsoidM(37.6188 * kDeg, -122.375 * kDeg);
+        opt.ground = ksfoGround;
+
         session::World w(opt);
         w.setDestructionModeV1(session::World::DestructionModeV1::LightweightDebris);
         w.setImpactSurfaceV1(dmg::SurfaceKind::Soil);
@@ -567,7 +606,7 @@ TEST_CASE("VIS-M11 optional native visual acceptance replay generator", "[vis-m1
         s.type = "jsbsim:f16c";
         s.initial.latitudeDeg = 37.6188;
         s.initial.longitudeDeg = -122.375;
-        s.initial.altitudeMslM = 32.0;
+        s.initial.altitudeMslM = ksfoGroundM + 26.0;
         s.initial.headingDeg = 100.0;
         s.initial.pitchDeg = -5.0;
         s.initial.airspeedTrueMs = 150.0;
@@ -600,5 +639,46 @@ TEST_CASE("VIS-M11 optional native visual acceptance replay generator", "[vis-m1
         REQUIRE(id != 0);
         w.step(stepsFor(w, 5.0));
         REQUIRE(w.destructionState(id)->tier == dmg::DestructionTier::WaterImpact);
+    }
+
+    // Scenario 4: Near-vertical steep-dive ground crash explosion into real KSFO Terrarium terrain (-74 deg, 215 m/s)
+    {
+        auto opt = lightweightOptions("vis-m11-vis-steep-dive", 904);
+        opt.recordPath = (dir / "steep_dive.fsrec").string();
+        std::filesystem::path mapsDir = platform::executableDir() / ".." / "maps";
+        if (!std::filesystem::is_directory(mapsDir)) {
+            const auto repoMaps = std::filesystem::current_path() / "assets" / "maps";
+            if (std::filesystem::is_directory(repoMaps)) mapsDir = repoMaps;
+            else mapsDir = platform::mapsDir();
+        }
+        io::TerrainTiles::Options to;
+        to.zoom = 12;          // matches config/viewer.json elevationMaxLevel
+        to.meshDimension = 64; // matches EarthSettings::elevationMeshDimension
+        to.offline = true;
+        to.cacheDir = mapsDir;
+        auto ksfoGround = std::make_shared<io::TerrainTiles>(to);
+        ksfoGround->prefetch(37.6188 * kDeg, -122.375 * kDeg, 4000.0);
+        const double ksfoGroundM = ksfoGround->heightAboveEllipsoidM(37.6188 * kDeg, -122.375 * kDeg);
+        opt.ground = ksfoGround;
+
+        session::World w(opt);
+        w.setDestructionModeV1(session::World::DestructionModeV1::LightweightDebris);
+        w.setImpactSurfaceV1(dmg::SurfaceKind::Soil);
+
+        session::VehicleSpec s;
+        s.name = "viper-dive";
+        s.type = "jsbsim:f16c";
+        s.initial.latitudeDeg = 37.6188;
+        s.initial.longitudeDeg = -122.375;
+        s.initial.altitudeMslM = ksfoGroundM + 265.0;
+        s.initial.headingDeg = 100.0;
+        s.initial.pitchDeg = -74.0;
+        s.initial.airspeedTrueMs = 215.0;
+        s.initial.fuelFraction = 0.72;
+        const auto id = w.createVehicle(s);
+        REQUIRE(id != 0);
+        w.step(stepsFor(w, 6.5));
+        REQUIRE(w.destructionState(id)->tier == dmg::DestructionTier::GroundWreck);
+        REQUIRE(w.destructionState(id)->hullRetired);
     }
 }

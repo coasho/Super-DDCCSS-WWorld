@@ -60,6 +60,12 @@ if(FSIM_BUILD_TESTS)
 endif()
 
 # ---------------------------------------------------------------------------
+# Jolt Physics (MIT) - deterministic 6-DOF rigid-body debris & crash contact.
+# ---------------------------------------------------------------------------
+find_package(Jolt REQUIRED)
+message(STATUS "flightsim: Jolt Physics enabled (deterministic 6-DOF debris/crash rigid bodies)")
+
+# ---------------------------------------------------------------------------
 # VulkanSceneGraph stack (MIT) - viewer builds only. Built and installed by the
 # superbuild in deps/ (see deps/CMakeLists.txt); found through CMAKE_PREFIX_PATH.
 # ---------------------------------------------------------------------------
@@ -67,7 +73,8 @@ if(FSIM_WITH_RENDER)
     find_package(vsg 1.1.14 REQUIRED)
     find_package(vsgXchange REQUIRED)
     find_package(vsgImGui REQUIRED)
-    message(STATUS "flightsim: viewer enabled (vsg ${vsg_VERSION})")
+    find_package(manifold REQUIRED)
+    message(STATUS "flightsim: viewer enabled (vsg ${vsg_VERSION}, manifold ${manifold_VERSION})")
 else()
     message(STATUS "flightsim: headless build (FSIM_WITH_RENDER=OFF)")
 endif()

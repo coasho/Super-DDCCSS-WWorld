@@ -19,7 +19,7 @@ layout(set = 0, binding = 11) uniform MarchParams {
 };
 layout(set = 0, binding = 12) uniform sampler2D sceneDepth;
 layout(set = 0, binding = 13, rgba16f) uniform writeonly image2D halfColorOut;
-layout(set = 0, binding = 14, r32f) uniform writeonly image2D halfFrontOut;
+layout(set = 0, binding = 14, rg32f) uniform writeonly image2D halfFrontOut;
 
 const int STEPS = 160;
 
@@ -125,7 +125,8 @@ void main() {
 
   vec3 sunL = normalize(toLocal * F_sun.xyz);
   float phase = phaseFunction(dot(d, sunL));
-  vec3 albedoRgb = albedo * vec3(1.15, 1.0, 0.8);
+  // Physically dark, neutral-cool hydrocarbon kerosene soot (zero warm peanut-butter tint against ocean spray & sky!).
+  vec3 albedoRgb = albedo * vec3(0.58, 0.61, 0.66);
   float leafM = 8.0 * voxel;
 
   vec3 radiance = vec3(0.0);
@@ -171,7 +172,22 @@ void main() {
         s = max(slab(o, d, lo, vec3(leafM)).y, s) + 0.5 * ds;
         continue;
       }
-      float k = extinction * max(v.x, 0.0);
+      float smoke = max(v.x, 0.0);
+      if (smoke > 1e-5) {
+        // 3D sub-voxel volumetric billow sculpting using the already-bound Worley-Perlin noise atlas:
+        // 3.2 m macro + 1.4 m fine eddies carve crisp churning soot edges on both small ocean puffs and massive plumes!
+        float cellScale = 3.2;
+        vec3 qS = p / cellScale;
+        float lodS = max(log2(F_eye.w * s * 96.0 / cellScale), 0.0);
+        float ns0 = textureLod(flowNoise, qS + vec3(0.0, 0.0, -0.42 * flicker.w / cellScale), lodS).r;
+        float ns1 = textureLod(flowNoise, qS * 2.25 + vec3(0.41, 0.29, -1.05 * flicker.w / cellScale), lodS + 1.0).r;
+        float billow = clamp(0.50 + (ns0 - 0.80) * 5.8 + (ns1 - 0.80) * 4.0, 0.0, 1.0);
+        float resolvedS = 1.0 - smoothstep(0.5, 4.5, lodS);
+        float edgeMask = 1.0 - smoothstep(0.08, 1.45, smoke);
+        float sculpt = mix(0.45 + 0.82 * billow, smoothstep(0.32, 0.88, billow), edgeMask);
+        smoke *= mix(1.0, sculpt, resolvedS);
+      }
+      float k = extinction * smoke;
       if (k > 1e-5) {
         frontDist = min(frontDist, s);
         float dtau = k * ds;
@@ -209,5 +225,5 @@ void main() {
   vec3 perOpacity = radiance / alpha + inscatter;
   vec4 outColor = vec4((agx(perOpacity * F_night.w) + F_night.rgb) * alpha, alpha);
   imageStore(halfColorOut, c, outColor);
-  imageStore(halfFrontOut, c, vec4(frontDist < 1e29 ? frontDist : 0.0));
+  imageStore(halfFrontOut, c, vec4(frontDist < 1e29 ? frontDist : 0.0, alpha, 0.0, 0.0));
 }

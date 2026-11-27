@@ -23,7 +23,9 @@
 // Without Flow's DLLs at run time available() is false.
 
 #include "foundation/core/Span.h"
+#include "contracts/world_stream/DebrisLayoutV1.h"
 #include "contracts/world_stream/WorldLayout.h"
+#include "foundation/transport/DebrisSegmentV1.h"
 #include "fsim/VehicleState.h"
 #include "visualization/scene/Blackbody.h"
 #include "visualization/scene/Clouds.h"
@@ -71,6 +73,16 @@ public:
     void compiled();
     /// True when the offscreen volumetric pass has active fire/smoke to draw this frame (gates Viewer::setSceneDepthCopied).
     bool active() const noexcept { return active_; }
+    /// Half-resolution metric front-surface depth of the active Flow volume (for 3-D interleaving with DebrisVisuals).
+    vsg::ref_ptr<vsg::ImageInfo> halfFrontImage() const { return halfFrontInfo_; }
+    /// Exact live ECEF centroid of the active Flow volume (valid when active() is true).
+    bool activeCenterEcef(vsg::dvec3& outCenter, vsg::vec4& outLaid, float& outScale) const noexcept {
+        if (!active_ || !hasActiveCenter_) return false;
+        outCenter = activeCenterEcef_;
+        outLaid = activeLaid_;
+        outScale = activeScale_;
+        return true;
+    }
     /// Each update waits for the solver to finish the steps it gave it, each read back as it ends, and draws those
     /// fields: the fire at the frame's own time, the same every run (a screenshot on a replay's clock). Off (the
     /// default): the newest fields the solver has ready, a step or so behind, and no frame waits.
@@ -94,7 +106,7 @@ public:
     /// the ellipsoid and the sun (ECEF). The solver is given its steps up to `now`; the newest fields it has packed are drawn.
     void update(double now, Span<const sim::VehicleState> states, const std::vector<unsigned char>& alive, const VehicleVisuals& visuals,
                 const vsg::dmat4& projection, const vsg::dvec3& eye, const vsg::EllipsoidModel& ellipsoid, const vsg::dvec3& sunEcef,
-                const vsg::dmat4* view = nullptr);
+                const vsg::dmat4* view = nullptr, const ipc::DebrisFrameV1* debris = nullptr);
 
     /// What the fire costs: the solver's GPU time a step (ms, its own queue's, its profiler's), the frame's thread's
     /// time in the last update (ms), the solver's thread's for the fields drawn (ms: its step's recording and
@@ -229,7 +241,12 @@ private:
     // Offscreen half-res front-to-back compute raymarch + full-res depth-aware bilateral composite (VIS-M12)
     bool offscreen_ = false;
     bool active_ = false;
+    bool hasActiveCenter_ = false;
+    vsg::dvec3 activeCenterEcef_{0.0, 0.0, 0.0};
+    vsg::vec4 activeLaid_{0.0f, 0.0f, -1.0f, -1.0f};
+    float activeScale_ = 2.0f;
     std::uint32_t allocHalfW_ = 0, allocHalfH_ = 0;
+    vsg::ref_ptr<vsg::ImageInfo> halfFrontInfo_;
     vsg::ref_ptr<vsg::Group> marchRoot_, compositeRoot_;
     vsg::ref_ptr<vsg::Switch> marchSwitch_, compositeSwitch_;
     vsg::ref_ptr<vsg::Dispatch> marchDispatch_;

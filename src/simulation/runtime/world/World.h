@@ -841,8 +841,10 @@ private:
         ms::damage::VehicleDestructionState destruction;
         Rng destructionRng;
         bool slidePoseActive = false;
+        std::uint32_t slideWreckBodyId = 0;
         sim::VehicleState slideState{};
         double slidePositionEcef[3] = {};
+        double impactCraterEcef[3] = {};
         double slideVelocityEcef[3] = {};
         double slideNormalEcef[3] = {};
         double slideSparkAccumS = 0.0;
@@ -1276,7 +1278,14 @@ private:
     std::optional<ms::damage::SurfaceKind> impactSurfaceOverride_;
     DebrisField debrisField_;
     Rng debrisRng_;
+    struct RetiredDestructionRecord {
+        std::uint32_t slot = 0;
+        std::uint64_t generation = 0;
+        ms::damage::VehicleDestructionState state;
+    };
+    std::unordered_map<std::uint32_t, RetiredDestructionRecord> retiredDestruction_;
     ipc::DebrisFrameV1 collectDebrisFrame() const;
+    void retireDestroyedVehicles();
     void applySlidePose(std::size_t slot, sim::VehicleState& state) const noexcept;
     ms::damage::SurfaceKind detectImpactSurface(const sim::VehicleState& state) const noexcept;
     void evaluateEntryDestruction(Entry& e, const ms::damage::Impact* impact, double pressurePa, int newlySeparated,

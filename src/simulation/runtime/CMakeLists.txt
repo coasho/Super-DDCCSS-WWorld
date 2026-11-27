@@ -46,4 +46,5 @@ add_library(fsim::session ALIAS fsim_session)
 fsim_include_view(fsim_session)
 target_link_libraries(fsim_session PUBLIC fsim::contracts fsim::modeled_dms fsim::ms fsim::control fsim::effects
     fsim::comm fsim::ipc fsim::sim fsim::io fsim::core)
+target_link_libraries(fsim_session PRIVATE Jolt::Jolt)
 fsim_set_warnings(fsim_session)

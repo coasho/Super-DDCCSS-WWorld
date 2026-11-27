@@ -88,6 +88,8 @@ FlowSolver::Combustion combustion() {
     k.velocityDamping = kVelocityDamping;
     // (a block with no smoke left in it freed once its gas is slower than a wake's last stirring)
     k.keepSpeed = kKeepSpeed;
+    // Strong vorticity confinement curls expanding explosion shells into turbulent boiling billows & smoke folds!
+    k.vorticity = 2.1;
     return k;
 }
 
@@ -119,31 +121,122 @@ bool spill(double fuelKg, const double at[3], const double path[3], double press
     const double cloud = std::cbrt(fuelKg) * thinner(pressurePa);
     const double fireball = 0.5 * ccpsDiameter(fuelKg, pressurePa);
     const double speed = std::sqrt(path[0] * path[0] + path[1] * path[1] + path[2] * path[2]);
+    // Deterministic per-event hash for jagged, asymmetric multi-lobe explosion geometry (NEVER a smooth geometric ball!).
+    auto hashUnit = [](std::uint64_t s) noexcept -> double {
+        s = (s ^ (s >> 30)) * 0xbf58476d1ce4e5b9ull;
+        s = (s ^ (s >> 27)) * 0x94d049bb133111ebull;
+        s ^= (s >> 31);
+        return static_cast<double>(s >> 11) / 9007199254740992.0;
+    };
+    const double baseFuel = kSpillFuel * std::cbrt(fuelKg);
+    const double baseSmoke = soot(kSootYield * fuelKg, sphereVolume(fireball));
+    const double jetScale = std::clamp(2.5 + 2.0 * cloud, 3.5, 26.0);
+
     if (age < kSpillReleaseS) {
-        // the fuel, lit, laid along the hole's path
-        FlowSolver::Sphere s;
-        s.radius = cloud;
-        for (int a = 0; a < 3; ++a) s.at[a] = at[a] + path[a] * std::max(age, 0.0);
-        s.fuel = kSpillFuel * std::cbrt(fuelKg), s.fuelRate = kRate;
-        s.temperature = 1.0, s.temperatureRate = kRate;
-        s.smoke = soot(kSootYield * fuelKg, sphereVolume(fireball)), s.smokeRate = kRate;
-        // the spray leaving with some of the hole's speed: its shear with the still air the fireball's turbulence
-        for (int a = 0; a < 3; ++a) s.velocity[a] = kSpillCarry * path[a];
-        s.velocityRate = kRate;
         const double since = std::min(dt, std::max(age, 0.0));
         const double moved[3] = {path[0] * since, path[1] * since, path[2] * since};
+        // 1) Compact ruptured core pocket
+        {
+            FlowSolver::Sphere core;
+            core.radius = std::max(0.42 * cloud, 0.45);
+            for (int a = 0; a < 3; ++a) {
+                const double jitter = (hashUnit(luid * 131u + static_cast<std::uint64_t>(a)) - 0.5) * 0.28 * cloud;
+                core.at[a] = at[a] + path[a] * std::max(age, 0.0) + jitter;
+                core.velocity[a] = kSpillCarry * path[a];
+            }
+            core.fuel = baseFuel * 0.95, core.fuelRate = kRate;
+            core.temperature = 1.0, core.temperatureRate = kRate;
+            core.smoke = baseSmoke * 1.15, core.smokeRate = kRate;
+            core.velocityRate = kRate;
+            turbulence(core, 0.65 * jetScale, luid * 97u + 1u);
+            along(core, moved, luid, out);
+        }
+        // 2) 8 jagged high-velocity asymmetric flame-jet fingers tearing violently outward & upward from the core
+        for (int lobe = 0; lobe < 8; ++lobe) {
+            const std::uint64_t sBase = luid * 997u + static_cast<std::uint64_t>(lobe) * 53u;
+            const double az = (2.0 * kPi * lobe / 8.0) + (hashUnit(sBase + 1u) - 0.5) * 0.65;
+            const double el = -0.10 + 1.15 * hashUnit(sBase + 2u);
+            const double dx = std::cos(az) * std::cos(el);
+            const double dy = std::sin(az) * std::cos(el);
+            const double dz = std::sin(el);
+            const double dist = cloud * (0.28 + 0.58 * hashUnit(sBase + 3u));
+            const double rad = std::max(cloud * (0.22 + 0.22 * hashUnit(sBase + 4u)), 0.42);
+            const double jetSpd = jetScale * (0.85 + 1.25 * hashUnit(sBase + 5u));
+            FlowSolver::Sphere s;
+            s.radius = rad;
+            s.at[0] = at[0] + path[0] * std::max(age, 0.0) + dx * dist;
+            s.at[1] = at[1] + path[1] * std::max(age, 0.0) + dy * dist;
+            s.at[2] = at[2] + path[2] * std::max(age, 0.0) + dz * dist * 0.80;
+            s.velocity[0] = kSpillCarry * path[0] + dx * jetSpd;
+            s.velocity[1] = kSpillCarry * path[1] + dy * jetSpd;
+            s.velocity[2] = kSpillCarry * path[2] + (dz * 0.85 + 0.42) * jetSpd;
+            s.velocityRate = kRate;
+            s.fuel = baseFuel * (0.50 + 0.65 * hashUnit(sBase + 6u));
+            s.fuelRate = kRate;
+            s.temperature = 0.82 + 0.18 * hashUnit(sBase + 7u);
+            s.temperatureRate = kRate;
+            s.smoke = baseSmoke * (1.05 + 1.15 * hashUnit(sBase + 8u));
+            s.smokeRate = kRate;
+            s.luid = (luid + 2u + static_cast<std::uint64_t>(lobe)) * 64u;
+            out.push_back(s);
+        }
+        // 3) 6 jagged soot-rich shear tongues interleaved tightly between flame jets (no oversized smooth outer balls!)
+        for (int sb = 0; sb < 6; ++sb) {
+            const std::uint64_t sBase = luid * 1543u + static_cast<std::uint64_t>(sb) * 71u;
+            const double az = (2.0 * kPi * sb / 6.0) + 0.30 + (hashUnit(sBase + 1u) - 0.5) * 0.60;
+            const double el = -0.05 + 0.95 * hashUnit(sBase + 2u);
+            const double dx = std::cos(az) * std::cos(el);
+            const double dy = std::sin(az) * std::cos(el);
+            const double dz = std::sin(el);
+            const double dist = cloud * (0.36 + 0.52 * hashUnit(sBase + 3u));
+            const double rad = std::max(cloud * (0.24 + 0.18 * hashUnit(sBase + 4u)), 0.45);
+            const double spdOut = jetScale * (0.75 + 0.95 * hashUnit(sBase + 5u));
+            FlowSolver::Sphere s;
+            s.radius = rad;
+            s.at[0] = at[0] + path[0] * std::max(age, 0.0) + dx * dist;
+            s.at[1] = at[1] + path[1] * std::max(age, 0.0) + dy * dist;
+            s.at[2] = at[2] + path[2] * std::max(age, 0.0) + dz * dist * 0.80;
+            // Strong swirling shear curls dark soot into the blazing flame pockets!
+            s.velocity[0] = kSpillCarry * path[0] + (dx - 0.45 * dy) * spdOut;
+            s.velocity[1] = kSpillCarry * path[1] + (dy + 0.45 * dx) * spdOut;
+            s.velocity[2] = kSpillCarry * path[2] + (dz + 0.35) * spdOut;
+            s.velocityRate = kRate;
+            s.fuel = baseFuel * (0.22 + 0.25 * hashUnit(sBase + 8u));
+            s.fuelRate = kRate;
+            s.temperature = 0.28 + 0.35 * hashUnit(sBase + 6u);
+            s.temperatureRate = kRate;
+            s.smoke = baseSmoke * (2.4 + 1.5 * hashUnit(sBase + 7u));
+            s.smokeRate = kRate;
+            s.luid = (luid + 10u + static_cast<std::uint64_t>(sb)) * 64u;
+            out.push_back(s);
+        }
         (void)speed;
-        along(s, moved, luid, out);
     }
     if (age < grow) {
-        // its products' volume, made where the fuel is: what the cloud pushes out is the burning fuel
-        FlowSolver::Sphere g;
-        g.radius = cloud;
-        for (int a = 0; a < 3; ++a) g.at[a] = at[a] + path[a] * 0.5 * kSpillReleaseS;
-        g.divergence = kSpillVolume * std::pow(100.0 / fuelKg, 0.2) * sphereVolume(fireball) / grow / sphereVolume(cloud);
-        g.divergenceRate = kRate;
-        g.luid = (luid + 1) * 64u;
-        out.push_back(g);
+        // Distribute total CCPS product expansion across 5 smaller asymmetric billowing pockets!
+        const double totalExpansionRate = kSpillVolume * std::pow(100.0 / fuelKg, 0.2) * sphereVolume(fireball) / grow;
+        static constexpr double kWeights[5] = {0.28, 0.22, 0.19, 0.17, 0.14};
+        for (int p = 0; p < 5; ++p) {
+            const std::uint64_t sBase = luid * 2089u + static_cast<std::uint64_t>(p) * 37u;
+            const double az = (2.0 * kPi * p / 5.0) + (hashUnit(sBase + 1u) - 0.5) * 0.85;
+            const double el = (p == 0) ? 0.65 : (-0.05 + 0.85 * hashUnit(sBase + 2u));
+            const double off = (p == 0) ? (0.18 * cloud) : (cloud * (0.34 + 0.44 * hashUnit(sBase + 3u)));
+            const double rad = std::max(cloud * (0.34 + 0.18 * hashUnit(sBase + 4u)), 0.50);
+            FlowSolver::Sphere g;
+            g.radius = rad;
+            g.at[0] = at[0] + path[0] * 0.5 * kSpillReleaseS + std::cos(az) * std::cos(el) * off;
+            g.at[1] = at[1] + path[1] * 0.5 * kSpillReleaseS + std::sin(az) * std::cos(el) * off;
+            g.at[2] = at[2] + path[2] * 0.5 * kSpillReleaseS + std::sin(el) * off * 0.78;
+            g.divergence = (totalExpansionRate * kWeights[p]) / sphereVolume(rad);
+            g.divergenceRate = kRate;
+            const double kick = jetScale * 0.48;
+            g.velocity[0] = (hashUnit(sBase + 5u) - 0.5) * kick;
+            g.velocity[1] = (hashUnit(sBase + 6u) - 0.5) * kick;
+            g.velocity[2] = (0.30 + 0.55 * hashUnit(sBase + 7u)) * kick;
+            g.velocityRate = 14.0;
+            g.luid = (luid + 17u + static_cast<std::uint64_t>(p)) * 64u;
+            out.push_back(g);
+        }
     }
     return true;
 }

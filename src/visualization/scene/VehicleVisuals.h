@@ -252,6 +252,18 @@ public:
     };
     const Shape& shape(std::size_t index) const;
 
+    /// Real GLB breakup section subgraph extracted from a loaded aircraft model (already Vulkan-compiled,
+    /// centered at its body-frame centroid so DebrisVisuals renders authentic aircraft sections on breakup).
+    struct SectionVisual {
+        std::string section;               ///< "nose", "centre", "left-wing", "right-wing", "tail"
+        vsg::ref_ptr<vsg::Node> node;      ///< Transform wrapping compiled section children centered at centroidBodyM
+        vsg::dvec3 centroidBodyM{0, 0, 0}; ///< body-frame geometric centre (m)
+    };
+    /// Real GLB section subgraphs for the model currently bound to `slot` (empty if placeholder or no sections).
+    std::vector<SectionVisual> sectionVisualsOf(std::size_t slot) const;
+    /// Root model node (body frame) currently bound to `slot`, for manifold3d Voronoi shard slicing.
+    vsg::ref_ptr<vsg::Node> modelNodeOf(std::size_t slot) const;
+
     /// A store on one of a vehicle's stations (the store management's: MS-7), drawn with its type's model
     /// (`jsbsim:<card id, its hyphens dropped>`: aircraft/aim120c's for the card aim-120c) at the station's place -
     /// until it is released or jettisoned, when it is no longer in the list.
@@ -291,7 +303,7 @@ public:
     struct Joint {
         enum Channel { Aileron, Elevator, Rudder, Flaps, Speedbrake }; ///< speedbrake: its opening 0..1, so a gain is radians open
         enum Kind { Surface, Gear, Afterburner, LeadingEdge, Propeller, Nozzle, Oleo, Steer, Wheel, Disc, Blades, Station, BayDoor,
-                    Rolleron, RolleronDisc, FreeRoll, Section, Fin };
+                    Rolleron, RolleronDisc, FreeRoll, Section, Fin, BreakCap };
         Kind kind = Surface;
         std::uint32_t finId=0;
         double finAngleRad=std::numeric_limits<double>::quiet_NaN();
@@ -383,6 +395,8 @@ private:
         vsg::ref_ptr<vsg::Node> geometry; ///< state-free, white-vertex-colour copy for the segmentation pass
         Rig rig, geometryRig;
         Shape shape;
+        mutable bool sectionsBuilt = false;
+        mutable std::vector<SectionVisual> sections;
     };
     /// A loaded model's shape: its jets from its rig, its surfaces from the
     /// manifest (moved as the model is), its extent from its vertices.

@@ -3,182 +3,32 @@
 #include "foundation/core/Log.h"
 #include "visualization/scene/Clouds.h"
 
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wall"
+#pragma GCC diagnostic ignored "-Wextra"
+#pragma GCC diagnostic ignored "-Wshadow"
+#pragma GCC diagnostic ignored "-Wconversion"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#endif
+
+#include <manifold/manifold.h>
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <string>
 #include <vector>
 
 namespace fsim::world {
 
 namespace {
-
-struct MeshBuilder {
-    std::vector<vsg::vec3> positions;
-    std::vector<vsg::vec3> normals;
-    std::vector<vsg::vec2> meta; // x = fracture edge glow (0..1), y = surface tone (0..1)
-
-    void addTri(const vsg::vec3& a, const vsg::vec3& b, const vsg::vec3& c, float glowA, float glowB, float glowC, float tone) {
-        const vsg::vec3 e1 = b - a;
-        const vsg::vec3 e2 = c - a;
-        vsg::vec3 n = vsg::cross(e1, e2);
-        const float len = vsg::length(n);
-        if (len < 1e-6f) return;
-        n /= len;
-        positions.push_back(a);
-        positions.push_back(b);
-        positions.push_back(c);
-        normals.push_back(n);
-        normals.push_back(n);
-        normals.push_back(n);
-        meta.emplace_back(glowA, tone);
-        meta.emplace_back(glowB, tone);
-        meta.emplace_back(glowC, tone);
-    }
-
-    void addQuad(const vsg::vec3& a, const vsg::vec3& b, const vsg::vec3& c, const vsg::vec3& d, float gA, float gB, float gC, float gD,
-                 float tone) {
-        addTri(a, b, c, gA, gB, gC, tone);
-        addTri(a, c, d, gA, gC, gD, tone);
-    }
-
-    vsg::ref_ptr<vsg::VertexDraw> build() const {
-        const std::uint32_t count = static_cast<std::uint32_t>(positions.size());
-        auto posArr = vsg::vec3Array::create(count);
-        auto normArr = vsg::vec3Array::create(count);
-        auto metaArr = vsg::vec2Array::create(count);
-        for (std::uint32_t i = 0; i < count; ++i) {
-            posArr->set(i, positions[i]);
-            normArr->set(i, normals[i]);
-            metaArr->set(i, meta[i]);
-        }
-        auto draw = vsg::VertexDraw::create();
-        draw->assignArrays({posArr, normArr, metaArr});
-        draw->vertexCount = count;
-        draw->instanceCount = 0;
-        draw->firstVertex = 0;
-        draw->firstInstance = 0;
-        return draw;
-    }
-};
-
-// Archetype 0 (AirframeHull): torn hollow aerospace fuselage section with sheared jagged bulkhead edges
-// and internal structural rib backing so tumbling hull segments never read as clean boxes.
-vsg::ref_ptr<vsg::VertexDraw> buildAirframeHullMesh() {
-    MeshBuilder m;
-    // Longitudinal rings along X (-1..+1): jagged sheared rear (-1) and torn forward (+1) edges.
-    static constexpr int kSeg = 7;
-    static constexpr float kAng[kSeg] = {-2.25f, -1.55f, -0.80f, 0.0f, 0.82f, 1.58f, 2.30f};
-    static constexpr float kJagBack[kSeg] = {-0.96f, -0.72f, -1.04f, -0.82f, -1.02f, -0.68f, -0.92f};
-    static constexpr float kJagFront[kSeg] = {0.88f, 1.04f, 0.78f, 0.98f, 0.74f, 1.02f, 0.84f};
-    static constexpr float kRadY[kSeg] = {0.82f, 0.98f, 0.92f, 0.88f, 0.94f, 1.00f, 0.80f};
-    static constexpr float kRadZ[kSeg] = {0.84f, 0.92f, 1.02f, 0.96f, 1.00f, 0.90f, 0.82f};
-
-    auto pt = [](float x, int i, float rScale) {
-        const float a = kAng[i];
-        return vsg::vec3(x, std::sin(a) * kRadY[i] * rScale, -std::cos(a) * kRadZ[i] * rScale);
-    };
-    for (int i = 0; i + 1 < kSeg; ++i) {
-        const float midX0 = 0.5f * (kJagBack[i] + kJagFront[i]);
-        const float midX1 = 0.5f * (kJagBack[i + 1] + kJagFront[i + 1]);
-        const vsg::vec3 b0 = pt(kJagBack[i], i, 0.92f);
-        const vsg::vec3 b1 = pt(kJagBack[i + 1], i + 1, 0.92f);
-        const vsg::vec3 m0 = pt(midX0, i, 1.02f);
-        const vsg::vec3 m1 = pt(midX1, i + 1, 1.02f);
-        const vsg::vec3 f0 = pt(kJagFront[i], i, 0.88f);
-        const vsg::vec3 f1 = pt(kJagFront[i + 1], i + 1, 0.88f);
-        // Outer curved fuselage skin (high fracture glow at jagged ends, clean skin in middle)
-        m.addQuad(b0, b1, m1, m0, 0.95f, 0.95f, 0.25f, 0.25f, 0.95f);
-        m.addQuad(m0, m1, f1, f0, 0.25f, 0.25f, 0.95f, 0.95f, 0.90f);
-    }
-    // Torn internal floor / keel beam spanning across the hollow shell for structural silhouette.
-    m.addQuad(vsg::vec3(-0.90f, -0.68f, 0.42f), vsg::vec3(-0.85f, 0.68f, 0.46f), vsg::vec3(0.84f, 0.62f, 0.36f),
-              vsg::vec3(0.76f, -0.64f, 0.40f), 0.70f, 0.70f, 0.75f, 0.75f, 0.35f);
-    // Internal crumpled bulkhead rib near centre
-    m.addTri(vsg::vec3(-0.08f, -0.78f, 0.35f), vsg::vec3(0.06f, 0.0f, -0.82f), vsg::vec3(-0.02f, 0.76f, 0.38f), 0.55f, 0.45f, 0.55f, 0.30f);
-    return m.build();
-}
-
-// Archetype 1 (WingFragment): swept tapered torn wing / stabilator panel with sheared jagged root spar.
-vsg::ref_ptr<vsg::VertexDraw> buildWingFragmentMesh() {
-    MeshBuilder m;
-    // Leading edge sweeps aft from root (y=-1) to tip (y=+1); root edge is jaggedly sheared.
-    const vsg::vec3 rLE(0.82f, -0.92f, -0.18f);
-    const vsg::vec3 rMid(0.18f, -1.04f, -0.62f);
-    const vsg::vec3 rTE(-0.88f, -0.82f, 0.05f);
-    const vsg::vec3 rBot(0.10f, -0.96f, 0.58f);
-
-    const vsg::vec3 mLE(0.54f, 0.04f, -0.10f);
-    const vsg::vec3 mMid(-0.04f, 0.00f, -0.44f);
-    const vsg::vec3 mTE(-0.82f, 0.08f, 0.04f);
-    const vsg::vec3 mBot(-0.08f, 0.02f, 0.38f);
-
-    const vsg::vec3 tLE(0.16f, 0.96f, -0.04f);
-    const vsg::vec3 tMid(-0.28f, 1.00f, -0.22f);
-    const vsg::vec3 tTE(-0.76f, 0.88f, 0.02f);
-    const vsg::vec3 tBot(-0.26f, 0.94f, 0.20f);
-
-    // Upper cambered wing skin
-    m.addQuad(rLE, mLE, mMid, rMid, 0.95f, 0.25f, 0.20f, 0.95f, 1.00f);
-    m.addQuad(rMid, mMid, mTE, rTE, 0.95f, 0.20f, 0.30f, 0.95f, 0.92f);
-    m.addQuad(mLE, tLE, tMid, mMid, 0.25f, 0.70f, 0.65f, 0.20f, 1.00f);
-    m.addQuad(mMid, tMid, tTE, mTE, 0.20f, 0.65f, 0.75f, 0.30f, 0.90f);
-    // Lower wing skin
-    m.addQuad(rLE, rBot, mBot, mLE, 0.95f, 0.95f, 0.20f, 0.25f, 0.72f);
-    m.addQuad(rBot, rTE, mTE, mBot, 0.95f, 0.95f, 0.30f, 0.20f, 0.68f);
-    m.addQuad(mLE, mBot, tBot, tLE, 0.25f, 0.20f, 0.65f, 0.70f, 0.72f);
-    m.addQuad(mBot, mTE, tTE, tBot, 0.20f, 0.30f, 0.75f, 0.65f, 0.68f);
-    // Sheared glowing root spar face
-    m.addTri(rLE, rMid, rBot, 1.0f, 1.0f, 1.0f, 0.30f);
-    m.addTri(rMid, rTE, rBot, 1.0f, 1.0f, 1.0f, 0.30f);
-    // Torn tip cap
-    m.addTri(tLE, tBot, tMid, 0.75f, 0.75f, 0.75f, 0.45f);
-    m.addTri(tMid, tBot, tTE, 0.75f, 0.75f, 0.75f, 0.45f);
-    return m.build();
-}
-
-// Archetype 2 (PanelShard): warped, bent jagged aircraft skin plate / cowling shard that flashes in sunlight.
-vsg::ref_ptr<vsg::VertexDraw> buildPanelShardMesh() {
-    MeshBuilder m;
-    const vsg::vec3 p0(-0.96f, -0.78f, 0.32f);
-    const vsg::vec3 p1(0.08f, -0.94f, -0.34f);
-    const vsg::vec3 p2(0.98f, -0.46f, 0.22f);
-    const vsg::vec3 p3(0.74f, 0.72f, -0.28f);
-    const vsg::vec3 p4(-0.22f, 0.96f, 0.36f);
-    const vsg::vec3 p5(-0.88f, 0.42f, -0.18f);
-    const vsg::vec3 ctr(0.02f, -0.04f, -0.14f);
-
-    m.addTri(ctr, p0, p1, 0.25f, 0.90f, 0.85f, 1.00f);
-    m.addTri(ctr, p1, p2, 0.25f, 0.85f, 0.95f, 0.95f);
-    m.addTri(ctr, p2, p3, 0.25f, 0.95f, 0.90f, 0.92f);
-    m.addTri(ctr, p3, p4, 0.25f, 0.90f, 0.85f, 0.98f);
-    m.addTri(ctr, p4, p5, 0.25f, 0.85f, 0.95f, 0.90f);
-    m.addTri(ctr, p5, p0, 0.25f, 0.95f, 0.90f, 0.94f);
-    // Bent structural stiffener flange on underside
-    m.addTri(p1, p3, ctr + vsg::vec3(0.0f, 0.0f, 0.55f), 0.75f, 0.75f, 0.40f, 0.40f);
-    return m.build();
-}
-
-// Archetype 3 (BurningChunk): crumpled irregular glowing structural core / turbine / frame wreckage chunk.
-vsg::ref_ptr<vsg::VertexDraw> buildBurningChunkMesh() {
-    MeshBuilder m;
-    const vsg::vec3 v[8] = {
-        vsg::vec3(0.98f, 0.12f, -0.24f),
-        vsg::vec3(0.28f, 0.94f, 0.18f),
-        vsg::vec3(-0.86f, 0.56f, -0.42f),
-        vsg::vec3(-0.94f, -0.48f, 0.34f),
-        vsg::vec3(-0.18f, -0.96f, -0.22f),
-        vsg::vec3(0.68f, -0.62f, 0.46f),
-        vsg::vec3(0.10f, 0.08f, -0.96f), // dorsal spike
-        vsg::vec3(-0.14f, -0.10f, 0.92f) // ventral spike
-    };
-    const float g[8] = {1.0f, 0.85f, 0.95f, 1.0f, 0.80f, 0.92f, 0.75f, 0.88f};
-    for (int i = 0; i < 6; ++i) {
-        const int j = (i + 1) % 6;
-        m.addTri(v[6], v[i], v[j], g[6], g[i], g[j], (i % 2 == 0) ? 0.55f : 0.35f);
-        m.addTri(v[7], v[j], v[i], g[7], g[j], g[i], (i % 2 == 0) ? 0.32f : 0.48f);
-    }
-    return m.build();
-}
 
 float hashSeed(std::uint32_t id) noexcept {
     std::uint32_t x = id * 747796405u + 2891336453u;
@@ -187,19 +37,172 @@ float hashSeed(std::uint32_t id) noexcept {
     return static_cast<float>(x & 0xFFFFu) / 65535.0f;
 }
 
+// Build 6 distinct watertight fractured aerospace skin/rib shards using Google's elalish/manifold 3.4.1
+// (Apache-2.0): starts from curved hollow aerospace fuselage/wing shells and carves genuine 3-D Voronoi
+// cells via Manifold::TrimByPlane + organic tearing Warp, automatically distinguishing original painted
+// exterior skin (low fracture glow) from newly sliced charred cross-section rims (high edge glow)!
+vsg::ref_ptr<vsg::VertexDraw> buildManifoldVoronoiShard(int variant) {
+    using manifold::Manifold;
+    using manifold::vec3;
+
+    // Construct an aerospace base blank: curved hollow fuselage shell or swept airfoil panel.
+    Manifold blank;
+    if (variant % 3 == 0) {
+        // Curved thin-walled fuselage skin section (outer cylinder minus inner cylinder)
+        Manifold outer = Manifold::Cylinder(2.2, 1.05, 0.92, 20, true).Rotate(0.0, 90.0, 0.0);
+        Manifold inner = Manifold::Cylinder(2.6, 0.88, 0.76, 20, true).Rotate(0.0, 90.0, 0.0);
+        blank = outer - inner;
+    } else if (variant % 3 == 1) {
+        // Tapered aerospace wing skin panel with internal spar stiffener rib
+        Manifold skin = Manifold::Cube(vec3(2.2, 2.0, 0.22), true);
+        Manifold rib = Manifold::Cube(vec3(2.2, 0.14, 0.48), true).Translate(vec3(0.0, -0.25, 0.12));
+        blank = skin + rib;
+    } else {
+        // Curved aerodynamic cowling / fairing panel with beveled bulkhead flange
+        Manifold shell = Manifold::Sphere(1.25, 16).Scale(vec3(1.15, 0.95, 0.45));
+        Manifold hollow = Manifold::Sphere(1.06, 16).Scale(vec3(1.12, 0.92, 0.34)).Translate(vec3(0.0, 0.0, 0.10));
+        blank = shell - hollow;
+    }
+
+    // Carve a genuine Voronoi polyhedral fracture cell out of the aerospace blank using TrimByPlane!
+    struct PlaneCut {
+        vec3 n;
+        double d;
+    };
+    const double phase = static_cast<double>(variant) * 1.17 + 0.35;
+    std::vector<PlaneCut> cuts;
+    cuts.reserve(6);
+    for (int k = 0; k < 5; ++k) {
+        const double a = phase + static_cast<double>(k) * 1.256637; // ~72 deg Voronoi neighbors
+        const double tilt = 0.25 * std::sin(phase * 1.9 + static_cast<double>(k) * 2.1);
+        const double nx = std::cos(a) * std::cos(tilt);
+        const double ny = std::sin(a) * std::cos(tilt);
+        const double nz = std::sin(tilt);
+        const double offset = -0.35 - 0.38 * std::abs(std::sin(phase + static_cast<double>(k) * 1.7));
+        cuts.push_back({vec3(nx, ny, nz), offset});
+    }
+    Manifold shard = blank;
+    for (const auto& c : cuts) {
+        Manifold next = shard.TrimByPlane(c.n, c.d);
+        if (!next.IsEmpty() && next.NumTri() >= 8) shard = std::move(next);
+    }
+
+    // Apply subtle metal buckling/tearing warp via Manifold::Warp so no shard looks machine-cut flat.
+    const double sSeed = static_cast<double>(variant) * 3.71;
+    shard = shard.Warp([sSeed](vec3& p) {
+        const double bend = 0.09 * std::sin(p.x * 2.6 + sSeed) * std::cos(p.y * 2.2 - sSeed * 0.7);
+        p.z += bend;
+        p.x += 0.05 * std::sin(p.y * 3.8 + sSeed);
+    });
+
+    const manifold::MeshGL mesh = shard.GetMeshGL();
+    const std::size_t nTri = mesh.NumTri();
+    const std::uint32_t stride = mesh.numProp;
+
+    // Normalize shard to fit [-1, 1] unit half-extents centered at its geometric centroid.
+    vsg::vec3 bmin(1e9f, 1e9f, 1e9f), bmax(-1e9f, -1e9f, -1e9f);
+    for (std::size_t i = 0; i < mesh.NumVert(); ++i) {
+        const vsg::vec3 p(mesh.vertProperties[i * stride + 0], mesh.vertProperties[i * stride + 1], mesh.vertProperties[i * stride + 2]);
+        bmin.x = std::min(bmin.x, p.x); bmin.y = std::min(bmin.y, p.y); bmin.z = std::min(bmin.z, p.z);
+        bmax.x = std::max(bmax.x, p.x); bmax.y = std::max(bmax.y, p.y); bmax.z = std::max(bmax.z, p.z);
+    }
+    const vsg::vec3 ctr = (bmin + bmax) * 0.5f;
+    const vsg::vec3 half = vsg::vec3(std::max((bmax.x - bmin.x) * 0.5f, 1e-4f),
+                                     std::max((bmax.y - bmin.y) * 0.5f, 1e-4f),
+                                     std::max((bmax.z - bmin.z) * 0.5f, 1e-4f));
+
+    std::vector<vsg::vec3> positions;
+    std::vector<vsg::vec3> normals;
+    std::vector<vsg::vec2> meta;
+    positions.reserve(nTri * 3);
+    normals.reserve(nTri * 3);
+    meta.reserve(nTri * 3);
+
+    for (std::size_t t = 0; t < nTri; ++t) {
+        const std::uint32_t i0 = mesh.triVerts[t * 3 + 0];
+        const std::uint32_t i1 = mesh.triVerts[t * 3 + 1];
+        const std::uint32_t i2 = mesh.triVerts[t * 3 + 2];
+        const auto getP = [&](std::uint32_t idx) {
+            return vsg::vec3((mesh.vertProperties[idx * stride + 0] - ctr.x) / half.x,
+                             (mesh.vertProperties[idx * stride + 1] - ctr.y) / half.y,
+                             (mesh.vertProperties[idx * stride + 2] - ctr.z) / half.z);
+        };
+        const vsg::vec3 a = getP(i0), b = getP(i1), c = getP(i2);
+        vsg::vec3 n = vsg::cross(b - a, c - a);
+        const float nLen = vsg::length(n);
+        if (nLen < 1e-6f) continue;
+        n /= nLen;
+
+        // Detect newly sliced Voronoi fracture cross-section faces by alignment with TrimByPlane cut normals.
+        bool cutFace = false;
+        for (const auto& cut : cuts) {
+            const float d = std::abs(n.x * static_cast<float>(cut.n.x) + n.y * static_cast<float>(cut.n.y) + n.z * static_cast<float>(cut.n.z));
+            if (d > 0.90f) { cutFace = true; break; }
+        }
+        const float edgeGlow = cutFace ? 0.95f : 0.12f;
+        const float tone = cutFace ? 0.32f : 0.95f;
+        positions.push_back(a); positions.push_back(b); positions.push_back(c);
+        normals.push_back(n); normals.push_back(n); normals.push_back(n);
+        meta.emplace_back(edgeGlow, tone);
+        meta.emplace_back(edgeGlow, tone);
+        meta.emplace_back(edgeGlow, tone);
+    }
+
+    const std::uint32_t count = static_cast<std::uint32_t>(positions.size());
+    auto posArr = vsg::vec3Array::create(count);
+    auto normArr = vsg::vec3Array::create(count);
+    auto metaArr = vsg::vec2Array::create(count);
+    for (std::uint32_t i = 0; i < count; ++i) {
+        posArr->set(i, positions[i]);
+        normArr->set(i, normals[i]);
+        metaArr->set(i, meta[i]);
+    }
+    auto draw = vsg::VertexDraw::create();
+    draw->assignArrays({posArr, normArr, metaArr});
+    draw->vertexCount = count;
+    draw->instanceCount = 0;
+    draw->firstVertex = 0;
+    draw->firstInstance = 0;
+    return draw;
+}
+
 vsg::vec3 archetypeColor(ipc::DebrisArchetypeV1 arch, std::uint32_t id) noexcept {
     const float h = hashSeed(id);
     switch (arch) {
     case ipc::DebrisArchetypeV1::AirframeHull:
-        return vsg::vec3(0.46f + 0.12f * h, 0.49f + 0.12f * h, 0.53f + 0.10f * h); // tactical fighter grey
+        return vsg::vec3(0.42f + 0.10f * h, 0.45f + 0.10f * h, 0.49f + 0.08f * h); // tactical fighter grey
     case ipc::DebrisArchetypeV1::WingFragment:
-        return vsg::vec3(0.50f + 0.10f * h, 0.53f + 0.10f * h, 0.56f + 0.10f * h);
+        return vsg::vec3(0.46f + 0.10f * h, 0.49f + 0.10f * h, 0.53f + 0.08f * h);
     case ipc::DebrisArchetypeV1::PanelShard:
-        return vsg::vec3(0.58f + 0.18f * h, 0.60f + 0.16f * h, 0.62f + 0.16f * h); // bright sheared aluminum
+        return vsg::vec3(0.50f + 0.16f * h, 0.53f + 0.14f * h, 0.57f + 0.14f * h); // painted aluminum skin
     case ipc::DebrisArchetypeV1::BurningChunk:
-        return vsg::vec3(0.24f + 0.08f * h, 0.23f + 0.08f * h, 0.25f + 0.08f * h); // dark charred alloy
+        return vsg::vec3(0.20f + 0.07f * h, 0.19f + 0.07f * h, 0.21f + 0.07f * h); // dark charred frame
     default:
-        return vsg::vec3(0.45f, 0.47f, 0.50f);
+        return vsg::vec3(0.44f, 0.46f, 0.49f);
+    }
+}
+
+vsg::dmat4 quatToMat4(const float q[4]) noexcept {
+    const double x = q[0], y = q[1], z = q[2], w = q[3];
+    const double xx = x * x, yy = y * y, zz = z * z;
+    const double xy = x * y, xz = x * z, yz = y * z;
+    const double wx = w * x, wy = w * y, wz = w * z;
+    // VSG dmat4 is column-major: column 0 = body +X in ECEF, column 1 = body +Y, column 2 = body +Z.
+    return vsg::dmat4(
+        1.0 - 2.0 * (yy + zz), 2.0 * (xy + wz),       2.0 * (xz - wy),       0.0,
+        2.0 * (xy - wz),       1.0 - 2.0 * (xx + zz), 2.0 * (yz + wx),       0.0,
+        2.0 * (xz + wy),       2.0 * (yz - wx),       1.0 - 2.0 * (xx + yy), 0.0,
+        0.0,                   0.0,                   0.0,                   1.0);
+}
+
+const char* sectionNameForTag(ipc::DebrisPartTagV1 tag) noexcept {
+    switch (tag) {
+    case ipc::DebrisPartTagV1::SectionNose:      return "nose";
+    case ipc::DebrisPartTagV1::SectionCentre:    return "centre";
+    case ipc::DebrisPartTagV1::SectionLeftWing:  return "left-wing";
+    case ipc::DebrisPartTagV1::SectionRightWing: return "right-wing";
+    case ipc::DebrisPartTagV1::SectionTail:      return "tail";
+    default:                                     return nullptr;
     }
 }
 
@@ -209,19 +212,25 @@ struct PendingQuad {
     vsg::vec4 colorAlpha;
     vsg::vec4 params;
     float distSq = 0.0f;
-    bool additive = false;
+    int sortOrder = 1; // 0 = surface decals (scorch/foam), 1 = back-to-front volumes (smoke/water/dust), 2 = additive (flames/sparks)
 };
 
 } // namespace
 
-DebrisVisuals::DebrisVisuals(vsg::ref_ptr<const vsg::Options> options, const std::filesystem::path& shaders) {
+DebrisVisuals::DebrisVisuals(vsg::ref_ptr<const vsg::Options> options, const std::filesystem::path& shaders)
+    : shaders_(shaders) {
     (void)options;
     solidRoot_ = vsg::Group::create();
     trailRoot_ = vsg::Group::create();
+    frontTrailRoot_ = vsg::Group::create();
     solidSwitch_ = vsg::Switch::create();
+    sectionPoolSwitch_ = vsg::Switch::create();
     trailSwitch_ = vsg::Switch::create();
+    frontTrailSwitch_ = vsg::Switch::create();
     solidRoot_->addChild(solidSwitch_);
+    solidRoot_->addChild(sectionPoolSwitch_);
     trailRoot_->addChild(trailSwitch_);
+    frontTrailRoot_->addChild(frontTrailSwitch_);
 
     if (shaders.empty()) {
         LOG_WARN("world") << "no debris renderer: shader directory missing";
@@ -230,15 +239,10 @@ DebrisVisuals::DebrisVisuals(vsg::ref_ptr<const vsg::Options> options, const std
 
     auto solidVert = loadCloudShader(shaders, "debris.vert", VK_SHADER_STAGE_VERTEX_BIT);
     auto solidFrag = loadCloudShader(shaders, "debris.frag", VK_SHADER_STAGE_FRAGMENT_BIT);
-    auto trailVert = loadCloudShader(shaders, "debris_trail.vert", VK_SHADER_STAGE_VERTEX_BIT);
-    auto trailFrag = loadCloudShader(shaders, "debris_trail.frag", VK_SHADER_STAGE_FRAGMENT_BIT);
-
     vsg::ShaderStages solidStages{solidVert, solidFrag};
-    vsg::ShaderStages trailStages{trailVert, trailFrag};
     auto compiler = vsg::ShaderCompiler::create();
-    if (!solidVert || !solidFrag || !trailVert || !trailFrag || !compiler->supported() || !compiler->compile(solidStages) ||
-        !compiler->compile(trailStages)) {
-        LOG_WARN("world") << "debris shaders failed to compile; lightweight debris visuals disabled";
+    if (!solidVert || !solidFrag || !compiler->supported() || !compiler->compile(solidStages)) {
+        LOG_WARN("world") << "debris solid shaders failed to compile; lightweight debris visuals disabled";
         return;
     }
 
@@ -248,14 +252,16 @@ DebrisVisuals::DebrisVisuals(vsg::ref_ptr<const vsg::Options> options, const std
     auto setLayout = vsg::DescriptorSetLayout::create(bindings);
     auto layout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{setLayout}, vsg::PushConstantRanges{{VK_SHADER_STAGE_VERTEX_BIT, 0, 128}});
 
-    frameUbo_ = vsg::vec4Array::create(4, vsg::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+    frameUbo_ = vsg::vec4Array::create(7, vsg::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+    frameUbo_->set(5, vsg::vec4(0.0f, 0.0f, -1.0f, -1.0f));
+    frameUbo_->set(6, vsg::vec4(2.0f, 0.0f, 0.0f, 0.0f));
     solidInstances_ = vsg::vec4Array::create(kMaxSolidInstances * 4u, vsg::vec4(0.0f, 0.0f, 0.0f, 0.0f));
     trailQuads_ = vsg::vec4Array::create(kMaxTrailQuads * 4u, vsg::vec4(0.0f, 0.0f, 0.0f, 0.0f));
     frameUbo_->properties.dataVariance = vsg::DYNAMIC_DATA;
     solidInstances_->properties.dataVariance = vsg::DYNAMIC_DATA;
     trailQuads_->properties.dataVariance = vsg::DYNAMIC_DATA;
 
-    // --- 1. Opaque sunlit + incandescent 3-D tumbling debris shards pipeline ---
+    // --- 1. Opaque sunlit + incandescent manifold3d Voronoi aircraft shard pipeline ---
     {
         vsg::Descriptors desc{vsg::DescriptorBuffer::create(solidInstances_, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER),
                               vsg::DescriptorBuffer::create(frameUbo_, 1, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)};
@@ -274,7 +280,7 @@ DebrisVisuals::DebrisVisuals(vsg::ref_ptr<const vsg::Options> options, const std
         auto assembly = vsg::InputAssemblyState::create();
         assembly->topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         auto raster = vsg::RasterizationState::create();
-        raster->cullMode = VK_CULL_MODE_NONE; // double-sided so hollow torn fuselage shells render cleanly inside & out
+        raster->cullMode = VK_CULL_MODE_NONE;
         auto depth = vsg::DepthStencilState::create();
         depth->depthTestEnable = VK_TRUE;
         depth->depthWriteEnable = VK_TRUE;
@@ -287,51 +293,108 @@ DebrisVisuals::DebrisVisuals(vsg::ref_ptr<const vsg::Options> options, const std
         sg->add(vsg::BindGraphicsPipeline::create(vsg::GraphicsPipeline::create(layout, solidStages, states)));
         sg->add(vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, set));
 
-        solidDraws_[0] = buildAirframeHullMesh();
-        solidDraws_[1] = buildWingFragmentMesh();
-        solidDraws_[2] = buildPanelShardMesh();
-        solidDraws_[3] = buildBurningChunkMesh();
-        for (const auto& draw : solidDraws_) sg->addChild(draw);
+        for (std::uint32_t k = 0; k < kVoronoiBuckets; ++k) {
+            solidDraws_[k] = buildManifoldVoronoiShard(static_cast<int>(k));
+            sg->addChild(solidDraws_[k]);
+        }
 
         solidTransform_ = vsg::MatrixTransform::create();
         solidTransform_->addChild(sg);
         solidSwitch_->addChild(false, solidTransform_);
     }
 
-    // --- 2. Translucent sparks, burning debris smoke ribbons, flame cores & water splash plumes ---
+    // --- 2. Real aircraft GLB section breakup pool (eye-relative MatrixTransform -> compiled GLB section subgraph) ---
     {
-        vsg::Descriptors desc{vsg::DescriptorBuffer::create(trailQuads_, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER),
-                              vsg::DescriptorBuffer::create(frameUbo_, 1, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)};
-        auto set = vsg::DescriptorSet::create(setLayout, desc);
-
-        auto assembly = vsg::InputAssemblyState::create();
-        assembly->topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-        auto raster = vsg::RasterizationState::create();
-        raster->cullMode = VK_CULL_MODE_NONE;
-        auto depth = vsg::DepthStencilState::create();
-        depth->depthTestEnable = VK_TRUE;
-        depth->depthWriteEnable = VK_FALSE;
-        depth->depthCompareOp = VK_COMPARE_OP_GREATER_OR_EQUAL;
-        auto blend = vsg::ColorBlendState::create();
-        blend->attachments = {VkPipelineColorBlendAttachmentState{
-            VK_TRUE, VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_ADD, VK_BLEND_FACTOR_ONE,
-            VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_ADD,
-            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT}};
-
-        vsg::GraphicsPipelineStates states{vsg::VertexInputState::create(), assembly, raster, vsg::MultisampleState::create(), blend, depth};
-        auto sg = vsg::StateGroup::create();
-        sg->add(vsg::BindGraphicsPipeline::create(vsg::GraphicsPipeline::create(layout, trailStages, states)));
-        sg->add(vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, set));
-
-        trailDraw_ = vsg::Draw::create(6, 0, 0, 0);
-        sg->addChild(trailDraw_);
-
-        trailTransform_ = vsg::MatrixTransform::create();
-        trailTransform_->addChild(sg);
-        trailSwitch_->addChild(false, trailTransform_);
+        sectionPoolTransform_ = vsg::MatrixTransform::create();
+        auto emptyGroup = vsg::Group::create();
+        for (std::uint32_t i = 0; i < kMaxSectionPool; ++i) {
+            auto sw = vsg::Switch::create();
+            auto xf = vsg::MatrixTransform::create();
+            xf->addChild(emptyGroup);
+            sw->addChild(false, xf);
+            sectionPoolTransform_->addChild(sw);
+            sectionSlots_[i] = {sw, xf, emptyGroup};
+        }
+        sectionPoolSwitch_->addChild(false, sectionPoolTransform_);
     }
 
     valid_ = true;
+}
+
+bool DebrisVisuals::buildTrails(vsg::ref_ptr<vsg::ImageInfo> sceneDepth, vsg::ref_ptr<vsg::ImageInfo> flowFront) {
+    if (!valid_ || !sceneDepth || shaders_.empty()) return false;
+    auto trailVert = loadCloudShader(shaders_, "debris_trail.vert", VK_SHADER_STAGE_VERTEX_BIT);
+    auto trailFrag = loadCloudShader(shaders_, "debris_trail.frag", VK_SHADER_STAGE_FRAGMENT_BIT);
+    vsg::ShaderStages trailStages{trailVert, trailFrag};
+    auto compiler = vsg::ShaderCompiler::create();
+    if (!trailVert || !trailFrag || !compiler->supported() || !compiler->compile(trailStages)) {
+        LOG_WARN("world") << "debris soft-particle trail shaders failed to compile";
+        return false;
+    }
+
+    const VkShaderStageFlags both = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    vsg::DescriptorSetLayoutBindings bindings{
+        {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, both, nullptr},
+        {1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, both, nullptr},
+        {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+        {3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}};
+    auto setLayout = vsg::DescriptorSetLayout::create(bindings);
+    auto layout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{setLayout}, vsg::PushConstantRanges{{VK_SHADER_STAGE_VERTEX_BIT, 0, 128}});
+    vsg::Descriptors desc{
+        vsg::DescriptorBuffer::create(trailQuads_, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER),
+        vsg::DescriptorBuffer::create(frameUbo_, 1, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER),
+        vsg::DescriptorImage::create(sceneDepth, 2, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER),
+        vsg::DescriptorImage::create(flowFront ? flowFront : sceneDepth, 3, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)};
+    auto set = vsg::DescriptorSet::create(setLayout, desc);
+
+    auto assembly = vsg::InputAssemblyState::create();
+    assembly->topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    auto raster = vsg::RasterizationState::create();
+    raster->cullMode = VK_CULL_MODE_NONE;
+    // Runs in overScene (1-sample): reverse-Z depth testing & soft-particle fade happen cleanly against sceneDepthTex + flowFrontTex!
+    auto depth = vsg::DepthStencilState::create();
+    depth->depthTestEnable = VK_FALSE;
+    depth->depthWriteEnable = VK_FALSE;
+    auto blend = vsg::ColorBlendState::create();
+    blend->attachments = {VkPipelineColorBlendAttachmentState{
+        VK_TRUE, VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_ADD, VK_BLEND_FACTOR_ONE,
+        VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_ADD,
+        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT}};
+
+    vsg::GraphicsPipelineStates states{vsg::VertexInputState::create(), assembly, raster, vsg::MultisampleState::create(), blend, depth};
+    auto bindPipe = vsg::BindGraphicsPipeline::create(vsg::GraphicsPipeline::create(layout, trailStages, states));
+    auto bindSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, set);
+
+    // Back pass (drawn BEFORE FlowVolumes::compositeNode()): decals + quads behind active Flow cloud
+    {
+        auto sg = vsg::StateGroup::create();
+        sg->add(bindPipe);
+        sg->add(bindSet);
+        trailDraw_ = vsg::Draw::create(6, 0, 0, 0);
+        sg->addChild(trailDraw_);
+        trailTransform_ = vsg::MatrixTransform::create();
+        trailTransform_->addChild(sg);
+        trailSwitch_->children.clear();
+        trailSwitch_->addChild(true, trailTransform_); // kept ON until compiled() so VSG compiles the overScene pipeline
+    }
+    // Front pass (drawn AFTER FlowVolumes::compositeNode()): quads in front of active Flow cloud, sharing the same SSBO & pipeline!
+    {
+        auto sg = vsg::StateGroup::create();
+        sg->add(bindPipe);
+        sg->add(bindSet);
+        frontTrailDraw_ = vsg::Draw::create(6, 0, 0, 0);
+        sg->addChild(frontTrailDraw_);
+        frontTrailTransform_ = vsg::MatrixTransform::create();
+        frontTrailTransform_->addChild(sg);
+        frontTrailSwitch_->children.clear();
+        frontTrailSwitch_->addChild(true, frontTrailTransform_); // kept ON until compiled()
+    }
+    return true;
+}
+
+void DebrisVisuals::compiled() {
+    if (trailSwitch_) trailSwitch_->setAllChildren(false);
+    if (frontTrailSwitch_) frontTrailSwitch_->setAllChildren(false);
 }
 
 void DebrisVisuals::clear() {
@@ -341,22 +404,32 @@ void DebrisVisuals::clear() {
     trailCount_ = 0;
     for (auto& d : solidDraws_)
         if (d) d->instanceCount = 0;
+    for (auto& s : sectionSlots_)
+        if (s.sw) s.sw->setAllChildren(false);
     if (trailDraw_) trailDraw_->instanceCount = 0;
+    if (frontTrailDraw_) frontTrailDraw_->instanceCount = 0;
     if (solidSwitch_) solidSwitch_->setAllChildren(false);
+    if (sectionPoolSwitch_) sectionPoolSwitch_->setAllChildren(false);
     if (trailSwitch_) trailSwitch_->setAllChildren(false);
+    if (frontTrailSwitch_) frontTrailSwitch_->setAllChildren(false);
 }
 
-void DebrisVisuals::update(const ipc::DebrisFrameV1& frame, const vsg::dvec3& eyeEcef, const vsg::dvec3& cameraRight,
-                           const vsg::dvec3& cameraUp, const vsg::dvec3& sunDirEcef, float daylight, double simTime) {
+void DebrisVisuals::update(const ipc::DebrisFrameV1& frame, const VehicleVisuals& visuals,
+                           const std::unordered_map<std::uint32_t, std::size_t>& slotByVehicleId,
+                           const vsg::dmat4& projection, std::uint32_t screenWidth, std::uint32_t screenHeight,
+                           const vsg::dvec3& eyeEcef, const vsg::dvec3& cameraRight, const vsg::dvec3& cameraUp,
+                           const vsg::dvec3& sunDirEcef, float daylight, double simTime,
+                           const FlowInterleave* flowRef) {
     if (!valid_) return;
 
     const double clock = std::isfinite(simTime) ? simTime : frame.simTime;
-    if (lastClock_ > -1e8 && (clock < lastClock_ - 0.05 || clock > lastClock_ + 10.0)) smokeTrails_.clear();
+    if (lastClock_ > -1e8 && (clock < lastClock_ - 0.03 || clock > lastClock_ + 4.0)) smokeTrails_.clear();
     lastClock_ = clock;
 
-    // Eye-centered transform avoids ECEF float32 jitter anywhere on the globe.
     solidTransform_->matrix = vsg::translate(eyeEcef);
-    trailTransform_->matrix = vsg::translate(eyeEcef);
+    sectionPoolTransform_->matrix = vsg::translate(eyeEcef);
+    if (trailTransform_) trailTransform_->matrix = vsg::translate(eyeEcef);
+    if (frontTrailTransform_) frontTrailTransform_->matrix = vsg::translate(eyeEcef);
 
     const vsg::dvec3 upLocal = vsg::length(eyeEcef) > 1.0 ? vsg::normalize(eyeEcef) : vsg::dvec3(0.0, 0.0, 1.0);
     const vsg::dvec3 sunN = vsg::length(sunDirEcef) > 1e-6 ? vsg::normalize(sunDirEcef) : vsg::dvec3(0.0, 0.0, 1.0);
@@ -364,22 +437,33 @@ void DebrisVisuals::update(const ipc::DebrisFrameV1& frame, const vsg::dvec3& ey
     const vsg::dvec3 upN = vsg::length(cameraUp) > 1e-6 ? vsg::normalize(cameraUp) : vsg::dvec3(0.0, 1.0, 0.0);
     const float timeWrap = static_cast<float>(std::fmod(std::max(clock, 0.0), 600.0));
 
+    // VSG projection matrix is column-major: projection[2][2] = P22, projection[3][2] = P32 (near plane in reverse-Z).
+    const float p22 = static_cast<float>(projection[2][2]);
+    const float p32 = static_cast<float>(projection[3][2]);
+    const float invW = 1.0f / static_cast<float>(std::max<std::uint32_t>(screenWidth, 1u));
+    const float invH = 1.0f / static_cast<float>(std::max<std::uint32_t>(screenHeight, 1u));
+
+    const bool flowActive = (flowRef != nullptr && flowRef->active);
+    const double flowCenterDistSq = flowActive ? vsg::length2(flowRef->centerEcef - eyeEcef) : -1.0;
+
     frameUbo_->set(0, vsg::vec4(static_cast<float>(sunN.x), static_cast<float>(sunN.y), static_cast<float>(sunN.z), std::clamp(daylight, 0.0f, 1.0f)));
     frameUbo_->set(1, vsg::vec4(static_cast<float>(rightN.x), static_cast<float>(rightN.y), static_cast<float>(rightN.z), 0.0f));
     frameUbo_->set(2, vsg::vec4(static_cast<float>(upN.x), static_cast<float>(upN.y), static_cast<float>(upN.z), 0.0f));
     frameUbo_->set(3, vsg::vec4(static_cast<float>(upLocal.x), static_cast<float>(upLocal.y), static_cast<float>(upLocal.z), timeWrap));
+    frameUbo_->set(4, vsg::vec4(p22, p32, invW, invH));
+    frameUbo_->set(5, flowActive ? flowRef->laid : vsg::vec4(0.0f, 0.0f, -1.0f, -1.0f));
+    frameUbo_->set(6, vsg::vec4(flowActive ? std::max(flowRef->scale, 1.0f) : 2.0f, 0.0f, 0.0f, 0.0f));
     frameUbo_->dirty();
 
-    // Partition solid 3-D bodies into the 4 procedural mesh buckets and collect billboard quads.
-    std::array<std::vector<const ipc::DebrisBodyWireV1*>, 4> buckets;
+    std::array<std::vector<const ipc::DebrisBodyWireV1*>, kVoronoiBuckets> buckets;
     std::vector<PendingQuad> quads;
-    quads.reserve(512);
+    quads.reserve(1024);
+    std::uint32_t sectionsActive = 0;
 
     static constexpr double kMaxRenderDistM = 35000.0;
-    static constexpr double kSmokeIntervalS = 0.025;
-    static constexpr double kSmokeStepDistM = 1.9;
-    static constexpr double kSmokeLifetimeS = 6.5;
-    static constexpr std::size_t kMaxSamplesPerBody = 44;
+    static constexpr double kSmokeLifetimeS = 4.6;
+    static constexpr std::size_t kMaxSamplesPerBody = 64;
+    std::uint32_t smallShardSmokers = 0;
 
     for (const auto& b : frame.bodies) {
         const vsg::dvec3 pos(b.positionEcef[0], b.positionEcef[1], b.positionEcef[2]);
@@ -388,87 +472,190 @@ void DebrisVisuals::update(const ipc::DebrisFrameV1& frame, const vsg::dvec3& ey
         if (!std::isfinite(distSq) || distSq > kMaxRenderDistM * kMaxRenderDistM) continue;
 
         const auto arch = static_cast<ipc::DebrisArchetypeV1>(b.archetype);
+        const auto partTag = ipc::debrisPartTagV1(b.flags);
         const float ageNorm = std::clamp(b.maxAgeS > 1e-4f ? b.ageS / b.maxAgeS : 0.0f, 0.0f, 1.0f);
         const float seed = hashSeed(b.id);
         const vsg::vec3 relF(static_cast<float>(rel.x), static_cast<float>(rel.y), static_cast<float>(rel.z));
+        const vsg::vec3 velF(static_cast<float>(b.velocityEcef[0]), static_cast<float>(b.velocityEcef[1]), static_cast<float>(b.velocityEcef[2]));
 
+        // --- 1. Incandescent Sparks ---
         if (arch == ipc::DebrisArchetypeV1::SparkEmber) {
-            const vsg::vec3 vel(static_cast<float>(b.velocityEcef[0]), static_cast<float>(b.velocityEcef[1]), static_cast<float>(b.velocityEcef[2]));
-            const float speed = vsg::length(vel);
-            const float radius = std::clamp(std::min(b.halfExtentsM[1], 0.14f), 0.055f, 0.15f);
-            const float stretch = std::clamp(4.5f + speed * 0.08f, 4.5f, 18.0f);
+            const float speed = vsg::length(velF);
+            const float radius = std::clamp(std::min(b.halfExtentsM[1], 0.11f), 0.045f, 0.12f);
+            const float stretch = std::clamp(5.0f + speed * 0.09f, 5.0f, 20.0f);
             PendingQuad q;
             q.posAndRadius = vsg::vec4(relF.x, relF.y, relF.z, radius);
-            q.velAndTemp = vsg::vec4(vel.x, vel.y, vel.z, std::max(b.temperatureK, 1500.0f));
-            q.colorAlpha = vsg::vec4(1.0f, 0.72f, 0.28f, std::clamp(1.0f - ageNorm * 0.75f, 0.1f, 1.0f));
+            q.velAndTemp = vsg::vec4(velF.x, velF.y, velF.z, std::max(b.temperatureK, 1600.0f));
+            q.colorAlpha = vsg::vec4(1.0f, 0.78f, 0.35f, std::clamp(1.0f - ageNorm * 0.8f, 0.1f, 1.0f));
             q.params = vsg::vec4(1.0f, ageNorm, seed, stretch);
             q.distSq = static_cast<float>(distSq);
-            q.additive = true;
+            q.sortOrder = 2;
             quads.push_back(q);
             continue;
         }
 
+        // --- 2. Splash / Dust / Ocean Foam Wake / Charred Skid Furrow ---
         if (arch == ipc::DebrisArchetypeV1::SplashPlume) {
-            const float baseR = std::max({b.halfExtentsM[0], b.halfExtentsM[1], b.halfExtentsM[2], 1.8f});
-            const float radius = baseR * (1.25f + 2.6f * std::sqrt(ageNorm));
-            const float alpha = std::clamp((1.0f - ageNorm) * 0.78f, 0.0f, 0.85f);
+            const float baseR = std::max({b.halfExtentsM[0], b.halfExtentsM[1], 1.6f});
+            if (partTag == ipc::DebrisPartTagV1::ScorchMark) {
+                PendingQuad q;
+                q.posAndRadius = vsg::vec4(relF.x, relF.y, relF.z, b.halfExtentsM[1]);
+                q.velAndTemp = vsg::vec4(velF.x, velF.y, velF.z, 300.0f);
+                q.colorAlpha = vsg::vec4(0.055f, 0.048f, 0.042f, 0.80f * (1.0f - 0.45f * ageNorm));
+                q.params = vsg::vec4(6.0f, ageNorm, seed, std::max(b.halfExtentsM[0] / std::max(b.halfExtentsM[1], 0.5f), 1.0f));
+                q.distSq = static_cast<float>(distSq);
+                q.sortOrder = 0;
+                quads.push_back(q);
+                continue;
+            }
+            if (partTag == ipc::DebrisPartTagV1::FoamWake) {
+                // Expanding subtle circular ocean splash ring / lacy seafoam collar (never a bright opaque paint stripe!).
+                const float widthBase = std::max(b.halfExtentsM[1], 1.5f);
+                const float bloom = std::pow(std::min(ageNorm * 5.0f, 1.0f), 0.55f);
+                const float radius = widthBase * (0.40f + 1.25f * bloom + 0.55f * std::sqrt(ageNorm));
+                const float foamStrength = std::clamp(b.smokeIntensity, 0.18f, 0.65f);
+                PendingQuad q;
+                q.posAndRadius = vsg::vec4(relF.x, relF.y, relF.z, radius);
+                q.velAndTemp = vsg::vec4(velF.x, velF.y, velF.z, 288.0f);
+                q.colorAlpha = vsg::vec4(0.92f, 0.96f, 0.99f, foamStrength);
+                q.params = vsg::vec4(4.0f, ageNorm, seed, 1.18f);
+                q.distSq = static_cast<float>(distSq);
+                q.sortOrder = 0;
+                quads.push_back(q);
+                continue;
+            }
+            if (partTag == ipc::DebrisPartTagV1::DustPlume) {
+                const float radius = baseR * (0.95f + 1.35f * std::sqrt(ageNorm));
+                PendingQuad q;
+                q.posAndRadius = vsg::vec4(relF.x, relF.y, relF.z, radius);
+                q.velAndTemp = vsg::vec4(velF.x, velF.y, velF.z, 300.0f);
+                q.colorAlpha = vsg::vec4(0.36f, 0.31f, 0.24f, 0.36f); // soft seamless earth-dust apron around crater base
+                q.params = vsg::vec4(5.0f, ageNorm, seed, 1.0f);
+                q.distSq = static_cast<float>(distSq);
+                q.sortOrder = 1;
+                quads.push_back(q);
+                continue;
+            }
+            // Grounded hydrodynamic ocean water curtain (locked upright to zenith, NEVER flips at apex!):
+            // halfExtentsM[0] = horizontal width radius (m), halfExtentsM[2] = current vertical half-height (m).
+            const float widthR = std::clamp(b.halfExtentsM[0] * (1.0f + 0.50f * ageNorm), 2.2f, 9.2f);
+            const float halfH = std::clamp(b.halfExtentsM[2], 1.4f, 22.0f);
+            const float aspect = std::clamp(halfH / std::max(widthR, 0.5f), 0.90f, 4.4f);
             PendingQuad q;
-            q.posAndRadius = vsg::vec4(relF.x, relF.y, relF.z, radius);
-            q.velAndTemp = vsg::vec4(0.0f, 0.0f, 0.0f, 300.0f);
-            q.colorAlpha = vsg::vec4(0.89f, 0.93f, 0.97f, alpha);
-            q.params = vsg::vec4(2.0f, ageNorm, seed, 1.0f);
+            q.posAndRadius = vsg::vec4(relF.x, relF.y, relF.z, widthR);
+            q.velAndTemp = vsg::vec4(velF.x, velF.y, velF.z, 288.0f);
+            q.colorAlpha = vsg::vec4(0.95f, 0.98f, 1.00f, 0.58f); // fuller frothy sunlit seawater plume!
+            q.params = vsg::vec4(2.0f, ageNorm, seed, aspect);
             q.distSq = static_cast<float>(distSq);
-            q.additive = false;
+            q.sortOrder = 1;
             quads.push_back(q);
             continue;
         }
 
-        // Solid 3-D tumbling chunk (AirframeHull=0, WingFragment=1, PanelShard=2, BurningChunk=3)
-        const std::size_t bucketIdx = std::min<std::size_t>(static_cast<std::size_t>(b.archetype), 3u);
-        buckets[bucketIdx].push_back(&b);
+        // --- 3. Solid 3-D Real Aircraft GLB Section OR manifold3d Voronoi Shard ---
+        bool renderedAsRealSection = false;
+        if (const char* secName = sectionNameForTag(partTag); secName && sectionsActive < kMaxSectionPool) {
+            const auto slotIt = slotByVehicleId.find(b.ownerVehicleId);
+            if (slotIt != slotByVehicleId.end()) {
+                const auto sections = visuals.sectionVisualsOf(slotIt->second);
+                for (const auto& sv : sections) {
+                    if (sv.section == secName && sv.node) {
+                        auto& slot = sectionSlots_[sectionsActive++];
+                        slot.xf->matrix = vsg::translate(rel) * quatToMat4(b.quatBodyToEcef);
+                        if (slot.boundChild != sv.node) {
+                            slot.xf->children = {sv.node};
+                            slot.boundChild = sv.node;
+                        }
+                        slot.sw->setAllChildren(true);
+                        renderedAsRealSection = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if (!renderedAsRealSection) {
+            std::size_t bucketIdx = 0;
+            const std::uint8_t tagNum = static_cast<std::uint8_t>(partTag);
+            if (tagNum >= static_cast<std::uint8_t>(ipc::DebrisPartTagV1::VoronoiShard0) &&
+                tagNum <= static_cast<std::uint8_t>(ipc::DebrisPartTagV1::VoronoiShard5)) {
+                bucketIdx = static_cast<std::size_t>(tagNum - static_cast<std::uint8_t>(ipc::DebrisPartTagV1::VoronoiShard0));
+            } else {
+                bucketIdx = static_cast<std::size_t>(b.id % kVoronoiBuckets);
+            }
+            buckets[bucketIdx].push_back(&b);
+        }
 
+        // --- 4. Tight Flame Core + Continuous Pitch-Black Volumetric Smoke Ribbon ---
         const float extent = std::max({b.halfExtentsM[0], b.halfExtentsM[1], b.halfExtentsM[2], 0.25f});
-        const bool burning = (b.flags & ipc::kDebrisFlagBurning) != 0u || b.temperatureK > 1100.0f;
-        const bool smoking = (b.flags & ipc::kDebrisFlagSmoking) != 0u || b.smokeIntensity > 0.08f || burning;
+        const bool burning = (b.flags & ipc::kDebrisFlagBurning) != 0u || b.temperatureK > 1150.0f;
+        const bool smoking = (b.flags & ipc::kDebrisFlagSmoking) != 0u || b.smokeIntensity > 0.12f || burning;
+        const bool waterChunk = (b.flags & ipc::kDebrisFlagWater) != 0u;
 
-        // Tight turbulent flame core clinging to actively burning chunks
-        if (burning && b.temperatureK > 1000.0f) {
-            const float flicker = 0.88f + 0.22f * std::sin(timeWrap * 25.0f + seed * 41.0f);
-            const float flameR = std::clamp(extent * 0.95f * flicker, 0.35f, 2.0f);
-            const float intensity = std::clamp((b.temperatureK - 950.0f) / 1100.0f, 0.15f, 1.0f);
+        // Tight blazing flame tongues ONLY on burning major airframe sections (zero boxy orange stickers on small shards!).
+        if (renderedAsRealSection && burning && !waterChunk && b.temperatureK > 1150.0f && b.ageS < 1.8f) {
+            const float flicker = 0.85f + 0.25f * std::sin(timeWrap * 28.0f + seed * 41.0f);
+            const float flameR = std::clamp(extent * 0.55f * flicker, 0.45f, 1.45f);
+            const float intensity = std::clamp((b.temperatureK - 1100.0f) / 900.0f, 0.20f, 1.0f) * (1.0f - b.ageS / 2.2f);
             PendingQuad q;
             q.posAndRadius = vsg::vec4(relF.x, relF.y, relF.z, flameR);
             q.velAndTemp = vsg::vec4(0.0f, 0.0f, 0.0f, b.temperatureK);
-            q.colorAlpha = vsg::vec4(1.0f, 0.38f, 0.06f, intensity * 0.72f);
-            q.params = vsg::vec4(3.0f, ageNorm, seed + timeWrap * 0.5f, 1.0f);
+            q.colorAlpha = vsg::vec4(1.0f, 0.44f, 0.06f, intensity * 0.65f);
+            q.params = vsg::vec4(3.0f, ageNorm, seed + timeWrap * 0.7f, 1.0f);
             q.distSq = static_cast<float>(distSq);
-            q.additive = true;
+            q.sortOrder = 2;
             quads.push_back(q);
         }
 
-        // Lay dense, continuous velocity-stretched dark soot ribbons behind burning/smoking debris
-        if (smoking && b.smokeIntensity > 0.06f) {
+        // Billowing turbulent volumetric black smoke plumes behind burning major sections + top 2 largest burning shards
+        // (densely overlapping soft cloud puffs with 3D vortex curl drift -> continuous undulating smoke, ZERO polka dots, pipes, or bricks!).
+        const bool allowSmoke = renderedAsRealSection || (burning && extent > 0.48f && smallShardSmokers < 2u);
+        if (smoking && !waterChunk && b.smokeIntensity > 0.22f && allowSmoke) {
+            if (!renderedAsRealSection) ++smallShardSmokers;
             auto& hist = smokeTrails_[b.id];
-            const double movedM = hist.hasLastPos ? vsg::length(pos - hist.lastPosEcef) : kSmokeStepDistM;
-            if (!hist.hasLastPos || movedM >= kSmokeStepDistM || (clock - hist.lastSampleTime) >= kSmokeIntervalS) {
-                const int subSteps = hist.hasLastPos ? std::clamp(static_cast<int>(std::floor(movedM / kSmokeStepDistM)), 1, 10) : 1;
+            const float baseR = renderedAsRealSection ? std::clamp(extent * 0.92f, 1.15f, 2.15f)
+                                                      : std::clamp(extent * 0.80f, 0.58f, 0.95f);
+            // Overlapping step spacing (~0.52 * baseR) keeps fast flying wing trails continuous while curling organically!
+            // Stationary/slow burning wreckage emits only 1 curling rising puff every 0.16 s (never stacking 32 bricks!).
+            const double stepTriggerM = renderedAsRealSection ? std::clamp(static_cast<double>(baseR) * 0.52, 0.72, 1.10)
+                                                              : std::clamp(static_cast<double>(baseR) * 0.62, 0.52, 0.85);
+            const double movedM = hist.hasLastPos ? vsg::length(pos - hist.lastPosEcef) : stepTriggerM;
+            const double dtEmit = clock - hist.lastSampleTime;
+            const bool emitByMove = hist.hasLastPos && movedM >= stepTriggerM;
+            const bool emitByTime = !hist.hasLastPos || (movedM < 0.75 && dtEmit >= 0.16) || (dtEmit >= 0.08 && movedM >= 0.45);
+            if (emitByMove || emitByTime) {
+                const int subSteps = emitByMove ? std::clamp(static_cast<int>(std::ceil(movedM / stepTriggerM)), 1, 12) : 1;
                 const vsg::dvec3 startPos = hist.hasLastPos ? hist.lastPosEcef : pos;
                 const double startT = hist.hasLastPos ? hist.lastSampleTime : clock;
-                const float baseR = std::clamp(extent * 1.65f, 1.15f, 3.4f);
-                const vsg::vec3 velF(static_cast<float>(b.velocityEcef[0]), static_cast<float>(b.velocityEcef[1]), static_cast<float>(b.velocityEcef[2]));
-                const double stepDist = movedM / static_cast<double>(subSteps);
-                const float stretch = std::clamp(static_cast<float>(stepDist / std::max(baseR * 0.75f, 0.5f)), 1.35f, 3.2f);
+                // Local tangent basis perpendicular to upLocal for swirling lateral curl drift.
+                const vsg::dvec3 refAxis = std::abs(upLocal.z) < 0.9 ? vsg::dvec3(0.0, 0.0, 1.0) : vsg::dvec3(1.0, 0.0, 0.0);
+                const vsg::dvec3 tA = vsg::normalize(vsg::cross(upLocal, refAxis));
+                const vsg::dvec3 tB = vsg::normalize(vsg::cross(upLocal, tA));
                 for (int step = 1; step <= subSteps; ++step) {
                     const double frac = static_cast<double>(step) / static_cast<double>(subSteps);
+                    const std::uint32_t hIdx = b.id * 97u + static_cast<std::uint32_t>(hist.samples.size() * 31u + static_cast<std::size_t>(step) * 17u) +
+                                               static_cast<std::uint32_t>(clock * 60.0) * 13u;
+                    const float r0 = hashSeed(hIdx);
+                    const float r1 = hashSeed(hIdx ^ 0x517cc1b7u);
+                    const float r2 = hashSeed(hIdx ^ 0x9e3779b9u);
+                    const float swirlAng = r0 * 6.2831853f;
+                    const float swirlSpd = (renderedAsRealSection ? 0.85f : 0.55f) + 1.35f * r1;
+                    const float riseSpd = 2.4f + 2.0f * r2;
+                    const vsg::dvec3 drift = tA * (std::cos(swirlAng) * swirlSpd) +
+                                             tB * (std::sin(swirlAng) * swirlSpd) +
+                                             upLocal * riseSpd;
+                    // Gentle turbulent spawn offset breaks straight-line uniformity into natural churning vortices.
+                    const vsg::dvec3 jitter = tA * ((r1 - 0.5) * baseR * 0.42) + tB * ((r2 - 0.5) * baseR * 0.42);
                     SmokeSample s;
-                    s.posEcef = startPos + (pos - startPos) * frac;
+                    s.posEcef = startPos + (pos - startPos) * frac + jitter;
                     s.velEcef = velF;
+                    s.driftEcef = vsg::vec3(static_cast<float>(drift.x), static_cast<float>(drift.y), static_cast<float>(drift.z));
                     s.birthTime = startT + (clock - startT) * frac;
-                    s.baseRadius = baseR;
+                    s.baseRadius = baseR * (0.78f + 0.50f * r1);
                     s.tempK = b.temperatureK;
-                    s.opacity = std::clamp(b.smokeIntensity * 0.80f, 0.24f, 0.84f);
-                    s.seed = hashSeed(b.id * 37u + static_cast<std::uint32_t>(hist.samples.size() * 23u + static_cast<std::size_t>(step) * 11u));
-                    s.stretch = stretch;
+                    // Layered volumetric opacity: dense overlapping dark billows near the wreck, thinning organically downwind!
+                    s.opacity = std::clamp(b.smokeIntensity * (renderedAsRealSection ? 0.46f : 0.28f), 0.16f, 0.52f);
+                    s.seed = r0;
+                    s.spin = (r2 < 0.5f ? -1.0f : 1.0f) * (0.45f + 0.65f * r1);
                     hist.samples.push_back(s);
                     while (hist.samples.size() > kMaxSamplesPerBody) hist.samples.pop_front();
                 }
@@ -479,9 +666,14 @@ void DebrisVisuals::update(const ipc::DebrisFrameV1& frame, const vsg::dvec3& ey
         }
     }
 
-    // Write solid instance SSBO partitioned by archetype bucket
+    // Turn off unused GLB section slots cleanly.
+    for (std::uint32_t i = sectionsActive; i < kMaxSectionPool; ++i)
+        if (sectionSlots_[i].sw) sectionSlots_[i].sw->setAllChildren(false);
+    sectionPoolSwitch_->setAllChildren(sectionsActive > 0);
+
+    // Upload manifold3d Voronoi shard instances.
     std::uint32_t solidWritten = 0;
-    for (std::size_t k = 0; k < 4; ++k) {
+    for (std::size_t k = 0; k < kVoronoiBuckets; ++k) {
         const std::uint32_t first = solidWritten;
         for (const ipc::DebrisBodyWireV1* bp : buckets[k]) {
             if (solidWritten >= kMaxSolidInstances) break;
@@ -489,7 +681,7 @@ void DebrisVisuals::update(const ipc::DebrisFrameV1& frame, const vsg::dvec3& ey
             const vsg::dvec3 rel(b.positionEcef[0] - eyeEcef.x, b.positionEcef[1] - eyeEcef.y, b.positionEcef[2] - eyeEcef.z);
             const auto arch = static_cast<ipc::DebrisArchetypeV1>(b.archetype);
             const vsg::vec3 col = archetypeColor(arch, b.id);
-            const float scorch = std::clamp((b.temperatureK - 340.0f) / 900.0f + ((b.flags & ipc::kDebrisFlagBurning) ? 0.45f : 0.18f), 0.12f, 1.0f);
+            const float scorch = std::clamp((b.temperatureK - 360.0f) / 900.0f + ((b.flags & ipc::kDebrisFlagBurning) ? 0.55f : 0.25f), 0.18f, 1.0f);
 
             const std::uint32_t base = solidWritten * 4u;
             solidInstances_->set(base + 0u, vsg::vec4(static_cast<float>(rel.x), static_cast<float>(rel.y), static_cast<float>(rel.z), b.temperatureK));
@@ -501,11 +693,11 @@ void DebrisVisuals::update(const ipc::DebrisFrameV1& frame, const vsg::dvec3& ey
         solidDraws_[k]->firstInstance = first;
         solidDraws_[k]->instanceCount = solidWritten - first;
     }
-    solidCount_ = solidWritten;
-    if (solidCount_ > 0) solidInstances_->dirty();
-    solidSwitch_->setAllChildren(solidCount_ > 0);
+    solidCount_ = solidWritten + sectionsActive;
+    if (solidWritten > 0) solidInstances_->dirty();
+    solidSwitch_->setAllChildren(solidWritten > 0);
 
-    // Harvest and age persistent smoke trails from all smoking/burning chunks
+    // Harvest billowing turbulent black smoke clouds (curling & expanding organically with age!).
     for (auto it = smokeTrails_.begin(); it != smokeTrails_.end();) {
         auto& q = it->second.samples;
         while (!q.empty() && (clock - q.front().birthTime) > kSmokeLifetimeS) q.pop_front();
@@ -516,45 +708,83 @@ void DebrisVisuals::update(const ipc::DebrisFrameV1& frame, const vsg::dvec3& ey
         for (const auto& s : q) {
             const double age = std::max(clock - s.birthTime, 0.0);
             const float ageNorm = static_cast<float>(std::clamp(age / kSmokeLifetimeS, 0.0, 1.0));
-            // Gentle thermal buoyancy drift upward along local zenith
-            const vsg::dvec3 driftPos = s.posEcef + upLocal * (age * 2.4);
+            // Turbulent 3D vortex drift + gentle velocity carry-through decays exponentially as air arrests the puff.
+            const double carry = 0.08 * (1.0 - std::exp(-age * 4.0));
+            const vsg::dvec3 driftPos = s.posEcef +
+                                        vsg::dvec3(s.driftEcef.x, s.driftEcef.y, s.driftEcef.z) * (age * (0.65 + 0.55 * ageNorm)) +
+                                        vsg::dvec3(s.velEcef.x, s.velEcef.y, s.velEcef.z) * carry;
             const vsg::dvec3 rel = driftPos - eyeEcef;
             const double distSq = vsg::length2(rel);
             if (!std::isfinite(distSq) || distSq > kMaxRenderDistM * kMaxRenderDistM) continue;
-            const float radius = s.baseRadius * (1.0f + 3.2f * std::sqrt(ageNorm));
-            // Rich dark charcoal hydrocarbon soot lightening gently to grey smoke as it disperses
-            const float soot = std::clamp(0.045f + 0.11f * ageNorm, 0.04f, 0.22f);
+            // Tight overlapping root right behind torn metal (0.70x), swelling organically into billowing clouds (2.95x)!
+            const float radius = s.baseRadius * (0.70f + 2.25f * std::pow(ageNorm, 0.62f));
+            // True deep charcoal/pitch-black hydrocarbon soot (gently lightening with atmospheric mixing as it ages).
+            const float soot = std::clamp(0.014f + 0.045f * ageNorm, 0.014f, 0.068f);
             PendingQuad pq;
             pq.posAndRadius = vsg::vec4(static_cast<float>(rel.x), static_cast<float>(rel.y), static_cast<float>(rel.z), radius);
             pq.velAndTemp = vsg::vec4(s.velEcef.x, s.velEcef.y, s.velEcef.z, s.tempK);
-            pq.colorAlpha = vsg::vec4(soot, soot * 0.98f, soot * 0.97f, s.opacity * (1.0f - 0.50f * ageNorm));
-            pq.params = vsg::vec4(0.0f, ageNorm, s.seed, s.stretch);
+            pq.colorAlpha = vsg::vec4(soot, soot * 1.02f, soot * 1.06f, s.opacity * (1.0f - 0.68f * ageNorm));
+            pq.params = vsg::vec4(0.0f, ageNorm, s.seed, s.spin);
             pq.distSq = static_cast<float>(distSq);
-            pq.additive = false;
+            pq.sortOrder = 1;
             quads.push_back(pq);
         }
         ++it;
     }
 
-    // Sort opaque-ish translucent puffs (smoke, splash) back-to-front, with pure additive sparks/flames last.
-    std::sort(quads.begin(), quads.end(), [](const PendingQuad& a, const PendingQuad& b) {
-        if (a.additive != b.additive) return !a.additive;
+    // Partition into Back pass (drawn BEFORE Flow composite: decals + volumes/sparks behind Flow center)
+    // and Front pass (drawn AFTER Flow composite: volumes/sparks in front of Flow center, softly interleaved via flowFrontTex!).
+    std::vector<PendingQuad> backQuads;
+    std::vector<PendingQuad> frontQuads;
+    backQuads.reserve(quads.size());
+    if (flowActive && frontTrailDraw_) frontQuads.reserve(quads.size() / 2 + 16);
+    const float flowDistSqF = static_cast<float>(flowCenterDistSq);
+    for (auto& q : quads) {
+        if (flowActive && frontTrailDraw_ && q.sortOrder > 0 && q.distSq < flowDistSqF) {
+            q.colorAlpha.a = -std::abs(q.colorAlpha.a); // negative alpha sign signals front-pass volumetric interleaving
+            frontQuads.push_back(q);
+        } else {
+            backQuads.push_back(q);
+        }
+    }
+    const auto quadCmp = [](const PendingQuad& a, const PendingQuad& b) {
+        if (a.sortOrder != b.sortOrder) return a.sortOrder < b.sortOrder;
         return a.distSq > b.distSq;
-    });
+    };
+    std::sort(backQuads.begin(), backQuads.end(), quadCmp);
+    std::sort(frontQuads.begin(), frontQuads.end(), quadCmp);
 
-    const std::uint32_t trailWritten = static_cast<std::uint32_t>(std::min<std::size_t>(quads.size(), kMaxTrailQuads));
-    for (std::uint32_t i = 0; i < trailWritten; ++i) {
-        const auto& q = quads[i];
+    const std::uint32_t backWritten = static_cast<std::uint32_t>(std::min<std::size_t>(backQuads.size(), kMaxTrailQuads));
+    const std::uint32_t frontCap = (kMaxTrailQuads > backWritten) ? (kMaxTrailQuads - backWritten) : 0u;
+    const std::uint32_t frontWritten = static_cast<std::uint32_t>(std::min<std::size_t>(frontQuads.size(), frontCap));
+    for (std::uint32_t i = 0; i < backWritten; ++i) {
+        const auto& q = backQuads[i];
         const std::uint32_t base = i * 4u;
         trailQuads_->set(base + 0u, q.posAndRadius);
         trailQuads_->set(base + 1u, q.velAndTemp);
         trailQuads_->set(base + 2u, q.colorAlpha);
         trailQuads_->set(base + 3u, q.params);
     }
-    trailCount_ = trailWritten;
-    trailDraw_->instanceCount = trailCount_;
+    for (std::uint32_t i = 0; i < frontWritten; ++i) {
+        const auto& q = frontQuads[i];
+        const std::uint32_t base = (backWritten + i) * 4u;
+        trailQuads_->set(base + 0u, q.posAndRadius);
+        trailQuads_->set(base + 1u, q.velAndTemp);
+        trailQuads_->set(base + 2u, q.colorAlpha);
+        trailQuads_->set(base + 3u, q.params);
+    }
+    trailCount_ = backWritten + frontWritten;
+    if (trailDraw_) {
+        trailDraw_->firstInstance = 0u;
+        trailDraw_->instanceCount = backWritten;
+    }
+    if (frontTrailDraw_) {
+        frontTrailDraw_->firstInstance = backWritten;
+        frontTrailDraw_->instanceCount = frontWritten;
+    }
     if (trailCount_ > 0) trailQuads_->dirty();
-    trailSwitch_->setAllChildren(trailCount_ > 0);
+    if (trailSwitch_) trailSwitch_->setAllChildren(backWritten > 0);
+    if (frontTrailSwitch_) frontTrailSwitch_->setAllChildren(frontWritten > 0);
 }
 
 } // namespace fsim::world

@@ -286,8 +286,8 @@ bool DebrisReplayV1::atTime(double simTimeS, DebrisFrameV1& out, bool interpolat
     out.vehicles.clear();
     out.simTime = simTimeS;
     if (frames_.empty() || !std::isfinite(simTimeS)) return false;
+    if (simTimeS < frames_.front().simTime - 1e-4) return false;
     if (simTimeS <= frames_.front().simTime) {
-        if (frames_.front().simTime - simTimeS > 0.25) return false;
         out = frames_.front();
         return true;
     }
@@ -307,7 +307,21 @@ bool DebrisReplayV1::atTime(double simTimeS, DebrisFrameV1& out, bool interpolat
     const double alpha = std::clamp((simTimeS - a.simTime) / span, 0.0, 1.0);
     const float fa = static_cast<float>(alpha);
     out.simTime = simTimeS;
-    out.vehicles = alpha < 0.5 ? a.vehicles : b.vehicles;
+    // Never retire an intact hull or switch destruction tier before reaching frame `b` where breakup actually starts.
+    out.vehicles = a.vehicles;
+    if (alpha >= 0.999) {
+        out.vehicles = b.vehicles;
+    } else if (out.vehicles.size() == b.vehicles.size()) {
+        for (std::size_t i = 0; i < out.vehicles.size(); ++i) {
+            if (out.vehicles[i].vehicleId == b.vehicles[i].vehicleId &&
+                out.vehicles[i].hullRetired == b.vehicles[i].hullRetired &&
+                out.vehicles[i].tier == b.vehicles[i].tier) {
+                out.vehicles[i].overallDamage = out.vehicles[i].overallDamage + (b.vehicles[i].overallDamage - out.vehicles[i].overallDamage) * fa;
+                out.vehicles[i].scorchIntensity = out.vehicles[i].scorchIntensity + (b.vehicles[i].scorchIntensity - out.vehicles[i].scorchIntensity) * fa;
+                out.vehicles[i].fuelRemainingKg = out.vehicles[i].fuelRemainingKg + (b.vehicles[i].fuelRemainingKg - out.vehicles[i].fuelRemainingKg) * fa;
+            }
+        }
+    }
 
     std::unordered_map<std::uint32_t, const DebrisBodyWireV1*> nextById;
     nextById.reserve(b.bodies.size());

@@ -197,16 +197,24 @@ void applyGroundOrWaterDestruction(VehicleDestructionState& state, const StrikeO
     state.overallDamage = std::max(state.overallDamage, std::clamp(outcome.severityMs / 45.0, 0.35, 1.0));
     state.scorchIntensity = std::max(state.scorchIntensity, outcome.fireballKg > 0.0 || outcome.poolKg > 0.0 ? 0.95 : 0.45);
     const double postSpeed = length(outcome.after);
-    state.groundSliding = enableSlide && postSpeed > 2.5 && outcome.angleRad < 0.78539816339; // < 45 deg slides along surface
-    state.slideSpeedMs = state.groundSliding ? postSpeed : 0.0;
-    state.wreckFuelKg = std::max(0.0, std::min(remainingFuelKg, outcome.poolKg));
-    state.wreckBurnRateKgS = outcome.poolKgS > 0.0 ? std::min(outcome.poolKgS, kBurnMostKgS) : 0.0;
-    // Extreme steep high-energy dive (> 45 deg and > 120 m/s) disintegrates hull on impact too.
-    if (enableSlide && outcome.angleRad >= 0.78539816339 && outcome.normalMs > 100.0) {
+    // High-speed water impact (stagnation pressure 0.5 * rho_w * v^2 >= ~4.6 MPa at >= 95 m/s, or steep normal entry >= 20 m/s)
+    // violently shatters the airframe on entry into hydrodynamic wreckage & geyser plumes rather than skimming intact.
+    const bool highSpeedWaterShatter =
+        enableSlide && outcome.surface == SurfaceKind::Water && (outcome.normalMs >= 20.0 || outcome.speedMs >= 95.0);
+    // Extreme steep high-energy dive on land (> 45 deg and > 100 m/s normal) disintegrates hull on impact too.
+    const bool steepLandDisintegrate = enableSlide && outcome.angleRad >= 0.78539816339 && outcome.normalMs > 100.0;
+    if (highSpeedWaterShatter || steepLandDisintegrate) {
         state.hullRetired = true;
+        state.groundSliding = false;
+        state.slideSpeedMs = 0.0;
         state.overallDamage = 1.0;
         for (std::uint8_t s = 0; s < state.sectionCount; ++s) state.sectionDamage[s] = 1.0;
+    } else {
+        state.groundSliding = enableSlide && postSpeed > 2.5 && outcome.angleRad < 0.78539816339; // < 45 deg slides along surface
+        state.slideSpeedMs = state.groundSliding ? postSpeed : 0.0;
     }
+    state.wreckFuelKg = std::max(0.0, std::min(remainingFuelKg, outcome.poolKg));
+    state.wreckBurnRateKgS = outcome.poolKgS > 0.0 ? std::min(outcome.poolKgS, kBurnMostKgS) : 0.0;
 }
 
 ipc::VehicleDestructionWireV1 toWire(const VehicleDestructionState& state, std::uint32_t slot, std::uint32_t vehicleId,

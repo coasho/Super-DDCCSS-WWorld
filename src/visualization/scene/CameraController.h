@@ -93,6 +93,16 @@ public:
 
     /// Where the camera looks while no vehicle is followed (Free mode / no vehicle).
     void setFocus(const vsg::dvec3& ecef) noexcept { focus_ = ecef; }
+    /// Hold the detached camera at an exact 3-D ECEF point (preserving altitude, e.g. final moment of a destroyed aircraft).
+    void holdAt(const vsg::dvec3& ecef) noexcept { focus_ = ecef; lastTargetPos_ = ecef; heldAltitude_ = true; }
+    /// Smoothly carry a held focus along with dispersing wreckage before coming to rest.
+    void driftFocus(const vsg::dvec3& deltaEcef) noexcept {
+        if (heldAltitude_) {
+            focus_ += deltaEcef;
+            lastTargetPos_ = focus_;
+        }
+    }
+    bool hasTarget() const noexcept { return hasTarget_; }
     const vsg::dvec3& focus() const noexcept { return focus_; }
 
     /// Per-frame update. `target` is the followed vehicle's latest state, or
@@ -175,7 +185,9 @@ private:
 
     // Heading smoothing for Chase so the view does not twitch with the aircraft.
     double smoothedHeading_ = 0.0;
+    double detachedHeading_ = 0.0;
     bool haveHeading_ = false;
+    bool foldedHeadingOnDetach_ = false;
 
     // Mouse state (window pixels; converted to normalised coordinates per event)
     bool leftDown_ = false, middleDown_ = false;

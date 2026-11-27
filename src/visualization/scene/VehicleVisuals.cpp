@@ -38,6 +38,93 @@ bool isExhaustNode(const vsg::Node& node) {
     return node.getValue("name", name) && VehicleVisuals::Joint::parse(name, joint) && joint.kind == VehicleVisuals::Joint::Afterburner;
 }
 
+/// Detect internal breakup-cap primitives ("break" material from hangar/model3d.py: baseColor ~ (0.04, 0.04, 0.05),
+/// metallic 0, roughness 0.9, and NO per-vertex TEXCOORD_0 vec2Array — unlike exterior "dark" recesses which carry UVs).
+bool isBreakCapStateGroup(const vsg::StateGroup& sg) {
+    bool darkUnlitCapMat = false;
+    std::string name;
+    if (sg.getValue("name", name) && name == "break") darkUnlitCapMat = true;
+    for (const auto& cmd : sg.stateCommands) {
+        auto bds = cmd.cast<vsg::BindDescriptorSet>();
+        if (!bds || !bds->descriptorSet) continue;
+        if (bds->descriptorSet->getValue("name", name) && name == "break") darkUnlitCapMat = true;
+        for (const auto& desc : bds->descriptorSet->descriptors) {
+            auto db = desc.cast<vsg::DescriptorBuffer>();
+            if (!db) continue;
+            for (const auto& bi : db->bufferInfoList) {
+                if (!bi || !bi->data) continue;
+                if (auto pbr = bi->data.cast<vsg::PbrMaterialValue>()) {
+                    const auto& v = pbr->value();
+                    if (v.baseColorFactor.r <= 0.06f && v.baseColorFactor.g <= 0.06f && v.baseColorFactor.b <= 0.07f &&
+                        v.metallicFactor <= 0.05f && v.roughnessFactor >= 0.85f) {
+                        darkUnlitCapMat = true;
+                    }
+                }
+            }
+        }
+    }
+    if (!darkUnlitCapMat) return false;
+    struct CheckNoUv : public vsg::ConstVisitor {
+        bool hasDraw = false;
+        bool hasVertexUv = false;
+        void apply(const vsg::Object& o) override { o.traverse(*this); }
+        void apply(const vsg::MatrixTransform&) override {} // never descend into mounted child joints
+        void checkArrays(const vsg::BufferInfoList& arrays) {
+            hasDraw = true;
+            if (arrays.size() >= 3 && arrays[2] && arrays[2]->data && arrays[2]->data.cast<vsg::vec2Array>())
+                hasVertexUv = true;
+        }
+        void apply(const vsg::VertexIndexDraw& d) override { checkArrays(d.arrays); }
+        void apply(const vsg::VertexDraw& d) override { checkArrays(d.arrays); }
+        void apply(const vsg::Geometry& g) override { checkArrays(g.arrays); }
+    } uvCheck;
+    sg.accept(uvCheck);
+    return uvCheck.hasDraw && !uvCheck.hasVertexUv;
+}
+
+/// Wrap internal break-cap StateGroups inside each fsim:section:* node ONCE at model load time with a
+/// MatrixTransform named "fsim:breakcap" so Rig::find / Rig::copy duplicates ONLY that joint per slot
+/// (keeping all geometry shared across instances while hiding caps on intact airframes and showing them
+/// on broken airframes and detached GLB debris sections).
+vsg::ref_ptr<vsg::Node> tagBreakCapsInNode(const vsg::ref_ptr<vsg::Node>& node) {
+    if (!node) return node;
+    if (node.cast<vsg::MatrixTransform>()) return node; // never cross into mounted child joints
+    if (auto sg = node.cast<vsg::StateGroup>()) {
+        if (isBreakCapStateGroup(*sg)) {
+            auto mt = vsg::MatrixTransform::create();
+            mt->setValue("name", std::string("fsim:breakcap"));
+            mt->addChild(node);
+            return mt;
+        }
+        return node;
+    }
+    if (auto cn = node.cast<vsg::CullNode>()) {
+        cn->child = tagBreakCapsInNode(cn->child);
+        return node;
+    }
+    if (auto cg = node.cast<vsg::CullGroup>()) {
+        for (auto& ch : cg->children) ch = tagBreakCapsInNode(ch);
+        return node;
+    }
+    if (auto grp = node.cast<vsg::Group>()) {
+        for (auto& ch : grp->children) ch = tagBreakCapsInNode(ch);
+        return node;
+    }
+    return node;
+}
+
+class TagSectionBreakCaps : public vsg::Visitor {
+public:
+    void apply(vsg::Object& o) override { o.traverse(*this); }
+    void apply(vsg::MatrixTransform& t) override {
+        std::string name;
+        if (t.getValue("name", name) && name.rfind("fsim:section:", 0) == 0) {
+            for (auto& ch : t.children) ch = tagBreakCapsInNode(ch);
+        }
+        t.traverse(*this);
+    }
+};
+
 /// The widest point of a node's children across its own x axis (their
 /// geometry in its frame): how big a jet an afterburner node's flame mesh is
 /// drawn for.
@@ -458,6 +545,11 @@ bool VehicleVisuals::Joint::parse(const std::string& name, Joint& joint) {
         joint.blurred = false;
         return true;
     }
+    // internal breakup section cross-section cap (tagged at load time; hidden on intact aircraft)
+    if (terms == "breakcap") {
+        joint.kind = BreakCap;
+        return true;
+    }
     // a breakup section of the airframe: fsim:section:<name>
     if (terms.rfind("section:", 0) == 0) {
         if (terms.size() <= 8) return false;
@@ -637,7 +729,7 @@ vsg::dmat4 VehicleVisuals::Joint::matrix(const sim::VehicleState& s) {
     }
     // (what is not shown shrinks to its origin, the matrix still invertible)
     if (kind == Station) return shown ? rest : rest * vsg::scale(1e-4, 1e-4, 1e-4);
-    if (kind == Section) return rest; // (whole)
+    if (kind == Section || kind == BreakCap) return rest; // (whole)
     if (kind == BayDoor) return rest * vsg::rotate(gearRad * std::clamp(opening, 0.0, 1.0), vsg::dvec3(1.0, 0.0, 0.0));
     if (kind == Rolleron || kind == RolleronDisc || kind == FreeRoll) {
         const double v = std::isfinite(s.airspeedTrueMs) ? std::max(s.airspeedTrueMs, 0.0) : 0.0;
@@ -1062,6 +1154,8 @@ const VehicleVisuals::Model& VehicleVisuals::modelFor(const std::string& key) {
         Model m;
         m.normal = loadModel(s, options_);
         if (m.normal) {
+            TagSectionBreakCaps tagCaps;
+            m.normal->accept(tagCaps);
             m.highlighted = m.normal;
             m.rig = Rig::find(m.normal);
             m.shape = measure(m.normal, m.rig, s);
@@ -1269,6 +1363,48 @@ const std::string& VehicleVisuals::modelOf(std::size_t index) const {
     return index < slotModel_.size() ? slotModel_[index] : none;
 }
 
+vsg::ref_ptr<vsg::Node> VehicleVisuals::modelNodeOf(std::size_t slot) const {
+    if (slot >= slotModels_.size() || !slotModels_[slot]) return {};
+    return slotModels_[slot]->normal;
+}
+
+std::vector<VehicleVisuals::SectionVisual> VehicleVisuals::sectionVisualsOf(std::size_t slot) const {
+    if (slot >= slotModels_.size() || !slotModels_[slot]) return {};
+    const Model& m = *slotModels_[slot];
+    if (!m.sectionsBuilt) {
+        m.sectionsBuilt = true;
+        for (const auto& j : m.rig.joints) {
+            if (j.kind != Joint::Section || !j.node) continue;
+            // Measure section geometry bounds in body frame (skipping exhaust flames and radar bay covers).
+            Extent ext;
+            auto group = vsg::Group::create();
+            for (const auto& ch : j.node->children) {
+                if (!ch) continue;
+                if (isExhaustNode(*ch)) continue;
+                std::string cname;
+                if (ch->getValue("name", cname) &&
+                    (cname.rfind("fsim:cover:", 0) == 0 || cname.rfind("fsim:gear:", 0) == 0 || cname.rfind("fsim:station:", 0) == 0))
+                    continue;
+                group->addChild(ch);
+            }
+            if (group->children.empty()) continue;
+            auto measureXf = vsg::MatrixTransform::create(j.inModel);
+            measureXf->addChild(group);
+            measureXf->accept(ext);
+            if (!ext.box.valid()) continue;
+            const vsg::dvec3 ctr = 0.5 * (ext.box.min + ext.box.max);
+            auto centered = vsg::MatrixTransform::create(vsg::translate(-ctr) * j.inModel);
+            centered->addChild(group);
+            SectionVisual sv;
+            sv.section = j.section;
+            sv.node = centered;
+            sv.centroidBodyM = ctr;
+            m.sections.push_back(std::move(sv));
+        }
+    }
+    return m.sections;
+}
+
 void VehicleVisuals::setWeaponControls(const ms::WeaponControlSnapshotV1& sample) {
     rememberWeaponControls(sample,sample.sampleTimeS);
 }
@@ -1330,11 +1466,16 @@ void VehicleVisuals::update(Span<const sim::VehicleState> states) {
         transforms_[i]->matrix = m;
         if (i < segTransforms_.size()) segTransforms_[i]->matrix = m;
         Pose& pose = poses_[i];
+        const bool showBreakCaps = !sectionsGone_[i].empty() || !sectionOnly_[i].empty();
         sampleWeaponControls(i,std::isfinite(finRenderClock_)?finRenderClock_:states[i].simTime);
         for (std::size_t j = 0; j < pose.transforms.size(); ++j) {
             const int flame = j < pose.flames.size() ? pose.flames[j] : -1;
             if (flame < 0 || !exhaustOn_) {
                 Joint& joint = pose.joints[j];
+                if (joint.kind == Joint::BreakCap) {
+                    pose.transforms[j]->matrix = showBreakCaps ? joint.rest : vsg::scale(0.0, 0.0, 0.0);
+                    continue;
+                }
                 if(joint.kind==Joint::Fin) {
                     joint.finAngleRad=std::numeric_limits<double>::quiet_NaN();
                     if(i<finAngles_.size()) {
@@ -1381,7 +1522,7 @@ void VehicleVisuals::update(Span<const sim::VehicleState> states) {
                     ry = rz = 0.5 * at->second.exitDiameterM;
                 }
             }
-            const bool shows = visible(i) && exhaust_->set(i, static_cast<std::size_t>(flame), ry, rz, states[i], joint.engine, kind);
+            const bool shows = visible(i) && !states[i].crashed && exhaust_->set(i, static_cast<std::size_t>(flame), ry, rz, states[i], joint.engine, kind);
             // where it runs from: its node at rest in the body, the body in the world
             if (shows) shownFlames_.push_back({static_cast<std::uint32_t>(i * Exhaust::kPerSlot + static_cast<std::size_t>(flame)), m * joint.inModel});
             // (left out of the vehicles' depth pass: gas, and as costly again drawn there)

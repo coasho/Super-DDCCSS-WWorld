@@ -419,7 +419,7 @@ bool FlowVolumes::buildOffscreen(vsg::ref_ptr<vsg::ImageInfo> sceneDepth, std::u
         return img;
     };
     auto halfColor = makeImage(VK_FORMAT_R16G16B16A16_SFLOAT);
-    auto halfFront = makeImage(VK_FORMAT_R32_SFLOAT);
+    auto halfFront = makeImage(VK_FORMAT_R32G32_SFLOAT);
     auto halfColorView = vsg::ImageView::create(halfColor, VK_IMAGE_ASPECT_COLOR_BIT);
     auto halfFrontView = vsg::ImageView::create(halfFront, VK_IMAGE_ASPECT_COLOR_BIT);
     auto nearest = vsg::Sampler::create();
@@ -502,13 +502,14 @@ bool FlowVolumes::buildOffscreen(vsg::ref_ptr<vsg::ImageInfo> sceneDepth, std::u
             {3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, fs, nullptr}});
         auto compLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{compSetLayout},
                                                       vsg::PushConstantRanges{{VK_SHADER_STAGE_VERTEX_BIT, 0, 128}});
+        halfFrontInfo_ = vsg::ImageInfo::create(nearest, halfFrontView, VK_IMAGE_LAYOUT_GENERAL);
         auto compSet = vsg::DescriptorSet::create(
             compSetLayout,
             vsg::Descriptors{vsg::DescriptorBuffer::create(compositeParams_, 0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER),
                              vsg::DescriptorImage::create(sceneDepth, 1, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER),
                              vsg::DescriptorImage::create(vsg::ImageInfo::create(nearest, halfColorView, VK_IMAGE_LAYOUT_GENERAL), 2, 0,
                                                           VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER),
-                             vsg::DescriptorImage::create(vsg::ImageInfo::create(nearest, halfFrontView, VK_IMAGE_LAYOUT_GENERAL), 3, 0,
+                             vsg::DescriptorImage::create(halfFrontInfo_, 3, 0,
                                                           VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)});
         auto raster = vsg::RasterizationState::create();
         raster->cullMode = VK_CULL_MODE_NONE;
@@ -629,7 +630,9 @@ void FlowVolumes::add(const ipc::EngagementEvent& event, const vsg::EllipsoidMod
     const vsg::dvec3 normal(event.normalEcef[0], event.normalEcef[1], event.normalEcef[2]);
     const bool groundStrike = fire && event.amountKg > 0.0 && vsg::length(normal) > 0.5;
     if (groundStrike)
-        at += vsg::normalize(normal) * std::cbrt(event.amountKg); // (the spill's cloud is M^(1/3) m round: world/FlowFires.h)
+        // Hug the terrain/sea surface so the lower expansion collides with groundPlane_ and rolls radially outward
+        // as a true hemispherical ground-hugging explosion rather than inflating in mid-air like a round ball!
+        at += vsg::normalize(normal) * (0.38 * std::cbrt(event.amountKg));
     origin(at, event.simTime, ellipsoid);
     const double altitude = ellipsoid.convertECEFToLatLongAltitude(at).z;
     const double pressure = flowfires::pressureAt(air_, altitude);
@@ -641,18 +644,20 @@ void FlowVolumes::add(const ipc::EngagementEvent& event, const vsg::EllipsoidMod
         groundPlane_.centerX = surf.x;
         groundPlane_.centerY = surf.y;
         groundPlane_.halfExtent = 250.0;
-        PoolFire pool;
-        pool.spilledKg = event.amountKg;
-        // SFPE JP-8 surface pool burning rate (~0.055 kg/(m^2*s) over slick area, capped at 4 kg/s).
-        const double poolR = ff::poolRadius(event.amountKg);
-        const double sfpeRate = 0.055 * 3.141592653589793 * poolR * poolR;
-        pool.rateKgS = std::clamp(event.rateKgS > 0.0 ? event.rateKgS : sfpeRate, 0.4, 4.0);
-        pool.since = event.simTime;
-        pool.pressurePa = pressure;
-        pool.at[0] = surf.x, pool.at[1] = surf.y, pool.at[2] = surf.z;
-        pool.luid = nextLuid_;
-        nextLuid_ += 2;
-        pools_.push_back(pool);
+        if (event.rateKgS > 0.0) {
+            PoolFire pool;
+            pool.spilledKg = event.amountKg;
+            // SFPE JP-8 surface pool burning rate (~0.055 kg/(m^2*s) over slick area, capped at 4 kg/s).
+            const double poolR = ff::poolRadius(event.amountKg);
+            const double sfpeRate = 0.055 * 3.141592653589793 * poolR * poolR;
+            pool.rateKgS = std::clamp(event.rateKgS, 0.4, std::max(4.0, sfpeRate));
+            pool.since = event.simTime;
+            pool.pressurePa = pressure;
+            pool.at[0] = surf.x, pool.at[1] = surf.y, pool.at[2] = surf.z;
+            pool.luid = nextLuid_;
+            nextLuid_ += 24;
+            pools_.push_back(pool);
+        }
     }
     if (fire) {
         // what leaks and burns on, from its component (written again as it changes; 0: it is out)
@@ -687,7 +692,7 @@ void FlowVolumes::add(const ipc::EngagementEvent& event, const vsg::EllipsoidMod
     }
     b.motion[0] = motion.x, b.motion[1] = motion.y, b.motion[2] = motion.z;
     b.luid = nextLuid_;
-    nextLuid_ += 2;
+    nextLuid_ += 24;
     bursts_.push_back(b);
     LOG_INFO("world") << "Flow: " << (fire ? "a fire's spill" : "a detonation") << " at t=" << event.simTime << " s, " << event.amountKg
                       << " kg" << (fire ? "" : " TNT") << " at " << altitude << " m";
@@ -695,14 +700,60 @@ void FlowVolumes::add(const ipc::EngagementEvent& event, const vsg::EllipsoidMod
 
 void FlowVolumes::update(double now, Span<const sim::VehicleState> states, const std::vector<unsigned char>& alive, const VehicleVisuals& visuals,
                          const vsg::dmat4& projection, const vsg::dvec3& eye, const vsg::EllipsoidModel& ellipsoid, const vsg::dvec3& sunEcef,
-                         const vsg::dmat4* view) {
+                         const vsg::dmat4* view, const ipc::DebrisFrameV1* debris) {
     if (!available() || !visible_) return;
     const auto t0 = std::chrono::steady_clock::now();
     // (a replay's seek back: start over)
     if (lastTime_ >= 0.0 && now < lastTime_ - 0.25) clear();
     lastTime_ = now;
 
-    // the leaks that burn now: each its component on its aircraft
+    // Collect top burning structural debris chunks (mid-air ruptured fuselage/wings) so real NVIDIA Flow
+    // volumetric flames and pitch-black hydrocarbon smoke stream directly out of the breaking aircraft!
+    struct DebrisBurner {
+        vsg::dvec3 posEcef;
+        vsg::dvec3 velEcef;
+        double rateKgS = 0.0;
+        double altitudeM = 0.0;
+        std::uint64_t luid = 0;
+    };
+    std::vector<DebrisBurner> debrisBurners;
+    // Dedicate Flow's voxel budget to airborne mid-air catastrophic chunks when no ground crater pool fire is active;
+    // on steep ground crashes, Flow focuses on the giant central hemispherical mushroom fireball & crater pool fire
+    // while DebrisVisuals draws crisp pitch-black soot arcs behind flying wreckage chunks.
+    if (debris && !debris->bodies.empty() && pools_.empty()) {
+        struct Cand {
+            const ipc::DebrisBodyWireV1* b;
+            float sizeScore;
+        };
+        std::vector<Cand> cands;
+        for (const auto& b : debris->bodies) {
+            if ((b.flags & ipc::kDebrisFlagBurning) == 0u || (b.flags & ipc::kDebrisFlagWater) != 0u) continue;
+            if (b.archetype != static_cast<std::uint8_t>(ipc::DebrisArchetypeV1::AirframeHull) &&
+                b.archetype != static_cast<std::uint8_t>(ipc::DebrisArchetypeV1::WingFragment))
+                continue;
+            const float score = b.halfExtentsM[0] * b.halfExtentsM[1] +
+                                (ipc::debrisPartTagV1(b.flags) == ipc::DebrisPartTagV1::SectionCentre ? 20.0f : 0.0f);
+            cands.push_back({&b, score});
+        }
+        std::sort(cands.begin(), cands.end(), [](const Cand& a, const Cand& b) { return a.sizeScore > b.sizeScore; });
+        const std::size_t keep = std::min<std::size_t>(cands.size(), 2u);
+        for (std::size_t i = 0; i < keep; ++i) {
+            const auto& b = *cands[i].b;
+            const vsg::dvec3 p(b.positionEcef[0], b.positionEcef[1], b.positionEcef[2]);
+            const vsg::dvec3 v(b.velocityEcef[0], b.velocityEcef[1], b.velocityEcef[2]);
+            // Rapidly taper airborne burning debris Flow injection over 1.5 s so mid-air kills form a realistic
+            // explosive fireball cooling into pitch-black soot rather than a 100 m continuous fiery torch!
+            const double decay = std::clamp(1.0 - static_cast<double>(b.ageS) / 1.5, 0.0, 1.0);
+            const bool isCentre = ipc::debrisPartTagV1(b.flags) == ipc::DebrisPartTagV1::SectionCentre;
+            const double rate = (isCentre ? 3.2 : 1.4) * decay * decay;
+            if (rate < 0.12) continue;
+            const double alt = ellipsoid.convertECEFToLatLongAltitude(p).z;
+            debrisBurners.push_back({p, v, rate, alt, (1ull << 24) + static_cast<std::uint64_t>(b.id)});
+        }
+    }
+
+    // the leaks that burn now: each its component on its aircraft (skip hulls retired into debris so no ghost
+    // flame floats at the invisible camera centroid — ground craters burn via pools_ and chunks via debrisBurners!)
     struct Burning {
         const Leak* leak;
         const sim::VehicleState* state;
@@ -711,6 +762,16 @@ void FlowVolumes::update(double now, Span<const sim::VehicleState> states, const
     std::vector<Burning> burning;
     for (const Leak& l : leaks_) {
         if (!(l.rateKgS > 0.0) || now < l.since || l.slot >= states.size() || l.slot >= alive.size() || !alive[l.slot]) continue;
+        bool slotRetired = false;
+        if (debris) {
+            for (const auto& dv : debris->vehicles) {
+                if (dv.slot == l.slot && dv.hullRetired != 0u) {
+                    slotRetired = true;
+                    break;
+                }
+            }
+        }
+        if (slotRetired) continue;
         const VehicleVisuals::Shape& shape = visuals.shape(l.slot);
         if (!shape.valid) continue;
         for (const auto& c : shape.components)
@@ -721,11 +782,13 @@ void FlowVolumes::update(double now, Span<const sim::VehicleState> states, const
     }
     // (a leak burning on after the solver was left to rest: its frame made again, where the aircraft is now)
     if (!haveOrigin_ && !burning.empty()) origin(positionEcef(*burning.front().state), now, ellipsoid);
+    if (!haveOrigin_ && !debrisBurners.empty()) origin(debrisBurners.front().posEcef, now, ellipsoid);
 
     if (haveOrigin_ || cleared_) {
         // the leaks' holes now, and how they move (through the air)
         struct Hole {
-            const Leak* leak;
+            double rateKgS = 0.0;
+            std::uint64_t luid = 0;
             vsg::dvec3 at, velocity;
             double pressure;
         };
@@ -737,13 +800,14 @@ void FlowVolumes::update(double now, Span<const sim::VehicleState> states, const
             double pressure, airK;
         };
         std::vector<Wake> wakes;
-        if (haveOrigin_)
+        if (haveOrigin_) {
             for (const Burning& fire : burning) {
                 const Leak& l = *fire.leak;
                 const sim::VehicleState& st = *fire.state;
                 const vsg::dvec3 v = bodyAxisEcef(st, 0) * st.velocityBodyMs[0] + bodyAxisEcef(st, 1) * st.velocityBodyMs[1] +
                                      bodyAxisEcef(st, 2) * st.velocityBodyMs[2];
-                holes.push_back(Hole{&l, toAir(bodyToEcef(st) * fire.at, now), velocityToAir(v), flowfires::pressureAt(air_, st.altitudeMslM)});
+                holes.push_back(Hole{l.rateKgS, l.luid, toAir(bodyToEcef(st) * fire.at, now), velocityToAir(v),
+                                     flowfires::pressureAt(air_, st.altitudeMslM)});
                 bool laid = false;
                 for (const Wake& w : wakes) laid = laid || w.slot == l.slot;
                 if (!laid && l.slot < aircraft_.size() && aircraft_[l.slot].x > 0.0) {
@@ -753,14 +817,27 @@ void FlowVolumes::update(double now, Span<const sim::VehicleState> states, const
                                          std::max(216.65, air_.seaLevelK - 0.0065 * st.altitudeMslM)});
                 }
             }
+            for (const DebrisBurner& db : debrisBurners) {
+                holes.push_back(Hole{db.rateKgS, db.luid, toAir(db.posEcef, now), velocityToAir(db.velEcef),
+                                     flowfires::pressureAt(air_, db.altitudeM)});
+            }
+        }
         // The solver's steps that have fallen due, each given with its sources where they are at its time (the
         // calibration's way: one call a step, world/FlowFires.h). The steps stand on a grid of the world's time, so a
         // replay's fire is stepped at the same times every run. After a slow frame (a screenshot saved, a hitch) the
         // steps missed are given together, a second of them at most (a longer gap - a seek forward - is not caught up).
         const double step = 1.0 / settings_.stepsPerSecond;
         const auto due = static_cast<std::int64_t>(std::floor(now / step + 1e-9));
-        if (stepIndex_ < 0) stepIndex_ = due - 1;
-        stepIndex_ = std::max(stepIndex_, due - static_cast<std::int64_t>(settings_.stepsPerSecond));
+        if (stepIndex_ < 0) {
+            // Start at the earliest active burst/pool onset time rather than jumping past its initial fuel release window
+            // (kSpillReleaseS = 0.10 s) when waking from idle on a seek, frame hitch, or replay screenshot step!
+            double startAt = now;
+            for (const Burst& b : bursts_) startAt = std::min(startAt, b.time);
+            for (const PoolFire& p : pools_) startAt = std::min(startAt, p.since);
+            const auto firstIdx = static_cast<std::int64_t>(std::floor(startAt / step + 1e-9)) - 1;
+            stepIndex_ = std::min(due - 1, firstIdx);
+        }
+        stepIndex_ = std::max(stepIndex_, due - static_cast<std::int64_t>(settings_.stepsPerSecond * 2.0));
         const vsg::dvec3 eyeLocal = haveOrigin_ ? toAir(eye, now) : vsg::dvec3(0.0, 0.0, 0.0);
         std::vector<Job> given;
         while (stepIndex_ < due) {
@@ -784,13 +861,13 @@ void FlowVolumes::update(double now, Span<const sim::VehicleState> states, const
             for (const Hole& h : holes) {
                 const vsg::dvec3 a = h.at - h.velocity * (now - t);
                 const double at[3] = {a.x, a.y, a.z}, velocity[3] = {h.velocity.x, h.velocity.y, h.velocity.z};
-                ff::leak(h.leak->rateKgS, at, velocity, h.pressure, step, h.leak->luid, sources_);
+                ff::leak(h.rateKgS, at, velocity, h.pressure, step, h.luid, sources_);
             }
             const vsg::dvec3 wind = windLocal();
             pools_.erase(std::remove_if(pools_.begin(), pools_.end(),
                                         [&](const PoolFire& pool) {
                                             const double age = t - pool.since;
-                                            const double onset = 0.55 * ff::ccpsDuration(pool.spilledKg);
+                                            const double onset = std::min(0.42 * ff::ccpsDuration(pool.spilledKg), 1.35);
                                             const double life = std::clamp(onset + 14.0 + 0.006 * pool.spilledKg, 14.0, 26.0);
                                             if (age < onset) return false;
                                             if (age > life) return true;
@@ -961,12 +1038,17 @@ void FlowVolumes::update(double now, Span<const sim::VehicleState> states, const
             localToEcef(3, 0) = localOrigin.x; localToEcef(3, 1) = localOrigin.y; localToEcef(3, 2) = localOrigin.z; localToEcef(3, 3) = 1.0;
             const vsg::dmat4 toClip = projection * (*view) * localToEcef;
             double sLeft = 1e30, sRight = -1e30, sBottom = 1e30, sTop = -1e30;
+            double bMinX = 1e30, bMaxX = -1e30, bMinY = 1e30, bMaxY = -1e30, bMinZ = 1e30, bMaxZ = -1e30;
             bool behind = false;
-            for (std::uint32_t k = 0; k < order.size() && !behind; ++k) {
+            for (std::uint32_t k = 0; k < order.size(); ++k) {
                 const Page& p = *order[k].second;
                 const double x0 = f.zero[0] + p.lo[0] * leafM, x1 = f.zero[0] + (p.hi[0] + 1) * leafM;
                 const double y0 = f.zero[1] + p.lo[1] * leafM, y1 = f.zero[1] + (p.hi[1] + 1) * leafM;
                 const double z0 = f.zero[2] + p.lo[2] * leafM, z1 = f.zero[2] + (p.hi[2] + 1) * leafM;
+                bMinX = std::min(bMinX, x0); bMaxX = std::max(bMaxX, x1);
+                bMinY = std::min(bMinY, y0); bMaxY = std::max(bMaxY, y1);
+                bMinZ = std::min(bMinZ, z0); bMaxZ = std::max(bMaxZ, z1);
+                if (behind) continue;
                 for (int c = 0; c < 8; ++c) {
                     const vsg::dvec4 q = toClip * vsg::dvec4((c & 1) ? x1 : x0, (c & 2) ? y1 : y0, (c & 4) ? z1 : z0, 1.0);
                     if (q.w <= 0.0) {
@@ -1028,10 +1110,20 @@ void FlowVolumes::update(double now, Span<const sim::VehicleState> states, const
                 compositeSwitch_->setAllChildren(true);
                 active_ = true;
                 warmupPending_ = false;
+                if (bMaxX > bMinX) {
+                    const vsg::dvec4 ctrEcef = localToEcef * vsg::dvec4(0.5 * (bMinX + bMaxX), 0.5 * (bMinY + bMaxY), 0.5 * (bMinZ + bMaxZ), 1.0);
+                    activeCenterEcef_ = vsg::dvec3(ctrEcef.x, ctrEcef.y, ctrEcef.z);
+                    activeLaid_ = vsg::vec4(lx0, ly0, lx1, ly1);
+                    activeScale_ = static_cast<float>(marchScale);
+                    hasActiveCenter_ = true;
+                } else {
+                    hasActiveCenter_ = false;
+                }
             } else {
                 marchSwitch_->setAllChildren(false);
                 compositeSwitch_->setAllChildren(false);
                 active_ = false;
+                hasActiveCenter_ = false;
             }
         }
     }
@@ -1069,6 +1161,7 @@ void FlowVolumes::update(double now, Span<const sim::VehicleState> states, const
             if (marchSwitch_) marchSwitch_->setAllChildren(false);
             if (compositeSwitch_) compositeSwitch_->setAllChildren(false);
             active_ = false;
+            hasActiveCenter_ = false;
         }
     }
     // Nothing burning and nothing left of what did (its smoke thinned away, the solver's blocks freed): the solver is

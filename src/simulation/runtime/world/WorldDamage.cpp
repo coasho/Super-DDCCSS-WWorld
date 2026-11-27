@@ -1263,6 +1263,7 @@ std::vector<ipc::EngagementEvent> World::detonateAt(const Detonation& d, const C
                                     << ", the blast's and the fragments' kick " << e->damage->sections()[k].kick << " of it";
     }
     for (const auto& ev : out) engage(ev);
+    retireDestroyedVehicles();
     return out;
 }
 
@@ -1619,6 +1620,7 @@ void World::stepDamage() {
         }
     }
     stepWreckSlidesAndFuel(dt);
+    retireDestroyedVehicles();
 }
 
 bool World::ensureDamage(Entry& e) {
@@ -1718,6 +1720,11 @@ void World::separatedAt(Entry& e, int section, const sim::VehicleState* as, cons
 
     SectionBreakupSpawn debrisSpawn;
     debrisSpawn.ownerVehicleId = e.info.id;
+    if (sec.name == "nose") debrisSpawn.partTag = ipc::DebrisPartTagV1::SectionNose;
+    else if (sec.name == "centre") debrisSpawn.partTag = ipc::DebrisPartTagV1::SectionCentre;
+    else if (sec.name == "left wing") debrisSpawn.partTag = ipc::DebrisPartTagV1::SectionLeftWing;
+    else if (sec.name == "right wing") debrisSpawn.partTag = ipc::DebrisPartTagV1::SectionRightWing;
+    else if (sec.name == "tail") debrisSpawn.partTag = ipc::DebrisPartTagV1::SectionTail;
     debrisSpawn.rootPositionEcef[0] = rootPosEcef.x; debrisSpawn.rootPositionEcef[1] = rootPosEcef.y; debrisSpawn.rootPositionEcef[2] = rootPosEcef.z;
     debrisSpawn.sectionPositionEcef[0] = secPosEcef.x; debrisSpawn.sectionPositionEcef[1] = secPosEcef.y; debrisSpawn.sectionPositionEcef[2] = secPosEcef.z;
     debrisSpawn.sectionVelocityEcef[0] = secVelEcef.x; debrisSpawn.sectionVelocityEcef[1] = secVelEcef.y; debrisSpawn.sectionVelocityEcef[2] = secVelEcef.z;
@@ -2043,7 +2050,27 @@ void World::impacted(Entry& e, const sim::VehicleState& fallback, const sim::Veh
                     rem -= take;
                 }
             }
-            // B-54 post-impact belly slide along terrain/water surface.
+            // High-energy shallow ground crash: shear off one wing cleanly if no other airframe section already separated!
+            if (e.destruction.groundSliding && o.surface != dmg::SurfaceKind::Water && o.speedMs > 85.0 && ensureDamage(e)) {
+                bool anySeparated = false;
+                for (const auto& s : e.damage->sections())
+                    if (s.separated) { anySeparated = true; break; }
+                const int lwIdx = anySeparated ? -1 : e.damage->airframe().section("left wing");
+                if (lwIdx >= 0 && static_cast<std::size_t>(lwIdx) < e.damage->sections().size() &&
+                    !e.damage->sections()[static_cast<std::size_t>(lwIdx)].separated) {
+                    if (e.damage->separate(lwIdx)) {
+                        sim::VehicleState wingSrc = after;
+                        const double* R = wingSrc.rotationBodyToEcef;
+                        for (int k = 0; k < 3; ++k)
+                            wingSrc.velocityBodyMs[k] = R[k] * o.after.x + R[3 + k] * o.after.y + R[6 + k] * o.after.z;
+                        wingSrc.airspeedTrueMs = dmg::length(o.after);
+                        separated(e, lwIdx, &wingSrc);
+                        if (static_cast<std::size_t>(lwIdx) < e.destruction.sectionDamage.size())
+                            e.destruction.sectionDamage[static_cast<std::size_t>(lwIdx)] = 1.0;
+                    }
+                }
+            }
+            // B-54 post-impact belly slide along terrain driven by real JoltPhysics 5.3 6-DOF rigid body!
             if (e.destruction.groundSliding) {
                 const dmg::V3 tangVel = o.after - normal * dmg::dot(o.after, normal);
                 e.slidePoseActive = true;
@@ -2052,6 +2079,28 @@ void World::impacted(Entry& e, const sim::VehicleState& fallback, const sim::Veh
                     e.slidePositionEcef[k] = after.positionEcef[k];
                     e.slideVelocityEcef[k] = (&tangVel.x)[k];
                     e.slideNormalEcef[k] = (&normal.x)[k];
+                }
+                GroundWreckSpawn gws;
+                gws.ownerVehicleId = e.info.id;
+                std::copy_n(after.positionEcef, 3, gws.positionEcef);
+                gws.velocityEcef[0] = tangVel.x; gws.velocityEcef[1] = tangVel.y; gws.velocityEcef[2] = tangVel.z;
+                std::copy_n(after.rotationBodyToEcef, 9, gws.rotationBodyToEcef);
+                gws.halfExtentsM[0] = 5.4;
+                gws.halfExtentsM[1] = 1.35;
+                gws.halfExtentsM[2] = 1.48; // keeps ventral intake/belly cleanly ON TOP OF terrain heightfield!
+                gws.massKg = std::max(strike.massKg, 2000.0);
+                gws.bankKickDeg = 19.0;
+                gws.surface = o.surface;
+                e.slideWreckBodyId = debrisField_.spawnGroundWreck(gws, ground_.get(), debrisRng_);
+                if (e.slideWreckBodyId != 0) {
+                    double wp[3], wv[3], wr[9], we[3];
+                    if (debrisField_.queryGroundWreck(e.slideWreckBodyId, wp, wv, wr, we)) {
+                        std::copy_n(wp, 3, e.slidePositionEcef);
+                        std::copy_n(wp, 3, e.slideState.positionEcef);
+                        std::copy_n(wv, 3, e.slideVelocityEcef);
+                        std::copy_n(wr, 9, e.slideState.rotationBodyToEcef);
+                        std::copy_n(we, 3, e.slideState.eulerRad);
+                    }
                 }
                 e.slideState.velocityNedMs[0] = dmg::dot(tangVel, north);
                 e.slideState.velocityNedMs[1] = dmg::dot(tangVel, east);
@@ -2071,17 +2120,32 @@ void World::impacted(Entry& e, const sim::VehicleState& fallback, const sim::Veh
                 cloud.incomingVelocityEcef[k] = (&strike.velocity.x)[k];
                 cloud.normalEcef[k] = (&normal.x)[k];
             }
+            std::copy_n(after.rotationBodyToEcef, 9, cloud.rotationBodyToEcef);
             cloud.massKg = strike.massKg;
             cloud.fireballKg = o.fireballKg;
             cloud.poolKg = o.poolKg;
             cloud.surface = o.surface;
             cloud.hullDisintegrated = e.destruction.hullRetired;
+            if (e.damage) {
+                const auto& secs = e.damage->airframe().sections;
+                const auto& stSecs = e.damage->sections();
+                for (std::size_t si = 0; si < secs.size() && si < stSecs.size(); ++si) {
+                    if (!stSecs[si].separated) continue;
+                    if (secs[si].name == "nose") cloud.alreadySeparatedMask |= (1u << 0);
+                    else if (secs[si].name == "centre") cloud.alreadySeparatedMask |= (1u << 1);
+                    else if (secs[si].name == "left wing") cloud.alreadySeparatedMask |= (1u << 2);
+                    else if (secs[si].name == "right wing") cloud.alreadySeparatedMask |= (1u << 3);
+                    else if (secs[si].name == "tail") cloud.alreadySeparatedMask |= (1u << 4);
+                }
+            }
             debrisField_.spawnImpactCloud(cloud, debrisRng_);
         }
     }
 
     // its fuel's fire: the mist's fireball, moving as what left the strike does, and what burns on where it lies - from
     // a tank of its own where its damage data names one (the viewer hangs the flame there)
+    const bool waterShattered = (destructionMode_ == DestructionModeV1::LightweightDebris && o.surface == dmg::SurfaceKind::Water &&
+                                 e.destruction.hullRetired);
     if (o.fireballKg > 0.0 || ev.rateKgS > 0.0) {
         std::string component = "fuel";
         if (e.damage) {
@@ -2105,17 +2169,22 @@ void World::impacted(Entry& e, const sim::VehicleState& fallback, const sim::Veh
             }
         }
         ipc::EngagementEvent fire = engagementEvent(e, ipc::EngagementKind::Fire, component);
+        const bool steepLandDisintegrated = (destructionMode_ == DestructionModeV1::LightweightDebris &&
+                                             o.surface != dmg::SurfaceKind::Water && e.destruction.hullRetired);
         for (int k = 0; k < 3; ++k) {
-            fire.velocityEcef[k] = (&o.after.x)[k];
+            fire.velocityEcef[k] = waterShattered ? ((&o.after.x)[k] * 0.18)
+                                                  : (steepLandDisintegrated ? ((&o.after.x)[k] * 0.40) : (&o.after.x)[k]);
             fire.normalEcef[k] = (&normal.x)[k]; // (on the ground: the viewer's fireball a hemisphere, rolling on along it)
         }
-        fire.amountKg = o.fireballKg;
-        fire.rateKgS = ev.rateKgS;
-        fire.massKg = ev.rateKgS; // (all of it burns: nothing blows off a wreck as mist)
+        // High-speed ocean crash produces a brief, water-quenched localized fuel flash (~5.5 kg -> ~10 m) & dark oil smoke
+        // rising inside the towering white water spire — unmistakably much calmer than a 900+ kg terrestrial crash fireball!
+        fire.amountKg = waterShattered ? std::min(o.fireballKg * 0.015, 5.5) : o.fireballKg;
+        fire.rateKgS = waterShattered ? 0.0 : ev.rateKgS;
+        fire.massKg = fire.rateKgS;
         engage(fire);
-        if (ev.rateKgS > 0.0) {
+        if (fire.rateKgS > 0.0) {
             e.wreckFireName = component;
-            e.wreckFireUntilS = simTime_ + o.poolKg / ev.rateKgS;
+            e.wreckFireUntilS = simTime_ + o.poolKg / fire.rateKgS;
         }
     }
 }
@@ -2145,8 +2214,9 @@ const ms::damage::VehicleDamage* World::damage(std::uint32_t id) const noexcept 
 }
 
 const ms::damage::VehicleDestructionState* World::destructionState(std::uint32_t id) const noexcept {
-    const Entry* e = entry(id);
-    return e ? &e->destruction : nullptr;
+    if (const Entry* e = entry(id)) return &e->destruction;
+    const auto it = retiredDestruction_.find(id);
+    return it != retiredDestruction_.end() ? &it->second.state : nullptr;
 }
 
 ms::damage::SurfaceKind World::detectImpactSurface(const sim::VehicleState& state) const noexcept {
@@ -2183,7 +2253,24 @@ ipc::DebrisFrameV1 World::collectDebrisFrame() const {
         }
         frame.vehicles.push_back(ms::damage::toWire(e->destruction, static_cast<std::uint32_t>(s), e->info.id, e->info.generation, liveFuel));
     }
+    for (const auto& [id, rec] : retiredDestruction_) {
+        frame.vehicles.push_back(ms::damage::toWire(rec.state, rec.slot, id, rec.generation, 0.0));
+    }
     return frame;
+}
+
+void World::retireDestroyedVehicles() {
+    if (destructionMode_ != DestructionModeV1::LightweightDebris) return;
+    std::vector<std::uint32_t> doomed;
+    for (const auto& up : entries_) {
+        if (up && up->info.alive && up->destruction.hullRetired) doomed.push_back(up->info.id);
+    }
+    for (const std::uint32_t id : doomed) {
+        if (const Entry* e = entry(id)) {
+            retiredDestruction_[id] = RetiredDestructionRecord{static_cast<std::uint32_t>(e->slot), e->info.generation, e->destruction};
+        }
+        removeVehicle(id);
+    }
 }
 
 void World::evaluateEntryDestruction(Entry& e, const ms::damage::Impact* impact, double pressurePa, int newlySeparated,
@@ -2338,18 +2425,27 @@ void World::evaluateEntryDestruction(Entry& e, const ms::damage::Impact* impact,
     spawn.remainingFuelKg = totalFuelKg;
     spawn.explosionTntKg = std::max(outcome.explosionTntKg, 3.0);
     spawn.radiusM = 5.0;
+    if (e.damage) {
+        double cgBody[3] = {0.0, 0.0, 0.0};
+        model.cgFromOriginBodyM(cgBody);
+        static constexpr const char* kNames[5] = {"nose", "centre", "left wing", "right wing", "tail"};
+        bool any = false;
+        for (int si = 0; si < 5; ++si) {
+            const int idx = e.damage->airframe().section(kNames[si]);
+            if (idx >= 0 && static_cast<std::size_t>(idx) < e.damage->airframe().sections.size()) {
+                const auto& sec = e.damage->airframe().sections[static_cast<std::size_t>(idx)];
+                spawn.sectionOffsetsBodyM[si][0] = sec.cg.x - cgBody[0];
+                spawn.sectionOffsetsBodyM[si][1] = sec.cg.y - cgBody[1];
+                spawn.sectionOffsetsBodyM[si][2] = sec.cg.z - cgBody[2];
+                any = true;
+            }
+        }
+        spawn.hasSectionOffsets = any;
+    }
     debrisField_.spawnCatastrophicKill(spawn, debrisRng_);
 
-    // Track the live debris cloud centroid as the retired vehicle's ballistic pose so viewer cameras stay on the wreckage.
-    e.slidePoseActive = true;
-    e.slideState = st;
-    e.slideState.fuelKg = 0.0;
-    for (int k = 0; k < 3; ++k) {
-        e.slidePositionEcef[k] = st.positionEcef[k];
-        e.slideVelocityEcef[k] = (&velEcef.x)[k];
-    }
-
     // Drain remaining fuel tanks, seize engines, mark crew lost, and record native kill event.
+    // The destroyed simulation instance is then retired cleanly via retireDestroyedVehicles() once all events publish.
     for (auto& tankProp : e.damageReads.tanks)
         if (tankProp.valid()) tankProp.set(0.0);
     for (int eng = 0; eng < std::max(st.engineCount, 1); ++eng) model.seizeEngine(eng);
@@ -2398,91 +2494,53 @@ void World::stepWreckSlidesAndFuel(double dt) {
                 }
             }
         }
-        // 2. Mid-air catastrophic debris-cloud centroid tracking (keeps retired hull's camera pose on live wreckage).
-        if (e->slidePoseActive && dst.tier == ms::damage::DestructionTier::CatastrophicKill && dst.hullRetired) {
-            ms::damage::V3 posSum{}, momSum{};
-            double massSum = 0.0;
-            for (const auto& b : debrisField_.slots()) {
-                if (!b.alive || b.ownerVehicleId != e->info.id || b.archetype == ipc::DebrisArchetypeV1::SparkEmber) continue;
-                posSum += v3(b.positionEcef) * b.massKg;
-                momSum += v3(b.velocityEcef) * b.massKg;
-                massSum += b.massKg;
-            }
-            if (massSum > 1.0) {
-                const ms::damage::V3 cPos = posSum * (1.0 / massSum);
-                const ms::damage::V3 cVel = momSum * (1.0 / massSum);
+        // 2. B-54 JoltPhysics 6-DOF ground-wreck belly-slide deceleration along real terrain heightfield
+        // (hullRetired vehicles are removed cleanly by retireDestroyedVehicles(); only intact sliding wrecks remain here).
+        if (!e->slidePoseActive || !dst.groundSliding) continue;
+        ms::damage::V3 pos = v3(e->slidePositionEcef);
+        ms::damage::V3 vel = v3(e->slideVelocityEcef);
+        const ms::damage::V3 normal = ms::damage::normalized(v3(e->slideNormalEcef));
+        double nextSpeed = 0.0;
+        if (e->slideWreckBodyId != 0) {
+            double wp[3], wv[3], wr[9], we[3];
+            if (debrisField_.queryGroundWreck(e->slideWreckBodyId, wp, wv, wr, we)) {
+                pos = v3(wp);
+                vel = v3(wv);
+                nextSpeed = ms::damage::length(vel);
                 double lat = 0.0, lon = 0.0, h = 0.0;
-                ms::damage::geodetic(cPos, lat, lon, h);
+                ms::damage::geodetic(pos, lat, lon, h);
                 const double groundH = ground_ ? ground_->heightAboveEllipsoidM(lat, lon) : 0.0;
                 const double sl = std::sin(lat), cl = std::cos(lat), so = std::sin(lon), co = std::cos(lon);
                 const ms::damage::V3 up{cl * co, cl * so, sl};
                 const ms::damage::V3 north{-sl * co, -sl * so, cl}, east{-so, co, 0.0}, down = up * (-1.0);
+                // Hard safety clamp against sub-terrain clipping regardless of terrain mesh coarseness.
+                constexpr double kMinBellyCgM = 1.55;
+                if (h < groundH + kMinBellyCgM) {
+                    pos += up * (groundH + kMinBellyCgM - h);
+                    h = groundH + kMinBellyCgM;
+                }
+                std::copy_n(wr, 9, e->slideState.rotationBodyToEcef);
+                std::copy_n(we, 3, e->slideState.eulerRad);
                 for (int k = 0; k < 3; ++k) {
-                    e->slidePositionEcef[k] = (&cPos.x)[k];
-                    e->slideVelocityEcef[k] = (&cVel.x)[k];
-                    e->slideState.positionEcef[k] = (&cPos.x)[k];
+                    e->slidePositionEcef[k] = (&pos.x)[k];
+                    e->slideVelocityEcef[k] = (&vel.x)[k];
+                    e->slideState.positionEcef[k] = (&pos.x)[k];
                 }
                 e->slideState.latitudeRad = lat;
                 e->slideState.longitudeRad = lon;
                 e->slideState.altitudeMslM = h;
                 e->slideState.altitudeAglM = std::max(0.0, h - groundH);
-                e->slideState.velocityNedMs[0] = ms::damage::dot(cVel, north);
-                e->slideState.velocityNedMs[1] = ms::damage::dot(cVel, east);
-                e->slideState.velocityNedMs[2] = ms::damage::dot(cVel, down);
-                e->slideState.airspeedTrueMs = ms::damage::length(cVel);
-                e->slideState.fuelKg = 0.0;
+                e->slideState.velocityNedMs[0] = ms::damage::dot(vel, north);
+                e->slideState.velocityNedMs[1] = ms::damage::dot(vel, east);
+                e->slideState.velocityNedMs[2] = ms::damage::dot(vel, down);
+                e->slideState.airspeedTrueMs = nextSpeed;
                 e->slideState.simTime = simTime_;
+                dst.slideSpeedMs = nextSpeed;
             }
-            continue;
         }
-        // 3. B-54 Coulomb belly-slide deceleration along surface (with physical belly CG clearance above ground/water).
-        if (!e->slidePoseActive || !dst.groundSliding) continue;
-        ms::damage::V3 pos = v3(e->slidePositionEcef);
-        ms::damage::V3 vel = v3(e->slideVelocityEcef);
-        const ms::damage::V3 normal = ms::damage::normalized(v3(e->slideNormalEcef));
-        const double speed = ms::damage::length(vel);
-        const double mu = dst.surface == ms::damage::SurfaceKind::Water
-                              ? ms::damage::kWaterFriction
-                              : (dst.surface == ms::damage::SurfaceKind::Rock ? ms::damage::kRockFriction : ms::damage::kGroundFriction);
-        const double bellyClearM = (dst.surface == ms::damage::SurfaceKind::Water) ? 0.55 : 1.15;
-        if (speed > 0.5) {
-            const double nextSpeed = std::max(0.0, speed - mu * kG * dt);
-            vel = vel * (nextSpeed / speed);
-            pos += vel * dt;
-            double lat = 0.0, lon = 0.0, h = 0.0;
-            ms::damage::geodetic(pos, lat, lon, h);
-            const double groundH = ground_ ? ground_->heightAboveEllipsoidM(lat, lon) : 0.0;
-            const double sl = std::sin(lat), cl = std::cos(lat), so = std::sin(lon), co = std::cos(lon);
-            const ms::damage::V3 up{cl * co, cl * so, sl};
-            const ms::damage::V3 north{-sl * co, -sl * so, cl}, east{-so, co, 0.0}, down = up * (-1.0);
-            pos += up * (groundH + bellyClearM - h);
-            // Align sliding fuselage level with surface along its skid heading (body +X forward, +Y right, +Z down).
-            const ms::damage::V3 fwd = ms::damage::normalized(vel - up * ms::damage::dot(vel, up));
-            if (ms::damage::length(fwd) > 0.5) {
-                const ms::damage::V3 right = ms::damage::normalized(ms::damage::cross(down, fwd));
-                e->slideState.rotationBodyToEcef[0] = fwd.x;   e->slideState.rotationBodyToEcef[1] = right.x; e->slideState.rotationBodyToEcef[2] = down.x;
-                e->slideState.rotationBodyToEcef[3] = fwd.y;   e->slideState.rotationBodyToEcef[4] = right.y; e->slideState.rotationBodyToEcef[5] = down.y;
-                e->slideState.rotationBodyToEcef[6] = fwd.z;   e->slideState.rotationBodyToEcef[7] = right.z; e->slideState.rotationBodyToEcef[8] = down.z;
-                e->slideState.eulerRad[0] = 0.0;
-                e->slideState.eulerRad[1] = 0.0;
-            }
-            for (int k = 0; k < 3; ++k) {
-                e->slidePositionEcef[k] = (&pos.x)[k];
-                e->slideVelocityEcef[k] = (&vel.x)[k];
-                e->slideState.positionEcef[k] = (&pos.x)[k];
-            }
-            e->slideState.latitudeRad = lat;
-            e->slideState.longitudeRad = lon;
-            e->slideState.altitudeMslM = groundH + bellyClearM;
-            e->slideState.altitudeAglM = bellyClearM;
-            e->slideState.velocityNedMs[0] = ms::damage::dot(vel, north);
-            e->slideState.velocityNedMs[1] = ms::damage::dot(vel, east);
-            e->slideState.velocityNedMs[2] = ms::damage::dot(vel, down);
-            e->slideState.airspeedTrueMs = nextSpeed;
-            e->slideState.simTime = simTime_;
-            dst.slideSpeedMs = nextSpeed;
+        if (nextSpeed > 4.0) {
             e->slideSparkAccumS += dt;
-            if (nextSpeed > 8.0 && e->slideSparkAccumS >= 0.065) {
+            if (e->slideSparkAccumS >= 0.055) {
                 e->slideSparkAccumS = 0.0;
                 SlideSparkSpawn sp;
                 sp.ownerVehicleId = e->info.id;

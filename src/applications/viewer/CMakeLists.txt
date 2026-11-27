@@ -18,6 +18,7 @@ fsim_set_warnings(flightsim-viewer)
 fsim_relax_third_party_warnings(flightsim-viewer)
 add_custom_command(TARGET flightsim-viewer POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:libJSBSim> $<TARGET_FILE_DIR:flightsim-viewer>)
+add_dependencies(flightsim-viewer fsim_cloud_assets)
 # The build tree mirrors a package: bin/ beside config/, so <exe>/../config
 # finds the same file either way and there is nothing to keep in step.
 configure_file(${CMAKE_SOURCE_DIR}/assets/config/viewer.json ${CMAKE_BINARY_DIR}/config/viewer.json COPYONLY)

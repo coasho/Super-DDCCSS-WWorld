@@ -4162,9 +4162,12 @@ void World::recordFrame() {
     }
     recorder_.writeWeaponControls(simTime_,collectWeaponControls());
     recorder_.writeSnapshot(simTime_, samples);
-    // Optional companion .debris sidecar (VIS-M11): opened lazily on first active debris/destruction frame.
+    // Optional companion .debris sidecar (VIS-M11): in LightweightDebris mode record 1-to-1 aligned frames from t=0
+    // so replay seeking and detonation/impact transitions have exact zero-offset synchronization with .fsrec.
     const auto debrisFrame = collectDebrisFrame();
-    if (!debrisFrame.bodies.empty() || !debrisFrame.vehicles.empty() || debrisRecorder_.isOpen()) {
+    const bool wantDebrisSidecar = destructionMode_ == DestructionModeV1::LightweightDebris ||
+                                   !debrisFrame.bodies.empty() || !debrisFrame.vehicles.empty() || debrisRecorder_.isOpen();
+    if (wantDebrisSidecar) {
         if (!debrisRecorder_.isOpen() && !options_.recordPath.empty())
             debrisRecorder_.open(options_.recordPath.string() + ".debris");
         if (debrisRecorder_.isOpen()) debrisRecorder_.write(debrisFrame);
