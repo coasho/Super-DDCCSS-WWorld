@@ -2411,6 +2411,18 @@ void World::engage(const ipc::EngagementEvent& event) {
     if (publisher_) publisher_->publishEvent(event); // (a live viewer draws it as it happens)
     // (recorded as it happens: the reader gives it to the frame that follows - G7)
     if (recorder_.isOpen()) recorder_.writeEvent(event);
+    if (event.kind == static_cast<std::uint8_t>(ipc::EngagementKind::Detonation) && event.amountKg > 0.0) {
+        ipc::CombatVfxEventWireV1 sw{};
+        sw.kind = static_cast<std::uint8_t>(ipc::CombatVfxEventKindV1::DetonationShockwave);
+        sw.sourceVehicleId = event.slot;
+        for (int k = 0; k < 3; ++k) {
+            sw.positionEcef[k] = event.positionEcef[k];
+            sw.velocityEcef[k] = event.velocityEcef[k];
+        }
+        sw.magnitude = static_cast<float>(event.amountKg);
+        sw.param = static_cast<float>(std::clamp(14.0 * std::cbrt(event.amountKg), 12.0, 95.0));
+        pushCombatVfxEvent(sw);
+    }
 }
 
 std::vector<ipc::EngagementEvent> World::takeEngagementEvents() {

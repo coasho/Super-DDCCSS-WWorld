@@ -1,0 +1,155 @@
+#version 450
+
+// VIS-M13 Unified GPU Particle Simulation & Frustum-Culled Indirect Compaction Shader:
+// Advances up to 65,536 particles in parallel (gravity, exponential aero drag, helical flare
+// curl, thermal buoyancy), performs GPU view-frustum culling, and compacts visible particles
+// into dual indirect draw bins:
+//   Bin 0 [0..32767]     = alpha-blended smoke / chaff haze / muzzle gas / ejecta / mist
+//   Bin 1 [32768..65535] = additive HDR sparks / burning embers / chaff metallic glints
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+struct GpuParticle {
+    vec4 posAge;     // xyz = origin-relative ECEF (m), w = ageS (< 0 = dead)
+    vec4 velLife;    // xyz = velocity ECEF (m/s), w = maxLifeS
+    vec4 colorSize;  // rgb = linear HDR color, w = baseRadiusM
+    vec4 params;     // x = kind, y = dragPerS, z = seed, w = extra
+};
+
+layout(std430, set = 0, binding = 0) buffer ParticlePool {
+    GpuParticle particles[];
+};
+
+layout(std430, set = 0, binding = 1) writeonly buffer AliveIndices {
+    uint alive[];
+};
+
+layout(std430, set = 0, binding = 2) buffer IndirectCounters {
+    uint alphaVertexCount;
+    uint alphaInstanceCount;
+    uint alphaFirstVertex;
+    uint alphaFirstInstance;
+    uint addVertexCount;
+    uint addInstanceCount;
+    uint addFirstVertex;
+    uint addFirstInstance;
+    uint writeCursor;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+} counters;
+
+layout(std140, set = 0, binding = 3) uniform SimParams {
+    vec4 timeMeta;         // x = dt, y = simTime, z = spawnCount, w = maxParticles
+    vec4 originToEye;      // xyz = originEcef - eyeEcef, w = daylight
+    vec4 upLocal;          // xyz = zenith unit vector, w = gravity
+    vec4 windEcef;         // xyz = wind m/s, w = 0
+    vec4 frustumPlanes[6]; // eye-relative inward-pointing clip planes
+    vec4 projDepth;        // P22, P32, 1/W, 1/H
+    vec4 sunDir;           // xyz = sun dir ECEF
+} sim;
+
+vec3 orthoBasisU(vec3 n) {
+    vec3 a = (abs(n.z) < 0.9) ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+    return normalize(cross(n, a));
+}
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    uint cap = uint(sim.timeMeta.w + 0.5);
+    if (idx >= cap) return;
+
+    GpuParticle p = particles[idx];
+    float age = p.posAge.w;
+    if (age < 0.0) return;
+
+    float maxLife = max(p.velLife.w, 1e-3);
+    float dt = clamp(sim.timeMeta.x, 0.0, 0.12);
+    age += dt;
+    if (age >= maxLife) {
+        particles[idx].posAge.w = -1.0;
+        return;
+    }
+
+    float kind = p.params.x;
+    float drag = max(p.params.y, 0.0);
+    float seed = p.params.z;
+    vec3 up = sim.upLocal.xyz;
+    float g = sim.upLocal.w;
+    vec3 wind = sim.windEcef.xyz;
+
+    vec3 pos = p.posAge.xyz;
+    vec3 vel = p.velLife.xyz;
+
+    if (dt > 0.0) {
+        // Exponential aerodynamic drag towards ambient wind.
+        vec3 relV = vel - wind;
+        float atten = exp(-drag * dt);
+        float invDragInt = (drag > 1e-4) ? ((1.0 - atten) / drag) : dt;
+
+        // Kind-specific physical acceleration (gravity vs buoyancy + helical flare curl).
+        vec3 accel = vec3(0.0);
+        if (kind < 0.5) {
+            // Kind 0: Flare corkscrew MgO smoke puff — slight thermal buoyancy + helical vortex curl
+            vec3 uAxis = orthoBasisU(up);
+            vec3 vAxis = cross(up, uAxis);
+            float phase = seed * 6.2831853 + age * 4.2;
+            vec3 curl = (uAxis * cos(phase) + vAxis * sin(phase)) * (1.8 / (1.0 + age * 0.9));
+            accel = up * 1.45 + curl;
+        } else if (kind < 1.5) {
+            // Kind 1: Ballistic incandescent sparks & burning embers
+            accel = -up * g;
+        } else if (kind < 2.5) {
+            // Kind 2: Chaff radar-dipole dispersal haze — slow settling
+            accel = -up * 1.1;
+        } else if (kind < 3.5) {
+            // Kind 3: Muzzle propellant gas & HEI flash puff — mild buoyancy
+            accel = up * 2.2;
+        } else if (kind < 4.5) {
+            // Kind 4: Ground/water bullet impact ejecta — ballistic gravity arc
+            accel = -up * (g * 0.85);
+        } else if (kind < 5.5) {
+            // Kind 5: Detonation shock mist puff — nearly ballistic outward expansion
+            accel = up * 0.6;
+        } else {
+            // Kind 6: Chaff metallic dipole glints — flutter gently downward
+            vec3 uAxis = orthoBasisU(up);
+            vec3 vAxis = cross(up, uAxis);
+            float flutter = seed * 12.566 + age * 7.5;
+            accel = -up * 1.6 + (uAxis * cos(flutter) + vAxis * sin(flutter)) * 1.2;
+        }
+
+        pos += wind * dt + relV * invDragInt + accel * (0.5 * dt * dt);
+        vel = wind + relV * atten + accel * dt;
+    }
+
+    p.posAge = vec4(pos, age);
+    p.velLife.xyz = vel;
+    particles[idx] = p;
+
+    // Conservative culling radius (accounts for smoke expansion and spark velocity stretch).
+    float ageNorm = clamp(age / maxLife, 0.0, 1.0);
+    float baseR = max(p.colorSize.w, 0.05);
+    float cullR = baseR * 2.5;
+    if (kind < 0.5) cullR = baseR * (1.0 + 3.6 * sqrt(ageNorm)) + 1.0;
+    else if (kind < 1.5) cullR = max(baseR * 18.0, length(vel) * 0.06) + 1.0;
+    else if (kind < 2.5) cullR = baseR * (1.0 + 3.2 * sqrt(ageNorm)) + 2.0;
+    else if (kind < 4.5) cullR = baseR * (1.0 + 2.8 * sqrt(ageNorm)) + 1.0;
+
+    // Eye-relative view-frustum culling (6 inward-pointing planes).
+    vec3 eyePos = pos + sim.originToEye.xyz;
+    for (int f = 0; f < 6; ++f) {
+        vec4 pl = sim.frustumPlanes[f];
+        if (dot(eyePos, pl.xyz) + pl.w < -cullR) return;
+    }
+
+    // Dual-bucket indirect compaction: additive HDR sparks/glints (kind 1, 6) draw after alpha clouds.
+    bool isAdditive = (kind > 0.5 && kind < 1.5) || (kind > 5.5);
+    if (isAdditive) {
+        uint outSlot = atomicAdd(counters.addInstanceCount, 1u);
+        if (outSlot < 32768u) alive[32768u + outSlot] = idx;
+    } else {
+        uint outSlot = atomicAdd(counters.alphaInstanceCount, 1u);
+        if (outSlot < 32768u) alive[outSlot] = idx;
+    }
+}

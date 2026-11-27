@@ -6,6 +6,7 @@
 #include "foundation/transport/WeaponControlsSegment.h"
 #include "foundation/transport/FusionSegment.h"
 #include "foundation/transport/DebrisSegmentV1.h"
+#include "foundation/transport/CombatVfxSegmentV1.h"
 
 #include <cstdint>
 #include <string>
@@ -46,6 +47,8 @@ public:
     void setFusion(std::uint32_t index,const FusionRecordV1& record);
     /// Additive VIS-M11 debris & per-vehicle destruction state published alongside the next snapshot.
     void setDebris(const DebrisFrameV1& frame);
+    /// Additive VIS-M13 combat VFX state (projectiles, decoys, events) published alongside the next snapshot.
+    void setCombatVfx(const CombatVfxFrameV1& frame);
     /// Ask the viewers to follow this vehicle (its id); each request is followed once, then the user's choice stands.
     void requestFocus(std::uint32_t vehicleId) noexcept;
 
@@ -75,6 +78,8 @@ private:
     FusionSegment fusionSegment_;
     DebrisSegmentV1 debrisSegment_;
     DebrisFrameV1 debrisFrame_;
+    CombatVfxSegmentV1 combatVfxSegment_;
+    CombatVfxFrameV1 combatVfxFrame_;
     std::vector<std::unique_ptr<FusionRecordV1>> fusionRows_;
     WorldHeader* header_ = nullptr;
     unsigned char* base_ = nullptr;

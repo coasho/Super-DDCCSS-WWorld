@@ -203,6 +203,25 @@ ms::Reason World::dispense(std::uint32_t vehicle, bool flare) {
     if (!e->dispenser->dispense(kind, simTime_, {s.positionEcef[0],s.positionEcef[1],s.positionEcef[2]},
                               {v.x,v.y,v.z}, nextDecoyId_)) return ms::Reason::StoreBusy;
     ++nextDecoyId_;
+    {
+        const double downBody[3] = {0.0, 0.0, 1.0};
+        double downEcef[3];
+        ms::geom::toEcef(s, downBody, downEcef);
+        ipc::CombatVfxEventWireV1 cmEv{};
+        cmEv.kind = static_cast<std::uint8_t>(ipc::CombatVfxEventKindV1::CountermeasureEject);
+        cmEv.sourceVehicleId = vehicle;
+        cmEv.flags = flare ? static_cast<std::uint8_t>(ipc::DecoyKindV1::Flare) : static_cast<std::uint8_t>(ipc::DecoyKindV1::Chaff);
+        for (int k = 0; k < 3; ++k) {
+            cmEv.positionEcef[k] = s.positionEcef[k];
+            cmEv.dirEcef[k] = static_cast<float>(downEcef[k]);
+        }
+        cmEv.velocityEcef[0] = v.x;
+        cmEv.velocityEcef[1] = v.y;
+        cmEv.velocityEcef[2] = v.z;
+        cmEv.magnitude = flare ? 6000.0f : 10.0f;
+        cmEv.param = flare ? 4.0f : 6.0f;
+        pushCombatVfxEvent(cmEv);
+    }
     recordEngagement(flare ? "flare" : "chaff", *e);
     return ms::Reason::None;
 }

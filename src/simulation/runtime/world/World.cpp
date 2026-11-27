@@ -291,6 +291,7 @@ World::World(const WorldOptions& options)
 }
 
 World::~World() {
+    combatVfxRecorder_.close();
     debrisRecorder_.close();
     if(weaponLinkAccess_){std::lock_guard<std::mutex> lock(weaponLinkAccess_->mutex);weaponLinkAccess_->world=nullptr;}
     ipc::WeaponDiagnosticCaptureCompletionV1 completion;
@@ -3427,6 +3428,7 @@ void World::step(unsigned n) {
                 for (std::size_t s = 0; s < entries_.size() && s < pubStates.size(); ++s)
                     applySlidePose(s, pubStates[s]);
                 publisher_->setDebris(collectDebrisFrame());
+                publisher_->setCombatVfx(collectCombatVfxFrame());
                 if (publisher_->publish(simTime_, Span<const sim::VehicleState>(pubStates), Span<const sim::ControlInputs>(poolInputs_), false,
                                         Span<const ipc::FlightStatus>(poolStatus_),collectWeaponControls()))
                     {publishMission();publishWeaponDiagnosticsV1();}
@@ -3445,6 +3447,7 @@ void World::publishNow() {
     for (std::size_t s = 0; s < entries_.size() && s < pubStates.size(); ++s)
         applySlidePose(s, pubStates[s]);
     publisher_->setDebris(collectDebrisFrame());
+    publisher_->setCombatVfx(collectCombatVfxFrame());
     publisher_->publish(simTime_, Span<const sim::VehicleState>(pubStates), Span<const sim::ControlInputs>(poolInputs_), true, Span<const ipc::FlightStatus>(poolStatus_),collectWeaponControls());
     publishMission();
     publishWeaponDiagnosticsV1();
@@ -3909,6 +3912,22 @@ void World::stepGunProjectiles(double dt) {
         for (const ms::GunBurst& b : bursts) {
             if (b.rounds <= 0 || !(b.muzzleMs > 0.0) || !(b.projectileKg > 0.0)) continue;
             const double areaM2 = 0.25 * kPi * b.calibreM * b.calibreM;
+            {
+                const double fwdBody[3] = {1.0, 0.0, 0.0};
+                double fwdEcef[3];
+                ms::geom::toEcef(st, fwdBody, fwdEcef);
+                ipc::CombatVfxEventWireV1 muzzle{};
+                muzzle.kind = static_cast<std::uint8_t>(ipc::CombatVfxEventKindV1::MuzzleFlash);
+                muzzle.sourceVehicleId = e->info.id;
+                for (int k = 0; k < 3; ++k) {
+                    muzzle.positionEcef[k] = st.positionEcef[k] + noseEcef[k];
+                    muzzle.velocityEcef[k] = carrierVel[k];
+                    muzzle.dirEcef[k] = static_cast<float>(fwdEcef[k]);
+                }
+                muzzle.magnitude = static_cast<float>(b.calibreM);
+                muzzle.param = static_cast<float>(b.rounds);
+                pushCombatVfxEvent(muzzle);
+            }
             for (int r = 0; r < b.rounds; ++r) {
                 const double dAz = gunRng_.normal() * b.dispersionRad;
                 const double dEl = gunRng_.normal() * b.dispersionRad;
@@ -3922,6 +3941,8 @@ void World::stepGunProjectiles(double dt) {
                 double muzzleEcef[3];
                 ms::geom::toEcef(st, muzzleBody, muzzleEcef);
                 GunProjectile proj;
+                proj.id = nextGunProjectileId_++;
+                if (proj.id == 0u) proj.id = nextGunProjectileId_++;
                 proj.shooter = e->info.id;
                 proj.shooterGeneration = e->info.generation;
                 for (int k = 0; k < 3; ++k) {
@@ -3930,10 +3951,12 @@ void World::stepGunProjectiles(double dt) {
                 }
                 proj.massKg = b.projectileKg;
                 proj.areaM2 = areaM2;
+                proj.calibreM = b.calibreM;
                 proj.explosiveKg = b.explosiveKg;
                 proj.dragK = b.dragK;
                 proj.ageS = 0.0;
                 proj.maxAgeS = 8.0;
+                proj.tracer = ((gunRoundsFiredCount_++ % 3ull) == 0ull);
                 const double subDt = dt * (1.0 - (static_cast<double>(r) + 0.5) / static_cast<double>(b.rounds));
                 spawned.emplace_back(proj, std::max(subDt, 1e-4));
             }
@@ -4061,6 +4084,21 @@ void World::stepGunProjectiles(double dt) {
                 } else {
                     recordEngagement("damage", *v, v->info.id, "gun", v->crewLost);
                 }
+                {
+                    ipc::CombatVfxEventWireV1 hitEv{};
+                    hitEv.kind = static_cast<std::uint8_t>(ipc::CombatVfxEventKindV1::BulletAirframeHit);
+                    hitEv.sourceVehicleId = v->info.id;
+                    const double spd = std::max(ms::geom::norm3(proj.velocityEcef), 1e-3);
+                    const double relSpd2 = relVel.x * relVel.x + relVel.y * relVel.y + relVel.z * relVel.z;
+                    for (int k = 0; k < 3; ++k) {
+                        hitEv.positionEcef[k] = p1[k];
+                        hitEv.velocityEcef[k] = vVel[k];
+                        hitEv.dirEcef[k] = static_cast<float>(proj.velocityEcef[k] / spd);
+                    }
+                    hitEv.magnitude = static_cast<float>(0.5 * proj.massKg * relSpd2);
+                    hitEv.param = static_cast<float>(proj.explosiveKg);
+                    pushCombatVfxEvent(hitEv);
+                }
                 return false; // projectile consumed on impact
             }
         }
@@ -4072,7 +4110,26 @@ void World::stepGunProjectiles(double dt) {
         }
         ecefToGeodetic(proj.positionEcef, lat, lon, altM, up);
         const double groundM = ground_ ? ground_->heightAboveEllipsoidM(lat, lon) : 0.0;
-        if (altM <= groundM || proj.ageS >= proj.maxAgeS || ms::geom::norm3(proj.velocityEcef) < 50.0) {
+        if (altM <= groundM) {
+            ipc::CombatVfxEventWireV1 surfEv{};
+            surfEv.kind = static_cast<std::uint8_t>(ipc::CombatVfxEventKindV1::BulletSurfaceImpact);
+            surfEv.sourceVehicleId = proj.shooter;
+            const double spd = ms::geom::norm3(proj.velocityEcef);
+            for (int k = 0; k < 3; ++k) {
+                surfEv.positionEcef[k] = proj.positionEcef[k] + up[k] * std::max(0.0, groundM - altM);
+                surfEv.velocityEcef[k] = 0.0;
+                surfEv.dirEcef[k] = static_cast<float>(up[k]);
+            }
+            surfEv.magnitude = static_cast<float>(0.5 * proj.massKg * spd * spd);
+            surfEv.param = static_cast<float>(proj.explosiveKg);
+            const auto sk = impactSurfaceOverride_.has_value()
+                                ? *impactSurfaceOverride_
+                                : (groundM <= 1.5 ? ms::damage::SurfaceKind::Water : ms::damage::SurfaceKind::Soil);
+            surfEv.flags = static_cast<std::uint8_t>(sk);
+            pushCombatVfxEvent(surfEv);
+            return false;
+        }
+        if (proj.ageS >= proj.maxAgeS || ms::geom::norm3(proj.velocityEcef) < 50.0) {
             return false;
         }
         return true;
@@ -4172,6 +4229,88 @@ void World::recordFrame() {
             debrisRecorder_.open(options_.recordPath.string() + ".debris");
         if (debrisRecorder_.isOpen()) debrisRecorder_.write(debrisFrame);
     }
+    // Optional companion .vfx sidecar (VIS-M13): lazy-opened on first combat projectile, decoy, or VFX event
+    // so non-combat recordings produce zero extra files while combat replays have exact frame-aligned visuals.
+    const auto vfxFrame = collectCombatVfxFrame();
+    const bool wantVfxSidecar = !vfxFrame.projectiles.empty() || !vfxFrame.decoys.empty() ||
+                                !vfxFrame.events.empty() || combatVfxRecorder_.isOpen();
+    if (wantVfxSidecar) {
+        if (!combatVfxRecorder_.isOpen() && !options_.recordPath.empty())
+            combatVfxRecorder_.open(options_.recordPath.string() + ".vfx");
+        if (combatVfxRecorder_.isOpen()) combatVfxRecorder_.write(vfxFrame);
+    }
+}
+
+void World::pushCombatVfxEvent(ipc::CombatVfxEventWireV1 ev) {
+    ev.serial = nextCombatVfxSerial_++;
+    if (ev.serial == 0u) ev.serial = nextCombatVfxSerial_++;
+    if (!ipc::validCombatVfxEventV1(ev)) return;
+    combatVfxEvents_.push_back(TimedCombatVfxEvent{simTime_, ev});
+    while (!combatVfxEvents_.empty() &&
+           (combatVfxEvents_.size() > ipc::kMaxCombatVfxEventsV1 || simTime_ - combatVfxEvents_.front().simTime > 0.30)) {
+        combatVfxEvents_.pop_front();
+    }
+}
+
+ipc::CombatVfxFrameV1 World::collectCombatVfxFrame() const {
+    ipc::CombatVfxFrameV1 out;
+    out.simTime = simTime_;
+
+    out.projectiles.reserve(std::min<std::size_t>(gunProjectiles_.size(), ipc::kMaxProjectilesV1));
+    for (const auto& p : gunProjectiles_) {
+        if (out.projectiles.size() >= ipc::kMaxProjectilesV1) break;
+        ipc::ProjectileWireV1 w{};
+        for (int k = 0; k < 3; ++k) {
+            w.positionEcef[k] = p.positionEcef[k];
+            w.velocityEcef[k] = p.velocityEcef[k];
+        }
+        w.id = p.id;
+        w.shooterVehicleId = p.shooter;
+        w.calibreM = static_cast<float>(std::max(p.calibreM, 0.005));
+        w.ageS = static_cast<float>(std::max(p.ageS, 0.0));
+        w.maxAgeS = static_cast<float>(std::max(p.maxAgeS, 0.1));
+        w.explosiveKg = static_cast<float>(std::max(p.explosiveKg, 0.0));
+        w.flags = (p.tracer ? ipc::kProjectileFlagTracer : 0u) | (p.explosiveKg > 0.0 ? ipc::kProjectileFlagHe : 0u);
+        if (ipc::validProjectileWireV1(w)) out.projectiles.push_back(w);
+    }
+
+    for (const auto* dispenser : dispensers()) {
+        if (!dispenser) continue;
+        for (const auto& d : dispenser->decoys()) {
+            if (out.decoys.size() >= ipc::kMaxDecoysV1) break;
+            const double ageS = std::max(0.0, simTime_ - d.launchTimeS);
+            if (ageS >= d.lifeS) continue;
+            ipc::DecoyWireV1 w{};
+            w.positionEcef[0] = d.position.x;
+            w.positionEcef[1] = d.position.y;
+            w.positionEcef[2] = d.position.z;
+            w.velocityEcef[0] = d.velocity.x;
+            w.velocityEcef[1] = d.velocity.y;
+            w.velocityEcef[2] = d.velocity.z;
+            w.id = d.id;
+            w.ownerVehicleId = d.owner;
+            w.ageS = static_cast<float>(ageS);
+            w.lifeS = static_cast<float>(std::max(d.lifeS, 0.1));
+            if (d.kind == ms::countermeasure::Kind::Flare) {
+                w.kind = static_cast<std::uint8_t>(ipc::DecoyKindV1::Flare);
+                w.intensityOrSigma = static_cast<float>(6000.0 * std::exp(-ageS / 2.0));
+                w.bloomRadiusM = 0.55f;
+            } else {
+                w.kind = static_cast<std::uint8_t>(ipc::DecoyKindV1::Chaff);
+                w.intensityOrSigma = static_cast<float>(10.0 * (1.0 - std::exp(-ageS / 0.35)) * std::exp(-ageS / 5.0));
+                w.bloomRadiusM = static_cast<float>(0.6 + 5.5 * (1.0 - std::exp(-ageS / 0.65)));
+            }
+            if (ipc::validDecoyWireV1(w)) out.decoys.push_back(w);
+        }
+        if (out.decoys.size() >= ipc::kMaxDecoysV1) break;
+    }
+
+    for (const auto& timed : combatVfxEvents_) {
+        if (simTime_ - timed.simTime > 0.15) continue;
+        if (out.events.size() >= ipc::kMaxCombatVfxEventsV1) break;
+        out.events.push_back(timed.wire);
+    }
+    return out;
 }
 
 void World::publishVehicle(const Entry& e) {

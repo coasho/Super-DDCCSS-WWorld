@@ -25,6 +25,7 @@
 #include "foundation/io/TerrainTiles.h"
 #include "fsim/MissionSystems.h"
 #include "foundation/transport/DebrisSegmentV1.h"
+#include "foundation/transport/CombatVfxSegmentV1.h"
 #include "foundation/transport/Recording.h"
 #include "foundation/transport/WeaponDiagnosticsV1.h"
 #include "foundation/transport/WeaponDiagnosticCaptureBindingV1.h"
@@ -55,6 +56,7 @@
 #include "visualization/scene/SkyDome.h"
 #include "visualization/scene/Terrain.h"
 #include "visualization/vfx/effects/DebrisVisuals.h"
+#include "visualization/vfx/effects/GpuParticles.h"
 #include "visualization/vfx/effects/Trails.h"
 #include "visualization/scene/VehicleVisuals.h"
 
@@ -574,6 +576,8 @@ int main(int argc, char** argv) {
     ipc::Recording recording;
     ipc::DebrisReplayV1 debrisReplay;
     ipc::DebrisFrameV1 activeDebrisFrame;
+    ipc::CombatVfxReplayV1 combatVfxReplay;
+    ipc::CombatVfxFrameV1 activeCombatVfxFrame;
     ipc::BoundWeaponDiagnosticsReplayV1 weaponDiagnosticsReplay;
     bool weaponDiagnosticsReplayLoaded = false;
     std::unique_ptr<ipc::WeaponDiagnosticFrameV1> weaponDiagnosticsReplayScratch;
@@ -618,6 +622,15 @@ int main(int argc, char** argv) {
                 LOG_INFO("app") << "debris companion '" << debrisCompanion << "' (" << debrisReplay.frameCount() << " frames)";
             } else {
                 LOG_WARN("app") << "could not load debris companion '" << debrisCompanion << "': " << debrisError;
+            }
+        }
+        const auto vfxCompanion = opt.replayPath + ".vfx";
+        if (std::filesystem::is_regular_file(vfxCompanion, companionError)) {
+            std::string vfxError;
+            if (combatVfxReplay.load(vfxCompanion, &vfxError)) {
+                LOG_INFO("app") << "combat VFX companion '" << vfxCompanion << "' (" << combatVfxReplay.frameCount() << " frames)";
+            } else {
+                LOG_WARN("app") << "could not load combat VFX companion '" << vfxCompanion << "': " << vfxError;
             }
         }
     }
@@ -788,6 +801,7 @@ int main(int argc, char** argv) {
     scene->addChild(visuals.node());
     world::DebrisVisuals debris(viewer.options(), cloudFiles ? *cloudFiles / "shaders" : std::filesystem::path{});
     addBackdrop(debris.solidNode());
+    world::GpuParticles combatParticles(viewer.options(), cloudFiles ? *cloudFiles / "shaders" : std::filesystem::path{});
     addBackdrop(clouds.over());
     world::Trails trails(slots, 900, 0.25, viewer.options());
     addBackdrop(trails.node());
@@ -898,6 +912,11 @@ int main(int argc, char** argv) {
     if (!debris.buildTrails(viewer.sceneDepth(), flow ? flow->halfFrontImage() : vsg::ref_ptr<vsg::ImageInfo>{})) {
         LOG_WARN("viewer") << "debris soft-particle trail pass unavailable";
     }
+    // Unified compute GPU particle engine + combat tracers/flares/chaff/shockwaves (VIS-M13).
+    if (!combatParticles.build(viewer.window()->getOrCreateDevice(), viewer.sceneDepth(),
+                               flow ? flow->halfFrontImage() : vsg::ref_ptr<vsg::ImageInfo>{})) {
+        LOG_WARN("viewer") << "VIS-M13 GPU particle pass unavailable";
+    }
     auto beforePass = vsg::Group::create();
     // --stats: the GPU's time per pass too (timestamps between them)
     render::GpuTimer gpuTimer;
@@ -938,10 +957,13 @@ int main(int argc, char** argv) {
         betweenPass->addChild(flow->marchCompute());
         if (opt.stats > 0.0) betweenPass->addChild(gpuTimer.mark("flow march"));
     }
+    betweenPass->addChild(combatParticles.computeNode());
+    if (opt.stats > 0.0) betweenPass->addChild(gpuTimer.mark("combat compute"));
     // True 360-degree 3-D volumetric interleaving:
     // 1) Back pass: ground scorch, ocean foam + water curtains / dust / smoke behind Flow center
     // 2) NVIDIA Flow volumetric fireballs & charcoal smoke
     // 3) Front pass: water curtains / dust / smoke / sparks in front of Flow center (soft-blended via flowFrontTex)
+    // 4) Unified compute GPU particles & direct HDR combat ribbons/cores (VIS-M13)
     auto overGroup = vsg::Group::create();
     overGroup->addChild(debris.trailNode());
     if (opt.stats > 0.0) overGroup->addChild(gpuTimer.mark("debris trails back"));
@@ -951,6 +973,8 @@ int main(int argc, char** argv) {
     }
     overGroup->addChild(debris.frontTrailNode());
     if (opt.stats > 0.0) overGroup->addChild(gpuTimer.mark("debris trails front"));
+    overGroup->addChild(combatParticles.drawNode());
+    if (opt.stats > 0.0) overGroup->addChild(gpuTimer.mark("combat vfx"));
     overGroup->addChild(vapour.node());
     if (opt.stats > 0.0) overGroup->addChild(gpuTimer.mark("gas"));
     vsg::ref_ptr<vsg::Node> over = overGroup;
@@ -958,6 +982,7 @@ int main(int argc, char** argv) {
     vapour.compiled();
     if (flow) flow->compiled();
     debris.compiled();
+    combatParticles.compiled();
     try {
         clouds.build(viewer.window()->extent2D().width, viewer.window()->extent2D().height,
                      [&viewer](vsg::ref_ptr<vsg::Node> node) { return viewer.compile(node); });
@@ -1047,6 +1072,12 @@ int main(int argc, char** argv) {
             }
         }
         if (flow) flow->add(e, *ellipsoid);
+        if (e.kind == static_cast<std::uint8_t>(ipc::EngagementKind::Detonation) && e.amountKg > 0.0) {
+            combatParticles.addDetonationShockwave(
+                vsg::dvec3(e.positionEcef[0], e.positionEcef[1], e.positionEcef[2]),
+                vsg::dvec3(e.velocityEcef[0], e.velocityEcef[1], e.velocityEcef[2]),
+                e.amountKg, e.simTime);
+        }
         // (Flow's flame and near smoke burn there; the trail is the far smoke)
         if (e.kind == static_cast<std::uint8_t>(ipc::EngagementKind::Fire))
             airflow.ignite(e.slot, std::string(e.name, ::strnlen(e.name, sizeof e.name)), e.rateKgS, e.simTime, e.massKg - e.rateKgS); // (what does not burn: its mist)
@@ -1054,7 +1085,7 @@ int main(int argc, char** argv) {
             visuals.hideSection(e.slot, std::string(e.name, ::strnlen(e.name, sizeof e.name)));
     };
     const auto forgetEvents = [&] {
-        airflow.clearFires(), visuals.clearSections(), visuals.clearDestruction(), debris.clear();
+        airflow.clearFires(), visuals.clearSections(), visuals.clearDestruction(), debris.clear(), combatParticles.clear();
         if (flow) flow->clear();
     };
     std::vector<ipc::EngagementEvent> liveEvents;
@@ -1230,6 +1261,7 @@ int main(int argc, char** argv) {
                 deathGlideSawDebris = false;
                 lastFollowedVehicleId = 0;
                 debris.clear();
+                combatParticles.clear();
                 meta.assign(slots, ui::MonitorGui::VehicleMeta{});
                 for (auto& m : meta) m.alive = false;
                 for (std::size_t i = 0; i < slots; ++i) { visuals.setVisible(i, false); trails.setEnabled(i, false); }
@@ -1247,6 +1279,7 @@ int main(int argc, char** argv) {
                 deathGlideSawDebris = false;
                 lastFollowedVehicleId = 0;
                 debris.clear();
+                combatParticles.clear();
                 meta.assign(slots, ui::MonitorGui::VehicleMeta{});
                 for (auto& m : meta) m.alive = false;
                 for (std::size_t i = 0; i < slots; ++i) { visuals.setVisible(i, false); trails.setEnabled(i, false); }
@@ -1345,6 +1378,7 @@ int main(int argc, char** argv) {
                     visuals.clearWeaponControls();
                     visuals.clearDestruction();
                     debris.clear();
+                    combatParticles.clear();
                     cameraPreview->detach();
                     batch = nullptr;
                     std::fill(alive.begin(), alive.end(), 0);
@@ -1487,6 +1521,7 @@ int main(int argc, char** argv) {
                     visuals.clearWeaponControls();
                     visuals.clearDestruction();
                     debris.clear();
+                    combatParticles.clear();
                     cameraPreview->detach();
                     batch = nullptr;
                     std::fill(alive.begin(), alive.end(), 0);
@@ -1566,6 +1601,7 @@ int main(int argc, char** argv) {
         // Sim -> scene
         const bool anyAlive = std::any_of(alive.begin(), alive.end(), [](unsigned char a) { return a != 0; });
         const ipc::DebrisFrameV1* debrisFramePtr = nullptr;
+        const ipc::CombatVfxFrameV1* combatVfxFramePtr = nullptr;
         double debrisClock = 0.0;
         if (batch) {
             if (shotsOnReplay) interpolator.updateAt(replayTime);
@@ -1577,6 +1613,11 @@ int main(int argc, char** argv) {
                 if (debrisReplay.atTime(debrisClock, activeDebrisFrame, opt.interpolate)) debrisFramePtr = &activeDebrisFrame;
             } else if (mirror.valid()) {
                 debrisFramePtr = &mirror.debris();
+            }
+            if (replay && !combatVfxReplay.empty()) {
+                if (combatVfxReplay.atTime(debrisClock, activeCombatVfxFrame, opt.interpolate)) combatVfxFramePtr = &activeCombatVfxFrame;
+            } else if (mirror.valid()) {
+                combatVfxFramePtr = &mirror.combatVfx();
             }
             std::vector<unsigned char> retiredNow(slots, 0);
             if (debrisFramePtr) {
@@ -1818,21 +1859,25 @@ int main(int argc, char** argv) {
                         ++stats.flowFrames;
                     }
                 }
+                const vsg::dvec3 camFwd = vsg::normalize(viewer.lookAt()->center - viewer.lookAt()->eye);
+                const vsg::dvec3 camRight = vsg::normalize(vsg::cross(camFwd, viewer.lookAt()->up));
+                const vsg::dvec3 camUp = vsg::normalize(vsg::cross(camRight, camFwd));
+                const auto ext = viewer.window()->extent2D();
                 if (debrisFramePtr) {
-                    const vsg::dvec3 camFwd = vsg::normalize(viewer.lookAt()->center - viewer.lookAt()->eye);
-                    const vsg::dvec3 camRight = vsg::normalize(vsg::cross(camFwd, viewer.lookAt()->up));
-                    const vsg::dvec3 camUp = vsg::normalize(vsg::cross(camRight, camFwd));
                     std::unordered_map<std::uint32_t, std::size_t> slotByVehicleId;
                     for (std::size_t i = 0; i < slots; ++i)
                         if (visualVehicleSeen[i] != 0) slotByVehicleId[visualVehicleSeen[i]] = i;
-                    const auto ext = viewer.window()->extent2D();
                     debris.update(*debrisFramePtr, visuals, slotByVehicleId, viewer.camera()->projectionMatrix->transform(),
                                   ext.width, ext.height, viewer.lookAt()->eye, camRight, camUp, sunDir, light, debrisClock,
                                   flowRef.active ? &flowRef : nullptr);
                 } else {
                     debris.clear();
                 }
-                viewer.setSceneDepthCopied((flow && flow->active()) || debris.trailQuadCount() > 0);
+                combatParticles.update(combatVfxFramePtr, debrisFramePtr, viewer.camera()->viewMatrix->transform(),
+                                       viewer.camera()->projectionMatrix->transform(), ext.width, ext.height,
+                                       viewer.lookAt()->eye, camRight, camUp, sunDir, light, debrisClock,
+                                       flowRef.active ? &flowRef : nullptr);
+                viewer.setSceneDepthCopied((flow && flow->active()) || debris.trailQuadCount() > 0 || combatParticles.active());
                 vapour.update(drawn, alive, visuals, viewer.camera()->viewMatrix->transform(), viewer.camera()->projectionMatrix->transform(),
                               viewer.lookAt()->eye, sunDir, light);
             }

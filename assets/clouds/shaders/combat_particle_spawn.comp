@@ -1,0 +1,56 @@
+#version 450
+
+// VIS-M13 GPU Particle Spawn Compute Shader:
+// Ingests CPU-queued combat VFX particles into the 65,536-slot GPU-resident ring buffer
+// using an O(1) atomic write cursor (zero CPU pool management, zero fragmentation).
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+struct GpuParticle {
+    vec4 posAge;     // xyz = origin-relative ECEF (m), w = ageS (< 0 = dead)
+    vec4 velLife;    // xyz = velocity ECEF (m/s), w = maxLifeS
+    vec4 colorSize;  // rgb = linear HDR color, w = baseRadiusM
+    vec4 params;     // x = kind, y = dragPerS, z = seed, w = extra
+};
+
+layout(std430, set = 0, binding = 0) buffer ParticlePool {
+    GpuParticle particles[];
+};
+
+layout(std430, set = 0, binding = 1) readonly buffer SpawnQueue {
+    GpuParticle spawns[];
+};
+
+layout(std430, set = 0, binding = 2) buffer IndirectCounters {
+    uint alphaVertexCount;
+    uint alphaInstanceCount;
+    uint alphaFirstVertex;
+    uint alphaFirstInstance;
+    uint addVertexCount;
+    uint addInstanceCount;
+    uint addFirstVertex;
+    uint addFirstInstance;
+    uint writeCursor;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+} counters;
+
+layout(std140, set = 0, binding = 3) uniform SimParams {
+    vec4 timeMeta;         // x = dt, y = simTime, z = spawnCount, w = maxParticles
+    vec4 originToEye;      // xyz = originEcef - eyeEcef, w = daylight
+    vec4 upLocal;          // xyz = zenith unit vector, w = gravity
+    vec4 windEcef;         // xyz = wind m/s, w = 0
+    vec4 frustumPlanes[6]; // eye-relative clip planes
+    vec4 projDepth;        // P22, P32, 1/W, 1/H
+    vec4 sunDir;           // xyz = sun dir ECEF
+} sim;
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    uint count = uint(sim.timeMeta.z + 0.5);
+    if (idx >= count) return;
+    uint cap = max(uint(sim.timeMeta.w + 0.5), 1u);
+    uint slot = atomicAdd(counters.writeCursor, 1u) % cap;
+    particles[slot] = spawns[idx];
+}

@@ -776,6 +776,7 @@ public:
     void setImpactSurfaceV1(ms::damage::SurfaceKind surface) noexcept { impactSurfaceOverride_ = surface; }
     void clearImpactSurfaceV1() noexcept { impactSurfaceOverride_.reset(); }
     const DebrisField& debrisField() const noexcept { return debrisField_; }
+    ipc::CombatVfxFrameV1 combatVfxFrame() const { return collectCombatVfxFrame(); }
     const ms::damage::VehicleDestructionState* destructionState(std::uint32_t id) const noexcept;
 
 private:
@@ -1180,18 +1181,23 @@ private:
     std::vector<ms::Decoy> activeFlares_; ///< active pyrotechnic flares visible to optical/IR sensors this step
     /// Free-flying ballistic gun projectile (MS-9c / SIM-M10).
     struct GunProjectile {
+        std::uint32_t id = 0;
         std::uint32_t shooter = 0;
         std::uint64_t shooterGeneration = 0;
         double positionEcef[3] = {0.0, 0.0, 0.0};
         double velocityEcef[3] = {0.0, 0.0, 0.0};
         double massKg = 0.1;
         double areaM2 = 0.000314;
+        double calibreM = 0.02;
         double explosiveKg = 0.0;
         double dragK = 0.0;
         double ageS = 0.0;
         double maxAgeS = 8.0;
+        bool tracer = false;
     };
     std::vector<GunProjectile> gunProjectiles_;
+    std::uint32_t nextGunProjectileId_ = 1;
+    std::uint64_t gunRoundsFiredCount_ = 0;
     Rng gunRng_;
     void stepGunProjectiles(double dt);
     std::unique_ptr<ipc::MissionRecord> missionScratch_; ///< publishMission's record, reused
@@ -1278,6 +1284,15 @@ private:
 
     ipc::RecordWriter recorder_;
     ipc::DebrisRecorderV1 debrisRecorder_;
+    ipc::CombatVfxRecorderV1 combatVfxRecorder_;
+    struct TimedCombatVfxEvent {
+        double simTime = 0.0;
+        ipc::CombatVfxEventWireV1 wire;
+    };
+    std::deque<TimedCombatVfxEvent> combatVfxEvents_;
+    std::uint32_t nextCombatVfxSerial_ = 1;
+    void pushCombatVfxEvent(ipc::CombatVfxEventWireV1 ev);
+    ipc::CombatVfxFrameV1 collectCombatVfxFrame() const;
     DestructionModeV1 destructionMode_ = DestructionModeV1::LegacyCompatible;
     std::optional<ms::damage::SurfaceKind> impactSurfaceOverride_;
     DebrisField debrisField_;

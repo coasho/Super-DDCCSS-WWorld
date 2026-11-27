@@ -49,6 +49,10 @@ bool WorldMirror::open(const std::string& name) {
 }
 
 void WorldMirror::close() {
+    combatVfxSegment_.close();
+    combatVfx_.projectiles.clear();
+    combatVfx_.decoys.clear();
+    combatVfx_.events.clear();
     debrisSegment_.close();
     debris_.bodies.clear();
     debris_.vehicles.clear();
@@ -188,6 +192,10 @@ bool WorldMirror::pollSnapshot(sim::SnapshotBatch& out) {
         if (!debrisSegment_.read(sequence, debris_)) {
             if (debrisSegment_.open(name_, header_->publisherPid, incarnation_))
                 debrisSegment_.read(sequence, debris_);
+        }
+        if (!combatVfxSegment_.read(sequence, combatVfx_)) {
+            if (combatVfxSegment_.open(name_, header_->publisherPid, incarnation_))
+                combatVfxSegment_.read(sequence, combatVfx_);
         }
         out.simTime = simTime;
         out.wallNs = wallNs;

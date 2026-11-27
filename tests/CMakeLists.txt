@@ -1304,3 +1304,15 @@ add_dependencies(fsim_destruction_debris_test fsim_m03_native_runtime)
 fsim_set_warnings(fsim_destruction_debris_test)
 add_test(NAME destruction_debris COMMAND fsim_destruction_debris_test)
 set_tests_properties(destruction_debris PROPERTIES LABELS "vis-m11;damage;debris;native-engagement" TIMEOUT 300 RUN_SERIAL TRUE)
+
+# VIS-M13: Unified compute GPU particle engine & combat VFX transport (gun tracers, muzzle flash, hits, flares, chaff, shockwaves).
+add_executable(fsim_combat_vfx_test simulation/test_combat_vfx.cpp)
+target_link_libraries(fsim_combat_vfx_test PRIVATE fsim::session fsim::ms fsim::ipc Catch2::Catch2WithMain)
+target_compile_definitions(fsim_combat_vfx_test PRIVATE
+    FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}"
+    FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores"
+    FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft")
+add_dependencies(fsim_combat_vfx_test fsim_m03_native_runtime)
+fsim_set_warnings(fsim_combat_vfx_test)
+add_test(NAME combat_vfx COMMAND fsim_combat_vfx_test)
+set_tests_properties(combat_vfx PROPERTIES LABELS "vis-m13;combat-vfx;native-engagement" TIMEOUT 300 RUN_SERIAL TRUE)

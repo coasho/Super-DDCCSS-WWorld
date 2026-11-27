@@ -46,6 +46,8 @@ add_library(fsim_world STATIC
     ../vfx/effects/Trails.cpp
     ../vfx/effects/DebrisVisuals.h
     ../vfx/effects/DebrisVisuals.cpp
+    ../vfx/effects/GpuParticles.h
+    ../vfx/effects/GpuParticles.cpp
     Terrain.h
     Terrain.cpp)
 add_library(fsim::world ALIAS fsim_world)
