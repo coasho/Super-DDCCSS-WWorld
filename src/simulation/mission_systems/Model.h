@@ -117,6 +117,7 @@ struct GunBurst {
     double explosiveKg = 0.0;     ///< a shell's filling (0: a solid shot)
     double dragK = 0.0;           ///< its retardation at sea level: dv/dt = -dragK (rho / rho0) v^2 (1/m)
     double elevationRad = 0.0;    ///< the barrel's line above the body's x axis (a fixed gun's harmonisation)
+    double maxFlightTimeS = 6.0;  ///< per-round pyrotechnic self-destruct / ballistic lifetime (s)
 };
 
 /// Decoys leaving a dispenser this step (MS-9a).

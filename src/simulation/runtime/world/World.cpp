@@ -4536,7 +4536,7 @@ void World::stepGunProjectiles(double dt) {
                 proj.explosiveKg = b.explosiveKg;
                 proj.dragK = b.dragK;
                 proj.ageS = 0.0;
-                proj.maxAgeS = 8.0;
+                proj.maxAgeS = (std::isfinite(b.maxFlightTimeS) && b.maxFlightTimeS > 0.0) ? b.maxFlightTimeS : 6.0;
                 proj.tracer = ((gunRoundsFiredCount_++ % 3ull) == 0ull);
                 const double subDt = dt * (1.0 - (static_cast<double>(r) + 0.5) / static_cast<double>(b.rounds));
                 spawned.emplace_back(proj, std::max(subDt, 1e-4));
@@ -4573,23 +4573,83 @@ void World::stepGunProjectiles(double dt) {
         up[2] = std::sin(lat);
     };
 
-    // Integrate and test one projectile over `stepDt`. Returns true if projectile remains alive.
+    // Integrate and test one projectile over `stepDt` using sub-stepped RK4,
+    // air-relative wind velocity, ICAO ISA speed of sound/density, and published
+    // BRL/McCoy G7 Mach-dependent drag Cd(M) (NATO STANAG 4355).
+    const double windFromRad = units::degreesToRadians(environment_.windDirectionDeg);
+    const double windNorthMs = -environment_.windSpeedMs * std::cos(windFromRad);
+    const double windEastMs = -environment_.windSpeedMs * std::sin(windFromRad);
+    const double tSeaLevelK = (std::isfinite(environment_.temperatureSeaLevelK) && environment_.temperatureSeaLevelK > 150.0)
+                                  ? environment_.temperatureSeaLevelK
+                                  : 288.15;
+
     auto advanceOne = [&](GunProjectile& proj, double stepDt) -> bool {
         if (proj.ageS >= proj.maxAgeS) return false;
         double lat = 0.0, lon = 0.0, altM = 0.0, up[3] = {0.0, 0.0, 1.0};
         ecefToGeodetic(proj.positionEcef, lat, lon, altM, up);
-        const double rhoRatio = ms::geom::densityRatio(altM);
+
+        // Local NED -> ECEF wind velocity at projectile position
+        const double sl = std::sin(lat), cl = std::cos(lat), so = std::sin(lon), co = std::cos(lon);
+        const double windEcef[3] = {
+            -sl * co * windNorthMs - so * windEastMs,
+            -sl * so * windNorthMs + co * windEastMs,
+            cl * windNorthMs};
+
         constexpr double kG0 = 9.80665;
-        const double vMag = ms::geom::norm3(proj.velocityEcef);
-        double acc[3];
-        for (int k = 0; k < 3; ++k) {
-            acc[k] = -proj.dragK * rhoRatio * vMag * proj.velocityEcef[k] - kG0 * up[k];
-        }
+        constexpr double kGammaR = 1.4 * 287.05287; // Dry air gamma * R (m^2 / (s^2 K))
+        auto accelAt = [&](const double p[3], const double v[3], double aOut[3]) noexcept {
+            // Altitude perturbation along local up vector for accurate ISA density/Mach across sub-steps
+            const double dh = (p[0] - proj.positionEcef[0]) * up[0] +
+                              (p[1] - proj.positionEcef[1]) * up[1] +
+                              (p[2] - proj.positionEcef[2]) * up[2];
+            const double h = std::max(0.0, altM + dh);
+            const double rhoRatio = ms::geom::densityRatio(h);
+            const double tempK = (h < 11000.0) ? std::max(216.65, tSeaLevelK - 0.0065 * h) : 216.65;
+            const double soundMs = std::sqrt(kGammaR * tempK);
+            const double vr[3] = {v[0] - windEcef[0], v[1] - windEcef[1], v[2] - windEcef[2]};
+            const double vRel = ms::geom::norm3(vr);
+            const double mach = vRel / std::max(soundMs, 100.0);
+            // Scale card's calibrated supersonic dragK by BRL/McCoy G7 Cd(M) / 0.30
+            const double kMach = proj.dragK * (ms::gun::g7DragCoefficient(mach) / 0.30);
+            for (int k = 0; k < 3; ++k) {
+                aOut[k] = -kMach * rhoRatio * vRel * vr[k] - kG0 * up[k];
+            }
+        };
+
         double p0[3], p1[3], v1[3];
         for (int k = 0; k < 3; ++k) {
             p0[k] = proj.positionEcef[k];
-            p1[k] = p0[k] + proj.velocityEcef[k] * stepDt + 0.5 * acc[k] * stepDt * stepDt;
-            v1[k] = proj.velocityEcef[k] + acc[k] * stepDt;
+            p1[k] = p0[k];
+            v1[k] = proj.velocityEcef[k];
+        }
+        const int subSteps = std::max(1, static_cast<int>(std::ceil(stepDt / 0.01)));
+        const double hStep = stepDt / static_cast<double>(subSteps);
+        for (int ss = 0; ss < subSteps; ++ss) {
+            double a1[3], a2[3], a3[3], a4[3];
+            double pTmp[3], vTmp[3];
+            accelAt(p1, v1, a1);
+            for (int k = 0; k < 3; ++k) {
+                pTmp[k] = p1[k] + 0.5 * hStep * v1[k];
+                vTmp[k] = v1[k] + 0.5 * hStep * a1[k];
+            }
+            accelAt(pTmp, vTmp, a2);
+            double v2[3] = {vTmp[0], vTmp[1], vTmp[2]};
+            for (int k = 0; k < 3; ++k) {
+                pTmp[k] = p1[k] + 0.5 * hStep * v2[k];
+                vTmp[k] = v1[k] + 0.5 * hStep * a2[k];
+            }
+            accelAt(pTmp, vTmp, a3);
+            double v3[3] = {vTmp[0], vTmp[1], vTmp[2]};
+            for (int k = 0; k < 3; ++k) {
+                pTmp[k] = p1[k] + hStep * v3[k];
+                vTmp[k] = v1[k] + hStep * a3[k];
+            }
+            accelAt(pTmp, vTmp, a4);
+            double v4[3] = {vTmp[0], vTmp[1], vTmp[2]};
+            for (int k = 0; k < 3; ++k) {
+                p1[k] += (hStep / 6.0) * (v1[k] + 2.0 * v2[k] + 2.0 * v3[k] + v4[k]);
+                v1[k] += (hStep / 6.0) * (a1[k] + 2.0 * a2[k] + 2.0 * a3[k] + a4[k]);
+            }
         }
         proj.ageS += stepDt;
 

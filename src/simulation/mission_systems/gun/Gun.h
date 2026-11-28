@@ -26,7 +26,12 @@ struct Spec {
     double dragCd = 0.30;              ///< supersonic-averaged G7 projectile drag coefficient
     double elevationRad = 0.0;         ///< fixed gun harmonisation elevation above body x-axis (rad)
     int capacity = 500;                ///< total ammunition capacity across mounts (rounds)
+    double maxFlightTimeS = 6.0;       ///< pyrotechnic self-destruct fuze / max ballistic lifetime (s)
 };
+
+/// Published BRL / McCoy G7 boattail projectile drag coefficient Cd(M) vs Mach number
+/// (R. L. McCoy, "Modern Exterior Ballistics", 1999; NATO STANAG 4355).
+double g7DragCoefficient(double mach) noexcept;
 
 /// Sea-level quadratic drag retardation factor k = (rho0 * Cd * A) / (2 * m) in 1/m,
 /// so dv/dt = -k * (rho / rho0) * |v| * v (McCoy, Modern Exterior Ballistics).

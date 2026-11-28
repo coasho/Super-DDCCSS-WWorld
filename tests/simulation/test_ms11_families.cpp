@@ -561,3 +561,197 @@ TEST_CASE("Phase 2 PNT: PntReceiver GNSS denial/INS drift couple to sensedState 
     CHECK(kc46.sensed().gnssValid);
     CHECK(missile.sensed().gnssValid);
 }
+
+TEST_CASE("Phase 3 Radars: GroundMap 2D/shadowing/jamming, SMTI RCS/noise/emission, and Weather 2D spatial cells", "[sim-m07][ground_map][smti][weather]") {
+    using namespace fsim::ms;
+
+    // 1) GroundMapRadar: 2D multi-azimuth scan, grazing-angle sigma0 (not constant -12 dB), ridge LOS shadowing & X-band jamming
+    {
+        struct RidgeGround final : fsim::GroundProvider {
+            double heightAboveEllipsoidM(double /*latRad*/, double lonRad) const override {
+                // Place a 2500 m steep ridge between 10 km and 14 km east of (35 deg N, -117 deg E)
+                const double eastM = (lonRad - (-117.0 * kDeg)) * kEarthM * std::cos(35.0 * kDeg);
+                if (eastM > 10000.0 && eastM < 14000.0) return 2500.0;
+                return 200.0;
+            }
+            double pointHeightAboveEllipsoidM(double latRad, double lonRad) const override {
+                return heightAboveEllipsoidM(latRad, lonRad);
+            }
+        };
+        auto opt = makeOptions("phase3_gmap_ridge", 211);
+        opt.ground = std::make_shared<RidgeGround>();
+        fsim::World world(opt);
+        auto b52 = createAircraft(world, "b52", "b52h", 0.0, 0.0, 2600.0, 90.0, 200.0);
+        auto growler = createAircraft(world, "ea18g", "ea18g", 18.0, 0.0, 5000.0, 270.0, 220.0);
+        const auto gmapIdx = findPayload(b52, "radar");
+        const auto jamIdx = findPayload(growler, "jammers");
+        powerToOperate(world, b52, gmapIdx);
+        powerToOperate(world, growler, jamIdx);
+
+        world.step(35);
+        const auto cleanContacts = b52.contacts(gmapIdx);
+        REQUIRE(cleanContacts.size() >= 10u);
+        double minAz = 1e9, maxAz = -1e9;
+        double minSig = 1e9, maxSig = -1e9;
+        for (const auto& c : cleanContacts) {
+            minAz = std::min(minAz, c.azimuthRad);
+            maxAz = std::max(maxAz, c.azimuthRad);
+            minSig = std::min(minSig, c.strengthDb);
+            maxSig = std::max(maxSig, c.strengthDb);
+        }
+        // True 2D azimuth sweep (not a single 0-rad centerline) and varying grazing-angle sigma0 (not flat -12 dB)
+        CHECK((maxAz - minAz) > 40.0 * kDeg);
+        CHECK((maxSig - minSig) > 2.0);
+        // Steep 2500 m ridge casts a genuine radar shadow behind it
+        CHECK(reportValue(b52.payloadReport(gmapIdx), "shadowed_cells") >= 1.0);
+
+        // X-band jamming degrades GroundMapRadar SNR and suppresses contacts
+        PayloadTask xJam;
+        xJam.payload = jamIdx;
+        xJam.kind = TaskKind::Jam;
+        xJam.frequencyHz = 9.4e9;
+        xJam.bandwidthHz = 40.0e6;
+        xJam.azimuthCentreRad = 0.0;
+        xJam.elevationCentreRad = 0.0;
+        xJam.azimuthHalfWidthRad = 30.0 * kDeg;
+        xJam.elevationHalfWidthRad = 20.0 * kDeg;
+        REQUIRE(growler.submit(xJam).accepted());
+        world.step(40);
+        CHECK(reportValue(b52.payloadReport(gmapIdx), "jam_degradation") > 15.0);
+        CHECK(b52.contacts(gmapIdx).size() < cleanContacts.size());
+    }
+
+    // 2) SmtiRadar: real RCS/clutter/Swerling detection, noisy measurements (not exact truth), and RWR-detectable emission
+    {
+        struct SmtiScene final : Scene {
+            fsim::sim::VehicleState mover{};
+            std::vector<Emission> ems;
+            fsim::sim::EnvironmentState env{};
+            double sigmaVal = 25.0;
+            std::size_t targets(std::uint32_t* ids, const fsim::sim::VehicleState** states, std::size_t max) const override {
+                if (max == 0) return 0;
+                ids[0] = 42;
+                states[0] = &mover;
+                return 1;
+            }
+            double sigma(std::uint32_t, double, double, double& fluct) const override {
+                fluct = 1.0; // steady vehicle scatterer
+                return sigmaVal;
+            }
+            double pathLossDb(std::uint32_t, double freqHz) const override {
+                return 20.0 * std::log10(4.0 * kPi * 25000.0 * freqHz / 299792458.0);
+            }
+            double surfaceHeightM(double, double) const override { return 100.0; }
+            const std::vector<Emission>& emissions() const override { return ems; }
+            const fsim::sim::EnvironmentState& environment() const override { return env; }
+            bool masked(std::uint32_t, double) const override { return false; }
+        };
+
+        Card card;
+        card.id = "smti-test";
+        card.family = Family::Smti;
+        auto model = smti::makeSmtiRadar(card, 1);
+        REQUIRE(model != nullptr);
+
+        PayloadTask search;
+        search.kind = TaskKind::Search;
+        search.azimuthCentreRad = 0.0;
+        search.elevationCentreRad = 0.0;
+        search.azimuthHalfWidthRad = 45.0 * kDeg;
+        search.elevationHalfWidthRad = 30.0 * kDeg;
+        search.rangeScaleM = 120000.0;
+        REQUIRE(model->begin(search, 0.0) == Reason::None);
+
+        // Active SMTI must radiate X-band search emission visible to adversary RWRs
+        Emission em{};
+        REQUIRE(model->emission(em));
+        CHECK(em.mode == EmitterMode::Search);
+        CHECK(em.frequencyHz == Catch::Approx(9.5e9));
+        CHECK(em.powerW > 100.0);
+
+        fsim::sim::VehicleState own{};
+        own.latitudeRad = 35.0 * kDeg;
+        own.longitudeRad = -117.0 * kDeg;
+        own.altitudeMslM = 8000.0;
+        own.rotationBodyToEcef[0] = 1.0;
+        own.rotationBodyToEcef[4] = 1.0;
+        own.rotationBodyToEcef[8] = 1.0;
+        own.positionEcef[0] = 6378137.0 + 8000.0;
+
+        SmtiScene sc;
+        sc.mover = own;
+        sc.mover.onGround = true;
+        sc.mover.altitudeMslM = 100.0;
+        sc.mover.altitudeAglM = 0.0;
+        sc.mover.positionEcef[0] = own.positionEcef[0] + 24000.0;
+        sc.mover.positionEcef[2] = own.positionEcef[2] - 7900.0;
+        sc.mover.velocityBodyMs[0] = 20.0; // > MDV (2.5 m/s)
+
+        fsim::Rng rng(9001);
+        model->step(1.0, own, sc, rng);
+        std::vector<Contact> dets;
+        model->contacts(dets);
+        REQUIRE(dets.size() == 1u);
+        // Physical SINR (NOT hardcoded 18.0 dB) and noisy range (NOT exact truth range)
+        CHECK(dets.front().strengthDb != Catch::Approx(18.0).margin(1e-3));
+        CHECK(dets.front().strengthDb > 10.0);
+        const double trueR = std::hypot(24000.0, 7900.0);
+        CHECK(std::fabs(dets.front().rangeM - trueR) > 1e-6);
+        CHECK(std::fabs(dets.front().rangeM - trueR) < 100.0);
+    }
+
+    // 3) WeatherRadar: 2D multi-azimuth spatial convective cells and X-band RF jamming degradation
+    {
+        fsim::World world(makeOptions("phase3_weather_2d", 217));
+        auto c130 = createAircraft(world, "c130j", "c130j", 0.0, 0.0, 3000.0, 90.0, 140.0);
+        auto growler = createAircraft(world, "ea18g", "ea18g", 25.0, 0.0, 3000.0, 270.0, 220.0);
+        const auto wxIdx = findPayload(c130, "radar");
+        const auto jamIdx = findPayload(growler, "jammers");
+        powerToOperate(world, c130, wxIdx);
+        powerToOperate(world, growler, jamIdx);
+
+        fsim::EnvironmentState stormy = world.environment().state();
+        stormy.cloudBaseM = 2000.0;
+        stormy.cloudCover = 0.9;
+        stormy.precipitation = 0.85;
+        world.environment().set(stormy);
+
+        PayloadTask scan;
+        scan.payload = wxIdx;
+        scan.kind = TaskKind::Search;
+        scan.azimuthCentreRad = 0.0;
+        scan.elevationCentreRad = 0.0;
+        scan.azimuthHalfWidthRad = 45.0 * kDeg;
+        scan.rangeScaleM = 120000.0;
+        REQUIRE(c130.submit(scan).accepted());
+        world.step(40);
+
+        const auto cleanWx = c130.contacts(wxIdx);
+        REQUIRE(cleanWx.size() >= 8u);
+        std::set<int> distinctAzDeg;
+        double minDbz = 1e9, maxDbz = -1e9;
+        for (const auto& c : cleanWx) {
+            distinctAzDeg.insert(static_cast<int>(std::lround(c.azimuthRad / kDeg)));
+            minDbz = std::min(minDbz, c.strengthDb);
+            maxDbz = std::max(maxDbz, c.strengthDb);
+        }
+        // Multiple distinct azimuth rays across the 2D scan sector and heterogeneous convective cell reflectivity
+        CHECK(distinctAzDeg.size() >= 3u);
+        CHECK((maxDbz - minDbz) > 4.0);
+
+        // X-band noise jammer raises weather radar MDS and suppresses weaker/distant rain cells
+        PayloadTask xJam;
+        xJam.payload = jamIdx;
+        xJam.kind = TaskKind::Jam;
+        xJam.frequencyHz = 9.375e9;
+        xJam.bandwidthHz = 40.0e6;
+        xJam.azimuthCentreRad = 0.0;
+        xJam.elevationCentreRad = 0.0;
+        xJam.azimuthHalfWidthRad = 30.0 * kDeg;
+        xJam.elevationHalfWidthRad = 20.0 * kDeg;
+        REQUIRE(growler.submit(xJam).accepted());
+        world.step(40);
+        CHECK(reportValue(c130.payloadReport(wxIdx), "jam_degradation") > 15.0);
+        CHECK(c130.contacts(wxIdx).size() < cleanWx.size());
+    }
+}

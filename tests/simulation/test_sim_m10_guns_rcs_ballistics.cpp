@@ -615,3 +615,91 @@ TEST_CASE("SIM-M10 (B-50): Mk 82 free-fall bomb ballistic validation vs RK4 stan
     REQUIRE(driftNorthM > 15.0);
     REQUIRE(driftNorthM < 400.0);
 }
+
+TEST_CASE("Phase 3 Gun Ballistics: BRL/McCoy G7 Mach drag curve, per-round self-destruct and crosswind RK4 drift", "[sim-m10][ms][gun-ballistics]") {
+    // 1) Published BRL / McCoy G7 drag function Cd(M): low subsonic -> sharp transonic wave-drag peak -> supersonic decay
+    const double cdSub = ms::gun::g7DragCoefficient(0.50);
+    const double cdTrans = ms::gun::g7DragCoefficient(1.05);
+    const double cdSuper2 = ms::gun::g7DragCoefficient(2.00);
+    const double cdSuper3 = ms::gun::g7DragCoefficient(3.00);
+    CHECK(cdSub == Catch::Approx(0.1198).margin(1e-3));
+    CHECK(cdTrans == Catch::Approx(0.4043).margin(1e-3));
+    CHECK(cdTrans > cdSub * 3.0);
+    CHECK(cdSuper2 < cdTrans);
+    CHECK(cdSuper3 < cdSuper2);
+
+    // 2) Per-round pyrotechnic self-destruct lifetimes differ by weapon class (no hardcoded 8 s)
+    ms::Card m61, gau8;
+    m61.id = "m61a1";
+    m61.family = ms::Family::Gun;
+    gau8.id = "gau-8a";
+    gau8.family = ms::Family::Gun;
+    CHECK(ms::gun::specOf(m61, 1).maxFlightTimeS == Catch::Approx(5.5));
+    CHECK(ms::gun::specOf(gau8, 1).maxFlightTimeS == Catch::Approx(9.5));
+
+    // 3) Live RK4 air-relative wind drift & self-destruct verification
+    // Apply crosswind immediately after muzzle exit so calm and windy bursts share
+    // identical launch position and muzzle velocity (isolating exterior ballistics from aircraft weathercocking).
+    auto fireAndMeasure = [](double windNorthMs) {
+        session::World world(baseOptions(404));
+        session::VehicleSpec f16Spec;
+        f16Spec.name = "gunner";
+        f16Spec.type = "jsbsim:f16c";
+        f16Spec.initial.latitudeDeg = 35.0;
+        f16Spec.initial.longitudeDeg = -117.0;
+        f16Spec.initial.altitudeMslM = 1500.0;
+        f16Spec.initial.headingDeg = 90.0; // east
+        f16Spec.initial.airspeedTrueMs = 220.0;
+        const std::uint32_t gunner = world.createVehicle(f16Spec);
+        REQUIRE(gunner != 0);
+        const std::uint16_t gunIdx = findPayloadByName(world, gunner, "gun");
+        powerPayloadToOperate(world, gunner, gunIdx);
+
+        ms::PayloadTask fire;
+        fire.payload = gunIdx;
+        fire.kind = ms::TaskKind::Fire;
+        fire.rounds = 12;
+        REQUIRE(world.submit(gunner, fire).accepted());
+
+        // Step 8 ticks (0.16 s) so the 12-round burst (6000 rpm = 0.12 s burst) has exited the muzzle cleanly
+        world.step(8);
+        if (std::abs(windNorthMs) > 0.0) {
+            sim::EnvironmentState env = world.environment();
+            env.windDirectionDeg = 180.0; // blowing FROM south -> northward
+            env.windSpeedMs = windNorthMs;
+            world.setEnvironment(env);
+        }
+
+        // Advance 3.0 s (150 ticks at 50 Hz): rounds decelerate from Mach ~3.6 through transonic drag peak
+        world.step(150);
+        const auto frame = world.combatVfxFrame();
+        REQUIRE(!frame.projectiles.empty());
+        // Project average projectile displacement along local North unit vector at (35 N, -117 E)
+        const double lat0 = 35.0 * kDeg, lon0 = -117.0 * kDeg;
+        const double northEcef[3] = {
+            -std::sin(lat0) * std::cos(lon0),
+            -std::sin(lat0) * std::sin(lon0),
+            std::cos(lat0)};
+        double sumNorth = 0.0;
+        for (const auto& p : frame.projectiles) {
+            sumNorth += p.positionEcef[0] * northEcef[0] +
+                        p.positionEcef[1] * northEcef[1] +
+                        p.positionEcef[2] * northEcef[2];
+        }
+        const double meanNorth = sumNorth / static_cast<double>(frame.projectiles.size());
+        // Step another 3.0 s (total > 6.1 s > M61A1 5.5 s pyrotechnic self-destruct): all rounds must expire
+        world.step(150);
+        const bool allExpired = world.combatVfxFrame().projectiles.empty();
+        return std::pair<double, bool>{meanNorth, allExpired};
+    };
+
+    const auto [calmNorth, calmExpired] = fireAndMeasure(0.0);
+    const auto [windyNorth, windyExpired] = fireAndMeasure(30.0);
+    CHECK(calmExpired);
+    CHECK(windyExpired);
+    // By Didion's wind-drift law y = w * (t - x/v0), a 30 m/s northward crosswind over 3.0 s at 1500 m
+    // produces ~40-60 m of pure aerodynamic lateral drift on 20 mm M56 projectiles.
+    const double driftM = windyNorth - calmNorth;
+    CHECK(driftM > 25.0);
+    CHECK(driftM < 90.0);
+}
