@@ -149,6 +149,8 @@ struct ViewerOptions {
     render::ViewerSettings window;
     int cameraMode = 1; // orbit
     std::uint32_t tacticalOverlayMask = 0u; ///< --overlays (default 0 = OFF, 0.0 ms)
+    int workspacePreset = static_cast<int>(ui::WorkspacePreset::AirRadar); ///< --workspace
+    int radarSignalTab = 0; ///< --signal-tab (0=rd, 1=burn, 2=polar)
     std::string view;   // --view lat,lon,alt_m,distance_m[,azimuth_deg,elevation_deg]: start detached, looking at that point
     double chaseDistance = 40.0;
     bool chaseDistanceSet = false; // --chase-distance given: start there, even attached to a world
@@ -463,6 +465,16 @@ bool parse(int argc, char** argv, ViewerOptions& o) {
                     }
                 }
                 o.tacticalOverlayMask = mask;
+            } else if (a == "--workspace") {
+                const std::string v = next();
+                if (v == "clean") o.workspacePreset = static_cast<int>(ui::WorkspacePreset::Clean);
+                else if (v == "emso" || v == "ew") o.workspacePreset = static_cast<int>(ui::WorkspacePreset::Emso);
+                else if (v == "weapon" || v == "weapons") o.workspacePreset = static_cast<int>(ui::WorkspacePreset::Weapon);
+                else if (v == "flight" || v == "aero") o.workspacePreset = static_cast<int>(ui::WorkspacePreset::Flight);
+                else o.workspacePreset = static_cast<int>(ui::WorkspacePreset::AirRadar);
+            } else if (a == "--signal-tab") {
+                const std::string v = next();
+                o.radarSignalTab = (v == "burn" || v == "snr") ? 1 : (v == "polar" || v == "antenna") ? 2 : 0;
             } else if (a == "--probe") o.probe = true;
             else if (a == "--stats") o.stats = std::stod(next());
             else if (a == "--stats-budget") o.statsBudgetMs = std::stod(next());
@@ -915,6 +927,8 @@ int main(int argc, char** argv) {
     std::vector<std::uint64_t> storeRevision; // per slot: the mission record's revision last drawn (~0: read it again)
     controls->cameraMode.store(opt.cameraMode);
     controls->tacticalOverlayMask.store(opt.tacticalOverlayMask, std::memory_order_relaxed);
+    controls->workspacePreset.store(opt.workspacePreset, std::memory_order_relaxed);
+    controls->radarSignalTab.store(opt.radarSignalTab, std::memory_order_relaxed);
     const std::string monitorLabel = replay
         ? ("回放: " + std::filesystem::path(opt.replayPath).filename().string())
         : opt.aircraft;
@@ -1016,18 +1030,18 @@ int main(int argc, char** argv) {
         builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
         builder.AddRanges(io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
         builder.AddText("°±·×≤≥—…→←▲▼■□◆◇●○【】（）《》：；，。！？、λσβΔ"
-                        "帧率架回放暂停单步时间步秒视角控制追踪环绕正北俯视总览自由缩小放大重置视点距离"
-                        "态势图层仅聚焦载具全开全关已开启已关闭雷达电子干扰侦察数据链武器射程气象"
-                        "当前聚焦海高离地真空速节迎角滚转俯仰航向世界环境等待仿真接入进程已退出暂未更新实时同步切换"
+                        "帧率架回放暂停继续单步时间步秒视角控制追踪环绕正北俯视总览自由缩小放大重置视点距离"
+                        "态势图层仅聚焦载具全开全关已开启已关闭雷达电子干扰侦察数据链武器射程气象部分"
+                        "当前聚焦海高离地真空速节迎角滚转俯仰航向世界环境等待仿真接入进程已退出暂未更新停更实时同步切换"
                         "载具列表名称空中地面坠毁发散失控偏航低能量表速最低失速底速坡度质量燃油"
                         "机载载荷型号状态能力挂点已挂载通电就绪释放中已释放抛弃断电损毁仅状态无"
-                        "融合航迹实体来源年龄误差速度识别在线外推丢失未知雷达链路"
+                        "融合航迹实体来源年龄误差速度识别在线外推丢失未知雷达链路活跃锁星惯导保持水平"
                         "烧穿压制单目标锁定边扫描边跟踪照射引导搜索全向警戒待机静默相控阵机械扫描旋转雷达罩"
                         "最大探测扫描量程不可逃逸可发射定位通信导航授权未搜索目标"
-                        "蓝红方有效区边界盲测向线告警椭球前置瞄准点炸弹预测落点回波成像"
-                        "底层仿真技术细节体制天线载频波长波束宽度视场极限仪表处理层级信号检测驻留次数点迹虚警"
-                        "模糊多普勒主瓣杂波凹口高度滤波协方差方程标称噪声比增量线性倍率保留系数斜距体轴相对"
-                        "气动飞控马赫数过载侧滑角速率舵面偏角副翼升降方向襟翼减速板发动机推力核心转速加力剩余");
+                        "蓝红方有效区边界盲测向线告警椭球前置瞄准点炸弹预测落点回波成像走廊门"
+                        "观战纯净空战武器飞控气动面板自定义停靠适配显隐可视多普勒曲线方向图频谱截获辐射源"
+                        "物理推导原生信号级方程标称噪底带宽本机来袭挂载包线解算初速阻力系数补偿"
+                        "飞行弹药详细焦平面协方差诊断流推力发核心转速加力旋翼桨速副翼升降方向减速板剩余");
         builder.BuildRanges(&glyphRanges);
 
         const float fontPx = std::round(21.0f * uiDpi);
@@ -1965,6 +1979,22 @@ int main(int argc, char** argv) {
                 l.y = static_cast<float>((ny * 0.5 + 0.5) * extent.height);
                 l.text = (i < meta.size() && !meta[i].name.empty() ? meta[i].name : "v" + std::to_string(i)) + (states[i].diverged ? " !" : "");
                 l.selected = static_cast<int>(i) == selected;
+                // Assign crisp geometric IFF marker kind: 3=missile/weapon, 2=red force, 1=blue force, 0=neutral
+                if (i < meta.size()) {
+                    std::string tLo = meta[i].type;
+                    for (char& ch : tLo) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+                    const bool isWpn = tLo.find("aim") != std::string::npos || tLo.find("pl1") != std::string::npos ||
+                                       tLo.find("r77") != std::string::npos || tLo.find("r73") != std::string::npos ||
+                                       tLo.find("mk8") != std::string::npos || tLo.find("gbu") != std::string::npos ||
+                                       tLo.find("agm") != std::string::npos || tLo.find("missile") != std::string::npos;
+                    if (isWpn) {
+                        l.iconKind = 3u;
+                    } else {
+                        const auto side = world::TacticalVolumes::inferSide(meta[i].name);
+                        l.iconKind = side == world::TacticalVolumes::Side::Blue ? 1u
+                                   : side == world::TacticalVolumes::Side::Red  ? 2u : 0u;
+                    }
+                }
                 // (what its Vehicle Interface says of it, in the air: low on energy, deviating, upset - on its label)
                 if (flightStatus && i < flightStatus->size() && !states[i].onGround) {
                     const char* word = "";
@@ -2175,7 +2205,8 @@ int main(int argc, char** argv) {
             const std::string followName = at < meta.size() ? meta[at].name : std::string();
             const std::string followType = at < meta.size() ? meta[at].type : std::string();
             if (mirror.valid()) {
-                missionGui->update(&mirror, anyAlive ? selected : -1, followName, batch ? batch->simTime : 0.0, tacticalFramePtr);
+                missionGui->update(&mirror, anyAlive ? selected : -1, followName, batch ? batch->simTime : 0.0,
+                                   tacticalFramePtr, target, followType);
             } else {
                 missionGui->updateReplay(tacticalFramePtr, target, anyAlive ? selected : -1, followName, followType,
                                          batch ? batch->simTime : 0.0);

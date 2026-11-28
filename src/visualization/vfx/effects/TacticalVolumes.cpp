@@ -340,7 +340,7 @@ void TacticalVolumes::emitRadars(const ipc::TacticalOverlayFrameV1& frame, Span<
                 return bFwd * (std::cos(el) * std::cos(az)) + bRight * (std::cos(el) * std::sin(az)) + bUp * std::sin(el);
             };
 
-            // Single crisp horizontal tactical sector deck (no noisy vertical skirts or yellow walls!)
+            // 1. Clean mid-plane tactical sector deck (primary top-down / orbit readability)
             constexpr int kAzSteps = 32;
             constexpr int kRadSteps = 6;
             for (int ri = 0; ri < kRadSteps; ++ri) {
@@ -358,6 +358,63 @@ void TacticalVolumes::emitRadars(const ipc::TacticalOverlayFrameV1& frame, Span<
                              origin + d1 * (nomRange * rf1), rf1, bUp, u1,
                              origin + d0 * (nomRange * rf1), rf1, bUp, u0,
                              col, params);
+                }
+            }
+
+            // 2. True 3-D Stereoscopic Elevation Corridor Rails & Portal Frames:
+            // Ensures the radar volume remains unmistakably 3-D even at grazing Chase angles behind the tail
+            // (prevents flat-plane compression into an illegible thin horizontal line on the horizon).
+            const double elVisual = std::clamp(static_cast<double>(r.elevationHalfWidthRad), 0.050, 0.125);
+            const double activeEnd = hasBurn ? static_cast<double>(r.burnThroughRangeM) : nomRange;
+            const vsg::vec4 railActive(rgb.x, rgb.y, rgb.z, 0.88f);
+            const vsg::vec4 railLower(rgb.x, rgb.y, rgb.z, 0.54f);
+            const vsg::vec4 railBlind(0.68f, 0.75f, 0.86f, 0.56f);
+            const vsg::vec4 portalCol = hasBurn ? vsg::vec4(1.00f, 0.80f, 0.18f, 0.96f) : vsg::vec4(rgb.x, rgb.y, rgb.z, 0.92f);
+
+            // 4 corner elevation rails from nose out to activeEnd (and dashed beyond burn-through)
+            for (const double sAz : {-1.0, 1.0}) {
+                const double az = azC + azH * sAz;
+                const vsg::dvec3 dTop = dirAt(az, elC + elVisual);
+                const vsg::dvec3 dBot = dirAt(az, elC - elVisual);
+                pushBeamRibbon(origin, origin + dTop * activeEnd, 10.0, railActive, 6.0f, 0.0f, 0.0f);
+                pushBeamRibbon(origin, origin + dBot * activeEnd, 8.5,  railLower,  6.0f, 0.0f, 0.0f);
+                if (hasBurn && nomRange > activeEnd + 600.0) {
+                    pushBeamRibbon(origin + dTop * activeEnd, origin + dTop * nomRange, 8.5, railBlind, 6.0f, 14.0f, 0.0f);
+                    pushBeamRibbon(origin + dBot * activeEnd, origin + dBot * nomRange, 7.5, railBlind, 6.0f, 14.0f, 0.0f);
+                }
+            }
+
+            // Crisp 3-D curved elevation portal frame at activeEnd (Gold when jammed = Burn-Through Gate!)
+            constexpr int kPortalSegs = 16;
+            const double portalW = hasBurn ? 14.0 : 11.0;
+            for (int i = 0; i < kPortalSegs; ++i) {
+                const double u0 = -1.0 + 2.0 * static_cast<double>(i) / static_cast<double>(kPortalSegs);
+                const double u1 = -1.0 + 2.0 * static_cast<double>(i + 1) / static_cast<double>(kPortalSegs);
+                const double a0 = azC + azH * u0;
+                const double a1 = azC + azH * u1;
+                pushBeamRibbon(origin + dirAt(a0, elC + elVisual) * activeEnd,
+                               origin + dirAt(a1, elC + elVisual) * activeEnd, portalW, portalCol, 6.0f, 0.0f, 0.0f);
+                pushBeamRibbon(origin + dirAt(a0, elC - elVisual) * activeEnd,
+                               origin + dirAt(a1, elC - elVisual) * activeEnd, portalW * 0.85,
+                               vsg::vec4(portalCol.x, portalCol.y, portalCol.z, portalCol.w * 0.72f), 6.0f, 0.0f, 0.0f);
+            }
+            for (const double sAz : {-1.0, 1.0}) {
+                const double az = azC + azH * sAz;
+                pushBeamRibbon(origin + dirAt(az, elC - elVisual) * activeEnd,
+                               origin + dirAt(az, elC + elVisual) * activeEnd, portalW, portalCol, 6.0f, 0.0f, 0.0f);
+                if (hasBurn && nomRange > activeEnd + 600.0) {
+                    pushBeamRibbon(origin + dirAt(az, elC - elVisual) * nomRange,
+                                   origin + dirAt(az, elC + elVisual) * nomRange, 8.0, railBlind, 6.0f, 6.0f, 0.0f);
+                }
+            }
+            if (hasBurn && nomRange > activeEnd + 600.0) {
+                for (int i = 0; i < kPortalSegs; ++i) {
+                    const double u0 = -1.0 + 2.0 * static_cast<double>(i) / static_cast<double>(kPortalSegs);
+                    const double u1 = -1.0 + 2.0 * static_cast<double>(i + 1) / static_cast<double>(kPortalSegs);
+                    const double a0 = azC + azH * u0;
+                    const double a1 = azC + azH * u1;
+                    pushBeamRibbon(origin + dirAt(a0, elC + elVisual) * nomRange,
+                                   origin + dirAt(a1, elC + elVisual) * nomRange, 8.0, railBlind, 6.0f, 4.0f, 0.0f);
                 }
             }
         }
@@ -565,7 +622,8 @@ void TacticalVolumes::emitWeapons(const ipc::TacticalOverlayFrameV1& frame, Span
             horiz = vsg::normalize(horiz);
             const vsg::dvec3 right = vsg::normalize(vsg::cross(horiz, up));
 
-            const double halfAng = 0.24; // ~14 deg clean ruler fan
+            const double halfAng = 0.22; // ~13 deg clean ruler fan
+            const vsg::dvec3 deckOrigin = origin - up * 35.0; // Subtle vertical stagger cleanly separates DLZ from radar deck
             auto emitFanBand = [&](double rInner, double rOuter, const vsg::vec4& col, float zoneKind) {
                 if (!(rOuter > rInner + 20.0)) return;
                 const vsg::vec4 params(3.0f, zoneKind, 0.0f, static_cast<float>(rOuter));
@@ -577,11 +635,33 @@ void TacticalVolumes::emitWeapons(const ipc::TacticalOverlayFrameV1& frame, Span
                     const double a1 = halfAng * u1;
                     const vsg::dvec3 d0 = horiz * std::cos(a0) + right * std::sin(a0);
                     const vsg::dvec3 d1 = horiz * std::cos(a1) + right * std::sin(a1);
-                    pushQuad(origin + d0 * rInner, 0.0f, up, u0,
-                             origin + d1 * rInner, 0.0f, up, u1,
-                             origin + d1 * rOuter, 1.0f, up, u1,
-                             origin + d0 * rOuter, 1.0f, up, u0,
+                    pushQuad(deckOrigin + d0 * rInner, 0.0f, up, u0,
+                             deckOrigin + d1 * rInner, 0.0f, up, u1,
+                             deckOrigin + d1 * rOuter, 1.0f, up, u1,
+                             deckOrigin + d0 * rOuter, 1.0f, up, u0,
                              col, params);
+                }
+            };
+
+            // Upright 3-D range-gate brackets (vertical side posts + arched top bar) so Rmin / NEZ / Rmax
+            // remain crisp, layered, and unmistakable even in low-elevation Chase camera!
+            auto emitUprightRangeGate = [&](double distM, double gateHalfWScale, const vsg::vec4& gateCol, double widthM) {
+                if (!(distM > 150.0)) return;
+                const double gAng = halfAng * gateHalfWScale;
+                const double gateH = std::clamp(distM * 0.026, 65.0, 520.0);
+                constexpr int kArcSegs = 12;
+                for (int i = 0; i < kArcSegs; ++i) {
+                    const double a0 = -gAng + 2.0 * gAng * static_cast<double>(i) / static_cast<double>(kArcSegs);
+                    const double a1 = -gAng + 2.0 * gAng * static_cast<double>(i + 1) / static_cast<double>(kArcSegs);
+                    const vsg::dvec3 d0 = horiz * std::cos(a0) + right * std::sin(a0);
+                    const vsg::dvec3 d1 = horiz * std::cos(a1) + right * std::sin(a1);
+                    pushBeamRibbon(deckOrigin + d0 * distM + up * gateH,
+                                   deckOrigin + d1 * distM + up * gateH, widthM, gateCol, 6.0f, 0.0f, 0.0f);
+                }
+                for (const double s : {-1.0, 1.0}) {
+                    const vsg::dvec3 dEdge = horiz * std::cos(s * gAng) + right * std::sin(s * gAng);
+                    pushBeamRibbon(deckOrigin + dEdge * distM,
+                                   deckOrigin + dEdge * distM + up * gateH, widthM, gateCol, 6.0f, 0.0f, 0.0f);
                 }
             };
 
@@ -593,16 +673,21 @@ void TacticalVolumes::emitWeapons(const ipc::TacticalOverlayFrameV1& frame, Span
             emitFanBand(rMin * 0.65, rMin, vsg::vec4(0.95f, 0.24f, 0.26f, 0.90f), 2.0f);
             emitFanBand(rMin, rNe, inNez ? vsg::vec4(0.14f, 0.92f, 0.50f, 1.0f) : vsg::vec4(0.18f, 0.84f, 0.50f, 0.88f), 1.0f);
             emitFanBand(rNe, rMax, vsg::vec4(0.94f, 0.74f, 0.24f, 0.80f), 0.0f);
+
+            emitUprightRangeGate(rMin, 0.78, vsg::vec4(0.96f, 0.28f, 0.30f, 0.88f), 8.0);
+            emitUprightRangeGate(rNe,  0.94, vsg::vec4(0.16f, 0.94f, 0.52f, 0.95f), 12.0);
+            emitUprightRangeGate(rMax, 1.00, vsg::vec4(0.96f, 0.76f, 0.22f, 0.86f), 11.0);
         }
 
         if ((w.flags & ipc::kTactWeaponHasLcos) != 0u) {
             const vsg::dvec3 pip(w.lcosPipperEcef[0], w.lcosPipperEcef[1], w.lcosPipperEcef[2]);
-            const vsg::vec4 lcosCol(0.32f, 0.96f, 0.56f, 0.92f);
-            pushBeamRibbon(origin, pip, 7.0, lcosCol, 6.0f, 14.0f, 0.0f);
+            const vsg::vec4 lcosCol(0.32f, 0.96f, 0.56f, 0.86f);
+            pushBeamRibbon(origin, pip, 4.0, lcosCol, 6.0f, 16.0f, 0.0f);
             vsg::dvec3 u, v;
             const vsg::dvec3 d = vsg::normalize(pip - origin);
             orthoBasis(d, u, v);
-            pushRingRibbon(pip, u, v, 55.0, 55.0, 6.0, 28, lcosCol, 0.0f, 0.0f);
+            // Compact gun aiming pipper ring (14 m radius — never obscures the enemy target in Chase cam!)
+            pushRingRibbon(pip, u, v, 14.0, 14.0, 3.0, 24, lcosCol, 0.0f, 0.0f);
         }
 
         if ((w.flags & ipc::kTactWeaponHasCcip) != 0u) {

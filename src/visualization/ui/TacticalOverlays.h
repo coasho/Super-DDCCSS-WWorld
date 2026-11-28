@@ -1,9 +1,10 @@
 #pragma once
 
-// VIS-M14: Clean, Anti-Overlap Tactical & EMSO Annotation Micro-Pills & Target Markers.
-// Pairs with world::TacticalVolumes (which renders all 3-D depth-tested volumetric shells,
-// jammer wavefronts, burn-through domes, DLZ decks, ESM lobes/ellipsoids, and link arcs in Vulkan).
-// Strictly read-only presentation of native TacticalOverlayFrameV1; zero CPU cost when OFF.
+// VIS-M14: Smooth, Quiet, Borderless 3-D Region Annotations & Target Markers.
+// Pairs with world::TacticalVolumes (3-D stereoscopic radar corridors, burn-through
+// portals, jammer cones, upright DLZ range gates, ESM/CRLB ellipsoids, link arcs).
+// Uses per-label hysteresis & critically-damped screen smoothing so leader lines track
+// 3-D zones instantaneously while text annotations remain rock-steady (zero flickering).
 
 #include "foundation/core/Span.h"
 #include "foundation/transport/TacticalOverlaySegmentV1.h"
@@ -15,6 +16,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 namespace fsim::ui {
@@ -50,15 +52,27 @@ private:
         int r = 145, g = 206, b = 232;
     };
 
+    struct SmoothLabelState {
+        float textX = 0.0f;
+        float textY = 0.0f;
+        int candIdx = -1;
+        double lastWallS = 0.0;
+        bool valid = false;
+    };
+
     bool projectPoint(const vsg::dvec3& ecef, float& sx, float& sy) const noexcept;
-    /// Pick the most readable on-screen anchor among 3-D candidate points inside a zone,
-    /// adapting automatically to camera orbit/zoom while avoiding HUD panels and overlaps.
-    bool pickAdaptiveAnchor(const std::vector<vsg::dvec3>& candidates,
-                            const std::vector<PlacedBox>& reservedPanels,
-                            float scale,
-                            float& outX, float& outY) const noexcept;
-    void drawPill(void* dl, float anchorX, float anchorY, const char* text, ZoneColor zoneColor,
-                  std::vector<PlacedBox>& placed, float scale, bool drawLeader = false, bool centered = false) const;
+    bool pickStableAnchor(std::uint64_t labelKey,
+                          const std::vector<vsg::dvec3>& candidates,
+                          const std::vector<PlacedBox>& reservedPanels,
+                          float scale,
+                          float& outAnchorX, float& outAnchorY) const noexcept;
+    void drawZoneTag(void* dl, std::uint64_t labelKey,
+                     float anchorX, float anchorY,
+                     float preferOffsetX, float preferOffsetY,
+                     const char* text, ZoneColor zoneColor,
+                     std::vector<PlacedBox>& placed,
+                     float scale, double nowWallS, float dtS,
+                     bool drawLeader = true) const;
 
     std::shared_ptr<ViewerControls> controls_;
     ipc::TacticalOverlayFrameV1 frame_;
@@ -67,6 +81,7 @@ private:
     std::vector<unsigned char> alive_;
     std::vector<MonitorGui::VehicleMeta> meta_;
     int selectedSlot_ = -1;
+    int lastSelectedSlot_ = -1;
 
     vsg::dmat4 view_{};
     vsg::dmat4 proj_{};
@@ -75,6 +90,8 @@ private:
     std::uint32_t height_ = 1080;
     double simTime_ = 0.0;
     mutable double lastDrawMs_ = 0.0;
+    mutable double lastRecordWallS_ = 0.0;
+    mutable std::unordered_map<std::uint64_t, SmoothLabelState> labelStates_;
 };
 
 } // namespace fsim::ui

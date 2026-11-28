@@ -67,6 +67,8 @@ void main() {
     vec3 nrm = normalize(v_normU.xyz + vec3(1e-7));
     float ndv = abs(dot(nrm, viewDir));
     float fresnel = pow(clamp(1.0 - ndv, 0.0, 1.0), 1.8);
+    // Boost stroke contrast slightly at grazing Chase angles so shallow planes never wash out.
+    float grazingBoost = mix(1.0, 1.38, pow(clamp(1.0 - ndv, 0.0, 1.0), 1.6));
 
     vec3 baseCol = v_color.rgb;
     float baseAlpha = v_color.a;
@@ -94,13 +96,13 @@ void main() {
         if (!inBlindZone) {
             // Subtle 10 km range arcs & center boresight tick
             float ringMask = smoothstep(0.06, 0.11, rNorm);
-            addFramedStroke(col, alpha, ringDist, 1.25, 2.5, mix(baseCol, vec3(0.90, 0.97, 1.0), 0.38), 0.54 * ringMask * apexFade);
+            addFramedStroke(col, alpha, ringDist, 1.30, 2.6, mix(baseCol, vec3(0.90, 0.97, 1.0), 0.38), clamp(0.54 * grazingBoost, 0.0, 0.90) * ringMask * apexFade);
             addFramedStroke(col, alpha, centerAzDist, 1.0, 2.0, baseCol, 0.28 * apexFade);
 
             // Crisp dark-outlined left/right sector edges & far edge (when unjammed)
-            addFramedStroke(col, alpha, 1.0 - abs(uCoord), 2.0, 4.2, mix(baseCol, vec3(0.94, 0.98, 1.0), 0.30), 0.92 * apexFade);
+            addFramedStroke(col, alpha, 1.0 - abs(uCoord), 2.0, 4.2, mix(baseCol, vec3(0.94, 0.98, 1.0), 0.30), clamp(0.92 * grazingBoost, 0.0, 0.96) * apexFade);
             if (!isJammed) {
-                addFramedStroke(col, alpha, 1.0 - rNorm, 2.1, 4.4, mix(baseCol, vec3(0.94, 0.98, 1.0), 0.34), 0.94 * apexFade);
+                addFramedStroke(col, alpha, 1.0 - rNorm, 2.1, 4.4, mix(baseCol, vec3(0.94, 0.98, 1.0), 0.34), clamp(0.94 * grazingBoost, 0.0, 0.98) * apexFade);
             }
 
             // Crisp thin instantaneous radar beam ray

@@ -58,7 +58,8 @@ public:
         float x = 0.0f, y = 0.0f;
         std::string text;
         bool selected = false;
-        int severity = 0; ///< severity() of its vehicle: its label amber (1) or red (2)
+        int severity = 0;          ///< severity() of its vehicle: its label amber (1) or red (2)
+        std::uint8_t iconKind = 0; ///< 0=neutral, 1=blue solid diamond, 2=red hollow diamond, 3=weapon triangle
     };
     void setLabels(std::vector<Label> labels) { labels_ = std::move(labels); }
 
