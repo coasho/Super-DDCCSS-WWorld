@@ -223,6 +223,7 @@ void MonitorGui::drawMonitor() const {
                 std::snprintf(rowLabel, sizeof rowLabel, "%s  [%s]###foc_%d", nm, tp, i);
                 if (ImGui::Selectable(rowLabel, i == sel)) {
                     controls_->selectedVehicle.store(i, std::memory_order_relaxed);
+                    controls_->focusJumpRequested.store(true, std::memory_order_relaxed);
                 }
             }
             ImGui::EndPopup();
@@ -357,7 +358,7 @@ void MonitorGui::drawMonitor() const {
     // Camera Mode Dropdown Pill + Reset
     int camMode = std::clamp(controls_->cameraMode.load(std::memory_order_relaxed), 0, world::CameraController::kModeCount - 1);
     const char* camShort[] = {"追踪", "环绕", "总览", "自由"};
-    const char* camLong[] = {"追踪视角 (Chase)", "环绕视角 (Orbit)", "正北总览 (Overview)", "自由视角 (Free)"};
+    const char* camLong[] = {"追踪视角 (Chase)", "环绕视角 (Orbit)", "正北总览 (Overview)", "自由视角 (右键水平拖拽)"};
     char camBtn[40];
     std::snprintf(camBtn, sizeof camBtn, "%s ▼###cam_btn", camShort[camMode]);
     if (ImGui::Button(camBtn)) ImGui::OpenPopup("cam_mode_popup");
@@ -716,8 +717,10 @@ void MonitorGui::drawVehicleList() const {
             else std::snprintf(label, sizeof label, "v%zu", i);
             char selectableId[96];
             std::snprintf(selectableId, sizeof selectableId, "%s##veh_%zu", label, i);
-            if (ImGui::Selectable(selectableId, isSelected, ImGuiSelectableFlags_SpanAllColumns))
+            if (ImGui::Selectable(selectableId, isSelected, ImGuiSelectableFlags_SpanAllColumns)) {
                 controls_->selectedVehicle.store(static_cast<int>(i), std::memory_order_relaxed);
+                controls_->focusJumpRequested.store(true, std::memory_order_relaxed);
+            }
             if (level) ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg1,
                                               level >= 2 ? colour(165, 32, 32, 100) : colour(180, 130, 20, 85));
 

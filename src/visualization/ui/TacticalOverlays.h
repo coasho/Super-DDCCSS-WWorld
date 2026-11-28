@@ -43,11 +43,11 @@ public:
     /// Last frame's overlay CPU annotation time (ms) for --stats reporting (0.0 when OFF).
     double lastDrawMs() const noexcept { return lastDrawMs_; }
 
-private:
     struct PlacedBox {
         float x0 = 0.0f, y0 = 0.0f, x1 = 0.0f, y1 = 0.0f;
     };
 
+private:
     struct ZoneColor {
         int r = 145, g = 206, b = 232;
     };
@@ -70,8 +70,11 @@ private:
                      float anchorX, float anchorY,
                      float preferOffsetX, float preferOffsetY,
                      const char* text, ZoneColor zoneColor,
+                     const std::vector<PlacedBox>& panelBoxes,
+                     std::vector<PlacedBox>& zonePlaced,
                      std::vector<PlacedBox>& placed,
                      float scale, double nowWallS, float dtS,
+                     bool cameraChanged,
                      bool drawLeader = true) const;
 
     std::shared_ptr<ViewerControls> controls_;
@@ -82,10 +85,14 @@ private:
     std::vector<MonitorGui::VehicleMeta> meta_;
     int selectedSlot_ = -1;
     int lastSelectedSlot_ = -1;
+    mutable int lastCamMode_ = -1;
 
     vsg::dmat4 view_{};
     vsg::dmat4 proj_{};
     vsg::dvec3 eye_{};
+    mutable vsg::dmat4 prevView_{};
+    mutable vsg::dvec3 prevRelEye_{};
+    mutable bool hasPrevCam_ = false;
     std::uint32_t width_ = 1920;
     std::uint32_t height_ = 1080;
     double simTime_ = 0.0;

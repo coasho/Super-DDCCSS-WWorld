@@ -1052,7 +1052,7 @@ int main(int argc, char** argv) {
                         "物理推导原生信号级方程标称噪底带宽本机来袭挂载包线解算初速阻力系数补偿"
                         "飞行弹药详细焦平面协方差诊断流推力发核心转速加力旋翼桨速副翼升降方向减速板剩余"
                         "时钟场景光照当地太阳高度角清晨正午后黄昏夜晚"
-                        "布局紧凑标准宽松隐藏字号调节规划接入虚造威胁环吊舱画面质心迷雾对比绿磷仅测向接收电平相对类型实测噪声抬升峰值凹口矩阵补齐");
+                        "布局紧凑标准宽松隐藏字号调节规划接入虚造威胁环吊舱画面质心迷雾对比绿磷仅测向接收电平相对类型实测噪声抬升峰值凹口矩阵补齐右键拖拽");
         builder.BuildRanges(&glyphRanges);
 
         const float fontPx = std::round(21.0f * uiDpi);
@@ -1852,6 +1852,10 @@ int main(int argc, char** argv) {
         if (controls->cameraReset.exchange(false)) camera->resetView();
         const sim::VehicleState* target = (batch && anyAlive && selected >= 0)
             ? &(opt.interpolate ? interpolator.states() : batch->states)[static_cast<std::size_t>(selected)] : nullptr;
+        if (controls->focusJumpRequested.exchange(false, std::memory_order_relaxed) && target &&
+            camMode == world::CameraController::Mode::Free) {
+            camera->holdAt(vsg::dvec3(target->positionEcef[0], target->positionEcef[1], target->positionEcef[2]));
+        }
         if (target) {
             cameraHeldAfterDeath = false;
             deathGlideActive = false;

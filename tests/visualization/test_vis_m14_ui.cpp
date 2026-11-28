@@ -208,6 +208,31 @@ TEST_CASE("VIS-M14 TacticalOverlays enforces focused-vehicle filtering and zero 
     ImGui::Render();
     CHECK(ImGui::GetDrawData()->TotalVtxCount == 0);
 
+    // 4. Cross-side Jammer & ESM isolation: Red jammer & Red ESM on slot 1 MUST NOT leak when focused on Blue slot 0!
+    ipc::TacticalOverlayFrameV1 crossFrame;
+    crossFrame.simTime = 6.0;
+    ipc::TacticalJammerLobeWireV1 redJam{};
+    redJam.slot = 1;
+    redJam.vehicleId = 2;
+    redJam.originEcef[0] = st1.positionEcef[0]; redJam.originEcef[1] = st1.positionEcef[1]; redJam.originEcef[2] = st1.positionEcef[2];
+    redJam.boresightEcef[0] = static_cast<float>(-east.x); redJam.boresightEcef[1] = static_cast<float>(-east.y); redJam.boresightEcef[2] = static_cast<float>(-east.z);
+    redJam.halfAngleRad = 0.35f; redJam.rangeM = 30000.0f; redJam.erpDbw = 51.0f; redJam.frequencyGhz = 9.9f;
+    crossFrame.jammers.push_back(redJam);
+    ipc::TacticalEsmRayWireV1 redEsm{};
+    redEsm.observerSlot = 1;
+    redEsm.observerVehicleId = 2;
+    redEsm.originEcef[0] = st1.positionEcef[0]; redEsm.originEcef[1] = st1.positionEcef[1]; redEsm.originEcef[2] = st1.positionEcef[2];
+    redEsm.rayDirEcef[0] = static_cast<float>(-east.x); redEsm.rayDirEcef[1] = static_cast<float>(-east.y); redEsm.rayDirEcef[2] = static_cast<float>(-east.z);
+    redEsm.rayLengthM = 18000.0f;
+    crossFrame.esmRays.push_back(redEsm);
+    controls->tacticalOverlayMask.store(ui::kOverlayJammer | ui::kOverlayEsm);
+    overlays->update(&crossFrame, Span<const sim::VehicleState>(states), alive, meta, 0,
+                     view, proj, eye, 1920, 1080, 6.0);
+    ImGui::NewFrame();
+    overlays->record(*dummy);
+    ImGui::Render();
+    CHECK(ImGui::GetDrawData()->TotalVtxCount == 0);
+
     ImGui::DestroyContext();
 }
 

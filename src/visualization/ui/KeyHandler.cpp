@@ -22,6 +22,7 @@ void KeyHandler::apply(vsg::KeyPressEvent& e) {
         break;
     case vsg::KEY_Tab:
         c.selectStep.store(shift ? -1 : 1, std::memory_order_relaxed); // resolved by the loop (live vehicles only)
+        c.focusJumpRequested.store(true, std::memory_order_relaxed);
         break;
     case vsg::KEY_c:
     case vsg::KEY_C:

@@ -1,5 +1,4 @@
 #include "visualization/ui/TacticalOverlays.h"
-
 #include "visualization/ui/Colour.h"
 #include "visualization/vfx/effects/TacticalVolumes.h"
 
@@ -14,7 +13,7 @@ namespace fsim::ui {
 
 namespace {
 
-constexpr double kNearClipViewZ = -2.0;
+constexpr double kNearClipViewZ = -1.0;
 
 vsg::dvec3 bodyToEcefVec(const sim::VehicleState& s, const vsg::dvec3& b) noexcept {
     const double* R = s.rotationBodyToEcef;
@@ -37,26 +36,17 @@ void localEnuVec(const vsg::dvec3& pos, vsg::dvec3& east, vsg::dvec3& north, vsg
     north = vsg::cross(up, east);
 }
 
-bool jammerIlluminatesPoint(const ipc::TacticalJammerLobeWireV1& j, const vsg::dvec3& targetEcef) noexcept {
-    const vsg::dvec3 origin(j.originEcef[0], j.originEcef[1], j.originEcef[2]);
-    const vsg::dvec3 delta = targetEcef - origin;
-    const double dist = vsg::length(delta);
-    if (dist < 1.0) return false;
-    const double maxRange = std::max(static_cast<double>(j.rangeM), 15000.0) * 1.15;
-    if (dist > maxRange) return false;
-    if ((j.flags & ipc::kTactJamAllRound) != 0u) return true;
-    vsg::dvec3 dir(j.boresightEcef[0], j.boresightEcef[1], j.boresightEcef[2]);
-    const double dn = vsg::length(dir);
-    if (dn < 1e-6) return false;
-    dir /= dn;
-    const double halfAng = std::clamp(static_cast<double>(j.halfAngleRad), 0.08, 0.85) + 0.14;
-    return vsg::dot(dir, delta / dist) >= std::cos(halfAng);
-}
-
 std::uint64_t makeLabelKey(std::uint32_t slot, std::uint32_t category, std::uint32_t subIdx) noexcept {
     return (static_cast<std::uint64_t>(slot) << 24u) |
            (static_cast<std::uint64_t>(category) << 12u) |
            static_cast<std::uint64_t>(subIdx & 0xFFFu);
+}
+
+bool overlapsAny(float x0, float y0, float x1, float y1, const std::vector<TacticalOverlays::PlacedBox>& boxes, float pad) noexcept {
+    for (const auto& b : boxes) {
+        if (x0 < b.x1 + pad && x1 + pad > b.x0 && y0 < b.y1 + pad && y1 + pad > b.y0) return true;
+    }
+    return false;
 }
 
 } // namespace
@@ -77,6 +67,7 @@ void TacticalOverlays::update(const ipc::TacticalOverlayFrameV1* frame,
                               double simTime) {
     if (selectedSlot != lastSelectedSlot_) {
         labelStates_.clear();
+        hasPrevCam_ = false;
         lastSelectedSlot_ = selectedSlot;
     }
     selectedSlot_ = selectedSlot;
@@ -120,18 +111,17 @@ bool TacticalOverlays::pickStableAnchor(std::uint64_t labelKey,
                                         const std::vector<PlacedBox>& reservedPanels,
                                         float scale,
                                         float& outAnchorX, float& outAnchorY) const noexcept {
+    const float w = static_cast<float>(width_);
+    const float h = static_cast<float>(height_);
+    const float padX = std::min(w * 0.08f, 110.0f * scale);
+    const float padY = std::min(h * 0.09f, 95.0f * scale);
+
     struct CandEval {
         int idx = -1;
         float x = 0.0f, y = 0.0f;
-        float score = 1e30f;
+        float score = 1e9f;
         bool safe = false;
     };
-
-    const float w = static_cast<float>(width_);
-    const float h = static_cast<float>(height_);
-    const float padX = 76.0f * scale;
-    const float padY = 44.0f * scale;
-
     std::vector<CandEval> evals;
     evals.reserve(candidates.size());
 
@@ -155,7 +145,6 @@ bool TacticalOverlays::pickStableAnchor(std::uint64_t labelKey,
                 break;
             }
         }
-        // Slight preference for earlier (primary) candidates so anchor selection is naturally deterministic.
         pen += static_cast<float>(i) * 18.0f * scale;
         evals.push_back({static_cast<int>(i), sx, sy, pen, !insidePanel && pen < 120.0f * scale});
     }
@@ -169,8 +158,6 @@ bool TacticalOverlays::pickStableAnchor(std::uint64_t labelKey,
         if (e.idx == st.candIdx) prev = &e;
     }
 
-    // Hysteresis: stick with the previous 3-D candidate unless the new candidate beats it by a large margin
-    // (or the previous candidate entered a HUD panel / left the viewport). Eliminates candidate flip-flopping!
     const CandEval* chosen = best;
     if (prev && prev->safe && best->score + 220.0f * scale > prev->score) {
         chosen = prev;
@@ -185,13 +172,15 @@ void TacticalOverlays::drawZoneTag(void* drawList, std::uint64_t labelKey,
                                    float anchorX, float anchorY,
                                    float preferOffsetX, float preferOffsetY,
                                    const char* text, ZoneColor zc,
+                                   const std::vector<PlacedBox>& panelBoxes,
+                                   std::vector<PlacedBox>& zonePlaced,
                                    std::vector<PlacedBox>& placed,
                                    float scale, double nowWallS, float dtS,
+                                   bool cameraChanged,
                                    bool drawLeader) const {
     if (!text || !text[0]) return;
     auto* dl = static_cast<ImDrawList*>(drawList);
     ImFont* font = ImGui::GetFont();
-    // Lighter typographic weight (0.86x) than solid Entity badges so 3-D regions remain the visual hero!
     const float fontSize = std::max(11.5f, ImGui::GetFontSize() * 0.86f);
     const ImVec2 sz = font->CalcTextSizeA(fontSize, 2000.0f, 0.0f, text);
     const float padX = 4.0f * scale;
@@ -199,86 +188,91 @@ void TacticalOverlays::drawZoneTag(void* drawList, std::uint64_t labelKey,
     const float boxW = sz.x + padX * 2.0f;
     const float boxH = sz.y + padY * 2.0f;
 
-    const bool alignRight = (preferOffsetX < 0.0f);
-    float targetX = alignRight ? (anchorX + preferOffsetX - boxW) : (anchorX + preferOffsetX);
-    float targetY = anchorY + preferOffsetY - boxH * 0.5f;
-
     const float minX = 14.0f * scale;
     const float maxX = std::max(minX + 4.0f, static_cast<float>(width_) - boxW - 14.0f * scale);
     const float minY = 14.0f * scale;
     const float maxY = std::max(minY + 4.0f, static_cast<float>(height_) - boxH - 14.0f * scale);
-    targetX = std::clamp(targetX, minX, maxX);
-    targetY = std::clamp(targetY, minY, maxY);
 
-    // Deterministic non-overlapping placement against panels, entity tags, and higher-priority zone labels.
-    const float gap = 6.0f * scale;
-    for (int iter = 0; iter < 10; ++iter) {
-        bool hit = false;
-        for (const auto& b : placed) {
-            if (targetX < b.x1 + gap && targetX + boxW + gap > b.x0 &&
-                targetY < b.y1 + gap && targetY + boxH + gap > b.y0) {
-                if (b.x0 > static_cast<float>(width_) * 0.55f && targetX + boxW > b.x0) {
-                    targetX = std::max(minX, b.x0 - boxW - gap);
-                } else if (b.y0 > static_cast<float>(height_) * 0.65f) {
-                    targetY = std::max(minY, b.y0 - boxH - gap);
-                } else if (targetY + boxH + gap + boxH > maxY) {
-                    targetY = std::max(minY, b.y0 - boxH - gap);
-                } else {
-                    targetY = b.y1 + gap;
+    auto computeIdealPos = [&]() -> ImVec2 {
+        const bool alignRight = (preferOffsetX < 0.0f);
+        float tx = alignRight ? (anchorX + preferOffsetX - boxW) : (anchorX + preferOffsetX);
+        float ty = anchorY + preferOffsetY - boxH * 0.5f;
+        tx = std::clamp(tx, minX, maxX);
+        ty = std::clamp(ty, minY, maxY);
+
+        const float gap = 6.0f * scale;
+        for (int iter = 0; iter < 10; ++iter) {
+            bool hit = false;
+            for (const auto& b : placed) {
+                if (tx < b.x1 + gap && tx + boxW + gap > b.x0 &&
+                    ty < b.y1 + gap && ty + boxH + gap > b.y0) {
+                    if (b.x0 > static_cast<float>(width_) * 0.55f && tx + boxW > b.x0) {
+                        tx = std::max(minX, b.x0 - boxW - gap);
+                    } else if (b.y0 > static_cast<float>(height_) * 0.65f) {
+                        ty = std::max(minY, b.y0 - boxH - gap);
+                    } else if (ty + boxH + gap + boxH > maxY) {
+                        ty = std::max(minY, b.y0 - boxH - gap);
+                    } else {
+                        ty = b.y1 + gap;
+                    }
+                    hit = true;
+                    break;
                 }
-                hit = true;
-                break;
             }
+            if (!hit) break;
         }
-        if (!hit) break;
-    }
-    targetX = std::clamp(targetX, minX, maxX);
-    targetY = std::clamp(targetY, minY, maxY);
+        return ImVec2(std::clamp(tx, minX, maxX), std::clamp(ty, minY, maxY));
+    };
 
-    // Critically-damped screen smoothing + deadzone hysteresis:
-    // The thin leader line attaches instantaneously to (anchorX, anchorY), while the text card itself
-    // stays calm and steady (eliminating high-frequency jitter and frame-to-frame jumping!).
+    // Camera-Motion-Gated Rock-Steady Label Placement:
+    // - Leader line tracks the moving 3-D zone anchor (anchorX, anchorY) dynamically every frame.
+    // - The text itself stays COMPLETELY PINNED at (st.textX, st.textY) whenever the camera view
+    //   has not moved/rotated — zero jumping, zero trembling, zero flickering!
+    // - Text position only re-adjusts smoothly when the camera perspective changes (orbit/pan/zoom),
+    //   or if an opened HUD panel / viewport edge / extreme leader stretch requires rescuing it.
     auto& st = labelStates_[labelKey];
-    if (!st.valid || (nowWallS - st.lastWallS) > 0.6) {
-        st.textX = targetX;
-        st.textY = targetY;
+    const bool fresh = (!st.valid || (nowWallS - st.lastWallS) > 0.75);
+    if (fresh) {
+        const ImVec2 ideal = computeIdealPos();
+        st.textX = ideal.x;
+        st.textY = ideal.y;
         st.valid = true;
     } else {
-        const float dx = targetX - st.textX;
-        const float dy = targetY - st.textY;
-        const float dist = std::hypot(dx, dy);
-        if (dist > 340.0f * scale) {
-            // Instant snap on camera mode switch / teleport
-            st.textX = targetX;
-            st.textY = targetY;
-        } else if (dist > 3.0f * scale) {
-            // Smooth exponential damping outside deadzone
-            const float alpha = 1.0f - std::exp(-std::clamp(dtS, 0.004f, 0.08f) * 7.5f);
-            st.textX += dx * alpha;
-            st.textY += dy * alpha;
+        const float cx = st.textX + boxW * 0.5f;
+        const float cy = st.textY + boxH * 0.5f;
+        const bool outOfView = (st.textX < minX - 1.0f || st.textX > maxX + 1.0f ||
+                                st.textY < minY - 1.0f || st.textY > maxY + 1.0f);
+        const bool hitsPanel = overlapsAny(st.textX, st.textY, st.textX + boxW, st.textY + boxH, panelBoxes, 2.0f * scale);
+        const bool hitsOtherZone = overlapsAny(st.textX, st.textY, st.textX + boxW, st.textY + boxH, zonePlaced, 2.0f * scale);
+        const bool leaderTooLong = std::hypot(anchorX - cx, anchorY - cy) > 560.0f * scale;
+
+        if (cameraChanged || outOfView || hitsPanel || hitsOtherZone || leaderTooLong) {
+            const ImVec2 ideal = computeIdealPos();
+            const float dx = ideal.x - st.textX;
+            const float dy = ideal.y - st.textY;
+            const float dist = std::hypot(dx, dy);
+            if (hitsPanel || hitsOtherZone || outOfView || dist > 420.0f * scale) {
+                st.textX = ideal.x;
+                st.textY = ideal.y;
+            } else if (dist > 10.0f * scale) {
+                // Smooth calm glide ONLY while camera view is actively changing (deadzone = 10*scale)
+                const float alpha = 1.0f - std::exp(-std::clamp(dtS, 0.004f, 0.08f) * 6.0f);
+                st.textX += dx * alpha;
+                st.textY += dy * alpha;
+            }
         }
+        // Otherwise: camera view is steady -> ZERO movement of (st.textX, st.textY)!
     }
     st.lastWallS = nowWallS;
 
-    // Final safety nudge ONLY if smoothed position actively collides with a reserved box
-    float x0 = std::clamp(st.textX, minX, maxX);
-    float y0 = std::clamp(st.textY, minY, maxY);
-    for (const auto& b : placed) {
-        if (x0 < b.x1 + 2.0f && x0 + boxW + 2.0f > b.x0 && y0 < b.y1 + 2.0f && y0 + boxH + 2.0f > b.y0) {
-            x0 = targetX;
-            y0 = targetY;
-            st.textX = x0;
-            st.textY = y0;
-            break;
-        }
-    }
-
+    const float x0 = std::clamp(st.textX, minX, maxX);
+    const float y0 = std::clamp(st.textY, minY, maxY);
     const ImVec2 lo(x0, y0);
     const ImVec2 hi(x0 + boxW, y0 + boxH);
+    zonePlaced.push_back({lo.x, lo.y, hi.x, hi.y});
     placed.push_back({lo.x, lo.y, hi.x, hi.y});
 
     // Quiet, borderless typographic zone annotation (no bulky opaque card obscuring the 3-D zone!):
-    // Crisp dark text halo + high-luminance zone-tinted typography + subtle hairline underline + leader line.
     const int txtR = std::clamp((255 * 52 + zc.r * 48) / 100, 165, 255);
     const int txtG = std::clamp((255 * 52 + zc.g * 48) / 100, 165, 255);
     const int txtB = std::clamp((255 * 52 + zc.b * 48) / 100, 165, 255);
@@ -292,18 +286,16 @@ void TacticalOverlays::drawZoneTag(void* drawList, std::uint64_t labelKey,
         const float elbowX = (anchorX < lo.x) ? lo.x : (anchorX > hi.x ? hi.x : (lo.x + hi.x) * 0.5f);
         const float elbowY = underY;
         const float leadLen = std::hypot(anchorX - elbowX, anchorY - elbowY);
-        if (leadLen > 5.0f * scale && leadLen < 420.0f * scale) {
+        if (leadLen > 5.0f * scale && leadLen < 640.0f * scale) {
             dl->AddLine(ImVec2(anchorX, anchorY), ImVec2(elbowX, elbowY), colour(6, 10, 18, 170), 2.2f * scale);
             dl->AddLine(ImVec2(anchorX, anchorY), ImVec2(elbowX, elbowY), lineCol, 1.0f * scale);
             dl->AddCircleFilled(ImVec2(anchorX, anchorY), 2.4f * scale, lineCol);
         }
     }
 
-    // Whisper-subtle hairline underline (gives clean anchoring without an opaque dark rectangle!)
     dl->AddLine(ImVec2(lo.x + padX, underY), ImVec2(hi.x - padX, underY), colour(6, 10, 18, 150), 2.0f);
     dl->AddLine(ImVec2(lo.x + padX, underY), ImVec2(hi.x - padX, underY), underCol, 1.0f);
 
-    // 4-way dark outline for effortless legibility against both bright white clouds and dark sea
     const ImVec2 tp(lo.x + padX, lo.y + padY);
     const float o = std::max(1.0f, 1.15f * scale);
     dl->AddText(font, fontSize, ImVec2(tp.x - o, tp.y), haloCol, text);
@@ -325,17 +317,46 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
 
     const auto t0 = std::chrono::steady_clock::now();
     const double nowWallS = std::chrono::duration<double>(t0.time_since_epoch()).count();
-    const float dtS = lastRecordWallS_ > 0.0 ? static_cast<float>(std::clamp(nowWallS - lastRecordWallS_, 0.004, 0.08)) : (1.0f / 60.0f);
+    const float dtS = lastRecordWallS_ > 0.0 ? static_cast<float>(std::clamp(nowWallS - lastRecordWallS_, 0.001, 0.1)) : 0.016f;
     lastRecordWallS_ = nowWallS;
+
+    // Reset pinned label coordinates cleanly when camera mode switches
+    const int curCamMode = controls_ ? controls_->cameraMode.load(std::memory_order_relaxed) : 0;
+    if (curCamMode != lastCamMode_) {
+        labelStates_.clear();
+        hasPrevCam_ = false;
+        lastCamMode_ = curCamMode;
+    }
+
+    // Detect whether the camera perspective itself changed (rotation, zoom, or pan relative to focused aircraft).
+    // Straight-and-level Chase/Orbit flight produces ~0 relative change so zone labels remain completely rock-steady!
+    const sim::VehicleState& selState = states_[static_cast<std::size_t>(selectedSlot_)];
+    const vsg::dvec3 selPos(selState.positionEcef[0], selState.positionEcef[1], selState.positionEcef[2]);
+    const vsg::dvec3 relEye = eye_ - selPos;
+    bool cameraChanged = false;
+    if (!hasPrevCam_) {
+        cameraChanged = true;
+    } else {
+        double rotDelta = 0.0;
+        for (std::size_t r = 0; r < 3; ++r) {
+            for (std::size_t c = 0; c < 3; ++c) {
+                rotDelta = std::max(rotDelta, std::abs(view_[c][r] - prevView_[c][r]));
+            }
+        }
+        const double relEyeDelta = vsg::length(relEye - prevRelEye_) / std::max(vsg::length(relEye), 50.0);
+        cameraChanged = (rotDelta > 0.0020) || (relEyeDelta > 0.0020);
+    }
+    prevView_ = view_;
+    prevRelEye_ = relEye;
+    hasPrevCam_ = true;
 
     ImDrawList* dl = ImGui::GetBackgroundDrawList();
     const float k = uiScale();
     const float w = static_cast<float>(width_);
     const float h = static_cast<float>(height_);
 
-    // Reserve exact live workspace dock bounds reported by MonitorGui / MissionGui!
     std::vector<PlacedBox> panelBoxes;
-    panelBoxes.reserve(4);
+    panelBoxes.reserve(6);
     const float topBarY = controls_ ? controls_->topBarBottomPx.load(std::memory_order_relaxed) : 0.0f;
     const float topBarR = controls_ ? controls_->topBarRightPx.load(std::memory_order_relaxed) : 0.0f;
     const float rightDockX = controls_ ? controls_->rightDockLeftPx.load(std::memory_order_relaxed) : 0.0f;
@@ -359,9 +380,10 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
         panelBoxes.push_back({std::max(0.0f, w - std::min(410.0f * k, w * 0.30f)), 0.0f, w, h * 0.65f});
     }
 
+    std::vector<PlacedBox> zonePlaced;
+    zonePlaced.reserve(16);
     std::vector<PlacedBox> placed = panelBoxes;
     placed.reserve(44);
-    // Reserve solid entity badge zones (with generous halo so quiet zone text never touches aircraft callsigns!)
     for (std::size_t i = 0; i < states_.size() && i < alive_.size(); ++i) {
         if (!alive_[i]) continue;
         float vx = 0.0f, vy = 0.0f;
@@ -375,15 +397,14 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
         if (slot < meta_.size()) return world::TacticalVolumes::inferSide(meta_[slot].name);
         return world::TacticalVolumes::Side::Neutral;
     };
+    const auto selectedSide = sideOfSlot(static_cast<std::uint32_t>(selectedSlot_));
     auto sideZoneColor = [](world::TacticalVolumes::Side side) -> ZoneColor {
         if (side == world::TacticalVolumes::Side::Red)  return {248, 86, 86};
         if (side == world::TacticalVolumes::Side::Blue) return {62, 188, 255};
         return {145, 208, 235};
     };
 
-    bool focusedRadarJammed = false;
-
-    // 1. Focused Vehicle Radar Zones (spread cleanly onto opposite flanks to stay out of the center target line!)
+    // 1. Focused Vehicle Radar Zones (strictly r.slot == selectedSlot_)
     if (mask & kOverlayRadar) {
         for (const auto& r : frame_.radars) {
             if (static_cast<int>(r.slot) != selectedSlot_) continue;
@@ -398,7 +419,6 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
             const bool jammed = (r.flags & ipc::kTactRadarJammed) != 0u;
             const bool stt = (r.flags & ipc::kTactRadarSttLock) != 0u;
             const bool illum = (r.flags & ipc::kTactRadarIlluminating) != 0u;
-            if (jammed) focusedRadarJammed = true;
 
             const double rawRange = static_cast<double>(r.detectionRangeM > 100.0f ? r.detectionRangeM : r.rangeScaleM);
             const bool hasBurn = jammed && r.burnThroughRangeM > 100.0f && r.burnThroughRangeM < static_cast<float>(rawRange) * 0.96f;
@@ -415,7 +435,6 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
                 return bFwd * (std::cos(el) * std::cos(az)) + bRight * (std::cos(el) * std::sin(az)) + bUp * std::sin(el);
             };
 
-            // (a) Active Radar Zone Label -> anchored on the starboard/right rail so it never crowds center target
             const double activeOuter = hasBurn ? static_cast<double>(r.burnThroughRangeM) : nomRange;
             std::vector<vsg::dvec3> activeCands;
             if (roto) {
@@ -444,10 +463,10 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
                     std::snprintf(buf, sizeof buf, "%s %.0f km", prefix, rawRange * 1e-3);
                 }
                 const float sidePush = (ax >= w * 0.5f) ? 26.0f * k : -26.0f * k;
-                drawZoneTag(dl, keyActive, ax, ay, sidePush, -14.0f * k, buf, radarCol, placed, k, nowWallS, dtS, true);
+                drawZoneTag(dl, keyActive, ax, ay, sidePush, -14.0f * k, buf, radarCol,
+                            panelBoxes, zonePlaced, placed, k, nowWallS, dtS, cameraChanged, true);
             }
 
-            // (b) Burn-Through Gate & Suppressed Outer Blind Zone -> anchored cleanly on the port/left portal rim
             if (hasBurn) {
                 const double btR = static_cast<double>(r.burnThroughRangeM);
                 const double blindR = btR + (nomRange - btR) * 0.55;
@@ -476,16 +495,17 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
                     std::snprintf(buf, sizeof buf, "烧穿边界 %.1f km · +%0.f dB",
                                   btR * 1e-3, static_cast<double>(r.jammerRatioDb));
                     const float sidePush = (ax <= w * 0.5f) ? -28.0f * k : 28.0f * k;
-                    drawZoneTag(dl, keyBt, ax, ay, sidePush, -18.0f * k, buf, {255, 208, 56}, placed, k, nowWallS, dtS, true);
+                    drawZoneTag(dl, keyBt, ax, ay, sidePush, -18.0f * k, buf, {255, 208, 56},
+                                panelBoxes, zonePlaced, placed, k, nowWallS, dtS, cameraChanged, true);
                 }
                 const std::uint64_t keyBlind = makeLabelKey(r.slot, 3u, r.payloadIndex);
                 if (nomRange - btR > 2500.0 && pickStableAnchor(keyBlind, blindCands, panelBoxes, k, ax, ay)) {
                     const float sidePush = (ax <= w * 0.5f) ? -20.0f * k : 20.0f * k;
-                    drawZoneTag(dl, keyBlind, ax, ay, sidePush, -20.0f * k, "干扰压制盲区", {186, 198, 220}, placed, k, nowWallS, dtS, true);
+                    drawZoneTag(dl, keyBlind, ax, ay, sidePush, -20.0f * k, "干扰压制盲区", {186, 198, 220},
+                                panelBoxes, zonePlaced, placed, k, nowWallS, dtS, cameraChanged, true);
                 }
             }
 
-            // (c) Target Track Diamond (clean crisp symbol; text only if STT/Illuminating)
             if ((r.flags & ipc::kTactRadarHasTarget) != 0u) {
                 float sx = 0.0f, sy = 0.0f;
                 if (projectPoint(vsg::dvec3(r.targetEcef[0], r.targetEcef[1], r.targetEcef[2]), sx, sy)) {
@@ -498,22 +518,18 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
                         std::snprintf(buf, sizeof buf, "%s %.1f km", illum ? "照射引导" : "单目标锁定",
                                       static_cast<double>(r.targetRangeM) * 1e-3);
                         drawZoneTag(dl, makeLabelKey(r.slot, 4u, r.payloadIndex), sx, sy, 22.0f * k, -16.0f * k,
-                                    buf, radarCol, placed, k, nowWallS, dtS, false);
+                                    buf, radarCol, panelBoxes, zonePlaced, placed, k, nowWallS, dtS, cameraChanged, false);
                     }
                 }
             }
         }
     }
 
-    // 2. EA Jammer Zone Label
+    // 2. Focused Vehicle OWN EA Jammer Zone Label ONLY (strictly j.slot == selectedSlot_ — zero cross-side leaks!)
     if (mask & kOverlayJammer) {
-        const sim::VehicleState& selSt = states_[static_cast<std::size_t>(selectedSlot_)];
-        const vsg::dvec3 selPos(selSt.positionEcef[0], selSt.positionEcef[1], selSt.positionEcef[2]);
         std::uint32_t jIdx = 0;
         for (const auto& j : frame_.jammers) {
-            const bool isOwner = (static_cast<int>(j.slot) == selectedSlot_);
-            const bool attackingFocused = !isOwner && focusedRadarJammed && jammerIlluminatesPoint(j, selPos);
-            if (!isOwner && !attackingFocused) continue;
+            if (static_cast<int>(j.slot) != selectedSlot_) continue;
 
             const vsg::dvec3 origin(j.originEcef[0], j.originEcef[1], j.originEcef[2]);
             vsg::dvec3 dir(j.boresightEcef[0], j.boresightEcef[1], j.boresightEcef[2]);
@@ -532,8 +548,8 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
                 const double rad = rng * 0.35;
                 cands = {origin + e * rad, origin - e * rad, origin + n * rad, origin - n * rad};
             } else {
-                const double d1 = rng * 0.48, w1 = d1 * std::tan(halfAng) * 0.88;
-                const double d2 = rng * 0.68, w2 = d2 * std::tan(halfAng) * 0.88;
+                const double d1 = rng * 0.42, w1 = d1 * std::tan(halfAng) * 0.88;
+                const double d2 = rng * 0.65, w2 = d2 * std::tan(halfAng) * 0.88;
                 cands = {
                     origin + dir * d1 - sideVec * w1,
                     origin + dir * d1 + sideVec * w1,
@@ -544,16 +560,18 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
             const std::uint64_t keyJ = makeLabelKey(j.slot, 5u, jIdx++);
             if (pickStableAnchor(keyJ, cands, panelBoxes, k, sx, sy)) {
                 char buf[72];
-                std::snprintf(buf, sizeof buf, "%s %.0f dBW · %.1f GHz", comms ? "通信干扰区" : "电子干扰区",
+                std::snprintf(buf, sizeof buf, "%s %.0f dBW · %.1f GHz", comms ? "本机通信干扰" : "本机电子干扰",
                               static_cast<double>(j.erpDbw), static_cast<double>(j.frequencyGhz));
                 const ZoneColor jCol = comms ? ZoneColor{248, 158, 52} : ZoneColor{206, 114, 255};
                 const float sidePush = (sx <= w * 0.5f) ? -22.0f * k : 22.0f * k;
-                drawZoneTag(dl, keyJ, sx, sy, sidePush, 0.0f, buf, jCol, placed, k, nowWallS, dtS, true);
+                drawZoneTag(dl, keyJ, sx, sy, sidePush, 0.0f, buf, jCol,
+                            panelBoxes, zonePlaced, placed, k, nowWallS, dtS, cameraChanged, true);
             }
         }
     }
 
-    // 3. Focused Vehicle ESM Bearing & CRLB Ellipsoid Zone Labels
+    // 3. Focused Vehicle OWN ESM / RWR Bearing & CRLB Ellipsoid Labels (strictly observerSlot == selectedSlot_)
+    //    Anchored close to the focused observer aircraft so bearing lines are never confused with distant targets!
     if (mask & kOverlayEsm) {
         bool labeledBearing = false;
         std::uint32_t eIdx = 0;
@@ -569,10 +587,10 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
                 float sx = 0.0f, sy = 0.0f;
                 if (projectPoint(vsg::dvec3(e.geoPosEcef[0], e.geoPosEcef[1], e.geoPosEcef[2]), sx, sy)) {
                     char buf[64];
-                    if (e.crlbCep50M >= 1000.0f) std::snprintf(buf, sizeof buf, "定位误差椭球 %.2f km", static_cast<double>(e.crlbCep50M) * 1e-3);
-                    else std::snprintf(buf, sizeof buf, "定位误差椭球 %.0f m", static_cast<double>(e.crlbCep50M));
+                    if (e.crlbCep50M >= 1000.0f) std::snprintf(buf, sizeof buf, "本机定位椭球 %.2f km", static_cast<double>(e.crlbCep50M) * 1e-3);
+                    else std::snprintf(buf, sizeof buf, "本机定位椭球 %.0f m", static_cast<double>(e.crlbCep50M));
                     drawZoneTag(dl, makeLabelKey(e.observerSlot, 6u, eIdx++), sx, sy, 22.0f * k, 12.0f * k,
-                                buf, eCol, placed, k, nowWallS, dtS, true);
+                                buf, eCol, panelBoxes, zonePlaced, placed, k, nowWallS, dtS, cameraChanged, true);
                 }
             } else if (!labeledBearing) {
                 const vsg::dvec3 orig(e.originEcef[0], e.originEcef[1], e.originEcef[2]);
@@ -581,13 +599,17 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
                 if (dn > 1e-6) {
                     dir /= dn;
                     const double len = std::clamp(static_cast<double>(e.rayLengthM), 7000.0, 22000.0);
-                    std::vector<vsg::dvec3> cands{orig + dir * (len * 0.56), orig + dir * (len * 0.34)};
+                    // Anchor near the focused aircraft's own ESM ray origin (1.6..4.5 km out) rather than atop the enemy!
+                    std::vector<vsg::dvec3> cands{
+                        orig + dir * std::min(1600.0, len * 0.20),
+                        orig + dir * std::min(3400.0, len * 0.35),
+                        orig + dir * std::min(5500.0, len * 0.48)};
                     float sx = 0.0f, sy = 0.0f;
                     const std::uint64_t keyE = makeLabelKey(e.observerSlot, 7u, 0u);
                     if (pickStableAnchor(keyE, cands, panelBoxes, k, sx, sy)) {
-                        drawZoneTag(dl, keyE, sx, sy, 22.0f * k, 16.0f * k,
-                                    warn ? "告警测向线" : (comint ? "通信侦察测向" : "电子侦察测向"),
-                                    eCol, placed, k, nowWallS, dtS, true);
+                        drawZoneTag(dl, keyE, sx, sy, 26.0f * k, 18.0f * k,
+                                    warn ? "本机告警测向" : (comint ? "本机通信侦察" : "本机侦察测向"),
+                                    eCol, panelBoxes, zonePlaced, placed, k, nowWallS, dtS, cameraChanged, true);
                         labeledBearing = true;
                     }
                 }
@@ -595,7 +617,7 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
         }
     }
 
-    // 4. Focused Vehicle Weapon DLZ Upright Range-Gate Labels (anchored cleanly to left/right gate posts!)
+    // 4. Focused Vehicle OWN Weapon DLZ Upright Range-Gate Labels (strictly wCue.slot == selectedSlot_)
     if (mask & kOverlayWeapons) {
         for (const auto& wCue : frame_.weapons) {
             if (static_cast<int>(wCue.slot) != selectedSlot_) continue;
@@ -625,7 +647,6 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
                     return deckOrigin + (horiz * std::cos(a) + right * std::sin(a)) * dist + up * (gateH * 0.7);
                 };
 
-                // NEZ -> anchored on right/starboard gate post (with mid-range fallback for steep close-up views!)
                 float sx = 0.0f, sy = 0.0f;
                 const std::uint64_t keyNez = makeLabelKey(wCue.slot, 8u, 0u);
                 std::vector<vsg::dvec3> nezCands{
@@ -637,10 +658,10 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
                     char buf[80];
                     std::snprintf(buf, sizeof buf, "NEZ 不可逃逸 %.0f km%s", rNe * 1e-3, inNez ? " [可发射]" : "");
                     const float sidePush = (sx >= w * 0.5f) ? 26.0f * k : -26.0f * k;
-                    drawZoneTag(dl, keyNez, sx, sy, sidePush, 10.0f * k, buf, {58, 232, 138}, placed, k, nowWallS, dtS, true);
+                    drawZoneTag(dl, keyNez, sx, sy, sidePush, 10.0f * k, buf, {58, 232, 138},
+                                panelBoxes, zonePlaced, placed, k, nowWallS, dtS, cameraChanged, true);
                 }
 
-                // Rmax -> anchored on left/port gate post (with mid-range fallback when outer arc is off-frustum)
                 if (rMax > rNe + 2500.0) {
                     const std::uint64_t keyMax = makeLabelKey(wCue.slot, 8u, 1u);
                     std::vector<vsg::dvec3> maxCands{
@@ -651,7 +672,8 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
                         char buf[64];
                         std::snprintf(buf, sizeof buf, "Rmax 最大射程 %.0f km", rMax * 1e-3);
                         const float sidePush = (sx <= w * 0.5f) ? -26.0f * k : 26.0f * k;
-                        drawZoneTag(dl, keyMax, sx, sy, sidePush, 12.0f * k, buf, {248, 196, 68}, placed, k, nowWallS, dtS, true);
+                        drawZoneTag(dl, keyMax, sx, sy, sidePush, 12.0f * k, buf, {248, 196, 68},
+                                    panelBoxes, zonePlaced, placed, k, nowWallS, dtS, cameraChanged, true);
                     }
                 }
             }
@@ -671,22 +693,23 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
                     dl->AddCircle(ImVec2(sx, sy), 8.0f * k, colour(8, 14, 22, 200), 20, 2.4f * k);
                     dl->AddCircle(ImVec2(sx, sy), 8.0f * k, col, 20, 1.4f * k);
                     drawZoneTag(dl, makeLabelKey(wCue.slot, 9u, 0u), sx, sy, 20.0f * k, 0.0f,
-                                "炸弹落点 CCIP", {255, 204, 64}, placed, k, nowWallS, dtS, false);
+                                "炸弹落点 CCIP", {255, 204, 64}, panelBoxes, zonePlaced, placed, k, nowWallS, dtS, cameraChanged, false);
                 }
             }
         }
     }
 
-    // 5. Focused Vehicle Link 16 / C2 / PNT
+    // 5. Focused Vehicle OWN Link 16 / C2 / PNT (strictly own outgoing or same-side incoming!)
     if (mask & kOverlayLinks) {
         bool labeledLink16 = false;
         for (const auto& l : frame_.links) {
             const auto kind = static_cast<ipc::TacticalLinkKindV1>(l.kind);
-            const bool involvesSelected =
-                (static_cast<int>(l.fromSlot) == selectedSlot_) ||
+            const bool sameSideIncoming =
                 ((kind == ipc::TacticalLinkKindV1::Link16Dms || kind == ipc::TacticalLinkKindV1::C2Consent ||
                   kind == ipc::TacticalLinkKindV1::Mode5IffReply) &&
-                 static_cast<int>(l.toSlot) == selectedSlot_);
+                 static_cast<int>(l.toSlot) == selectedSlot_ &&
+                 (selectedSide == world::TacticalVolumes::Side::Neutral || sideOfSlot(l.fromSlot) == selectedSide));
+            const bool involvesSelected = (static_cast<int>(l.fromSlot) == selectedSlot_) || sameSideIncoming;
             if (!involvesSelected) continue;
 
             const vsg::dvec3 pFrom(l.fromEcef[0], l.fromEcef[1], l.fromEcef[2]);
@@ -701,27 +724,28 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
                 float sx = 0.0f, sy = 0.0f;
                 const std::uint64_t keyL = makeLabelKey(static_cast<std::uint32_t>(selectedSlot_), 10u, 0u);
                 if (pickStableAnchor(keyL, cands, panelBoxes, k, sx, sy)) {
-                    drawZoneTag(dl, keyL, sx, sy, 16.0f * k, -14.0f * k, "数据链 Link 16", {56, 232, 170}, placed, k, nowWallS, dtS, true);
+                    drawZoneTag(dl, keyL, sx, sy, 16.0f * k, -14.0f * k, "数据链 Link 16", {56, 232, 170},
+                                panelBoxes, zonePlaced, placed, k, nowWallS, dtS, cameraChanged, true);
                     labeledLink16 = true;
                 }
             } else if (kind == ipc::TacticalLinkKindV1::C2Consent) {
                 float sx = 0.0f, sy = 0.0f;
                 if (projectPoint(mid + upMid * arch, sx, sy))
                     drawZoneTag(dl, makeLabelKey(l.fromSlot, 10u, 1u), sx, sy, 16.0f * k, -14.0f * k,
-                                "C2 授权链路", {255, 208, 60}, placed, k, nowWallS, dtS, true);
+                                "C2 授权链路", {255, 208, 60}, panelBoxes, zonePlaced, placed, k, nowWallS, dtS, cameraChanged, true);
             } else if (kind == ipc::TacticalLinkKindV1::PntGnssDrift && (l.flags & ipc::kTactLinkJammed) != 0u) {
                 float sx = 0.0f, sy = 0.0f;
                 if (projectPoint(pFrom, sx, sy)) {
                     char buf[56];
                     std::snprintf(buf, sizeof buf, "导航干扰误差 %.0f m", static_cast<double>(l.param));
                     drawZoneTag(dl, makeLabelKey(l.fromSlot, 10u, 2u), sx, sy, 18.0f * k, 18.0f * k,
-                                buf, {248, 86, 72}, placed, k, nowWallS, dtS, true);
+                                buf, {248, 86, 72}, panelBoxes, zonePlaced, placed, k, nowWallS, dtS, cameraChanged, true);
                 }
             }
         }
     }
 
-    // 6. Focused Vehicle SAR / Weather Swaths
+    // 6. Focused Vehicle OWN SAR / Weather Swaths (strictly s.slot == selectedSlot_)
     if (mask & kOverlaySwaths) {
         std::uint32_t sIdx = 0;
         for (const auto& s : frame_.swaths) {
@@ -735,10 +759,12 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
                 char buf[72];
                 if (s.kind == static_cast<std::uint8_t>(ipc::TacticalSwathKindV1::WeatherCell)) {
                     std::snprintf(buf, sizeof buf, "气象回波 %.0f dBZ", static_cast<double>(s.metricDb));
-                    drawZoneTag(dl, keyS, sx, sy, 20.0f * k, 0.0f, buf, {248, 196, 62}, placed, k, nowWallS, dtS, true);
+                    drawZoneTag(dl, keyS, sx, sy, 20.0f * k, 0.0f, buf, {248, 196, 62},
+                                panelBoxes, zonePlaced, placed, k, nowWallS, dtS, cameraChanged, true);
                 } else {
                     std::snprintf(buf, sizeof buf, "SAR 成像区 %.1f m", static_cast<double>(s.resolutionM));
-                    drawZoneTag(dl, keyS, sx, sy, 20.0f * k, 0.0f, buf, {64, 214, 240}, placed, k, nowWallS, dtS, true);
+                    drawZoneTag(dl, keyS, sx, sy, 20.0f * k, 0.0f, buf, {64, 214, 240},
+                                panelBoxes, zonePlaced, placed, k, nowWallS, dtS, cameraChanged, true);
                 }
             }
         }

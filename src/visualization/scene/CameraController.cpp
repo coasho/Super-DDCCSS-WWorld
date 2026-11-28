@@ -189,18 +189,27 @@ void CameraController::moveFocus(double dxNdc, double dyNdc) {
     if (arc < 1e-9 || radius < 1.0) return;
 
     const vsg::dvec3 axis = vsg::normalize(vsg::cross(focus_, step));
-    // Dragging: the view goes with the ground under the cursor.
-    heldAltitude_ = false;
+    // Preserve airborne altitude when dragging horizontally in Free mode after focusing an aircraft;
+    // follow terrain elevation when detached on the ground.
+    const bool keepAlt = heldAltitude_;
+    const double prevAlt = ellipsoid_->convertECEFToLatLongAltitude(focus_).z;
     moveFocusTo(vsg::rotate(arc / radius, axis) * focus_, Carry::WithGround); // arc length -> angle at the centre
 
-    // Back onto the surface: the altitude follows the terrain when known and
-    // otherwise stays what it was (update() corrects it as soon as the tile
-    // arrives) - never 0, which would sink the focus under high ground.
     vsg::dvec3 lla = ellipsoid_->convertECEFToLatLongAltitude(focus_);
-    double altitude = ellipsoid_->convertECEFToLatLongAltitude(focus_).z;
-    if (ground_)
-        if (auto h = ground_(lla.x * kDeg, lla.y * kDeg)) altitude = *h;
-    lla.z = altitude;
+    double terrainH = lla.z;
+    bool haveTerrain = false;
+    if (ground_) {
+        if (auto h = ground_(lla.x * kDeg, lla.y * kDeg)) {
+            terrainH = *h;
+            haveTerrain = true;
+        }
+    }
+    if (keepAlt) {
+        lla.z = haveTerrain ? std::max(prevAlt, terrainH + 5.0) : prevAlt;
+        heldAltitude_ = true;
+    } else if (haveTerrain) {
+        lla.z = terrainH;
+    }
     focus_ = ellipsoid_->convertLatLongAltitudeToECEF(lla);
 }
 
@@ -224,10 +233,10 @@ void CameraController::apply(vsg::ButtonPressEvent& e) {
     if (e.handled) return; // ImGui has the mouse
     lastX_ = e.x;
     lastY_ = e.y;
-    // Only the left (rotate; with space held, pan) and middle (rotate)
-    // buttons are used; the right button is left to the window manager.
+    // Left drag rotates (with space held, pans); middle drag rotates; right drag pans horizontally in Free/detached mode.
     if (e.button == 1) leftDown_ = true;
     else if (e.button == 2) middleDown_ = true;
+    else if (e.button == 3 && detached()) rightDown_ = true;
     else return;
     e.handled = true;
 }
@@ -235,6 +244,7 @@ void CameraController::apply(vsg::ButtonPressEvent& e) {
 void CameraController::apply(vsg::ButtonReleaseEvent& e) {
     if (e.button == 1) leftDown_ = false;
     else if (e.button == 2) middleDown_ = false;
+    else if (e.button == 3) rightDown_ = false;
 }
 
 void CameraController::apply(vsg::MoveEvent& e) {
@@ -249,8 +259,9 @@ void CameraController::apply(vsg::MoveEvent& e) {
     lastX_ = e.x;
     lastY_ = e.y;
     if (e.handled) return;
-    if (leftDown_ && (e.mask & vsg::BUTTON_MASK_1) && spaceDown_) {
-        // space + left drag pans: the ground follows the cursor. Locked to a vehicle the camera only rotates about it
+    if ((rightDown_ && (e.mask & vsg::BUTTON_MASK_3) && detached()) ||
+        (leftDown_ && (e.mask & vsg::BUTTON_MASK_1) && spaceDown_)) {
+        // Right drag (or space + left drag) pans horizontally in Free/detached mode.
         if (detached()) moveFocus(dx, dy);
         e.handled = true;
     } else if ((leftDown_ && (e.mask & vsg::BUTTON_MASK_1)) || (middleDown_ && (e.mask & vsg::BUTTON_MASK_2))) {

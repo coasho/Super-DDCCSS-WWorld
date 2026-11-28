@@ -460,11 +460,12 @@ TEST_CASE("locked to a vehicle the camera only rotates: space + left drag does n
     }
 }
 
-TEST_CASE("the right mouse button is not a camera control", "[camera]") {
+TEST_CASE("right mouse drag pans horizontally in free camera mode without changing distance", "[camera]") {
     Rig rig;
-    rig.camera->setFreeView(45.0, 8.0, 0.0, 2.0e4);
+    rig.camera->setFreeView(45.0, 8.0, 4800.0, 2.0e4);
     rig.camera->update(nullptr, 1.0 / 60.0);
     const vsg::dvec3 before = rig.camera->focus();
+    const double beforeAlt = rig.ellipsoid->convertECEFToLatLongAltitude(before).z;
     const double distance = rig.camera->distance();
 
     auto press = vsg::ButtonPressEvent::create();
@@ -472,7 +473,7 @@ TEST_CASE("the right mouse button is not a camera control", "[camera]") {
     press->y = 300;
     press->button = 3;
     rig.camera->apply(*press);
-    REQUIRE_FALSE(press->handled); // left for the window manager
+    REQUIRE(press->handled);
 
     auto move = vsg::MoveEvent::create();
     move->x = 500;
@@ -481,7 +482,10 @@ TEST_CASE("the right mouse button is not a camera control", "[camera]") {
     rig.camera->apply(*move);
     rig.camera->update(nullptr, 1.0 / 60.0);
 
-    REQUIRE(vsg::length(rig.camera->focus() - before) < 1.0);
+    const vsg::dvec3 after = rig.camera->focus();
+    const double afterAlt = rig.ellipsoid->convertECEFToLatLongAltitude(after).z;
+    REQUIRE(vsg::length(after - before) > 100.0);
+    REQUIRE(std::abs(afterAlt - beforeAlt) < 5.0);
     REQUIRE_THAT(rig.camera->distance(), Catch::Matchers::WithinRel(distance, 1e-9));
 }
 

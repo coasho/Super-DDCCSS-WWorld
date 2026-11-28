@@ -36,22 +36,6 @@ void orthoBasis(const vsg::dvec3& dir, vsg::dvec3& u, vsg::dvec3& v) noexcept {
     v = vsg::normalize(vsg::cross(dir, u));
 }
 
-bool jammerIlluminatesPoint(const ipc::TacticalJammerLobeWireV1& j, const vsg::dvec3& targetEcef) noexcept {
-    const vsg::dvec3 origin(j.originEcef[0], j.originEcef[1], j.originEcef[2]);
-    const vsg::dvec3 delta = targetEcef - origin;
-    const double dist = vsg::length(delta);
-    if (dist < 1.0) return false;
-    const double maxRange = std::max(static_cast<double>(j.rangeM), 15000.0) * 1.15;
-    if (dist > maxRange) return false;
-    if ((j.flags & ipc::kTactJamAllRound) != 0u) return true;
-    vsg::dvec3 dir(j.boresightEcef[0], j.boresightEcef[1], j.boresightEcef[2]);
-    const double dn = vsg::length(dir);
-    if (dn < 1e-6) return false;
-    dir /= dn;
-    const double halfAng = std::clamp(static_cast<double>(j.halfAngleRad), 0.08, 0.85) + 0.14;
-    return vsg::dot(dir, delta / dist) >= std::cos(halfAng);
-}
-
 vsg::vec3 radarSideColor(TacticalVolumes::Side side, bool stt, bool illum) noexcept {
     if (side == TacticalVolumes::Side::Red) {
         if (illum) return vsg::vec3(1.00f, 0.22f, 0.16f);
@@ -439,20 +423,9 @@ void TacticalVolumes::emitJammers(const ipc::TacticalOverlayFrameV1& frame, Span
         return;
     }
 
-    bool focusedRadarJammed = false;
-    for (const auto& r : frame.radars) {
-        if (static_cast<int>(r.slot) == selectedSlot && (r.flags & ipc::kTactRadarJammed) != 0u) {
-            focusedRadarJammed = true;
-            break;
-        }
-    }
-    const sim::VehicleState& selSt = states[static_cast<std::size_t>(selectedSlot)];
-    const vsg::dvec3 selPos(selSt.positionEcef[0], selSt.positionEcef[1], selSt.positionEcef[2]);
-
     for (const auto& j : frame.jammers) {
-        const bool isOwner = (static_cast<int>(j.slot) == selectedSlot);
-        const bool attackingFocused = !isOwner && focusedRadarJammed && jammerIlluminatesPoint(j, selPos);
-        if (!isOwner && !attackingFocused) continue;
+        // Strictly focused-vehicle own jammer only (never leak an enemy jammer cone when focused on another side!).
+        if (static_cast<int>(j.slot) != selectedSlot) continue;
 
         const vsg::dvec3 origin(j.originEcef[0], j.originEcef[1], j.originEcef[2]);
         vsg::dvec3 dir(j.boresightEcef[0], j.boresightEcef[1], j.boresightEcef[2]);
@@ -463,8 +436,7 @@ void TacticalVolumes::emitJammers(const ipc::TacticalOverlayFrameV1& frame, Span
         const bool allRound = (j.flags & ipc::kTactJamAllRound) != 0u;
         const bool comms = (j.flags & ipc::kTactJamComms) != 0u;
         const Side side = (j.slot < sides.size()) ? sides[j.slot] : Side::Red;
-        // Full clarity when focused on the jammer itself; restrained secondary cue when only explaining incoming jamming.
-        const float emph = isOwner ? 1.0f : 0.58f;
+        const float emph = 1.0f;
 
         const vsg::vec3 rgb = comms ? vsg::vec3(0.95f, 0.56f, 0.14f)
                               : (side == Side::Blue ? vsg::vec3(0.46f, 0.30f, 0.96f)
@@ -701,15 +673,18 @@ void TacticalVolumes::emitWeapons(const ipc::TacticalOverlayFrameV1& frame, Span
     }
 }
 
-void TacticalVolumes::emitLinks(const ipc::TacticalOverlayFrameV1& frame, int selectedSlot) {
+void TacticalVolumes::emitLinks(const ipc::TacticalOverlayFrameV1& frame, const std::vector<Side>& sides, int selectedSlot) {
     if (selectedSlot < 0) return;
+    const Side selSide = (static_cast<std::size_t>(selectedSlot) < sides.size()) ? sides[static_cast<std::size_t>(selectedSlot)] : Side::Neutral;
     for (const auto& l : frame.links) {
         const auto kind = static_cast<ipc::TacticalLinkKindV1>(l.kind);
-        const bool involvesSelected =
-            (static_cast<int>(l.fromSlot) == selectedSlot) ||
+        const Side fromSide = (l.fromSlot < sides.size()) ? sides[l.fromSlot] : Side::Neutral;
+        const bool sameSideIncoming =
             ((kind == ipc::TacticalLinkKindV1::Link16Dms || kind == ipc::TacticalLinkKindV1::C2Consent ||
               kind == ipc::TacticalLinkKindV1::Mode5IffReply) &&
-             static_cast<int>(l.toSlot) == selectedSlot);
+             static_cast<int>(l.toSlot) == selectedSlot &&
+             (selSide == Side::Neutral || fromSide == selSide));
+        const bool involvesSelected = (static_cast<int>(l.fromSlot) == selectedSlot) || sameSideIncoming;
         if (!involvesSelected) continue;
 
         const vsg::dvec3 from(l.fromEcef[0], l.fromEcef[1], l.fromEcef[2]);
@@ -823,7 +798,7 @@ void TacticalVolumes::update(std::uint32_t overlayMask,
     if (overlayMask & kMaskJammer)  emitJammers(*frame, states, alive, sides, selectedSlot);
     if (overlayMask & kMaskEsm)     emitEsm(*frame, sides, selectedSlot);
     if (overlayMask & kMaskWeapons) emitWeapons(*frame, states, alive, selectedSlot);
-    if (overlayMask & kMaskLinks)   emitLinks(*frame, selectedSlot);
+    if (overlayMask & kMaskLinks)   emitLinks(*frame, sides, selectedSlot);
 
     lastVertexCount_ = cursor_;
     if (cursor_ == 0u) {

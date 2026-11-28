@@ -190,7 +190,7 @@ private:
     bool foldedHeadingOnDetach_ = false;
 
     // Mouse state (window pixels; converted to normalised coordinates per event)
-    bool leftDown_ = false, middleDown_ = false;
+    bool leftDown_ = false, middleDown_ = false, rightDown_ = false;
     bool spaceDown_ = false; ///< space held: a left drag pans
     bool zoomToCursor_ = true;
     // Where the wheel is taking the focus, and how much of the way to let it

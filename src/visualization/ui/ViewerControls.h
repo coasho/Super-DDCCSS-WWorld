@@ -58,6 +58,7 @@ struct ViewerControls {
     // Replay extent written by the loop for the GUI (both 0 when not replaying).
     std::atomic<double> replayStart{0.0}, replayEnd{0.0};
     std::atomic<int> selectedVehicle{0};
+    std::atomic<bool> focusJumpRequested{false}; ///< explicit user click / Tab selection -> jump Free camera focus to entity
     std::atomic<int> attachWorld{-1};    ///< mirror: index into Source::available to attach to (consumed by the loop)
     std::atomic<int> selectStep{0};      ///< +1 / -1: move the selection to the next / previous live vehicle
     std::atomic<int> cameraMode{0};      ///< world::CameraController::Mode
