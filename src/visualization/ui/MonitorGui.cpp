@@ -18,22 +18,25 @@ namespace {
 
 struct Layout {
     float scale;
+    float panelScale;
     float margin;
     ImVec2 display;
     float topBarMaxWidth;
     float listWidth, listHeight, listTop;
 };
 
-Layout layout() {
+Layout layout(const ViewerControls* controls) {
     Layout l;
     l.scale = uiScale();
+    l.panelScale = controls ? std::clamp(controls->panelScale.load(std::memory_order_relaxed), 0.75f, 1.35f) : 1.0f;
     l.margin = 10.0f * l.scale;
     l.display = ImGui::GetIO().DisplaySize;
-    // Scheme 3 Top Workspace Bar stays strictly inside [margin .. 78% width] on wide 4K screens
-    // (keeping top-right corner clear of desktop clocks/overlays) and cleanly fits 1600x900 @ 150% DPI.
-    l.topBarMaxWidth = std::min(l.display.x - 2.0f * l.margin, std::max(720.0f * l.scale, l.display.x * 0.78f));
-    l.listWidth = std::min(530.0f * l.scale, std::max(280.0f, l.display.x * 0.45f));
-    l.listHeight = std::min(215.0f * l.scale, std::max(100.0f, l.display.y * 0.25f));
+    // Frameless top command strip stays cleanly inside [margin .. 76% width] on 4K (clearing top-right clock)
+    // and wraps cleanly without clipping on 1600x900 @ 150% DPI (B-43).
+    l.topBarMaxWidth = std::min(l.display.x - 2.0f * l.margin, std::max(720.0f * l.scale, l.display.x * 0.76f));
+    const float ps = l.panelScale;
+    l.listWidth = std::min(510.0f * l.scale * ps, std::max(280.0f, l.display.x * 0.42f));
+    l.listHeight = std::min((195.0f * ps + 28.0f) * l.scale, std::max(100.0f, l.display.y * 0.28f));
     l.listTop = std::max(l.margin, l.display.y - l.listHeight - l.margin);
     return l;
 }
@@ -41,6 +44,30 @@ Layout layout() {
 std::uint32_t constraintsOf(const ipc::FlightStatus& status) noexcept {
     const double c = status.derived[ipc::kDerivedConstraints];
     return c > 0.0 && c < 65536.0 ? static_cast<std::uint32_t>(c) : 0u;
+}
+
+void drawVerticalHairline(float s) {
+    ImGui::SameLine(0.0f, 7.0f * s);
+    const ImVec2 p = ImGui::GetCursorScreenPos();
+    const float fh = ImGui::GetFrameHeight();
+    ImGui::GetWindowDrawList()->AddLine(ImVec2(p.x, p.y + fh * 0.16f), ImVec2(p.x, p.y + fh * 0.84f),
+                                        colour(148, 178, 214, 58), 1.0f);
+    ImGui::Dummy(ImVec2(1.0f, fh));
+    ImGui::SameLine(0.0f, 7.0f * s);
+}
+
+void drawIffBadgeGlyph(ImDrawList* dl, float ix, float iy, float ir, std::uint8_t iconKind, ImU32 fg, float scale) {
+    if (iconKind == 1) {
+        const ImVec2 pts[4] = {{ix, iy - ir}, {ix + ir, iy}, {ix, iy + ir}, {ix - ir, iy}};
+        dl->AddConvexPolyFilled(pts, 4, fg);
+    } else if (iconKind == 2) {
+        const ImVec2 pts[4] = {{ix, iy - ir}, {ix + ir, iy}, {ix, iy + ir}, {ix - ir, iy}};
+        dl->AddPolyline(pts, 4, fg, ImDrawFlags_Closed, 1.4f * scale);
+    } else if (iconKind == 3) {
+        dl->AddTriangleFilled(ImVec2(ix, iy - ir), ImVec2(ix + ir, iy + ir * 0.85f), ImVec2(ix - ir, iy + ir * 0.85f), fg);
+    } else {
+        dl->AddCircleFilled(ImVec2(ix, iy), ir * 0.65f, fg);
+    }
 }
 
 } // namespace
@@ -63,6 +90,7 @@ void MonitorGui::record(vsg::CommandBuffer&) const {
     drawLabels();
     drawMonitor();
     drawVehicleList();
+    drawReplayBar();
 }
 
 void MonitorGui::drawLabels() const {
@@ -96,33 +124,35 @@ void MonitorGui::drawLabels() const {
         dl->AddRect(lo, hi, border, 3.5f * k, 0, (l.selected ? 1.5f : 1.0f) * k);
         dl->AddLine(ImVec2(l.x, l.y), ImVec2(lo.x, l.y), border, 1.3f * k);
 
-        // Geometric IFF glyph on left of badge:
-        // 1 = Blue solid diamond, 2 = Red hollow diamond, 3 = Missile/weapon triangle, 0 = neutral dot
-        const float ix = lo.x + padX + 4.5f * k;
-        const float iy = l.y;
-        const float ir = 4.2f * k;
-        if (l.iconKind == 1) {
-            const ImVec2 pts[4] = {{ix, iy - ir}, {ix + ir, iy}, {ix, iy + ir}, {ix - ir, iy}};
-            dl->AddConvexPolyFilled(pts, 4, fg);
-        } else if (l.iconKind == 2) {
-            const ImVec2 pts[4] = {{ix, iy - ir}, {ix + ir, iy}, {ix, iy + ir}, {ix - ir, iy}};
-            dl->AddPolyline(pts, 4, fg, ImDrawFlags_Closed, 1.4f * k);
-        } else if (l.iconKind == 3) {
-            dl->AddTriangleFilled(ImVec2(ix, iy - ir), ImVec2(ix + ir, iy + ir * 0.85f), ImVec2(ix - ir, iy + ir * 0.85f), fg);
-        } else {
-            dl->AddCircleFilled(ImVec2(ix, iy), ir * 0.65f, fg);
-        }
+        drawIffBadgeGlyph(dl, lo.x + padX + 4.5f * k, l.y, 4.2f * k, l.iconKind, fg, k);
         dl->AddText(ImVec2(lo.x + padX + iconSpace, lo.y + padY), fg, l.text.c_str());
     }
 }
 
 void MonitorGui::drawMonitor() const {
-    const Layout l = layout();
-    ImGui::SetNextWindowPos(ImVec2(l.margin, l.margin), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSizeConstraints(ImVec2(std::min(520.0f * l.scale, l.topBarMaxWidth), 0.0f),
-                                        ImVec2(l.topBarMaxWidth, std::max(140.0f, l.listTop - 2.0f * l.margin)));
-    if (!beginMandatoryPanel("飞行监控###flightsim", ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar)) {
+    const Layout l = layout(controls_.get());
+    const float s = l.scale;
+    const bool compact = (l.display.x / s) < 1380.0f;
+
+    // Style A: Sleek Frameless Single-Row Viewport Command Strip (no bulky window title bar!).
+    ImGui::SetNextWindowPos(ImVec2(l.margin, l.margin), ImGuiCond_Always);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(0.0f, 0.0f),
+                                        ImVec2(l.topBarMaxWidth, std::max(120.0f, l.listTop - 2.0f * l.margin)));
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 9.0f * s);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f * s, 5.5f * s));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.5f * s);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f * s, 4.0f * s));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(5.0f * s, 5.0f * s));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, tint(0.043f, 0.063f, 0.094f, 0.88f));
+    ImGui::PushStyleColor(ImGuiCol_Border, tint(0.46f, 0.62f, 0.82f, 0.28f));
+
+    const ImGuiWindowFlags barFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+                                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_AlwaysAutoResize;
+    if (!beginMandatoryPanel("飞行监控###flightsim", barFlags)) {
         ImGui::End();
+        ImGui::PopStyleColor(2);
+        ImGui::PopStyleVar(5);
         return;
     }
 
@@ -130,8 +160,6 @@ void MonitorGui::drawMonitor() const {
     const double frameMs = controls_->frameMs.load(std::memory_order_relaxed);
     const double sps = controls_->simThroughput.load(std::memory_order_relaxed);
     const double simTime = controls_->simTime.load(std::memory_order_relaxed);
-    const bool compact = (l.display.x / l.scale) < 1200.0f;
-
     std::size_t live = 0;
     if (!vehicles_.empty()) {
         for (const auto& v : vehicles_) live += v.alive ? 1 : 0;
@@ -139,106 +167,97 @@ void MonitorGui::drawMonitor() const {
         live = batch_->states.size();
     }
 
-    // --- Row 1: Prominent FPS | Role-Based Workspace Preset Tabs | Custom Panel Popover | Camera ---
-    const ImVec4 fpsCol = fps >= 55.0 ? tint(0.32f, 0.94f, 0.56f)
-                        : fps >= 30.0 ? cautionText()
-                                      : warningText();
-    ImGui::TextColored(fpsCol, "帧率 %.0f FPS", fps);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(%.1f ms) · %zu 架", frameMs, live);
-
-    // Role-based Workspace Preset Switcher (Scheme 3)
-    int activePreset = std::clamp(controls_->workspacePreset.load(std::memory_order_relaxed), 0, kWorkspacePresetCount - 1);
-    const struct PresetDef {
-        WorkspacePreset id;
-        const char* label;
-    } presets[] = {
-        {WorkspacePreset::Clean,    "观战纯净"},
-        {WorkspacePreset::AirRadar, "空战雷达"},
-        {WorkspacePreset::Emso,     "电子战"},
-        {WorkspacePreset::Weapon,   "武器导引"},
-        {WorkspacePreset::Flight,   "飞控气动"},
-    };
-    ImGui::SameLine(0.0f, 14.0f * l.scale);
-    for (const auto& p : presets) {
-        const bool isAct = (activePreset == static_cast<int>(p.id));
-        if (isAct) {
-            ImGui::PushStyleColor(ImGuiCol_Button, tint(0.14f, 0.44f, 0.72f, 0.96f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, tint(0.18f, 0.52f, 0.82f, 1.0f));
+    // =========================================================================
+    // CLUSTER 1: Live FPS Indicator | Focus Vehicle Selector Pill | Telemetry
+    // =========================================================================
+    {
+        const ImVec2 p = ImGui::GetCursorScreenPos();
+        const float fh = ImGui::GetFrameHeight();
+        const float dotR = 3.6f * s;
+        const ImU32 dotCol = fps >= 55.0 ? colour(59, 224, 131, 255)
+                           : fps >= 30.0 ? colour(245, 182, 56, 255)
+                                         : colour(242, 87, 87, 255);
+        ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(p.x + dotR, p.y + fh * 0.5f), dotR, dotCol);
+        ImGui::Dummy(ImVec2(dotR * 2.4f, fh));
+        ImGui::SameLine(0.0f, 3.0f * s);
+        ImGui::AlignTextToFramePadding();
+        const ImVec4 fpsCol = fps >= 55.0 ? tint(0.32f, 0.94f, 0.56f)
+                            : fps >= 30.0 ? cautionText()
+                                          : warningText();
+        ImGui::TextColored(fpsCol, "%.0f FPS", fps);
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("帧耗时 %.1f ms · %zu 架在空 · %.0f 步/s", frameMs, live, sps);
         }
-        if (ImGui::SmallButton(p.label)) {
-            activePreset = static_cast<int>(p.id);
-            controls_->workspacePreset.store(activePreset, std::memory_order_relaxed);
-            controls_->customPanelMask.store(panelsForWorkspace(p.id, controls_->customPanelMask.load(std::memory_order_relaxed)),
-                                             std::memory_order_relaxed);
-        }
-        if (isAct) ImGui::PopStyleColor(2);
-        ImGui::SameLine(0.0f, 5.0f * l.scale);
     }
 
-    // "+ 面板" extensible plugin drawer popover (lets user toggle any registered panel -> Custom preset)
-    const bool isCustom = (activePreset == static_cast<int>(WorkspacePreset::Custom));
-    if (isCustom) ImGui::PushStyleColor(ImGuiCol_Button, tint(0.14f, 0.44f, 0.72f, 0.96f));
-    if (ImGui::SmallButton("+ 面板")) ImGui::OpenPopup("workspace_plugins_popup");
-    if (isCustom) ImGui::PopStyleColor();
+    // Focus target quick-switch pill ("◆ viper-1 ▾")
+    if (batch_ && !batch_->states.empty()) {
+        const int nVeh = static_cast<int>(batch_->states.size());
+        const int sel = std::clamp(controls_->selectedVehicle.load(std::memory_order_relaxed), 0, nVeh - 1);
+        const auto& st = batch_->states[static_cast<std::size_t>(sel)];
+        const auto* meta = static_cast<std::size_t>(sel) < vehicles_.size() ? &vehicles_[static_cast<std::size_t>(sel)] : nullptr;
+        const char* curName = (meta && !meta->name.empty()) ? meta->name.c_str() : "载具";
 
-    if (ImGui::BeginPopup("workspace_plugins_popup")) {
-        ImGui::TextDisabled("自定义停靠面板（按当前机型自动适配显隐）");
-        ImGui::Separator();
-        std::uint32_t curMask = panelsForWorkspace(static_cast<WorkspacePreset>(activePreset),
-                                                   controls_->customPanelMask.load(std::memory_order_relaxed));
-        bool changed = false;
-        auto modCheck = [&](const char* name, std::uint32_t bit, bool mandatory = false) {
-            bool on = (curMask & bit) != 0u;
-            if (mandatory) ImGui::BeginDisabled();
-            if (ImGui::Checkbox(name, &on)) {
-                if (on) curMask |= bit;
-                else curMask &= ~bit;
-                changed = true;
+        drawVerticalHairline(s);
+        char focusBtn[96];
+        std::snprintf(focusBtn, sizeof focusBtn, "◆ %s ▼###focus_btn", curName);
+        ImGui::PushStyleColor(ImGuiCol_Button, tint(0.42f, 0.28f, 0.08f, 0.72f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, tint(0.56f, 0.36f, 0.10f, 0.88f));
+        if (ImGui::Button(focusBtn)) ImGui::OpenPopup("focus_vehicle_popup");
+        ImGui::PopStyleColor(2);
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("点击直接切换聚焦载具（或按 Tab 轮切）");
+
+        if (ImGui::BeginPopup("focus_vehicle_popup")) {
+            ImGui::TextDisabled("聚焦载具（%zu 架在空）", live);
+            ImGui::Separator();
+            for (int i = 0; i < nVeh; ++i) {
+                const bool hasMeta = static_cast<std::size_t>(i) < vehicles_.size();
+                if (hasMeta && !vehicles_[static_cast<std::size_t>(i)].alive) continue;
+                char rowLabel[128];
+                const char* nm = (hasMeta && !vehicles_[static_cast<std::size_t>(i)].name.empty())
+                                     ? vehicles_[static_cast<std::size_t>(i)].name.c_str()
+                                     : "载具";
+                const char* tp = (hasMeta && !vehicles_[static_cast<std::size_t>(i)].type.empty())
+                                     ? vehicles_[static_cast<std::size_t>(i)].type.c_str()
+                                     : "";
+                std::snprintf(rowLabel, sizeof rowLabel, "%s  [%s]###foc_%d", nm, tp, i);
+                if (ImGui::Selectable(rowLabel, i == sel)) {
+                    controls_->selectedVehicle.store(i, std::memory_order_relaxed);
+                }
             }
-            if (mandatory) ImGui::EndDisabled();
-        };
-        modCheck("机载雷达 B-Scope / PPI（雷达机型必显）", kPanelRadar, true);
-        modCheck("雷达底层可视化（距离-多普勒 / 烧穿 / 方向图）", kPanelSignal);
-        modCheck("电子战频谱与侦察（EA / ESM / CRLB）", kPanelEw);
-        modCheck("武器包线与导引（DLZ / LCOS / CCIP）", kPanelWeapon);
-        modCheck("6-DOF 气动舵面与推进（含 8 发/旋翼）", kPanelAero);
-        modCheck("数据链 / IFF / 融合航迹", kPanelComms);
-        modCheck("左下编队列表", kPanelFleet);
-        if (changed) {
-            controls_->customPanelMask.store(curMask, std::memory_order_relaxed);
-            controls_->workspacePreset.store(static_cast<int>(WorkspacePreset::Custom), std::memory_order_relaxed);
+            ImGui::EndPopup();
         }
-        ImGui::EndPopup();
+
+        if (!compact) {
+            ImGui::SameLine(0.0f, 6.0f * s);
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextDisabled("%.0fm · %.0fm/s · %03.0f°",
+                                st.altitudeMslM, st.airspeedTrueMs,
+                                std::fmod(units::radiansToDegrees(st.eulerRad[2]) + 360.0, 360.0));
+        }
     }
 
-    // Compact Camera Mode Combo + Reset right on Row 1 (or wrapped cleanly on compact screens)
-    if (!compact) ImGui::SameLine(0.0f, 14.0f * l.scale);
-    int camMode = std::clamp(controls_->cameraMode.load(std::memory_order_relaxed), 0, world::CameraController::kModeCount - 1);
-    const char* camModes[] = {"追踪视角", "环绕视角", "俯视总览", "自由视角"};
-    ImGui::SetNextItemWidth(102.0f * l.scale);
-    if (ImGui::Combo("##camera", &camMode, camModes, world::CameraController::kModeCount))
-        controls_->cameraMode.store(camMode, std::memory_order_relaxed);
-    ImGui::SameLine(0.0f, 4.0f * l.scale);
-    if (ImGui::SmallButton("重置[R]")) controls_->cameraReset.store(true, std::memory_order_relaxed);
-
-    // --- Row 2: Clock / Playback | Focused Target Telemetry | Quick 3-D Overlays Popover ---
+    // Mirror status pill (only when mirroring a live simulation world)
     if (source_.mirror) {
+        drawVerticalHairline(s);
         if (!source_.attached) {
-            ImGui::TextColored(cautionText(), "等待仿真接入...");
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextColored(cautionText(), "等待仿真");
             if (!source_.available.empty()) {
                 ImGui::SameLine();
-                if (ImGui::SmallButton("接入世界")) ImGui::OpenPopup("mirror_world_popup");
+                if (ImGui::Button("接入")) ImGui::OpenPopup("mirror_world_popup");
             }
         } else {
-            ImGui::Text("世界: %s", source_.world.c_str());
-            ImGui::SameLine();
-            ImGui::TextDisabled("t=%.1fs · %.0f 步/s", source_.simTime, source_.vehicleStepsPerSecond);
-            if (!source_.publisherAlive) { ImGui::SameLine(); ImGui::TextColored(warningText(), "已退出"); }
-            else if (source_.ageSeconds > 2.0) { ImGui::SameLine(); ImGui::TextColored(cautionText(), "停更%.0fs", source_.ageSeconds); }
-            if (source_.available.size() > 1) {
+            char wBtn[96];
+            std::snprintf(wBtn, sizeof wBtn, "%s %.0fs%s###world_btn", source_.world.c_str(), source_.simTime,
+                          source_.available.size() > 1 ? " ▼" : "");
+            if (ImGui::Button(wBtn) && source_.available.size() > 1) ImGui::OpenPopup("mirror_world_popup");
+            if (!source_.publisherAlive) {
                 ImGui::SameLine();
-                if (ImGui::SmallButton("切换")) ImGui::OpenPopup("mirror_world_popup");
+                ImGui::TextColored(warningText(), "已退出");
+            } else if (source_.ageSeconds > 2.0) {
+                ImGui::SameLine();
+                ImGui::TextColored(cautionText(), "停更");
             }
         }
         if (ImGui::BeginPopup("mirror_world_popup")) {
@@ -249,54 +268,126 @@ void MonitorGui::drawMonitor() const {
             }
             ImGui::EndPopup();
         }
-    } else {
-        bool paused = controls_->paused.load(std::memory_order_relaxed);
-        if (ImGui::SmallButton(paused ? "继续[Space]" : "暂停[Space]"))
-            controls_->paused.store(!paused, std::memory_order_relaxed);
-        ImGui::SameLine(0.0f, 4.0f * l.scale);
-        if (ImGui::SmallButton("单步[.]")) controls_->singleStep.store(true, std::memory_order_relaxed);
-        ImGui::SameLine(0.0f, 6.0f * l.scale);
-        const double start = controls_->replayStart.load(std::memory_order_relaxed);
-        const double end = controls_->replayEnd.load(std::memory_order_relaxed);
-        if (end > start) {
-            float at = static_cast<float>(simTime);
-            ImGui::SetNextItemWidth(145.0f * l.scale);
-            if (ImGui::SliderFloat("##timeline", &at, static_cast<float>(start), static_cast<float>(end), "%.1f s"))
-                controls_->seekTo.store(static_cast<double>(at), std::memory_order_relaxed);
+    }
+
+    // =========================================================================
+    // CLUSTER 2: Role-Based Workspace Segmented Control + Extensible "+ 面板"
+    // =========================================================================
+    drawVerticalHairline(s);
+    int activePreset = std::clamp(controls_->workspacePreset.load(std::memory_order_relaxed), 0, kWorkspacePresetCount - 1);
+    const struct PresetDef {
+        WorkspacePreset id;
+        const char* label;
+        const char* tip;
+    } presets[] = {
+        {WorkspacePreset::Clean,    "纯净", "纯观战模式（关闭全部侧边与底栏面板，零遮挡）"},
+        {WorkspacePreset::AirRadar, "空战", "机载雷达 + 原生信号级多普勒（可用时）+ 载具列表"},
+        {WorkspacePreset::Flight,   "飞控", "本机 6-DOF 气动推进 + 数据链/融合航迹 + 载具列表"},
+    };
+    for (int i = 0; i < 3; ++i) {
+        if (i > 0) ImGui::SameLine(0.0f, 3.0f * s);
+        const bool isAct = (activePreset == static_cast<int>(presets[i].id));
+        if (isAct) {
+            ImGui::PushStyleColor(ImGuiCol_Button, tint(0.14f, 0.46f, 0.78f, 0.96f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, tint(0.18f, 0.54f, 0.88f, 1.0f));
         } else {
-            ImGui::TextDisabled("t=%.1fs · %.0f 步/s", simTime, sps);
+            ImGui::PushStyleColor(ImGuiCol_Button, tint(0.10f, 0.14f, 0.20f, 0.65f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, tint(0.16f, 0.22f, 0.32f, 0.85f));
         }
-        if (!compact && !aircraft_.empty()) {
-            ImGui::SameLine(0.0f, 8.0f * l.scale);
-            ImGui::TextDisabled("%s", aircraft_.c_str());
+        if (ImGui::Button(presets[i].label)) {
+            activePreset = static_cast<int>(presets[i].id);
+            controls_->workspacePreset.store(activePreset, std::memory_order_relaxed);
+            controls_->customPanelMask.store(panelsForWorkspace(presets[i].id, 0u), std::memory_order_relaxed);
         }
+        ImGui::PopStyleColor(2);
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", presets[i].tip);
     }
 
-    // Focused target compact telemetry inline
-    if (batch_ && !batch_->states.empty()) {
-        const int sel = std::clamp(controls_->selectedVehicle.load(std::memory_order_relaxed), 0,
-                                   static_cast<int>(batch_->states.size()) - 1);
-        const auto& s = batch_->states[static_cast<std::size_t>(sel)];
-        const auto* meta = static_cast<std::size_t>(sel) < vehicles_.size() ? &vehicles_[static_cast<std::size_t>(sel)] : nullptr;
-        ImGui::SameLine(0.0f, 12.0f * l.scale);
-        ImGui::TextColored(tint(0.45f, 0.86f, 1.0f), "[Tab] %s", (meta && meta->alive) ? meta->name.c_str() : "载具");
-        if (!compact) {
-            ImGui::SameLine(0.0f, 6.0f * l.scale);
-            ImGui::TextDisabled("海高 %.0fm · 空速 %.0fm/s · 航向 %.0f°",
-                                s.altitudeMslM, s.airspeedTrueMs, units::radiansToDegrees(s.eulerRad[2]));
+    ImGui::SameLine(0.0f, 4.0f * s);
+    const bool isCustomOrExt = (activePreset == static_cast<int>(WorkspacePreset::Custom) ||
+                                activePreset == static_cast<int>(WorkspacePreset::Emso) ||
+                                activePreset == static_cast<int>(WorkspacePreset::Weapon));
+    if (isCustomOrExt) ImGui::PushStyleColor(ImGuiCol_Button, tint(0.14f, 0.46f, 0.78f, 0.92f));
+    if (ImGui::Button("+ 面板 ▼")) ImGui::OpenPopup("workspace_plugins_popup");
+    if (isCustomOrExt) ImGui::PopStyleColor();
+
+    if (ImGui::BeginPopup("workspace_plugins_popup")) {
+        ImGui::TextDisabled("自由勾选面板（100%% 真实原生数据，不再强制显示雷达）");
+        ImGui::Separator();
+        std::uint32_t curMask = panelsForWorkspace(static_cast<WorkspacePreset>(activePreset),
+                                                   controls_->customPanelMask.load(std::memory_order_relaxed));
+        bool changed = false;
+        auto modCheck = [&](const char* name, std::uint32_t bit) {
+            bool on = (curMask & bit) != 0u;
+            if (ImGui::Checkbox(name, &on)) {
+                if (on) curMask |= bit;
+                else curMask &= ~bit;
+                changed = true;
+            }
+        };
+        modCheck("机载雷达 B-Scope / PPI（仅雷达机型）", kPanelRadar);
+        modCheck("原生距离-多普勒（绿磷信号级 R-D）", kPanelSignal);
+        modCheck("本机电子战发射与 RWR/ESM 截获", kPanelEw);
+        modCheck("本机武器包线与外挂状态", kPanelWeapon);
+        modCheck("本机 6-DOF 气动舵面与推进", kPanelAero);
+        modCheck("本机数据链 / PNT / 融合航迹", kPanelComms);
+        modCheck("左下角载具列表", kPanelFleet);
+        if (changed) {
+            controls_->customPanelMask.store(curMask, std::memory_order_relaxed);
+            controls_->workspacePreset.store(static_cast<int>(WorkspacePreset::Custom), std::memory_order_relaxed);
         }
+        ImGui::Separator();
+        ImGui::TextDisabled("规划中真实面板（VIS-M15 接入真实物理流，绝不虚造）：");
+        ImGui::BeginDisabled();
+        bool f = false;
+        ImGui::Checkbox("完整 RWR 威胁方位环 & 信号级回放录制 [VIS-M15]", &f);
+        ImGui::Checkbox("EO/IR 热成像吊舱 & 导弹导引头实时画面 [VIS-M15]", &f);
+        ImGui::Checkbox("SAR / 气象雷达 & SMS 质心 / 战争迷雾对比 [VIS-M15]", &f);
+        ImGui::EndDisabled();
+        ImGui::EndPopup();
     }
 
-    // Quick 3-D Tactical Overlays Popover (always 1 click away, zero permanent screen bloat!)
+    // =========================================================================
+    // CLUSTER 3: Viewport Environment Tools (Camera | 3-D Layers | Clock | Layout)
+    // =========================================================================
+    if (!compact) {
+        drawVerticalHairline(s);
+    }
+
+    // Camera Mode Dropdown Pill + Reset
+    int camMode = std::clamp(controls_->cameraMode.load(std::memory_order_relaxed), 0, world::CameraController::kModeCount - 1);
+    const char* camShort[] = {"追踪", "环绕", "总览", "自由"};
+    const char* camLong[] = {"追踪视角 (Chase)", "环绕视角 (Orbit)", "正北总览 (Overview)", "自由视角 (Free)"};
+    char camBtn[40];
+    std::snprintf(camBtn, sizeof camBtn, "%s ▼###cam_btn", camShort[camMode]);
+    if (ImGui::Button(camBtn)) ImGui::OpenPopup("cam_mode_popup");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("切换机位视角（快捷键 C 轮切）");
+    if (ImGui::BeginPopup("cam_mode_popup")) {
+        ImGui::TextDisabled("视角模式 [C]");
+        ImGui::Separator();
+        for (int i = 0; i < world::CameraController::kModeCount; ++i) {
+            if (ImGui::Selectable(camLong[i], i == camMode)) {
+                controls_->cameraMode.store(i, std::memory_order_relaxed);
+            }
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::SameLine(0.0f, 3.0f * s);
+    if (ImGui::Button("重置")) controls_->cameraReset.store(true, std::memory_order_relaxed);
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("重置相机视距与角度 [R]");
+
+    // 3-D Tactical Overlays Popover
     std::uint32_t mask = controls_->tacticalOverlayMask.load(std::memory_order_relaxed);
-    ImGui::SameLine(0.0f, 12.0f * l.scale);
-    if (mask != 0u) ImGui::PushStyleColor(ImGuiCol_Button, tint(0.14f, 0.42f, 0.56f, 0.92f));
-    if (ImGui::SmallButton(mask == kOverlayAll ? "3-D 图层: 全开" : mask ? "3-D 图层: 部分" : "3-D 图层: 关"))
-        ImGui::OpenPopup("tact_overlay_popup");
+    ImGui::SameLine(0.0f, 5.0f * s);
+    if (mask != 0u) ImGui::PushStyleColor(ImGuiCol_Button, tint(0.11f, 0.39f, 0.50f, 0.88f));
+    const char* layerLabel = mask == kOverlayAll ? "3-D 图层 · 全开 ▼"
+                           : mask != 0u          ? "3-D 图层 · 部分 ▼"
+                                                 : "3-D 图层 · 关 ▼";
+    if (ImGui::Button(layerLabel)) ImGui::OpenPopup("tact_overlay_popup");
     if (mask != 0u) ImGui::PopStyleColor();
 
     if (ImGui::BeginPopup("tact_overlay_popup")) {
-        ImGui::TextDisabled("3-D 态势图层（仅显示聚焦载具）");
+        ImGui::TextDisabled("3-D 态势图层（仅显示当前聚焦载具）");
         if (ImGui::SmallButton("全开")) mask = kOverlayAll;
         ImGui::SameLine();
         if (ImGui::SmallButton("全关 (0 ms)")) mask = 0u;
@@ -304,11 +395,11 @@ void MonitorGui::drawMonitor() const {
         auto toggleBit = [&](const char* label, std::uint32_t bit, ImU32 swatchCol) {
             bool on = (mask & bit) != 0u;
             const ImVec2 p = ImGui::GetCursorScreenPos();
-            const float dotR = 3.5f * l.scale;
+            const float dotR = 3.5f * s;
             const float cy = p.y + ImGui::GetFrameHeight() * 0.5f;
             ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(p.x + dotR, cy), dotR, swatchCol);
             ImGui::Dummy(ImVec2(dotR * 2.4f, 0.0f));
-            ImGui::SameLine(0.0f, 4.0f * l.scale);
+            ImGui::SameLine(0.0f, 4.0f * s);
             if (ImGui::Checkbox(label, &on)) {
                 if (on) mask |= bit;
                 else mask &= ~bit;
@@ -324,18 +415,198 @@ void MonitorGui::drawMonitor() const {
         ImGui::EndPopup();
     }
 
-    // Publish exact live top-bar extents for right dock & 3-D zone label avoidance!
+    // Scene Solar Clock Popover (00:00..24:00 local solar time + presets + Real-Time UTC)
+    const double reqSolar = controls_->solarLocalHours.load(std::memory_order_relaxed);
+    const double shownSolar = controls_->activeSolarLocalHours.load(std::memory_order_relaxed);
+    const double normH = std::fmod(std::max(0.0, shownSolar) + 24.0, 24.0);
+    const int dispHr = static_cast<int>(normH) % 24;
+    const int dispMin = static_cast<int>(std::floor((normH - std::floor(normH)) * 60.0 + 0.5)) % 60;
+    const bool realClock = (reqSolar < -0.5 && reqSolar > -1.5);
+    char clockBtn[48];
+    if (realClock) std::snprintf(clockBtn, sizeof clockBtn, "时钟 实时 %02d:%02d ▼###solar_clk", dispHr, dispMin);
+    else std::snprintf(clockBtn, sizeof clockBtn, "时钟 %02d:%02d ▼###solar_clk", dispHr, dispMin);
+    ImGui::SameLine(0.0f, 5.0f * s);
+    ImGui::PushStyleColor(ImGuiCol_Button, tint(0.32f, 0.25f, 0.11f, 0.86f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, tint(0.44f, 0.34f, 0.15f, 0.96f));
+    if (ImGui::Button(clockBtn)) ImGui::OpenPopup("solar_clock_popup");
+    ImGui::PopStyleColor(2);
+
+    if (ImGui::BeginPopup("solar_clock_popup")) {
+        const double sunEl = controls_->activeSunElevationDeg.load(std::memory_order_relaxed);
+        ImGui::Text("场景光照时钟（当地太阳时）");
+        ImGui::SameLine(0.0f, 10.0f * s);
+        ImGui::TextColored(sunEl > 5.0 ? tint(1.0f, 0.84f, 0.36f) : tint(0.56f, 0.72f, 0.96f),
+                           "高度角 %+.0f°", sunEl);
+        float sliderH = static_cast<float>(normH);
+        char fmtBuf[16];
+        std::snprintf(fmtBuf, sizeof fmtBuf, "%02d:%02d", dispHr, dispMin);
+        ImGui::SetNextItemWidth(250.0f * s);
+        if (ImGui::SliderFloat("##solar_slider", &sliderH, 0.0f, 23.98f, fmtBuf)) {
+            controls_->solarLocalHours.store(static_cast<double>(sliderH), std::memory_order_relaxed);
+        }
+        struct SolarPreset { const char* label; double hours; };
+        static constexpr SolarPreset kPresets[] = {
+            {"清晨", 7.5}, {"正午", 12.5}, {"午后", 14.5}, {"黄昏", 17.25}, {"夜晚", 22.0}, {"实时", -1.0},
+        };
+        for (int i = 0; i < 6; ++i) {
+            if (i > 0) ImGui::SameLine(0.0f, 4.0f * s);
+            const bool act = (kPresets[i].hours < 0.0) ? realClock
+                                                       : (reqSolar >= 0.0 && std::abs(reqSolar - kPresets[i].hours) < 0.35);
+            if (act) ImGui::PushStyleColor(ImGuiCol_Button, tint(0.18f, 0.46f, 0.76f, 0.96f));
+            if (ImGui::SmallButton(kPresets[i].label)) {
+                controls_->solarLocalHours.store(kPresets[i].hours, std::memory_order_relaxed);
+            }
+            if (act) ImGui::PopStyleColor();
+        }
+        ImGui::EndPopup();
+    }
+
+    // Panel Size & Layout Settings Popover (Point 6!)
+    ImGui::SameLine(0.0f, 5.0f * s);
+    if (ImGui::Button("布局 ▼###layout_btn")) ImGui::OpenPopup("layout_settings_popup");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("调节小面板大小、字号缩放与右侧停靠宽度");
+
+    if (ImGui::BeginPopup("layout_settings_popup")) {
+        ImGui::Text("小面板大小与布局设置");
+        ImGui::Separator();
+        float pScale = std::clamp(controls_->panelScale.load(std::memory_order_relaxed), 0.75f, 1.35f);
+        float dockW = std::clamp(controls_->rightDockWidthPx.load(std::memory_order_relaxed), 280.0f, 520.0f);
+
+        struct SizePreset { const char* label; float sc; float w; };
+        static constexpr SizePreset kSz[] = {
+            {"紧凑 85%%", 0.85f, 320.0f},
+            {"标准 100%%", 1.00f, 370.0f},
+            {"宽松 118%%", 1.18f, 430.0f},
+        };
+        for (int i = 0; i < 3; ++i) {
+            if (i > 0) ImGui::SameLine(0.0f, 5.0f * s);
+            const bool act = std::abs(pScale - kSz[i].sc) < 0.03f;
+            if (act) ImGui::PushStyleColor(ImGuiCol_Button, tint(0.18f, 0.46f, 0.76f, 0.96f));
+            if (ImGui::SmallButton(kSz[i].label)) {
+                pScale = kSz[i].sc;
+                dockW = kSz[i].w;
+                controls_->panelScale.store(pScale, std::memory_order_relaxed);
+                controls_->rightDockWidthPx.store(dockW, std::memory_order_relaxed);
+            }
+            if (act) ImGui::PopStyleColor();
+        }
+
+        ImGui::TextDisabled("面板与字号缩放 (%.0f%%)", static_cast<double>(pScale * 100.0f));
+        ImGui::SetNextItemWidth(240.0f * s);
+        if (ImGui::SliderFloat("##panel_scale", &pScale, 0.75f, 1.35f, "%.2fx")) {
+            controls_->panelScale.store(pScale, std::memory_order_relaxed);
+        }
+        ImGui::TextDisabled("右侧面板宽度 (%.0f px)", static_cast<double>(dockW));
+        ImGui::SetNextItemWidth(240.0f * s);
+        if (ImGui::SliderFloat("##dock_width", &dockW, 280.0f, 520.0f, "%.0f px")) {
+            controls_->rightDockWidthPx.store(dockW, std::memory_order_relaxed);
+        }
+        ImGui::EndPopup();
+    }
+
+    // Demo-only compact pause/step inline (when NOT in mirror and NOT showing replay bottom bar)
+    const double rStart = controls_->replayStart.load(std::memory_order_relaxed);
+    const double rEnd = controls_->replayEnd.load(std::memory_order_relaxed);
+    if (!source_.mirror && !(rEnd > rStart)) {
+        drawVerticalHairline(s);
+        bool paused = controls_->paused.load(std::memory_order_relaxed);
+        if (ImGui::Button(paused ? "继续" : "暂停")) controls_->paused.store(!paused, std::memory_order_relaxed);
+        ImGui::SameLine(0.0f, 3.0f * s);
+        if (ImGui::Button("单步")) controls_->singleStep.store(true, std::memory_order_relaxed);
+        if (!compact) {
+            ImGui::SameLine(0.0f, 6.0f * s);
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextDisabled("t=%.1fs", simTime);
+        }
+    }
+
     const ImVec2 winPos = ImGui::GetWindowPos();
     const ImVec2 winSz = ImGui::GetWindowSize();
     controls_->topBarBottomPx.store(winPos.y + winSz.y, std::memory_order_relaxed);
     controls_->topBarRightPx.store(winPos.x + winSz.x, std::memory_order_relaxed);
+
     ImGui::End();
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar(5);
+}
+
+void MonitorGui::drawReplayBar() const {
+    const double start = controls_->replayStart.load(std::memory_order_relaxed);
+    const double end = controls_->replayEnd.load(std::memory_order_relaxed);
+    if (source_.mirror || !(end > start)) {
+        controls_->bottomBarTopPx.store(0.0f, std::memory_order_relaxed);
+        return;
+    }
+
+    const Layout l = layout(controls_.get());
+    const float s = l.scale;
+    const float barW = std::min(560.0f * s, std::max(320.0f * s, l.display.x * 0.42f));
+    const float leftR = controls_->leftDockRightPx.load(std::memory_order_relaxed);
+    const float rightL = controls_->rightDockLeftPx.load(std::memory_order_relaxed);
+    const float availLeft = leftR > 10.0f ? (leftR + 12.0f * s) : l.margin;
+    const float availRight = (rightL > 10.0f && rightL < l.display.x - 10.0f) ? (rightL - 12.0f * s) : (l.display.x - l.margin);
+    const float actualW = std::min(barW, std::max(240.0f * s, availRight - availLeft));
+    const float centerX = (availLeft + availRight) * 0.5f;
+    const float posX = std::clamp(centerX - actualW * 0.5f, availLeft, std::max(availLeft, availRight - actualW));
+    const float barH = 38.0f * s;
+
+    ImGui::SetNextWindowPos(ImVec2(posX, l.display.y - l.margin - barH), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(actualW, barH), ImGuiCond_Always);
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 18.0f * s);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f * s, 6.0f * s));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f * s);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6.0f * s, 4.0f * s));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, tint(0.043f, 0.063f, 0.094f, 0.88f));
+    ImGui::PushStyleColor(ImGuiCol_Border, tint(0.46f, 0.62f, 0.82f, 0.28f));
+
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+                                   ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+    if (!beginMandatoryPanel("回放控制###replay_bar", flags)) {
+        ImGui::End();
+        ImGui::PopStyleColor(2);
+        ImGui::PopStyleVar(4);
+        return;
+    }
+
+    bool paused = controls_->paused.load(std::memory_order_relaxed);
+    ImGui::PushStyleColor(ImGuiCol_Button, tint(0.14f, 0.46f, 0.78f, 0.94f));
+    if (ImGui::Button(paused ? "继续" : "暂停")) {
+        controls_->paused.store(!paused, std::memory_order_relaxed);
+    }
+    ImGui::PopStyleColor();
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("暂停 / 继续回放 [Space]");
+
+    ImGui::SameLine(0.0f, 5.0f * s);
+    if (ImGui::Button("单步")) controls_->singleStep.store(true, std::memory_order_relaxed);
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("单步前进一帧 [.]");
+
+    ImGui::SameLine(0.0f, 8.0f * s);
+    const double simTime = controls_->simTime.load(std::memory_order_relaxed);
+    char tBuf[40];
+    std::snprintf(tBuf, sizeof tBuf, "%.1fs / %.1fs", simTime, end);
+    const float readoutW = ImGui::CalcTextSize(tBuf).x + 12.0f * s;
+    const float sliderW = std::max(80.0f * s, ImGui::GetContentRegionAvail().x - readoutW);
+    float at = static_cast<float>(simTime);
+    ImGui::SetNextItemWidth(sliderW);
+    if (ImGui::SliderFloat("##replay_timeline", &at, static_cast<float>(start), static_cast<float>(end), "")) {
+        controls_->seekTo.store(static_cast<double>(at), std::memory_order_relaxed);
+    }
+    ImGui::SameLine(0.0f, 8.0f * s);
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextDisabled("%s", tBuf);
+    if (ImGui::IsItemHovered() && !aircraft_.empty()) ImGui::SetTooltip("%s", aircraft_.c_str());
+
+    controls_->bottomBarTopPx.store(ImGui::GetWindowPos().y, std::memory_order_relaxed);
+    ImGui::End();
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar(4);
 }
 
 void MonitorGui::drawStatus(const sim::VehicleState& s, const ipc::FlightStatus& status, bool state) const {
     const double* d = status.derived;
     if (!(d[ipc::kDerivedMassKg] > 0.0)) return;
-    const float gap = 12.0f * uiScale();
+    const float gap = 10.0f * uiScale();
     char text[64];
     bool first = true;
     enum class Tone { Plain, Dim, Caution, Warning };
@@ -402,13 +673,15 @@ void MonitorGui::drawVehicleList() const {
         return;
     }
 
-    const Layout l = layout();
-    ImGui::SetNextWindowPos(ImVec2(l.margin, l.listTop), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(l.listWidth, l.listHeight), ImGuiCond_FirstUseEver);
-    if (!beginMandatoryPanel("载具列表###vehicles")) {
+    const Layout l = layout(controls_.get());
+    ImGui::SetNextWindowPos(ImVec2(l.margin, l.listTop), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(l.listWidth, l.listHeight), ImGuiCond_Always);
+    if (!beginMandatoryPanel("载具列表###vehicles", ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
         ImGui::End();
         return;
     }
+    ImGui::SetWindowFontScale(l.panelScale);
+
     const int selected = controls_->selectedVehicle.load(std::memory_order_relaxed);
     if (status_ && selected >= 0 && static_cast<std::size_t>(selected) < status_->size() &&
         static_cast<std::size_t>(selected) < batch_->states.size() &&
@@ -421,47 +694,56 @@ void MonitorGui::drawVehicleList() const {
         ImGui::TableSetupScrollFreeze(0, 1);
         ImGui::TableSetupColumn("名称", ImGuiTableColumnFlags_WidthStretch, 2.35f);
         ImGui::TableSetupColumn("控制", ImGuiTableColumnFlags_WidthStretch, 1.05f);
-        ImGui::TableSetupColumn("海高 m", ImGuiTableColumnFlags_WidthStretch, 1.0f);
-        ImGui::TableSetupColumn("离地 m", ImGuiTableColumnFlags_WidthStretch, 1.0f);
-        ImGui::TableSetupColumn("空速", ImGuiTableColumnFlags_WidthStretch, 0.9f);
-        ImGui::TableSetupColumn("航向", ImGuiTableColumnFlags_WidthStretch, 0.8f);
-        ImGui::TableSetupColumn("状态", ImGuiTableColumnFlags_WidthStretch, 1.1f);
+        ImGui::TableSetupColumn("海高 m");
+        ImGui::TableSetupColumn("离地 m");
+        ImGui::TableSetupColumn("空速");
+        ImGui::TableSetupColumn("航向");
+        ImGui::TableSetupColumn("状态");
         ImGui::TableHeadersRow();
+
         for (std::size_t i = 0; i < batch_->states.size(); ++i) {
-            const auto* meta = i < vehicles_.size() ? &vehicles_[i] : nullptr;
-            if (meta && !meta->alive) continue;
+            if (i < vehicles_.size() && !vehicles_[i].alive) continue;
             const auto& s = batch_->states[i];
+            const bool isSelected = (static_cast<int>(i) == selected);
+            const char* word = "";
+            const int level =
+                status_ && i < status_->size() && !s.onGround && !s.crashed ? severity((*status_)[i], &word) : 0;
+
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            char label[96];
-            if (meta) std::snprintf(label, sizeof label, "%s##%zu", meta->name.c_str(), i);
-            else std::snprintf(label, sizeof label, "载具 %zu##%zu", i, i);
-            if (ImGui::Selectable(label, static_cast<int>(i) == selected, ImGuiSelectableFlags_SpanAllColumns))
+            char label[80];
+            if (i < vehicles_.size() && !vehicles_[i].name.empty()) std::snprintf(label, sizeof label, "%s", vehicles_[i].name.c_str());
+            else std::snprintf(label, sizeof label, "v%zu", i);
+            char selectableId[96];
+            std::snprintf(selectableId, sizeof selectableId, "%s##veh_%zu", label, i);
+            if (ImGui::Selectable(selectableId, isSelected, ImGuiSelectableFlags_SpanAllColumns))
                 controls_->selectedVehicle.store(static_cast<int>(i), std::memory_order_relaxed);
-            ImGui::TableSetColumnIndex(1); ImGui::TextUnformatted(meta ? meta->level : "");
-            if (s.diverged) {
-                for (int c = 2; c <= 5; ++c) { ImGui::TableSetColumnIndex(c); ImGui::TextUnformatted("-"); }
-                ImGui::TableSetColumnIndex(6);
-                ImGui::TextColored(warningText(), "发散");
-                continue;
-            }
-            ImGui::TableSetColumnIndex(2); ImGui::Text("%.0f", s.altitudeMslM);
-            ImGui::TableSetColumnIndex(3); ImGui::Text("%.0f", s.altitudeAglM);
-            ImGui::TableSetColumnIndex(4); ImGui::Text("%.0f", s.airspeedTrueMs);
-            ImGui::TableSetColumnIndex(5); ImGui::Text("%.0f°", units::radiansToDegrees(s.eulerRad[2]));
+            if (level) ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg1,
+                                              level >= 2 ? colour(165, 32, 32, 100) : colour(180, 130, 20, 85));
+
+            ImGui::TableSetColumnIndex(1);
+            ImGui::TextDisabled("%s", i < vehicles_.size() && vehicles_[i].level ? vehicles_[i].level : "");
+            ImGui::TableSetColumnIndex(2);
+            ImGui::Text("%.0f", s.altitudeMslM);
+            ImGui::TableSetColumnIndex(3);
+            ImGui::Text("%.0f", s.altitudeAglM);
+            ImGui::TableSetColumnIndex(4);
+            ImGui::Text("%.0f", s.airspeedTrueMs);
+            ImGui::TableSetColumnIndex(5);
+            ImGui::Text("%.0f°", std::fmod(units::radiansToDegrees(s.eulerRad[2]) + 360.0, 360.0));
             ImGui::TableSetColumnIndex(6);
-            const char* word = "";
-            const int level = status_ && i < status_->size() && !s.onGround ? severity((*status_)[i], &word) : 0;
-            if (level > 0) ImGui::TextColored(level >= 2 ? warningText() : cautionText(), "%s", word);
+            if (s.diverged) ImGui::TextColored(warningText(), "发散");
             else if (s.crashed) ImGui::TextColored(warningText(), "坠毁");
+            else if (level) ImGui::TextColored(level >= 2 ? warningText() : cautionText(), "%s", word);
             else ImGui::TextUnformatted(s.onGround ? "地面" : "空中");
         }
         ImGui::EndTable();
     }
-    const ImVec2 pos = ImGui::GetWindowPos();
-    const ImVec2 sz = ImGui::GetWindowSize();
-    controls_->leftDockRightPx.store(pos.x + sz.x, std::memory_order_relaxed);
-    controls_->leftDockTopPx.store(pos.y, std::memory_order_relaxed);
+
+    const ImVec2 winPos = ImGui::GetWindowPos();
+    const ImVec2 winSz = ImGui::GetWindowSize();
+    controls_->leftDockRightPx.store(winPos.x + winSz.x, std::memory_order_relaxed);
+    controls_->leftDockTopPx.store(winPos.y, std::memory_order_relaxed);
     ImGui::End();
 }
 

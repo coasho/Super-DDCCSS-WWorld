@@ -142,6 +142,7 @@ struct ViewerOptions {
     double seaWindMs = -1.0;      ///< --sea-wind: the wind the sea is made for, whatever the weather says (< 0: the weather's)
     bool zoomToCursor = true; ///< wheel zooms towards the pointer rather than straight in
     double sunUtcHours = -1.0;
+    double sunLocalHours = 13.5; ///< --sun-local <0..24|real> (default 13:30 afternoon daylight)
     std::string modelPath;
     std::string modelForward, modelUp;
     double modelScaleOverride = 0.0;
@@ -150,7 +151,7 @@ struct ViewerOptions {
     int cameraMode = 1; // orbit
     std::uint32_t tacticalOverlayMask = 0u; ///< --overlays (default 0 = OFF, 0.0 ms)
     int workspacePreset = static_cast<int>(ui::WorkspacePreset::AirRadar); ///< --workspace
-    int radarSignalTab = 0; ///< --signal-tab (0=rd, 1=burn, 2=polar)
+    float panelScale = 1.0f; ///< --panel-scale <0.75..1.35>
     std::string view;   // --view lat,lon,alt_m,distance_m[,azimuth_deg,elevation_deg]: start detached, looking at that point
     double chaseDistance = 40.0;
     bool chaseDistanceSet = false; // --chase-distance given: start there, even attached to a world
@@ -417,6 +418,10 @@ bool parse(int argc, char** argv, ViewerOptions& o) {
             else if (a == "--sea-wind") o.seaWindMs = std::atof(next());
             else if (a == "--no-sun") { std::fprintf(stderr,"sunlight and shadows are mandatory\n"); return false; }
             else if (a == "--sun-utc") o.sunUtcHours = std::stod(next());
+            else if (a == "--sun-local") {
+                const std::string v = next();
+                o.sunLocalHours = (v == "real" || v == "live" || v == "auto") ? -1.0 : std::fmod(std::stod(v) + 240.0, 24.0);
+            }
             else if (a == "--on-ground") o.onGround = true;
             else if (a == "--bing-key") o.earth.bingKey = next();
             else if (a == "--max-level") o.earth.maxLevel = static_cast<unsigned>(std::stoul(next()));
@@ -472,9 +477,8 @@ bool parse(int argc, char** argv, ViewerOptions& o) {
                 else if (v == "weapon" || v == "weapons") o.workspacePreset = static_cast<int>(ui::WorkspacePreset::Weapon);
                 else if (v == "flight" || v == "aero") o.workspacePreset = static_cast<int>(ui::WorkspacePreset::Flight);
                 else o.workspacePreset = static_cast<int>(ui::WorkspacePreset::AirRadar);
-            } else if (a == "--signal-tab") {
-                const std::string v = next();
-                o.radarSignalTab = (v == "burn" || v == "snr") ? 1 : (v == "polar" || v == "antenna") ? 2 : 0;
+            } else if (a == "--panel-scale") {
+                o.panelScale = std::clamp(std::stof(next()), 0.75f, 1.35f);
             } else if (a == "--probe") o.probe = true;
             else if (a == "--stats") o.stats = std::stod(next());
             else if (a == "--stats-budget") o.statsBudgetMs = std::stod(next());
@@ -737,7 +741,11 @@ int main(int argc, char** argv) {
     };
     int day = 172; double hours = 12.0;
     world::currentUtc(day, hours);
-    if (opt.sunUtcHours >= 0.0) hours = opt.sunUtcHours;
+    if (opt.sunUtcHours >= 0.0) {
+        hours = opt.sunUtcHours;
+    } else if (opt.sunLocalHours >= 0.0) {
+        hours = std::fmod(opt.sunLocalHours - opt.longitudeDeg / 15.0 + 48.0, 24.0);
+    }
     vsg::dvec3 sunDir = world::sunDirectionEcef(day, hours);
     world::SkyDome sky(viewer.options(), sunDir);
     addBackdrop(sky.node());
@@ -928,7 +936,8 @@ int main(int argc, char** argv) {
     controls->cameraMode.store(opt.cameraMode);
     controls->tacticalOverlayMask.store(opt.tacticalOverlayMask, std::memory_order_relaxed);
     controls->workspacePreset.store(opt.workspacePreset, std::memory_order_relaxed);
-    controls->radarSignalTab.store(opt.radarSignalTab, std::memory_order_relaxed);
+    controls->panelScale.store(opt.panelScale, std::memory_order_relaxed);
+    controls->solarLocalHours.store(opt.sunUtcHours >= 0.0 ? -2.0 : opt.sunLocalHours, std::memory_order_relaxed);
     const std::string monitorLabel = replay
         ? ("回放: " + std::filesystem::path(opt.replayPath).filename().string())
         : opt.aircraft;
@@ -1041,7 +1050,9 @@ int main(int argc, char** argv) {
                         "蓝红方有效区边界盲测向线告警椭球前置瞄准点炸弹预测落点回波成像走廊门"
                         "观战纯净空战武器飞控气动面板自定义停靠适配显隐可视多普勒曲线方向图频谱截获辐射源"
                         "物理推导原生信号级方程标称噪底带宽本机来袭挂载包线解算初速阻力系数补偿"
-                        "飞行弹药详细焦平面协方差诊断流推力发核心转速加力旋翼桨速副翼升降方向减速板剩余");
+                        "飞行弹药详细焦平面协方差诊断流推力发核心转速加力旋翼桨速副翼升降方向减速板剩余"
+                        "时钟场景光照当地太阳高度角清晨正午后黄昏夜晚"
+                        "布局紧凑标准宽松隐藏字号调节规划接入虚造威胁环吊舱画面质心迷雾对比绿磷仅测向接收电平相对类型实测噪声抬升峰值凹口矩阵补齐");
         builder.BuildRanges(&glyphRanges);
 
         const float fontPx = std::round(21.0f * uiDpi);
@@ -1381,7 +1392,10 @@ int main(int argc, char** argv) {
         }
         if (std::isfinite(env.temperatureSeaLevelK) && env.temperatureSeaLevelK > 150.0)
             vapour.setAir(env.temperatureSeaLevelK, env.humidity); // what the air round the aircraft condenses
-        if (opt.sunUtcHours < 0.0 && env.epochUtcSeconds > 0.0 && wallSeconds - lastSunUpdate > 1.0 && batch) {
+        if (env.epochUtcSeconds > 0.0 && batch &&
+            controls->solarLocalHours.load(std::memory_order_relaxed) < -0.5 &&
+            controls->solarLocalHours.load(std::memory_order_relaxed) > -1.5 &&
+            wallSeconds - lastSunUpdate > 1.0) {
             lastSunUpdate = wallSeconds;
             world::utcOf(env.epochUtcSeconds + batch->simTime, day, hours);
             sunDir = world::sunDirectionEcef(day, hours);
@@ -2004,6 +2018,36 @@ int main(int argc, char** argv) {
                 labels.push_back(std::move(l));
             }
             gui->setLabels(std::move(labels));
+        }
+        // Dynamic Scene Solar Clock (MonitorGui clock slider / presets or real-time UTC):
+        {
+            const vsg::dvec3 lookedLla = ellipsoid->convertECEFToLatLongAltitude(viewer.lookAt()->center);
+            const double reqLocal = controls->solarLocalHours.load(std::memory_order_relaxed);
+            double desiredUtc = hours;
+            double dispLocal = 12.0;
+            if (reqLocal >= 0.0) {
+                desiredUtc = std::fmod(reqLocal - lookedLla.y / 15.0 + 48.0, 24.0);
+                dispLocal = reqLocal;
+            } else if (reqLocal > -1.5) {
+                if (wallSeconds - lastSunUpdate > 1.0) {
+                    lastSunUpdate = wallSeconds;
+                    world::currentUtc(day, hours);
+                }
+                desiredUtc = hours;
+                dispLocal = std::fmod(desiredUtc + lookedLla.y / 15.0 + 48.0, 24.0);
+            } else {
+                desiredUtc = opt.sunUtcHours;
+                dispLocal = std::fmod(desiredUtc + lookedLla.y / 15.0 + 48.0, 24.0);
+            }
+            const vsg::dvec3 desiredSun = world::sunDirectionEcef(day, desiredUtc);
+            if (vsg::length2(desiredSun - sunDir) > 1e-8) {
+                sunDir = desiredSun;
+                sky.setSun(sunDir);
+                if (atmosphere) atmosphere->setSun(sunDir);
+            }
+            controls->activeSolarLocalHours.store(dispLocal, std::memory_order_relaxed);
+            const double sinEl = std::clamp(vsg::dot(vsg::normalize(sunDir), vsg::normalize(viewer.lookAt()->center)), -1.0, 1.0);
+            controls->activeSunElevationDeg.store(std::asin(sinEl) * (180.0 / 3.141592653589793), std::memory_order_relaxed);
         }
         sky.update(viewer.lookAt()->eye);
         // the clouds, before the light: a deck overhead dims the sun where the camera looks

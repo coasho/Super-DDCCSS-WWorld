@@ -67,6 +67,7 @@ public:
 
 private:
     void drawMonitor() const;
+    void drawReplayBar() const;
     void drawVehicleList() const;
     /// A vehicle's flight status, as items along a line; `state`: its abnormal state's word first.
     void drawStatus(const sim::VehicleState& s, const ipc::FlightStatus& status, bool state) const;

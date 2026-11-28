@@ -341,11 +341,17 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
     const float rightDockX = controls_ ? controls_->rightDockLeftPx.load(std::memory_order_relaxed) : 0.0f;
     const float leftDockR = controls_ ? controls_->leftDockRightPx.load(std::memory_order_relaxed) : 0.0f;
     const float leftDockT = controls_ ? controls_->leftDockTopPx.load(std::memory_order_relaxed) : 0.0f;
+    const float bottomBarY = controls_ ? controls_->bottomBarTopPx.load(std::memory_order_relaxed) : 0.0f;
 
-    panelBoxes.push_back({0.0f, 0.0f, topBarR > 10.0f ? topBarR + 8.0f * k : w * 0.78f,
-                          topBarY > 10.0f ? topBarY + 8.0f * k : 115.0f * k});
+    panelBoxes.push_back({0.0f, 0.0f, topBarR > 10.0f ? topBarR + 8.0f * k : w * 0.76f,
+                          topBarY > 10.0f ? topBarY + 8.0f * k : 80.0f * k});
     if (leftDockR > 10.0f && leftDockT > 10.0f) {
         panelBoxes.push_back({0.0f, leftDockT - 8.0f * k, leftDockR + 8.0f * k, h});
+    }
+    if (bottomBarY > 10.0f && bottomBarY < h - 4.0f) {
+        const float bL = leftDockR > 10.0f ? leftDockR : w * 0.25f;
+        const float bR = (rightDockX > 10.0f && rightDockX < w - 10.0f) ? rightDockX : w * 0.75f;
+        panelBoxes.push_back({bL, bottomBarY - 8.0f * k, bR, h});
     }
     if (rightDockX > 10.0f && rightDockX < w - 10.0f) {
         panelBoxes.push_back({rightDockX - 10.0f * k, 0.0f, w, h});

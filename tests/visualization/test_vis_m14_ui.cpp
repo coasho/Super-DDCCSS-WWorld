@@ -85,6 +85,9 @@ TEST_CASE("VIS-M14 B-43 MonitorGui fits 1600x900 @ 150% DPI without clipping or 
     auto controls = std::make_shared<ui::ViewerControls>();
     controls->fps.store(160.0);
     controls->frameMs.store(6.2);
+    controls->replayStart.store(0.0);
+    controls->replayEnd.store(18.0);
+    controls->simTime.store(8.5);
     auto gui = ui::MonitorGui::create(controls, "回放: emso_tactical_showcase.fsrec");
     sim::SnapshotBatch batch;
     batch.simTime = 12.5;
@@ -107,8 +110,10 @@ TEST_CASE("VIS-M14 B-43 MonitorGui fits 1600x900 @ 150% DPI without clipping or 
 
     ImGuiWindow* monitorWin = ImGui::FindWindowByName("飞行监控###flightsim");
     ImGuiWindow* listWin = ImGui::FindWindowByName("载具列表###vehicles");
+    ImGuiWindow* replayWin = ImGui::FindWindowByName("回放控制###replay_bar");
     REQUIRE(monitorWin != nullptr);
     REQUIRE(listWin != nullptr);
+    REQUIRE(replayWin != nullptr);
 
     CHECK(monitorWin->Pos.x >= 0.0f);
     CHECK(monitorWin->Pos.y >= 0.0f);
@@ -116,22 +121,27 @@ TEST_CASE("VIS-M14 B-43 MonitorGui fits 1600x900 @ 150% DPI without clipping or 
     CHECK(monitorWin->Pos.y + monitorWin->Size.y <= listWin->Pos.y + 1.0f);
     CHECK(listWin->Pos.x + listWin->Size.x <= 1600.0f);
     CHECK(listWin->Pos.y + listWin->Size.y <= 900.0f);
+    CHECK(replayWin->Pos.x >= listWin->Pos.x + listWin->Size.x - 1.0f);
+    CHECK(replayWin->Pos.x + replayWin->Size.x <= 1600.0f);
+    CHECK(replayWin->Pos.y + replayWin->Size.y <= 900.0f);
     CHECK(controls->topBarBottomPx.load() > 20.0f);
     CHECK(controls->leftDockRightPx.load() > 40.0f);
     CHECK(controls->leftDockTopPx.load() >= controls->topBarBottomPx.load());
+    CHECK(controls->bottomBarTopPx.load() > 700.0f);
 
     ImGui::DestroyContext();
 }
 
-TEST_CASE("VIS-M14 Scheme 3 WorkspacePresets map panels cleanly", "[vis-m14][ui][workspace]") {
+TEST_CASE("VIS-M14 WorkspacePresets map panels cleanly without forcing airborne radar", "[vis-m14][ui][workspace]") {
     using ui::WorkspacePreset;
-    CHECK(ui::panelsForWorkspace(WorkspacePreset::Clean, 0u) == ui::kPanelRadar);
+    CHECK(ui::panelsForWorkspace(WorkspacePreset::Clean, 0u) == 0u);
     CHECK(ui::panelsForWorkspace(WorkspacePreset::AirRadar, 0u) == (ui::kPanelRadar | ui::kPanelSignal | ui::kPanelFleet));
     CHECK(ui::panelsForWorkspace(WorkspacePreset::Emso, 0u) == (ui::kPanelRadar | ui::kPanelSignal | ui::kPanelEw | ui::kPanelFleet));
     CHECK(ui::panelsForWorkspace(WorkspacePreset::Weapon, 0u) == (ui::kPanelRadar | ui::kPanelWeapon | ui::kPanelAero | ui::kPanelFleet));
-    CHECK(ui::panelsForWorkspace(WorkspacePreset::Flight, 0u) == (ui::kPanelRadar | ui::kPanelAero | ui::kPanelComms | ui::kPanelFleet));
-    // Custom always retains kPanelRadar so airborne radar binding remains mandatory on radar-equipped aircraft.
-    CHECK(ui::panelsForWorkspace(WorkspacePreset::Custom, ui::kPanelEw) == (ui::kPanelRadar | ui::kPanelEw));
+    CHECK(ui::panelsForWorkspace(WorkspacePreset::Flight, 0u) == (ui::kPanelAero | ui::kPanelComms | ui::kPanelFleet));
+    // Custom respects user choices strictly (never forces kPanelRadar).
+    CHECK(ui::panelsForWorkspace(WorkspacePreset::Custom, ui::kPanelEw) == ui::kPanelEw);
+    CHECK(ui::panelsForWorkspace(WorkspacePreset::Custom, 0u) == 0u);
 }
 
 TEST_CASE("VIS-M14 TacticalOverlays enforces focused-vehicle filtering and zero cost when OFF", "[vis-m14][ui]") {
@@ -230,22 +240,41 @@ TEST_CASE("VIS-M14 MissionGui force-binds Radar UI to supported aircraft and hid
 
     vsg::CommandBuffer* dummy = nullptr;
 
-    // 1. Focused on radar-equipped F-16C in AirRadar preset -> Radar + Visual Signal Lab (all 3 tabs) must render!
+    // 1. Focused on radar-equipped F-16C in AirRadar preset (replay) -> renders Radar ONLY (never fabricates fake R-D!)
     missionGui->updateReplay(&frame, &st0, 0, "viper-1", "f16c", 6.0);
-    for (int tab = 0; tab < 3; ++tab) {
-        controls->radarSignalTab.store(tab);
-        for (int f = 0; f < 2; ++f) {
-            ImGui::NewFrame();
-            missionGui->record(*dummy);
-            ImGui::Render();
-        }
-        CHECK(ImGui::GetDrawData()->TotalVtxCount > 120);
+    for (int f = 0; f < 2; ++f) {
+        ImGui::NewFrame();
+        missionGui->record(*dummy);
+        ImGui::Render();
     }
-    CHECK(ImGui::FindWindowByName("机载雷达 - viper-1###radar0") != nullptr);
-    CHECK(ImGui::FindWindowByName("雷达底层可视化###radar_signal_lab") != nullptr);
-    CHECK(controls->rightDockLeftPx.load() > 1000.0f);
+    CHECK(ImGui::GetDrawData()->TotalVtxCount > 60);
+    ImGuiWindow* radarWin = ImGui::FindWindowByName("机载雷达 - viper-1###radar0");
+    REQUIRE(radarWin != nullptr);
+    CHECK(radarWin->WasActive);
+    CHECK(ImGui::FindWindowByName("原生距离-多普勒 ###rd_panel") == nullptr);
+    const float dockLeftStd = controls->rightDockLeftPx.load();
+    CHECK(dockLeftStd > 1000.0f);
 
-    // 2. Focused on AIM-120C missile in AirRadar preset -> Radar & Signal Lab must NOT render!
+    // 1b. Panel size & right dock width setting dynamically resizes the right dock!
+    controls->panelScale.store(1.18f);
+    controls->rightDockWidthPx.store(450.0f);
+    ImGui::NewFrame();
+    missionGui->record(*dummy);
+    ImGui::Render();
+    CHECK(controls->rightDockLeftPx.load() < dockLeftStd - 40.0f);
+    controls->panelScale.store(1.0f);
+    controls->rightDockWidthPx.store(370.0f);
+
+    // 1c. Clean preset hides ALL panels including Airborne Radar (no longer forced!)
+    controls->workspacePreset.store(static_cast<int>(ui::WorkspacePreset::Clean));
+    ImGui::NewFrame();
+    missionGui->record(*dummy);
+    ImGui::Render();
+    CHECK(ImGui::GetDrawData()->TotalVtxCount == 0);
+    CHECK(controls->rightDockLeftPx.load() == 0.0f);
+
+    // 2. Focused on AIM-120C missile in AirRadar preset -> Radar is capability-gated OFF!
+    controls->workspacePreset.store(static_cast<int>(ui::WorkspacePreset::AirRadar));
     missionGui->updateReplay(&frame, &st0, 4, "viper-1-aim120c-5", "aim120c", 6.0);
     ImGui::NewFrame();
     missionGui->record(*dummy);
@@ -263,10 +292,10 @@ TEST_CASE("VIS-M14 MissionGui force-binds Radar UI to supported aircraft and hid
     }
     CHECK(ImGui::GetDrawData()->TotalVtxCount > 40);
     ImGuiWindow* aeroWin = ImGui::FindWindowByName("气动舵面与推进###aero_panel");
-    ImGuiWindow* radarWin = ImGui::FindWindowByName("机载雷达 - uh60-hover###radar0");
+    ImGuiWindow* radarWinAfter = ImGui::FindWindowByName("机载雷达 - uh60-hover###radar0");
     REQUIRE(aeroWin != nullptr);
     CHECK(aeroWin->WasActive);
-    CHECK((radarWin == nullptr || !radarWin->WasActive));
+    CHECK((radarWinAfter == nullptr || !radarWinAfter->WasActive));
 
     ImGui::DestroyContext();
 }
