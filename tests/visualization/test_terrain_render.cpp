@@ -871,3 +871,98 @@ TEST_CASE("terrain between the eye and the focus does not tilt the view", "[came
     INFO("asked for 0 deg of tilt across a 4 km ridge, drawn " << rig.camera->shownElevationDeg() << " deg");
     REQUIRE(rig.camera->shownElevationDeg() < 1.0);
 }
+
+TEST_CASE("switching from Orbit, Chase, or Overview to Free preserves airborne altitude and pans 1:1 immediately", "[camera]") {
+    using Mode = world::CameraController::Mode;
+
+    // 1. Orbit -> Free: focus must stay at the aircraft's 4,800 m altitude (not snap to ground!)
+    //    and an immediate horizontal right-drag must pan smoothly without clicking any entity first.
+    {
+        Rig rig;
+        const auto jetPos = rig.ellipsoid->convertLatLongAltitudeToECEF(vsg::dvec3(37.65, -122.42, 4800.0));
+        sim::VehicleState st{};
+        st.positionEcef[0] = jetPos.x; st.positionEcef[1] = jetPos.y; st.positionEcef[2] = jetPos.z;
+        st.rotationBodyToEcef[0] = 1.0; st.rotationBodyToEcef[4] = 1.0; st.rotationBodyToEcef[8] = 1.0;
+
+        rig.camera->setMode(Mode::Orbit);
+        rig.camera->setChaseOffset(5000.0, 22.0, 180.0);
+        for (int k = 0; k < 60; ++k) rig.camera->update(&st, 1.0 / 60.0);
+
+        const double altBefore = rig.ellipsoid->convertECEFToLatLongAltitude(rig.lookAt->center).z;
+        REQUIRE_THAT(altBefore, Catch::Matchers::WithinAbs(4800.0, 5.0));
+
+        // Switch directly to Free mode (without calling holdAt / clicking any entity)
+        rig.camera->setMode(Mode::Free);
+        for (int k = 0; k < 30; ++k) rig.camera->update(&st, 1.0 / 60.0);
+
+        const double altAfterSwitch = rig.ellipsoid->convertECEFToLatLongAltitude(rig.camera->focus()).z;
+        REQUIRE_THAT(altAfterSwitch, Catch::Matchers::WithinAbs(4800.0, 10.0));
+
+        // Immediate horizontal right-drag (200 px across an 800 px viewport) must move focus responsively (~1:1)
+        const vsg::dvec3 focusBeforeDrag = rig.camera->focus();
+        auto press = vsg::ButtonPressEvent::create();
+        press->x = 400; press->y = 300; press->button = 3;
+        rig.camera->apply(*press);
+        for (int s = 1; s <= 10; ++s) {
+            auto move = vsg::MoveEvent::create();
+            move->x = 400 + s * 20; move->y = 300; move->mask = vsg::BUTTON_MASK_3;
+            rig.camera->apply(*move);
+            rig.camera->update(&st, 1.0 / 60.0);
+        }
+        auto release = vsg::ButtonReleaseEvent::create();
+        release->x = 600; release->y = 300; release->button = 3;
+        rig.camera->apply(*release);
+        for (int k = 0; k < 30; ++k) rig.camera->update(&st, 1.0 / 60.0);
+
+        const double dragDistM = vsg::length(rig.camera->focus() - focusBeforeDrag);
+        const double altAfterDrag = rig.ellipsoid->convertECEFToLatLongAltitude(rig.camera->focus()).z;
+        INFO("Orbit->Free immediate 200 px drag moved focus " << dragDistM << " m at alt " << altAfterDrag << " m");
+        // At 5,000 m distance with 45 deg vertical FOV (~58 deg horiz FOV), 200/800 px spans ~1,400 m horizontally!
+        REQUIRE(dragDistM > 800.0);
+        REQUIRE(dragDistM < 4500.0);
+        REQUIRE_THAT(altAfterDrag, Catch::Matchers::WithinAbs(4800.0, 25.0));
+    }
+
+    // 2. Overview -> Free: preserves the 10x overview viewing altitude & distance rather than suddenly zooming in 10x
+    {
+        Rig rig;
+        const auto jetPos = rig.ellipsoid->convertLatLongAltitudeToECEF(vsg::dvec3(37.65, -122.42, 4800.0));
+        sim::VehicleState st{};
+        st.positionEcef[0] = jetPos.x; st.positionEcef[1] = jetPos.y; st.positionEcef[2] = jetPos.z;
+        st.rotationBodyToEcef[0] = 1.0; st.rotationBodyToEcef[4] = 1.0; st.rotationBodyToEcef[8] = 1.0;
+
+        rig.camera->setMode(Mode::Overview);
+        rig.camera->setChaseOffset(2000.0, 14.0, 180.0);
+        for (int k = 0; k < 60; ++k) rig.camera->update(&st, 1.0 / 60.0);
+        const double overviewEyeDist = vsg::length(rig.lookAt->eye - rig.lookAt->center);
+
+        rig.camera->setMode(Mode::Free);
+        for (int k = 0; k < 10; ++k) rig.camera->update(&st, 1.0 / 60.0);
+        const double freeEyeDist = vsg::length(rig.lookAt->eye - rig.lookAt->center);
+        INFO("Overview->Free eye distance: " << overviewEyeDist << " m -> " << freeEyeDist << " m");
+        REQUIRE(freeEyeDist > overviewEyeDist * 0.85);
+        REQUIRE(freeEyeDist < overviewEyeDist * 1.15);
+    }
+
+    // 3. Airborne zoom-to-cursor in Free mode stays at the held entity altitude instead of plunging to sea level
+    {
+        Rig rig;
+        const auto jetPos = rig.ellipsoid->convertLatLongAltitudeToECEF(vsg::dvec3(37.65, -122.42, 4800.0));
+        rig.camera->setMode(Mode::Free);
+        rig.camera->setChaseOffset(12000.0, 35.0, 180.0);
+        rig.camera->holdAt(jetPos);
+        for (int k = 0; k < 60; ++k) rig.camera->update(nullptr, 1.0 / 60.0);
+
+        auto move = vsg::MoveEvent::create();
+        move->x = 560; move->y = 260;
+        rig.camera->apply(*move);
+        for (int i = 0; i < 6; ++i) {
+            auto scroll = vsg::ScrollWheelEvent::create();
+            scroll->delta = vsg::vec3(0.0f, 1.0f, 0.0f);
+            rig.camera->apply(*scroll);
+            for (int k = 0; k < 20; ++k) rig.camera->update(nullptr, 1.0 / 60.0);
+        }
+        const double altAfterZoom = rig.ellipsoid->convertECEFToLatLongAltitude(rig.camera->focus()).z;
+        REQUIRE_THAT(altAfterZoom, Catch::Matchers::WithinAbs(4800.0, 40.0));
+    }
+}

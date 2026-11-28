@@ -65,6 +65,11 @@ void drawIffBadgeGlyph(ImDrawList* dl, float ix, float iy, float ir, std::uint8_
         dl->AddPolyline(pts, 4, fg, ImDrawFlags_Closed, 1.4f * scale);
     } else if (iconKind == 3) {
         dl->AddTriangleFilled(ImVec2(ix, iy - ir), ImVec2(ix + ir, iy + ir * 0.85f), ImVec2(ix - ir, iy + ir * 0.85f), fg);
+    } else if (iconKind == 4) {
+        // Radar contact / track bracket square (used uniformly for real tracks & electronic false targets)
+        const float r = ir * 0.88f;
+        dl->AddRect(ImVec2(ix - r, iy - r), ImVec2(ix + r, iy + r), fg, 0.0f, 0, 1.35f * scale);
+        dl->AddCircleFilled(ImVec2(ix, iy), std::max(1.2f, ir * 0.30f), fg);
     } else {
         dl->AddCircleFilled(ImVec2(ix, iy), ir * 0.65f, fg);
     }
@@ -93,39 +98,216 @@ void MonitorGui::record(vsg::CommandBuffer&) const {
     drawReplayBar();
 }
 
+void MonitorGui::projectLabel(const vsg::dvec3& posEcef, const vsg::dmat4& view, const vsg::dmat4& proj,
+                              std::uint32_t width, std::uint32_t height, Label& out) noexcept {
+    const double w = static_cast<double>(std::max(1u, width));
+    const double h = static_cast<double>(std::max(1u, height));
+    const vsg::dvec4 v = view * vsg::dvec4(posEcef.x, posEcef.y, posEcef.z, 1.0);
+    const vsg::dvec4 clip = proj * v;
+
+    if (v.z < -0.5 && clip.w > 1e-6) {
+        const double nx = clip.x / clip.w;
+        const double ny = clip.y / clip.w;
+        if (std::isfinite(nx) && std::isfinite(ny) && std::abs(nx) <= 0.99 && std::abs(ny) <= 0.99) {
+            out.x = static_cast<float>((nx * 0.5 + 0.5) * w);
+            out.y = static_cast<float>((ny * 0.5 + 0.5) * h);
+            out.offscreen = false;
+            out.dirX = 0.0f;
+            out.dirY = 0.0f;
+            return;
+        }
+    }
+
+    // Off-screen or behind camera: compute singularity-free screen-space unit vector from viewport center.
+    // In view space (+x right, +y up, -z forward), proj[0][0] > 0 and Vulkan proj[1][1] < 0 maps y-up -> screen y-down.
+    double dx = v.x * std::abs(proj[0][0]);
+    double dy = -v.y * std::abs(proj[1][1]);
+    if (v.z < -0.5 && clip.w > 1e-6) {
+        const double nx = clip.x / clip.w;
+        const double ny = clip.y / clip.w;
+        if (std::isfinite(nx) && std::isfinite(ny)) {
+            dx = nx * (w * 0.5);
+            dy = ny * (h * 0.5);
+        }
+    } else {
+        dx *= (w * 0.5);
+        dy *= (h * 0.5);
+    }
+    const double len = std::hypot(dx, dy);
+    if (len > 1e-6) {
+        out.dirX = static_cast<float>(dx / len);
+        out.dirY = static_cast<float>(dy / len);
+    } else {
+        // Directly behind eye: point toward bottom edge.
+        out.dirX = 0.0f;
+        out.dirY = 1.0f;
+    }
+    out.offscreen = true;
+    out.x = static_cast<float>(w * 0.5);
+    out.y = static_cast<float>(h * 0.5);
+}
+
 void MonitorGui::drawLabels() const {
-    // Solid tactical entity badges with geometric IFF markers (clearly distinct from quiet borderless 3-D zone text!).
+    // Solid tactical entity/track badges with geometric IFF markers + off-screen viewport edge indicators.
     ImDrawList* dl = ImGui::GetBackgroundDrawList();
     const float k = uiScale();
+    const ImVec2 disp = ImGui::GetIO().DisplaySize;
+    const float w = std::max(1.0f, disp.x);
+    const float h = std::max(1.0f, disp.y);
+
+    struct Box { float x0, y0, x1, y1; };
+    std::vector<Box> dockBoxes;
+    dockBoxes.reserve(6);
+    const float topBarY = controls_ ? controls_->topBarBottomPx.load(std::memory_order_relaxed) : 0.0f;
+    const float topBarR = controls_ ? controls_->topBarRightPx.load(std::memory_order_relaxed) : 0.0f;
+    const float leftDockR = controls_ ? controls_->leftDockRightPx.load(std::memory_order_relaxed) : 0.0f;
+    const float leftDockT = controls_ ? controls_->leftDockTopPx.load(std::memory_order_relaxed) : 0.0f;
+    const float bottomBarY = controls_ ? controls_->bottomBarTopPx.load(std::memory_order_relaxed) : 0.0f;
+    const float rightDockX = controls_ ? controls_->rightDockLeftPx.load(std::memory_order_relaxed) : 0.0f;
+
+    if (topBarY > 10.0f) dockBoxes.push_back({0.0f, 0.0f, topBarR > 10.0f ? topBarR + 8.0f * k : w * 0.76f, topBarY + 6.0f * k});
+    if (leftDockR > 10.0f && leftDockT > 10.0f) dockBoxes.push_back({0.0f, leftDockT - 6.0f * k, leftDockR + 6.0f * k, h});
+    if (bottomBarY > 10.0f && bottomBarY < h - 4.0f) {
+        const float bL = leftDockR > 10.0f ? leftDockR : w * 0.25f;
+        const float bR = (rightDockX > 10.0f && rightDockX < w - 10.0f) ? rightDockX : w * 0.75f;
+        dockBoxes.push_back({bL, bottomBarY - 6.0f * k, bR, h});
+    }
+    if (rightDockX > 10.0f && rightDockX < w - 10.0f) dockBoxes.push_back({rightDockX - 6.0f * k, 0.0f, w, h});
+
+    std::vector<Box> placedEdge = dockBoxes;
+    placedEdge.reserve(dockBoxes.size() + labels_.size());
+
+    auto badgeColors = [](const Label& l, ImU32& bg, ImU32& border, ImU32& fg) {
+        bg = l.severity >= 2 ? colour(196, 40, 36, 240)
+           : l.severity == 1 ? colour(228, 166, 28, 240)
+           : l.selected      ? colour(208, 118, 18, 238)
+           : l.iconKind == 4 ? colour(24, 34, 52, 224)
+           : l.iconKind == 2 ? colour(112, 24, 30, 224)
+           : l.iconKind == 1 ? colour(16, 36, 62, 224)
+                             : colour(22, 29, 42, 222);
+        border = l.selected      ? colour(255, 232, 162, 245)
+               : l.iconKind == 4 ? colour(252, 188, 66, 230)
+               : l.iconKind == 2 ? colour(248, 108, 104, 220)
+               : l.iconKind == 1 ? colour(74, 188, 255, 220)
+               : l.iconKind == 3 ? colour(250, 198, 72, 220)
+                                 : colour(128, 152, 180, 165);
+        fg = (l.severity == 1) ? colour(18, 14, 0, 255) : colour(246, 250, 255, 255);
+    };
+
+    const float padEdge = 16.0f * k;
+    const float safeL = padEdge;
+    const float safeR = std::max(safeL + 60.0f, w - padEdge);
+    const float safeT = padEdge;
+    const float safeB = std::max(safeT + 60.0f, h - padEdge);
+
     for (const Label& l : labels_) {
-        const ImVec2 size = ImGui::CalcTextSize(l.text.c_str());
-        const float iconSpace = 14.0f * k;
+        ImU32 bg = 0, border = 0, fg = 0;
+        badgeColors(l, bg, border, fg);
+
+        if (!l.offscreen) {
+            const ImVec2 size = ImGui::CalcTextSize(l.text.c_str());
+            const float iconSpace = 14.0f * k;
+            const float padX = 6.0f * k;
+            const float padY = 2.5f * k;
+            const float boxW = iconSpace + size.x + padX * 2.0f;
+            const float boxH = size.y + padY * 2.0f;
+            const ImVec2 lo(l.x + 10.0f * k, l.y - boxH * 0.5f);
+            const ImVec2 hi(lo.x + boxW, lo.y + boxH);
+
+            dl->AddRectFilled(lo, hi, bg, 3.5f * k);
+            dl->AddRect(lo, hi, border, 3.5f * k, 0, (l.selected ? 1.5f : 1.0f) * k);
+            dl->AddLine(ImVec2(l.x, l.y), ImVec2(lo.x, l.y), border, 1.3f * k);
+
+            drawIffBadgeGlyph(dl, lo.x + padX + 4.5f * k, l.y, 4.2f * k, l.iconKind, fg, k);
+            dl->AddText(ImVec2(lo.x + padX + iconSpace, lo.y + padY), fg, l.text.c_str());
+            continue;
+        }
+
+        // Off-screen known entity / radar track: directional viewport edge badge!
+        std::string edgeText = l.text;
+        if (l.rangeKm >= 0.0f && edgeText.find("km") == std::string::npos) {
+            char rBuf[32];
+            if (l.rangeKm >= 100.0f) std::snprintf(rBuf, sizeof rBuf, " · %.0f km", static_cast<double>(l.rangeKm));
+            else std::snprintf(rBuf, sizeof rBuf, " · %.1f km", static_cast<double>(l.rangeKm));
+            edgeText += rBuf;
+        }
+
+        const ImVec2 size = ImGui::CalcTextSize(edgeText.c_str());
+        const float iconSpace = 13.0f * k;
         const float padX = 6.0f * k;
-        const float padY = 2.5f * k;
+        const float padY = 3.0f * k;
         const float boxW = iconSpace + size.x + padX * 2.0f;
         const float boxH = size.y + padY * 2.0f;
-        const ImVec2 lo(l.x + 10.0f * k, l.y - boxH * 0.5f);
-        const ImVec2 hi(lo.x + boxW, lo.y + boxH);
+        const float arrowR = 9.0f * k;
 
-        const ImU32 bg = l.severity >= 2 ? colour(196, 40, 36, 240)
-                       : l.severity == 1 ? colour(228, 166, 28, 240)
-                       : l.selected      ? colour(208, 118, 18, 238)
-                       : l.iconKind == 2 ? colour(112, 24, 30, 224)
-                       : l.iconKind == 1 ? colour(16, 36, 62, 224)
-                                         : colour(22, 29, 42, 222);
-        const ImU32 border = l.selected      ? colour(255, 232, 162, 245)
-                           : l.iconKind == 2 ? colour(248, 108, 104, 220)
-                           : l.iconKind == 1 ? colour(74, 188, 255, 220)
-                           : l.iconKind == 3 ? colour(250, 198, 72, 220)
-                                             : colour(128, 152, 180, 165);
-        const ImU32 fg = (l.severity == 1) ? colour(18, 14, 0, 255) : colour(246, 250, 255, 255);
+        const float dx = (std::hypot(l.dirX, l.dirY) > 1e-4f) ? l.dirX : 0.0f;
+        const float dy = (std::hypot(l.dirX, l.dirY) > 1e-4f) ? l.dirY : 1.0f;
 
-        dl->AddRectFilled(lo, hi, bg, 3.5f * k);
-        dl->AddRect(lo, hi, border, 3.5f * k, 0, (l.selected ? 1.5f : 1.0f) * k);
-        dl->AddLine(ImVec2(l.x, l.y), ImVec2(lo.x, l.y), border, 1.3f * k);
+        const float minCx = safeL + boxW * 0.5f + arrowR;
+        const float maxCx = std::max(minCx + 1.0f, safeR - boxW * 0.5f - arrowR);
+        const float minCy = safeT + boxH * 0.5f + arrowR;
+        const float maxCy = std::max(minCy + 1.0f, safeB - boxH * 0.5f - arrowR);
+        const float cx0 = (minCx + maxCx) * 0.5f;
+        const float cy0 = (minCy + maxCy) * 0.5f;
+        const float halfW = std::max(1.0f, (maxCx - minCx) * 0.5f);
+        const float halfH = std::max(1.0f, (maxCy - minCy) * 0.5f);
 
-        drawIffBadgeGlyph(dl, lo.x + padX + 4.5f * k, l.y, 4.2f * k, l.iconKind, fg, k);
-        dl->AddText(ImVec2(lo.x + padX + iconSpace, lo.y + padY), fg, l.text.c_str());
+        const float tx = (std::abs(dx) > 1e-5f) ? (halfW / std::abs(dx)) : 1e9f;
+        const float ty = (std::abs(dy) > 1e-5f) ? (halfH / std::abs(dy)) : 1e9f;
+        const float t = std::min(tx, ty);
+        float px = std::clamp(cx0 + dx * t - boxW * 0.5f, safeL + arrowR, std::max(safeL + arrowR, safeR - boxW - arrowR));
+        float py = std::clamp(cy0 + dy * t - boxH * 0.5f, safeT + arrowR, std::max(safeT + arrowR, safeB - boxH - arrowR));
+
+        // Gently dodge HUD panels & previously placed edge indicators without jumping off the border
+        const float gap = 5.0f * k;
+        for (int iter = 0; iter < 12; ++iter) {
+            bool hit = false;
+            for (const auto& b : placedEdge) {
+                if (px < b.x1 + gap && px + boxW + gap > b.x0 && py < b.y1 + gap && py + boxH + gap > b.y0) {
+                    if (b.x0 > w * 0.55f && px + boxW > b.x0) {
+                        px = std::max(safeL + arrowR, b.x0 - boxW - gap);
+                    } else if (b.y0 < h * 0.25f && py < b.y1) {
+                        py = std::min(safeB - boxH - arrowR, b.y1 + gap);
+                    } else if (b.y0 > h * 0.65f && py + boxH > b.y0) {
+                        py = std::max(safeT + arrowR, b.y0 - boxH - gap);
+                    } else if (py + boxH + gap + boxH <= safeB - arrowR) {
+                        py += boxH + gap;
+                    } else {
+                        py = std::max(safeT + arrowR, py - boxH - gap);
+                    }
+                    hit = true;
+                    break;
+                }
+            }
+            if (!hit) break;
+        }
+        px = std::clamp(px, safeL + arrowR, std::max(safeL + arrowR, safeR - boxW - arrowR));
+        py = std::clamp(py, safeT + arrowR, std::max(safeT + arrowR, safeB - boxH - arrowR));
+
+        const ImVec2 lo(px, py);
+        const ImVec2 hi(px + boxW, py + boxH);
+        placedEdge.push_back({lo.x, lo.y, hi.x, hi.y});
+
+        // Draw crisp capsule + rotated outer directional chevron pointing right at the off-screen entity
+        dl->AddRectFilled(lo, hi, bg, 4.5f * k);
+        dl->AddRect(lo, hi, border, 4.5f * k, 0, (l.selected ? 1.6f : 1.15f) * k);
+
+        const float bcx = (lo.x + hi.x) * 0.5f;
+        const float bcy = (lo.y + hi.y) * 0.5f;
+        const float ex = (std::abs(dx) > 1e-5f) ? ((boxW * 0.5f) / std::abs(dx)) : 1e9f;
+        const float ey = (std::abs(dy) > 1e-5f) ? ((boxH * 0.5f) / std::abs(dy)) : 1e9f;
+        const float et = std::min(ex, ey);
+        const float tipDist = et + 8.5f * k;
+        const float baseDist = et + 2.0f * k;
+        const float nx = -dy, ny = dx;
+        const float halfWing = 4.6f * k;
+        const ImVec2 tip(bcx + dx * tipDist, bcy + dy * tipDist);
+        const ImVec2 w0(bcx + dx * baseDist + nx * halfWing, bcy + dy * baseDist + ny * halfWing);
+        const ImVec2 w1(bcx + dx * baseDist - nx * halfWing, bcy + dy * baseDist - ny * halfWing);
+        dl->AddTriangleFilled(tip, w0, w1, border);
+
+        drawIffBadgeGlyph(dl, lo.x + padX + 4.5f * k, bcy, 4.0f * k, l.iconKind, fg, k);
+        dl->AddText(ImVec2(lo.x + padX + iconSpace, lo.y + padY), fg, edgeText.c_str());
     }
 }
 
@@ -186,7 +368,7 @@ void MonitorGui::drawMonitor() const {
                                           : warningText();
         ImGui::TextColored(fpsCol, "%.0f FPS", fps);
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("帧耗时 %.1f ms · %zu 架在空 · %.0f 步/s", frameMs, live, sps);
+            ImGui::SetTooltip("帧耗时 %.1f ms · %.0f 步/s", frameMs, sps);
         }
     }
 
@@ -377,15 +559,19 @@ void MonitorGui::drawMonitor() const {
     if (ImGui::Button("重置")) controls_->cameraReset.store(true, std::memory_order_relaxed);
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("重置相机视距与角度 [R]");
 
-    // 3-D Tactical Overlays Popover
+    // 3-D Tactical Overlays & Cloud Clearance Popover
     std::uint32_t mask = controls_->tacticalOverlayMask.load(std::memory_order_relaxed);
+    bool clearClouds = controls_->clearCloudsAboveEntities.load(std::memory_order_relaxed);
     ImGui::SameLine(0.0f, 5.0f * s);
-    if (mask != 0u) ImGui::PushStyleColor(ImGuiCol_Button, tint(0.11f, 0.39f, 0.50f, 0.88f));
-    const char* layerLabel = mask == kOverlayAll ? "3-D 图层 · 全开 ▼"
-                           : mask != 0u          ? "3-D 图层 · 部分 ▼"
-                                                 : "3-D 图层 · 关 ▼";
+    if (mask != 0u || clearClouds) ImGui::PushStyleColor(ImGuiCol_Button, tint(0.11f, 0.39f, 0.50f, 0.88f));
+    const char* layerLabel = (mask == kOverlayAll && clearClouds) ? "3-D 图层 · 全开/避云 ▼"
+                           : (mask == kOverlayAll)                ? "3-D 图层 · 全开 ▼"
+                           : (mask != 0u && clearClouds)          ? "3-D 图层 · 部分/避云 ▼"
+                           : (mask != 0u)                         ? "3-D 图层 · 部分 ▼"
+                           : clearClouds                          ? "3-D 图层 · 避云 ▼"
+                                                                  : "3-D 图层 · 关 ▼";
     if (ImGui::Button(layerLabel)) ImGui::OpenPopup("tact_overlay_popup");
-    if (mask != 0u) ImGui::PopStyleColor();
+    if (mask != 0u || clearClouds) ImGui::PopStyleColor();
 
     if (ImGui::BeginPopup("tact_overlay_popup")) {
         ImGui::TextDisabled("3-D 态势图层（仅显示当前聚焦载具）");
@@ -413,6 +599,14 @@ void MonitorGui::drawMonitor() const {
         toggleBit("数据链 / IFF / 导航", kOverlayLinks, colour(46, 228, 168, 255));
         toggleBit("SAR / 气象条带", kOverlaySwaths, colour(56, 208, 236, 255));
         controls_->tacticalOverlayMask.store(mask, std::memory_order_relaxed);
+        ImGui::Separator();
+        ImGui::TextDisabled("远距视野防云遮挡");
+        if (ImGui::Checkbox("实体区域上方隐藏云层（柔和边缘）", &clearClouds)) {
+            controls_->clearCloudsAboveEntities.store(clearClouds, std::memory_order_relaxed);
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("开启后平滑清除所有实体所在区域上方的云层，保留边缘缓慢过渡与下方云海");
+        }
         ImGui::EndPopup();
     }
 

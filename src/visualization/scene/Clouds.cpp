@@ -33,6 +33,7 @@ struct Clouds::Params {
     vsg::vec4 march, march2, secondary, light, medium, shadowMarch, shadowMarch2, ground, global, night;
     vsg::vec4 ocean, oceanSpectrum, oceanSpectrum2, oceanFoam, oceanEye, oceanRadii, oceanU, oceanV;
     vsg::vec4 cascade[3], cascadePhase[3], oceanHaze, oceanLight, oceanGrid, shore0, shoreEast, shoreNorth;
+    vsg::vec4 entityClear0, entityClear1;
 };
 static_assert(sizeof(Clouds::Params) % 16 == 0);
 
@@ -1002,8 +1003,10 @@ void Clouds::update(const vsg::dmat4& view, const vsg::dmat4& projection, const 
     parity_ ^= 1;
     // Refresh 3-cascade Beer shadow maps at 30 Hz (holding exact world-locked shadow matrices between updates) so
     // high-refresh frames avoid redundant 512x512x3 shadow raymarches (clouds drift < 0.35 m in 33 ms; VIS-M12b).
+    const bool clearToggled = (entityClearance_.enabled != lastEntityClearEnabled_);
+    lastEntityClearEnabled_ = entityClearance_.enabled;
     shadowAccumDt_ += cadDt;
-    const bool shadowDue = shown_ && (shownFrames_ <= 2 || !wasShown || !haveLast_ || timeJump ||
+    const bool shadowDue = shown_ && (shownFrames_ <= 2 || !wasShown || !haveLast_ || timeJump || clearToggled ||
                                       shadowAccumDt_ >= (1.0 / 30.0) || vsg::length(eyeEcef - lastShadowEye_) > 1500.0);
     if (shadowDue) {
         shadowParity_ ^= 1;
@@ -1238,9 +1241,9 @@ void Clouds::update(const vsg::dmat4& view, const vsg::dmat4& projection, const 
     p.march2 = v4(50.0, 1000.0, 1.01, 500.0);
     p.secondary = v4(2.0, 3.0, 100.0, 2.0);
     p.light = v4(1.0, 1.0, 0.8, 150.0);
-    // the history: drawn on when there is one (shown last frame, the same size)
-    cloudsHistory_ = wasShown && haveLast_ && !resized;
-    shadowHistory_ = wasShown && haveLast_;
+    // the history: drawn on when there is one (shown last frame, the same size; reset immediately on clearance toggle)
+    cloudsHistory_ = wasShown && haveLast_ && !resized && !clearToggled;
+    shadowHistory_ = wasShown && haveLast_ && !clearToggled;
     p.medium = v4(1.0, 0.0, cloudsHistory_ ? 1.0 : 0.0, shadowHistory_ ? 1.0 : 0.0);
     p.shadowMarch = v4(50.0, 100.0, 1000.0, 2.0);
     p.shadowMarch2 = v4(1e-5, 1e-5, 1e-4, 0.0);
@@ -1373,6 +1376,18 @@ void Clouds::update(const vsg::dmat4& view, const vsg::dmat4& projection, const 
         p.shore0 = v4(fromShore.x, fromShore.y, fromShore.z, 0.5 * kShoreSize * kShoreSpacing);
         p.shoreEast = v4(shoreEast_.x, shoreEast_.y, shoreEast_.z, shoreValid_ && lla.z < kShoreMaxAltitude * 1.5 ? 1.0 : 0.0);
         p.shoreNorth = v4(shoreNorth_.x, shoreNorth_.y, shoreNorth_.z, kShoreStep);
+    }
+    if (entityClearance_.enabled && vsg::length2(entityClearance_.centerEcef) > 1.0) {
+        const vsg::dvec3 relCenter = entityClearance_.centerEcef - eyeEcef;
+        const double innerR = std::max(2000.0, entityClearance_.innerRadiusM);
+        const double outerR = innerR + std::max(6000.0, entityClearance_.featherRadiusM);
+        const double altStart = std::max(0.0, entityClearance_.minAltitudeM);
+        const double altFull = altStart + std::max(250.0, entityClearance_.altFeatherM);
+        p.entityClear0 = v4(relCenter.x, relCenter.y, relCenter.z, 1.0);
+        p.entityClear1 = v4(innerR, outerR, altStart, altFull);
+    } else {
+        p.entityClear0 = v4(0.0, 0.0, 0.0, 0.0);
+        p.entityClear1 = v4(0.0, 1.0, 0.0, 1.0);
     }
     std::memcpy(params_->dataPointer(), &p, sizeof(Params));
     params_->dirty();

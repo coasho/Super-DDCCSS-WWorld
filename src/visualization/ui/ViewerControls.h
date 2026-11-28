@@ -66,6 +66,8 @@ struct ViewerControls {
     std::atomic<bool> cameraReset{false};
     // VIS-M14 Tactical/EMSO 3-D overlay controls (toggled via MonitorGui or --overlays).
     std::atomic<std::uint32_t> tacticalOverlayMask{0u}; ///< bitmask of kOverlay* (default 0 = OFF)
+    // Smooth feathered cloud clearance above the bounding region formed by all active entities (prevents distant cloud occlusion).
+    std::atomic<bool> clearCloudsAboveEntities{false};
     // Scheme 3 extensible workspace, plugin panel, and panel size controls.
     std::atomic<int> workspacePreset{static_cast<int>(WorkspacePreset::AirRadar)};
     std::atomic<std::uint32_t> customPanelMask{kPanelRadar | kPanelSignal | kPanelFleet};

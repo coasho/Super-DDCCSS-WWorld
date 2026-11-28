@@ -150,6 +150,7 @@ struct ViewerOptions {
     render::ViewerSettings window;
     int cameraMode = 1; // orbit
     std::uint32_t tacticalOverlayMask = 0u; ///< --overlays (default 0 = OFF, 0.0 ms)
+    bool clearCloudsAboveEntities = false;  ///< --clear-clouds-above-entities (smooth feathered cloud clearance above active entities)
     int workspacePreset = static_cast<int>(ui::WorkspacePreset::AirRadar); ///< --workspace
     float panelScale = 1.0f; ///< --panel-scale <0.75..1.35>
     std::string view;   // --view lat,lon,alt_m,distance_m[,azimuth_deg,elevation_deg]: start detached, looking at that point
@@ -196,6 +197,7 @@ void usage(const char* prog) {
         "\n"
         "  Fullscreen at the primary display resolution; real time 1x; all scene effects enabled.\n"
         "  --clouds <sky>           world (its weather), clear, few, scattered (default), broken, overcast, rain\n"
+        "  --clear-clouds-above-entities  smoothly clear clouds above the active entities region\n"
         "  --screenshot <file.png>  save a frame and exit\n"
         "\n"
         "  --config <file>          settings file (default: <exe>/../config/viewer.json)\n"
@@ -260,6 +262,7 @@ void usageAll(const char* prog) {
         "(osgEarth zoomToMouse is on by default)\n"
         "  --clouds <sky>           world: the weather the world publishes; or clear, few, scattered (default),\n"
         "                           broken, overcast, rain - a sky of its own, whatever the world says\n"
+        "  --clear-clouds-above-entities  smoothly hide clouds above all active entities with a feathered transition\n"
         "  --sea-wind <m/s>         the wind the sea's waves are made for, whatever the weather says (looking at the sea)\n"
         "  --sun-utc <hours>        sun position for this UTC hour (default: the world's time)\n"
         "  --bing-key <key>         Bing Maps key for --imagery bing\n"
@@ -415,6 +418,7 @@ bool parse(int argc, char** argv, ViewerOptions& o) {
             else if (a == "--no-gui") { std::fprintf(stderr,"complete visualization is mandatory\n"); return false; }
             else if (a == "--no-effects") { std::fprintf(stderr,"all visual effects are mandatory\n"); return false; }
             else if (a == "--clouds") o.clouds = next();
+            else if (a == "--clear-clouds-above-entities") o.clearCloudsAboveEntities = true;
             else if (a == "--sea-wind") o.seaWindMs = std::atof(next());
             else if (a == "--no-sun") { std::fprintf(stderr,"sunlight and shadows are mandatory\n"); return false; }
             else if (a == "--sun-utc") o.sunUtcHours = std::stod(next());
@@ -935,6 +939,7 @@ int main(int argc, char** argv) {
     std::vector<std::uint64_t> storeRevision; // per slot: the mission record's revision last drawn (~0: read it again)
     controls->cameraMode.store(opt.cameraMode);
     controls->tacticalOverlayMask.store(opt.tacticalOverlayMask, std::memory_order_relaxed);
+    controls->clearCloudsAboveEntities.store(opt.clearCloudsAboveEntities, std::memory_order_relaxed);
     controls->workspacePreset.store(opt.workspacePreset, std::memory_order_relaxed);
     controls->panelScale.store(opt.panelScale, std::memory_order_relaxed);
     controls->solarLocalHours.store(opt.sunUtcHours >= 0.0 ? -2.0 : opt.sunLocalHours, std::memory_order_relaxed);
@@ -1052,7 +1057,8 @@ int main(int argc, char** argv) {
                         "物理推导原生信号级方程标称噪底带宽本机来袭挂载包线解算初速阻力系数补偿"
                         "飞行弹药详细焦平面协方差诊断流推力发核心转速加力旋翼桨速副翼升降方向减速板剩余"
                         "时钟场景光照当地太阳高度角清晨正午后黄昏夜晚"
-                        "布局紧凑标准宽松隐藏字号调节规划接入虚造威胁环吊舱画面质心迷雾对比绿磷仅测向接收电平相对类型实测噪声抬升峰值凹口矩阵补齐右键拖拽");
+                        "布局紧凑标准宽松隐藏字号调节规划接入虚造威胁环吊舱画面质心迷雾对比绿磷仅测向接收电平相对类型实测噪声抬升峰值凹口矩阵补齐右键拖拽"
+                        "避云遮挡柔和边缘远距视野清除下方云海锁定回波友敌");
         builder.BuildRanges(&glyphRanges);
 
         const float fontPx = std::round(21.0f * uiDpi);
@@ -1840,7 +1846,6 @@ int main(int argc, char** argv) {
             viewer.setSceneCopied(!visuals.flames().empty()); // (the exhausts' heat haze reads it; nothing else does)
             visuals.setSelected(selected);
             trails.setSelected(selected);
-            trails.setVisible(true);
             trails.update(Span<const sim::VehicleState>(batch->states), (runner || replay) ? batch->simTime : static_cast<double>(batch->wallNs) * 1e-9);
 
             controls->snapshotSequence.store(batch->sequence, std::memory_order_relaxed);
@@ -1979,47 +1984,258 @@ int main(int argc, char** argv) {
             closeIn = false;
         }
         if (batch) {
-            // the labels, where the vehicles are drawn: with this frame's camera, not the last one's (put on the screen
-            // before the camera moved, they were as far off as it had moved since - a fighter's chase camera 1.5 m a
-            // frame at 160 fps, more after a long frame - and jumped about their aircraft as the frames' lengths varied)
+            // Strict Zero-God-View Fog of War + Off-Screen Edge Indicators:
+            // When focused on an entity, ONLY the vehicle roster table is omniscient.
+            // Entity HUD labels, off-screen edge badges, and artificial flight-path trails strictly show:
+            //   1. Own-ship (selected)
+            //   2. Active same-side modeled datalink / C2 peers (Link16Dms / C2Consent)
+            //   3. Own radar confirmed tracks & recent raw dwell detections (including electronic false targets / chaff)
+            //   4. Own multi-sensor fused tracks (live mirror FusionRecordV1)
             const auto& states = opt.interpolate ? interpolator.states() : batch->states;
             std::vector<ui::MonitorGui::Label> labels;
-            const vsg::dmat4 viewProj = viewer.camera()->projectionMatrix->transform() * viewer.camera()->viewMatrix->transform();
+            const vsg::dmat4 viewMat = viewer.camera()->viewMatrix->transform();
+            const vsg::dmat4 projMat = viewer.camera()->projectionMatrix->transform();
             const auto extent = viewer.window()->extent2D();
-            for (std::size_t i = 0; i < states.size(); ++i) {
-                if (!alive[i]) continue;
-                const vsg::dvec4 clip = viewProj * vsg::dvec4(states[i].positionEcef[0], states[i].positionEcef[1], states[i].positionEcef[2], 1.0);
-                if (clip.w <= 0.0) continue;
-                const double nx = clip.x / clip.w, ny = clip.y / clip.w;
-                if (nx < -1.1 || nx > 1.1 || ny < -1.1 || ny > 1.1) continue;
-                ui::MonitorGui::Label l;
-                l.x = static_cast<float>((nx * 0.5 + 0.5) * extent.width);
-                l.y = static_cast<float>((ny * 0.5 + 0.5) * extent.height);
-                l.text = (i < meta.size() && !meta[i].name.empty() ? meta[i].name : "v" + std::to_string(i)) + (states[i].diverged ? " !" : "");
-                l.selected = static_cast<int>(i) == selected;
-                // Assign crisp geometric IFF marker kind: 3=missile/weapon, 2=red force, 1=blue force, 0=neutral
-                if (i < meta.size()) {
-                    std::string tLo = meta[i].type;
-                    for (char& ch : tLo) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-                    const bool isWpn = tLo.find("aim") != std::string::npos || tLo.find("pl1") != std::string::npos ||
-                                       tLo.find("r77") != std::string::npos || tLo.find("r73") != std::string::npos ||
-                                       tLo.find("mk8") != std::string::npos || tLo.find("gbu") != std::string::npos ||
-                                       tLo.find("agm") != std::string::npos || tLo.find("missile") != std::string::npos;
-                    if (isWpn) {
-                        l.iconKind = 3u;
-                    } else {
-                        const auto side = world::TacticalVolumes::inferSide(meta[i].name);
-                        l.iconKind = side == world::TacticalVolumes::Side::Blue ? 1u
-                                   : side == world::TacticalVolumes::Side::Red  ? 2u : 0u;
+            const vsg::dvec3 eyeEcef = viewer.lookAt()->eye;
+
+            auto iconForSlot = [&](std::size_t idx) -> std::uint8_t {
+                if (idx >= meta.size()) return 0u;
+                std::string tLo = meta[idx].type;
+                for (char& ch : tLo) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+                const bool isWpn = tLo.find("aim") != std::string::npos || tLo.find("pl1") != std::string::npos ||
+                                   tLo.find("r77") != std::string::npos || tLo.find("r73") != std::string::npos ||
+                                   tLo.find("mk8") != std::string::npos || tLo.find("gbu") != std::string::npos ||
+                                   tLo.find("agm") != std::string::npos || tLo.find("missile") != std::string::npos;
+                if (isWpn) return 3u;
+                const auto side = world::TacticalVolumes::inferSide(meta[idx].name);
+                return side == world::TacticalVolumes::Side::Blue ? 1u
+                     : side == world::TacticalVolumes::Side::Red  ? 2u : 0u;
+            };
+            auto sideForSlot = [&](std::size_t idx) {
+                return idx < meta.size() ? world::TacticalVolumes::inferSide(meta[idx].name)
+                                         : world::TacticalVolumes::Side::Neutral;
+            };
+
+            std::vector<unsigned char> knownTrailSlots(slots, 0u);
+            if (selected >= 0 && static_cast<std::size_t>(selected) < states.size() &&
+                static_cast<std::size_t>(selected) < alive.size() && alive[static_cast<std::size_t>(selected)]) {
+                const std::size_t selIdx = static_cast<std::size_t>(selected);
+                const auto& own = states[selIdx];
+                const vsg::dvec3 ownPos(own.positionEcef[0], own.positionEcef[1], own.positionEcef[2]);
+                const auto selSide = sideForSlot(selIdx);
+                knownTrailSlots[selIdx] = 1u;
+
+                // Identify active same-side modeled datalink / C2 peers.
+                if (tacticalFramePtr) {
+                    for (const auto& lk : tacticalFramePtr->links) {
+                        const auto kind = static_cast<ipc::TacticalLinkKindV1>(lk.kind);
+                        if (kind != ipc::TacticalLinkKindV1::Link16Dms && kind != ipc::TacticalLinkKindV1::C2Consent) continue;
+                        int peer = -1;
+                        if (static_cast<int>(lk.fromSlot) == selected && lk.toSlot < slots) peer = static_cast<int>(lk.toSlot);
+                        else if (static_cast<int>(lk.toSlot) == selected && lk.fromSlot < slots) peer = static_cast<int>(lk.fromSlot);
+                        if (peer >= 0 && static_cast<std::size_t>(peer) != selIdx &&
+                            static_cast<std::size_t>(peer) < states.size() && alive[static_cast<std::size_t>(peer)]) {
+                            const auto peerSide = sideForSlot(static_cast<std::size_t>(peer));
+                            if (selSide == world::TacticalVolumes::Side::Neutral || peerSide == selSide) {
+                                knownTrailSlots[static_cast<std::size_t>(peer)] = 1u;
+                            }
+                        }
                     }
                 }
-                // (what its Vehicle Interface says of it, in the air: low on energy, deviating, upset - on its label)
-                if (flightStatus && i < flightStatus->size() && !states[i].onGround) {
-                    const char* word = "";
-                    l.severity = ui::MonitorGui::severity((*flightStatus)[i], &word);
-                    if (l.severity > 0) l.text += "  ", l.text += word;
+
+                // 1. Own-ship label (and off-screen indicator if Free camera pans away)
+                {
+                    ui::MonitorGui::Label l;
+                    ui::MonitorGui::projectLabel(ownPos, viewMat, projMat, extent.width, extent.height, l);
+                    l.text = (selIdx < meta.size() && !meta[selIdx].name.empty() ? meta[selIdx].name : "v" + std::to_string(selIdx))
+                           + (own.diverged ? " !" : "");
+                    l.selected = true;
+                    l.iconKind = iconForSlot(selIdx);
+                    l.rangeKm = static_cast<float>(vsg::length(ownPos - eyeEcef) * 1e-3);
+                    if (flightStatus && selIdx < flightStatus->size() && !own.onGround) {
+                        const char* word = "";
+                        l.severity = ui::MonitorGui::severity((*flightStatus)[selIdx], &word);
+                        if (l.severity > 0) l.text += "  ", l.text += word;
+                    }
+                    labels.push_back(std::move(l));
                 }
-                labels.push_back(std::move(l));
+
+                // 2. Active same-side modeled datalink / C2 peers
+                std::vector<vsg::dvec3> emittedPos;
+                emittedPos.reserve(32);
+                emittedPos.push_back(ownPos);
+                for (std::size_t i = 0; i < states.size() && i < slots; ++i) {
+                    if (i == selIdx || !knownTrailSlots[i] || !alive[i]) continue;
+                    const vsg::dvec3 pos(states[i].positionEcef[0], states[i].positionEcef[1], states[i].positionEcef[2]);
+                    ui::MonitorGui::Label l;
+                    ui::MonitorGui::projectLabel(pos, viewMat, projMat, extent.width, extent.height, l);
+                    l.text = (i < meta.size() && !meta[i].name.empty() ? meta[i].name : "v" + std::to_string(i))
+                           + (states[i].diverged ? " !" : "");
+                    l.selected = false;
+                    l.iconKind = iconForSlot(i);
+                    l.rangeKm = static_cast<float>(vsg::length(pos - ownPos) * 1e-3);
+                    labels.push_back(std::move(l));
+                    emittedPos.push_back(pos);
+                }
+
+                auto nearEmitted = [&](const vsg::dvec3& p, double tolM) {
+                    const double tol2 = tolM * tolM;
+                    for (const auto& q : emittedPos)
+                        if (vsg::length2(p - q) <= tol2) return true;
+                    return false;
+                };
+
+                // 3. Own radar confirmed tracks & raw dwell detections (including electronic false targets / chaff)
+                if (mirror.valid()) {
+                    static std::unique_ptr<ipc::MissionRecord> fogMission = std::make_unique<ipc::MissionRecord>();
+                    static std::unique_ptr<ipc::FusionRecordV1> fogFusion = std::make_unique<ipc::FusionRecordV1>();
+                    static int fogMissionSlot = -1;
+                    static std::uint64_t fogMissionRev = ~0ull;
+                    static bool fogMissionValid = false;
+                    if (fogMissionSlot != selected) {
+                        fogMissionSlot = selected;
+                        fogMissionRev = ~0ull;
+                        fogMissionValid = false;
+                    }
+                    if (mirror.mission(static_cast<std::uint32_t>(selected), *fogMission, fogMissionRev)) {
+                        fogMissionRev = fogMission->revision;
+                        fogMissionValid = (fogMission->vehicleId != 0u);
+                    }
+                    if (fogMissionValid) {
+                        const double* R = own.rotationBodyToEcef;
+                        auto radarPosEcef = [&](double rngM, double azRad, double elRad) {
+                            const double ca = std::cos(azRad), sa = std::sin(azRad);
+                            const double ce = std::cos(elRad), se = std::sin(elRad);
+                            const double bx = rngM * ce * ca;
+                            const double by = rngM * ce * sa;
+                            const double bz = -rngM * se;
+                            return vsg::dvec3(
+                                ownPos.x + R[0] * bx + R[1] * by + R[2] * bz,
+                                ownPos.y + R[3] * bx + R[4] * by + R[5] * bz,
+                                ownPos.z + R[6] * bx + R[7] * by + R[8] * bz);
+                        };
+                        const std::uint32_t rCount = std::min(fogMission->radarCount, ipc::kMissionRadars);
+                        for (std::uint32_t ri = 0; ri < rCount; ++ri) {
+                            const auto& mr = fogMission->radars[ri];
+                            const std::uint32_t tCount = std::min(mr.trackCount, ipc::kMissionTracks);
+                            for (std::uint32_t ti = 0; ti < tCount; ++ti) {
+                                const auto& tr = mr.tracks[ti];
+                                if (!std::isfinite(tr.rangeM) || tr.rangeM <= 50.0f) continue;
+                                const vsg::dvec3 pos = radarPosEcef(tr.rangeM, tr.azimuthRad, tr.elevationRad);
+                                const bool desig = (tr.flags & ipc::kMissionTrackDesignated) != 0u;
+                                ui::MonitorGui::Label l;
+                                ui::MonitorGui::projectLabel(pos, viewMat, projMat, extent.width, extent.height, l);
+                                char buf[48];
+                                std::snprintf(buf, sizeof buf, "%s T#%u", desig ? "锁定航迹" : "雷达航迹", tr.id);
+                                l.text = buf;
+                                l.iconKind = 4u;
+                                l.rangeKm = tr.rangeM * 1e-3f;
+                                labels.push_back(std::move(l));
+                                emittedPos.push_back(pos);
+                            }
+                            const std::uint32_t dCount = std::min(mr.recentCount, ipc::kMissionDetections);
+                            for (std::uint32_t di = 0; di < dCount; ++di) {
+                                const auto& det = mr.recent[di];
+                                if (!std::isfinite(det.rangeM) || det.rangeM <= 50.0f) continue;
+                                if (fogMission->simTime - det.timeS > 2.5 || det.timeS > fogMission->simTime + 0.5) continue;
+                                const vsg::dvec3 pos = radarPosEcef(det.rangeM, det.azimuthRad, det.elevationRad);
+                                if (nearEmitted(pos, 650.0)) continue;
+                                ui::MonitorGui::Label l;
+                                ui::MonitorGui::projectLabel(pos, viewMat, projMat, extent.width, extent.height, l);
+                                l.text = "雷达回波";
+                                l.iconKind = 4u;
+                                l.rangeKm = det.rangeM * 1e-3f;
+                                labels.push_back(std::move(l));
+                                emittedPos.push_back(pos);
+                            }
+                        }
+                    }
+                    // 4. Own multi-sensor fused tracks (FusionRecordV1, live mirror)
+                    if (mirror.fusion(static_cast<std::uint32_t>(selected), *fogFusion) &&
+                        ipc::validFusionRecordV1(*fogFusion)) {
+                        for (std::uint32_t fi = 0; fi < fogFusion->count; ++fi) {
+                            const auto& fe = fogFusion->entities[fi];
+                            if (fe.state >= 2u) continue; // lost
+                            const vsg::dvec3 pos(fe.stateEcef[0], fe.stateEcef[1], fe.stateEcef[2]);
+                            if (vsg::length2(pos) < 1e10 || nearEmitted(pos, 750.0)) continue;
+                            ui::MonitorGui::Label l;
+                            ui::MonitorGui::projectLabel(pos, viewMat, projMat, extent.width, extent.height, l);
+                            char buf[56];
+                            const char* prefix = (fe.sourceKinds == 2u) ? "链路航迹" : "融合航迹";
+                            if (fe.identityKnown == 1u && fe.standardIdentity == 2u) {
+                                std::snprintf(buf, sizeof buf, "友机 %s #%llu", prefix, static_cast<unsigned long long>(fe.id));
+                                l.iconKind = (selSide == world::TacticalVolumes::Side::Red) ? 2u : 1u;
+                            } else if (fe.identityKnown == 1u && fe.standardIdentity == 3u) {
+                                std::snprintf(buf, sizeof buf, "敌机 %s #%llu", prefix, static_cast<unsigned long long>(fe.id));
+                                l.iconKind = 4u;
+                            } else {
+                                std::snprintf(buf, sizeof buf, "%s #%llu", prefix, static_cast<unsigned long long>(fe.id));
+                                l.iconKind = 4u;
+                            }
+                            l.text = buf;
+                            l.rangeKm = static_cast<float>(vsg::length(pos - ownPos) * 1e-3);
+                            labels.push_back(std::move(l));
+                            emittedPos.push_back(pos);
+                        }
+                    }
+                } else if (tacticalFramePtr) {
+                    // Replay path: use native recorded own-radar tracks & raw detections (including electronic false targets!)
+                    bool emittedTrack = false;
+                    // Pass 1: confirmed / designated tracks first
+                    for (const auto& rt : tacticalFramePtr->radarTracks) {
+                        if (static_cast<int>(rt.slot) != selected) continue;
+                        if ((rt.flags & ipc::kTactTrackConfirmed) == 0u) continue;
+                        const vsg::dvec3 pos(rt.positionEcef[0], rt.positionEcef[1], rt.positionEcef[2]);
+                        if (vsg::length2(pos) < 1e10) continue;
+                        ui::MonitorGui::Label l;
+                        ui::MonitorGui::projectLabel(pos, viewMat, projMat, extent.width, extent.height, l);
+                        char buf[48];
+                        const bool desig = (rt.flags & ipc::kTactTrackDesignated) != 0u;
+                        std::snprintf(buf, sizeof buf, "%s T#%u", desig ? "锁定航迹" : "雷达航迹", rt.trackId);
+                        l.text = buf;
+                        l.iconKind = 4u;
+                        l.rangeKm = rt.rangeM > 1.0f ? rt.rangeM * 1e-3f : static_cast<float>(vsg::length(pos - ownPos) * 1e-3);
+                        labels.push_back(std::move(l));
+                        emittedPos.push_back(pos);
+                        emittedTrack = true;
+                    }
+                    // Pass 2: raw dwell detections (including chaff / CFAR / electronic false targets — never hidden!)
+                    for (const auto& rt : tacticalFramePtr->radarTracks) {
+                        if (static_cast<int>(rt.slot) != selected) continue;
+                        if ((rt.flags & ipc::kTactTrackConfirmed) != 0u) continue;
+                        const vsg::dvec3 pos(rt.positionEcef[0], rt.positionEcef[1], rt.positionEcef[2]);
+                        if (vsg::length2(pos) < 1e10 || nearEmitted(pos, 650.0)) continue;
+                        ui::MonitorGui::Label l;
+                        ui::MonitorGui::projectLabel(pos, viewMat, projMat, extent.width, extent.height, l);
+                        l.text = "雷达回波";
+                        l.iconKind = 4u;
+                        l.rangeKm = rt.rangeM > 1.0f ? rt.rangeM * 1e-3f : static_cast<float>(vsg::length(pos - ownPos) * 1e-3);
+                        labels.push_back(std::move(l));
+                        emittedPos.push_back(pos);
+                        emittedTrack = true;
+                    }
+                    // Legacy V1 .tact compatibility fallback (recordings generated before additive 'K' chunk)
+                    if (!emittedTrack) {
+                        for (const auto& r : tacticalFramePtr->radars) {
+                            if (static_cast<int>(r.slot) != selected || (r.flags & ipc::kTactRadarHasTarget) == 0u) continue;
+                            const vsg::dvec3 pos(r.targetEcef[0], r.targetEcef[1], r.targetEcef[2]);
+                            if (vsg::length2(pos) < 1e10 || nearEmitted(pos, 650.0)) continue;
+                            ui::MonitorGui::Label l;
+                            ui::MonitorGui::projectLabel(pos, viewMat, projMat, extent.width, extent.height, l);
+                            const bool locked = (r.flags & (ipc::kTactRadarSttLock | ipc::kTactRadarIlluminating)) != 0u;
+                            l.text = locked ? "锁定目标" : "雷达目标";
+                            l.iconKind = 4u;
+                            l.rangeKm = r.targetRangeM > 1.0f ? r.targetRangeM * 1e-3f : static_cast<float>(vsg::length(pos - ownPos) * 1e-3);
+                            labels.push_back(std::move(l));
+                            emittedPos.push_back(pos);
+                        }
+                    }
+                }
+            }
+
+            // Apply strict Fog-of-War visibility to artificial flight-path trail ribbons (never leak undetected enemies).
+            for (std::size_t i = 0; i < slots; ++i) {
+                trails.setSlotVisible(i, i < knownTrailSlots.size() && knownTrailSlots[i] != 0u);
             }
             gui->setLabels(std::move(labels));
         }
@@ -2057,6 +2273,44 @@ int main(int argc, char** argv) {
         // the clouds, before the light: a deck overhead dims the sun where the camera looks
         clouds.setVisible(true);
         clouds.setScreen(viewer.window()->extent2D().width, viewer.window()->extent2D().height);
+        {
+            world::Clouds::EntityCloudClearance cloudClear{};
+            if (batch && controls->clearCloudsAboveEntities.load(std::memory_order_relaxed)) {
+                const auto& states = opt.interpolate ? interpolator.states() : batch->states;
+                vsg::dvec3 sumPos(0.0, 0.0, 0.0);
+                std::size_t aliveCount = 0;
+                for (std::size_t i = 0; i < states.size() && i < alive.size(); ++i) {
+                    if (!alive[i]) continue;
+                    const vsg::dvec3 p(states[i].positionEcef[0], states[i].positionEcef[1], states[i].positionEcef[2]);
+                    if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z) || vsg::length2(p) < 1e10) continue;
+                    sumPos += p;
+                    ++aliveCount;
+                }
+                if (aliveCount > 0) {
+                    const vsg::dvec3 center = sumPos / static_cast<double>(aliveCount);
+                    const vsg::dvec3 upHat = vsg::normalize(center);
+                    double maxHorizM = 0.0;
+                    double minAltM = 1e9;
+                    for (std::size_t i = 0; i < states.size() && i < alive.size(); ++i) {
+                        if (!alive[i]) continue;
+                        const vsg::dvec3 p(states[i].positionEcef[0], states[i].positionEcef[1], states[i].positionEcef[2]);
+                        if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z) || vsg::length2(p) < 1e10) continue;
+                        const vsg::dvec3 d = p - center;
+                        const double horiz = vsg::length(d - upHat * vsg::dot(d, upHat));
+                        maxHorizM = std::max(maxHorizM, horiz);
+                        const double altM = ellipsoid->convertECEFToLatLongAltitude(p).z;
+                        if (std::isfinite(altM)) minAltM = std::min(minAltM, altM);
+                    }
+                    cloudClear.enabled = true;
+                    cloudClear.centerEcef = center;
+                    cloudClear.innerRadiusM = std::max(8000.0, maxHorizM + 5500.0);
+                    cloudClear.featherRadiusM = std::max(16000.0, cloudClear.innerRadiusM * 0.90);
+                    cloudClear.altFeatherM = 950.0;
+                    cloudClear.minAltitudeM = std::isfinite(minAltM) ? std::max(0.0, minAltM - 1050.0) : 0.0;
+                }
+            }
+            clouds.setEntityCloudClearance(cloudClear);
+        }
         // (the ground the clouds' shadow falls on: under what the camera looks at - the followed vehicle, or the
         // free camera's focus - and not under the selected vehicle wherever the camera is)
         double groundM = target ? target->altitudeMslM - target->altitudeAglM : 0.0;

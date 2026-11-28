@@ -30,7 +30,14 @@ inline constexpr std::uint32_t kMaxTacticalLinksV1 = 64u;
 inline constexpr std::uint32_t kMaxTacticalWeaponsV1 = 32u;
 inline constexpr std::uint32_t kMaxTacticalSwathsV1 = 32u;
 inline constexpr std::uint32_t kMaxTacticalPropulsionV1 = 32u;
+inline constexpr std::uint32_t kMaxTacticalRadarTracksV1 = 256u;
 inline constexpr std::uint32_t kTacticalMaxEnginesV1 = 8u;
+
+// TacticalRadarTrackWireV1::flags (additive chunk for own-radar tracks & electronic false targets)
+inline constexpr std::uint8_t kTactTrackDesignated  = 1u << 0;
+inline constexpr std::uint8_t kTactTrackConfirmed   = 1u << 1;
+inline constexpr std::uint8_t kTactTrackFalseTarget = 1u << 2; ///< Electronic false target / chaff / CFAR false alarm (truth == 0)
+inline constexpr std::uint8_t kTactTrackRawPlot     = 1u << 3; ///< Unconfirmed recent dwell detection
 
 // TacticalRadarVolumeWireV1::flags
 inline constexpr std::uint8_t kTactRadarSearching = 1u << 0;
@@ -324,6 +331,29 @@ inline bool validTacticalPropulsionExtV1(const TacticalPropulsionExtWireV1& p) n
     return std::isfinite(p.rotorRpm) && p.rotorRpm >= 0.0f &&
            std::isfinite(p.rotorRadiusM) && p.rotorRadiusM >= 0.0f &&
            std::isfinite(p.diskLoadingPa) && p.diskLoadingPa >= 0.0f;
+}
+
+/// Additive own-radar track / raw detection wire entry (includes electronic false targets & chaff echoes; 64 B, align 8).
+struct alignas(8) TacticalRadarTrackWireV1 {
+    double positionEcef[3] = {}; ///< Radar-measured 3-D track/plot ECEF (m)
+    std::uint32_t slot = 0;      ///< Carrier vehicle slot
+    std::uint32_t vehicleId = 0; ///< Carrier vehicle id
+    std::uint32_t trackId = 0;   ///< Native radar track id (0 for unconfirmed raw plot)
+    float rangeM = 0.0f;         ///< Measured slant range (m)
+    float rangeRateMs = 0.0f;    ///< Measured closing rate (m/s)
+    float snrDb = 0.0f;          ///< Detection SNR (dB, 0 if N/A)
+    std::uint16_t payloadIndex = 0;
+    std::uint8_t flags = 0;      ///< kTactTrack*
+    std::uint8_t reserved[13] = {};
+};
+static_assert(std::is_trivially_copyable_v<TacticalRadarTrackWireV1>, "radar track wire must be trivially copyable");
+static_assert(sizeof(TacticalRadarTrackWireV1) == 64 && alignof(TacticalRadarTrackWireV1) == 8, "TacticalRadarTrackWireV1 stride frozen");
+
+inline bool validTacticalRadarTrackV1(const TacticalRadarTrackWireV1& t) noexcept {
+    if (!t.vehicleId) return false;
+    for (std::uint8_t b : t.reserved) if (b != 0u) return false;
+    for (double v : t.positionEcef) if (!std::isfinite(v)) return false;
+    return std::isfinite(t.rangeM) && t.rangeM >= 0.0f && std::isfinite(t.rangeRateMs) && std::isfinite(t.snrDb);
 }
 
 } // namespace fsim::ipc

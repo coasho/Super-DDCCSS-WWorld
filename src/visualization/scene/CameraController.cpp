@@ -24,7 +24,6 @@ constexpr double kMaxElevation = 89.0 * kDeg;
 // towards the pointer.
 constexpr double kFrameFromRadii = 0.25, kFrameToRadii = 1.5;
 constexpr double kRotateRadPerNdc = 1.0;      // osgGA rotateYawPitch: 1 rad per normalised unit (57 deg per half window)
-constexpr double kPanPerNdc = 0.3;            // osgGA panModel scale
 constexpr double kZoomPerNotch = 0.88;        // 12 % per wheel notch
 constexpr double kZoomTimeConstant = 0.12;    // s, wheel/drag zoom smoothing
 constexpr double kEyeClearanceM = 4.0;        // eye height above the sampled terrain at close range ...
@@ -54,11 +53,26 @@ const char* CameraController::modeName(Mode m) noexcept {
 
 void CameraController::setMode(Mode mode) {
     if (mode == mode_) return;
+    const Mode prev = mode_;
     // Keep the view where it is when switching between chase and orbit: the
     // azimuth reference changes (heading vs north), so convert.
-    if (mode_ == Mode::Chase && mode != Mode::Chase && haveHeading_) azimuth_ = wrapAngle(azimuth_ + smoothedHeading_);
-    if (mode_ != Mode::Chase && mode == Mode::Chase && haveHeading_) azimuth_ = wrapAngle(azimuth_ - smoothedHeading_);
-    if (mode == Mode::Free && hasTarget_) focus_ = lastTargetPos_; // detach where the vehicle is
+    if (prev == Mode::Chase && mode != Mode::Chase && haveHeading_) azimuth_ = wrapAngle(azimuth_ + smoothedHeading_);
+    if (prev != Mode::Chase && mode == Mode::Chase && haveHeading_) azimuth_ = wrapAngle(azimuth_ - smoothedHeading_);
+    if (mode == Mode::Free) {
+        if (prev == Mode::Overview && hasTarget_) {
+            // Preserve the Overview camera's visual altitude instead of snapping 10x closer on detach.
+            distance_ = targetDistance_ = std::clamp(std::max(200.0, distance_ * 10.0), kMinDistance, kMaxDistance);
+            elevation_ = std::clamp(85.0 * kDeg, kMinElevation, kMaxElevation);
+            azimuth_ = 0.0;
+        }
+        if (hasTarget_) {
+            // Detach right at the followed vehicle's 3-D altitude (never drop 4-10 km onto the ground!).
+            focus_ = lastTargetPos_;
+            heldAltitude_ = true;
+        }
+        zoomShare_ = 0.0;
+        panRight_ = panUp_ = 0.0;
+    }
     mode_ = mode;
 }
 
@@ -171,19 +185,66 @@ void CameraController::moveFocusTo(const vsg::dvec3& newFocus, Carry carry) {
 //
 // The same rotation is applied to the view direction, so the camera keeps
 // looking the way it was: dragging past a pole no longer spins the world.
-void CameraController::moveFocus(double dxNdc, double dyNdc) {
+std::optional<vsg::dvec3> CameraController::horizontalPlanePoint(
+    int x, int y, const vsg::dvec3& planeOrigin, const vsg::dvec3& planeNormal) const {
+    if (!camera_ || !camera_->projectionMatrix || !camera_->viewMatrix || !lookAt_) return std::nullopt;
+    double nx = 0.0, ny = 0.0;
+    normalised(x, y, nx, ny);
+    const vsg::dmat4 proj = camera_->projectionMatrix->transform();
+    const vsg::dmat4 view = camera_->viewMatrix->transform();
+    if (!(std::abs(proj[0][0]) > 1e-6 && std::abs(proj[1][1]) > 1e-6)) return std::nullopt;
+    const vsg::dmat4 inverseViewProj = vsg::inverse(proj * view);
+    const vsg::dvec4 nearPoint = inverseViewProj * vsg::dvec4(nx, -ny, 0.0, 1.0);
+    if (std::abs(nearPoint.w) < 1e-12) return std::nullopt;
+    const vsg::dvec3 onNearPlane(nearPoint.x / nearPoint.w, nearPoint.y / nearPoint.w, nearPoint.z / nearPoint.w);
+    const vsg::dvec3 eye = lookAt_->eye;
+    const vsg::dvec3 ray = onNearPlane - eye;
+    const double rLen = vsg::length(ray);
+    if (!(rLen > 1e-9)) return std::nullopt;
+    const vsg::dvec3 dir = ray / rLen;
+    const double denom = vsg::dot(dir, planeNormal);
+    if (std::abs(denom) < 0.08) return std::nullopt; // grazing horizon or parallel
+    const double t = vsg::dot(planeOrigin - eye, planeNormal) / denom;
+    if (!(t > 1.0 && t < std::max(distance_ * 6.0, 5000.0))) return std::nullopt;
+    return eye + dir * t;
+}
+
+void CameraController::moveFocus(int x0Px, int y0Px, int x1Px, int y1Px, double dxNdc, double dyNdc) {
     vsg::dvec3 east, north, up;
     localFrame(focus_, east, north, up);
-    vsg::dvec3 right = viewRight_ - up * vsg::dot(viewRight_, up);
-    vsg::dvec3 ahead = viewForward_ - up * vsg::dot(viewForward_, up);
-    if (vsg::length(right) < 1e-6) right = east;
-    if (vsg::length(ahead) < 1e-6) ahead = north;
-    right = vsg::normalize(right);
-    ahead = vsg::normalize(ahead);
-    // osgEarth's ACTION_PAN scale, so dragging the globe moves it the same
-    // distance per pixel as it does there.
-    const double scale = kPanPerNdc * distance_;
-    const vsg::dvec3 step = -right * (dxNdc * scale) - ahead * (dyNdc * scale);
+    vsg::dvec3 step(0.0, 0.0, 0.0);
+    bool usedRayPlane = false;
+    // Exact 1:1 cursor-grab on the horizontal plane through focus_ for responsive, natural Free-cam panning.
+    if (distance_ < 2.5e5) {
+        if (const auto p0 = horizontalPlanePoint(x0Px, y0Px, focus_, up); p0) {
+            if (const auto p1 = horizontalPlanePoint(x1Px, y1Px, focus_, up); p1) {
+                vsg::dvec3 raw = *p0 - *p1;
+                raw -= up * vsg::dot(raw, up);
+                const double rawLen = vsg::length(raw);
+                if (std::isfinite(rawLen) && rawLen < distance_ * 2.5) {
+                    step = raw;
+                    usedRayPlane = true;
+                }
+            }
+        }
+    }
+    if (!usedRayPlane) {
+        vsg::dvec3 right = viewRight_ - up * vsg::dot(viewRight_, up);
+        vsg::dvec3 ahead = viewForward_ - up * vsg::dot(viewForward_, up);
+        if (vsg::length(right) < 1e-6) right = east;
+        if (vsg::length(ahead) < 1e-6) ahead = north;
+        right = vsg::normalize(right);
+        ahead = vsg::normalize(ahead);
+        double tanHalfX = 0.74, tanHalfY = 0.42;
+        if (camera_ && camera_->projectionMatrix) {
+            const vsg::dmat4 proj = camera_->projectionMatrix->transform();
+            if (std::abs(proj[0][0]) > 1e-4) tanHalfX = std::clamp(1.0 / std::abs(proj[0][0]), 0.1, 4.0);
+            if (std::abs(proj[1][1]) > 1e-4) tanHalfY = std::clamp(1.0 / std::abs(proj[1][1]), 0.1, 4.0);
+        }
+        const double scaleX = distance_ * tanHalfX;
+        const double scaleY = distance_ * tanHalfY / std::max(std::abs(std::sin(shownElevation_)), 0.30);
+        step = -right * (dxNdc * scaleX) - ahead * (dyNdc * scaleY);
+    }
     const double arc = vsg::length(step);
     const double radius = vsg::length(focus_);
     if (arc < 1e-9 || radius < 1.0) return;
@@ -248,8 +309,10 @@ void CameraController::apply(vsg::ButtonReleaseEvent& e) {
 }
 
 void CameraController::apply(vsg::MoveEvent& e) {
+    const int prevX = lastX_;
+    const int prevY = lastY_;
     double x0, y0, x1, y1;
-    normalised(lastX_, lastY_, x0, y0);
+    normalised(prevX, prevY, x0, y0);
     normalised(e.x, e.y, x1, y1);
     const double dx = x1 - x0, dy = y1 - y0; // y up, as in osgGA
     // Track the cursor even when a panel took the event. ScrollWheelEvent
@@ -262,7 +325,7 @@ void CameraController::apply(vsg::MoveEvent& e) {
     if ((rightDown_ && (e.mask & vsg::BUTTON_MASK_3) && detached()) ||
         (leftDown_ && (e.mask & vsg::BUTTON_MASK_1) && spaceDown_)) {
         // Right drag (or space + left drag) pans horizontally in Free/detached mode.
-        if (detached()) moveFocus(dx, dy);
+        if (detached()) moveFocus(prevX, prevY, e.x, e.y, dx, dy);
         e.handled = true;
     } else if ((leftDown_ && (e.mask & vsg::BUTTON_MASK_1)) || (middleDown_ && (e.mask & vsg::BUTTON_MASK_2))) {
         rotate(dx, dy); // left drag rotates the view around the focus (the middle button too)
@@ -324,28 +387,22 @@ void CameraController::zoomTowardsCursor(double fromDistance, double toDistance)
     const double focusRadius = vsg::length(focus_);
     if (focusRadius > 1.0 && fromDistance > kFrameFromRadii * focusRadius) return;
 
-    const auto ground = groundUnderCursor();
-    if (!ground) return;
+    std::optional<vsg::dvec3> targetPt;
+    if (heldAltitude_ && ellipsoid_->convertECEFToLatLongAltitude(focus_).z > 20.0 && fromDistance < 2.5e5) {
+        // Preserve airborne altitude plane when zooming towards cursor in Free mode after focusing an aircraft.
+        targetPt = horizontalPlanePoint(lastX_, lastY_, focus_, localUp(focus_));
+    }
+    if (!targetPt) targetPt = groundUnderCursor();
+    if (!targetPt) return;
 
-    // Two things have to be said about a point picked off the globe at range.
-    //
-    // Near the silhouette the ray only grazes the surface, and a pixel of
-    // cursor movement slides the hit point hundreds of kilometres. Zooming
-    // towards a point that unstable throws the globe about, so it is refused.
-    const vsg::dvec3 surfaceNormal = vsg::normalize(*ground);
-    const vsg::dvec3 rayDirection = vsg::normalize(*ground - lookAt_->eye);
+    const vsg::dvec3 surfaceNormal = vsg::normalize(*targetPt);
+    const vsg::dvec3 rayDirection = vsg::normalize(*targetPt - lookAt_->eye);
     if (-vsg::dot(rayDirection, surfaceNormal) < 0.05) return; // within ~3 deg of the silhouette
 
-    // And holding a far-off point exactly under the cursor means swinging the
-    // whole planet under it: from a whole-Earth view a point near the edge is
-    // tens of degrees away, and a notch of the wheel would turn the globe by
-    // several of them. The pull falls away with the angle, so zooming into
-    // what you are looking at works and zooming into the edge of the world
-    // does not heave it across the screen.
     const double cosSeparation = std::clamp(vsg::dot(vsg::normalize(focus_), surfaceNormal), -1.0, 1.0);
     if (cosSeparation <= 0.0) return;
 
-    zoomTarget_ = *ground;
+    zoomTarget_ = *targetPt;
     zoomShare_ = cosSeparation * cosSeparation * cosSeparation;
 }
 

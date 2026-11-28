@@ -131,6 +131,18 @@ public:
     void setShoreQuery(GroundQuery query) { shoreQuery_ = std::move(query); }
     void setScreen(std::uint32_t width, std::uint32_t height);
 
+    /// Smooth feathered cloud clearance above the bounding region formed by all active entities.
+    struct EntityCloudClearance {
+        bool enabled = false;
+        vsg::dvec3 centerEcef{0.0, 0.0, 0.0}; ///< centroid of active entities (ECEF, m)
+        double innerRadiusM = 8000.0;         ///< horizontal full-clearance radius enclosing all entities (m)
+        double featherRadiusM = 16000.0;      ///< smooth gradual radial edge transition width (m)
+        double minAltitudeM = 0.0;            ///< altitude MSL where vertical cloud clearance begins (m)
+        double altFeatherM = 850.0;           ///< smooth vertical fade band (m)
+    };
+    void setEntityCloudClearance(const EntityCloudClearance& clearance) noexcept { entityClearance_ = clearance; }
+    const EntityCloudClearance& entityCloudClearance() const noexcept { return entityClearance_; }
+
     /// Each frame: the camera (view and projection matrices, the eye in ECEF), the sun (towards it, ECEF), the
     /// ground's height under the eye, the simulation's time.
     void update(const vsg::dmat4& view, const vsg::dmat4& projection, const vsg::dvec3& eyeEcef, const vsg::EllipsoidModel& ellipsoid,
@@ -192,6 +204,8 @@ private:
     vsg::ref_ptr<vsg::ubyteArray2D> shoreData_;
     vsg::dvec3 shoreCentre_, shoreEast_, shoreNorth_;
     bool shoreValid_ = false;
+    EntityCloudClearance entityClearance_;
+    bool lastEntityClearEnabled_ = false;
 };
 
 } // namespace fsim::world

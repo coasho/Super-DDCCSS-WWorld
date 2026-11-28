@@ -53,14 +53,21 @@ public:
     /// what to say of it (the gravest), empty for 0.
     static int severity(const ipc::FlightStatus& status, const char** word = nullptr) noexcept;
 
-    /// Screen-space vehicle labels for this frame (window pixels).
+    /// Screen-space known-entity / radar-track labels for this frame (window pixels).
+    /// When `offscreen` is true, MonitorGui pins a sleek directional indicator at the safe viewport edge.
     struct Label {
         float x = 0.0f, y = 0.0f;
         std::string text;
         bool selected = false;
-        int severity = 0;          ///< severity() of its vehicle: its label amber (1) or red (2)
-        std::uint8_t iconKind = 0; ///< 0=neutral, 1=blue solid diamond, 2=red hollow diamond, 3=weapon triangle
+        int severity = 0;          ///< severity() of own vehicle: amber (1) or red (2)
+        std::uint8_t iconKind = 0; ///< 0=neutral, 1=blue solid diamond, 2=red hollow diamond, 3=weapon triangle, 4=radar contact/track
+        bool offscreen = false;    ///< outside camera frustum or behind eye -> render edge directional badge
+        float dirX = 0.0f, dirY = 0.0f; ///< unit screen direction from viewport center toward off-screen entity
+        float rangeKm = -1.0f;     ///< slant range in km (shown on edge indicator when >= 0)
     };
+    /// Project a 3-D ECEF position into a Label's on-screen coordinates or off-screen edge direction.
+    static void projectLabel(const vsg::dvec3& posEcef, const vsg::dmat4& view, const vsg::dmat4& proj,
+                             std::uint32_t width, std::uint32_t height, Label& out) noexcept;
     void setLabels(std::vector<Label> labels) { labels_ = std::move(labels); }
 
     void record(vsg::CommandBuffer&) const override;

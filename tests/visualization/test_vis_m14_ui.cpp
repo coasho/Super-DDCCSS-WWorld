@@ -324,3 +324,68 @@ TEST_CASE("VIS-M14 MissionGui force-binds Radar UI to supported aircraft and hid
 
     ImGui::DestroyContext();
 }
+
+TEST_CASE("VIS-M14 MonitorGui::projectLabel and off-screen edge indicators stay within viewport bounds", "[vis-m14][ui][edge-labels]") {
+    const vsg::dvec3 eye(0.0, 0.0, 0.0);
+    const vsg::dmat4 view = vsg::lookAt(eye, vsg::dvec3(0.0, 1.0, 0.0), vsg::dvec3(0.0, 0.0, 1.0));
+    const vsg::dmat4 proj = vsg::perspective(vsg::radians(45.0), 16.0 / 9.0, 1.0, 1e6);
+
+    // 1. Directly ahead -> on-screen center
+    ui::MonitorGui::Label onScreen;
+    ui::MonitorGui::projectLabel(vsg::dvec3(0.0, 10000.0, 0.0), view, proj, 1920u, 1080u, onScreen);
+    CHECK_FALSE(onScreen.offscreen);
+    CHECK(std::abs(onScreen.x - 960.0f) < 2.0f);
+    CHECK(std::abs(onScreen.y - 540.0f) < 2.0f);
+
+    // 2. Far to the right (outside frustum) -> off-screen with dirX > 0
+    ui::MonitorGui::Label offRight;
+    ui::MonitorGui::projectLabel(vsg::dvec3(20000.0, 5000.0, 0.0), view, proj, 1920u, 1080u, offRight);
+    CHECK(offRight.offscreen);
+    CHECK(offRight.dirX > 0.85f);
+    CHECK(std::abs(offRight.dirX * offRight.dirX + offRight.dirY * offRight.dirY - 1.0f) < 1e-3f);
+
+    // 3. Behind camera and slightly left -> off-screen with dirX < 0
+    ui::MonitorGui::Label behindLeft;
+    ui::MonitorGui::projectLabel(vsg::dvec3(-5000.0, -10000.0, 0.0), view, proj, 1920u, 1080u, behindLeft);
+    CHECK(behindLeft.offscreen);
+    CHECK(behindLeft.dirX < -0.5f);
+
+    // 4. Directly behind camera -> never NaN, falls back to valid downward unit direction
+    ui::MonitorGui::Label deadBehind;
+    ui::MonitorGui::projectLabel(vsg::dvec3(0.0, -10000.0, 0.0), view, proj, 1920u, 1080u, deadBehind);
+    CHECK(deadBehind.offscreen);
+    CHECK(std::isfinite(deadBehind.dirX));
+    CHECK(std::isfinite(deadBehind.dirY));
+    CHECK(std::abs(deadBehind.dirX * deadBehind.dirX + deadBehind.dirY * deadBehind.dirY - 1.0f) < 1e-3f);
+
+    // 5. Render off-screen known radar-track & own-ship edge labels via MonitorGui without crashing or zero vertices
+    initHeadlessImGui(1920.0f, 1080.0f, 1.0f);
+    auto controls = std::make_shared<ui::ViewerControls>();
+    CHECK_FALSE(controls->clearCloudsAboveEntities.load());
+    controls->clearCloudsAboveEntities.store(true);
+    CHECK(controls->clearCloudsAboveEntities.load());
+
+    auto gui = ui::MonitorGui::create(controls, "emso_test");
+    std::vector<ui::MonitorGui::Label> lbls;
+    offRight.text = "雷达航迹 T#4";
+    offRight.iconKind = 4u;
+    offRight.rangeKm = 18.4f;
+    lbls.push_back(offRight);
+    behindLeft.text = "viper-2";
+    behindLeft.iconKind = 1u;
+    behindLeft.rangeKm = 9.2f;
+    lbls.push_back(behindLeft);
+    onScreen.text = "viper-1";
+    onScreen.selected = true;
+    onScreen.iconKind = 1u;
+    lbls.push_back(onScreen);
+    gui->setLabels(std::move(lbls));
+
+    vsg::CommandBuffer* dummy = nullptr;
+    ImGui::NewFrame();
+    gui->record(*dummy);
+    ImGui::Render();
+    CHECK(ImGui::GetDrawData()->TotalVtxCount > 60);
+
+    ImGui::DestroyContext();
+}

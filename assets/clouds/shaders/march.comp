@@ -740,6 +740,13 @@ void main() {
       vec3 n = normalize(ecef);
       vec2 mapUv = vec2(atan(n.y, n.x) * RECIPROCAL_PI2 + 0.5, 0.5 - asin(n.z) * RECIPROCAL_PI);
       float alpha = clamp(textureLod(globalCoverageTexture, mapUv, fsimGlobalLod).r * 1.3 - 0.001, 0.0, 1.0);
+      if (P_entityClear0.w > 0.5) {
+        vec3 relFar = (rayOrigin - altitudeCorrection - P_camera.xyz) - P_entityClear0.xyz;
+        vec3 upFar = normalize(rayOrigin);
+        float hFar = length(relFar - upFar * dot(relFar, upFar));
+        float rk = smoothstep(P_entityClear1.x, P_entityClear1.y, hFar);
+        alpha *= rk * rk * (3.0 - 2.0 * rk);
+      }
       vec3 skyIrradiance;
       vec3 sunIrradiance = GetSunAndSkyScalarIrradiance(rayOrigin * METER_TO_LENGTH_UNIT, sunDirection, skyIrradiance);
       vec3 lowRes = (sunIrradiance + skyIrradiance) * alpha * RECIPROCAL_PI4;

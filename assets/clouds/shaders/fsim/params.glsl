@@ -73,6 +73,8 @@ layout(set = 0, binding = 0, std140) uniform CloudsParams {
   vec4 P_shore0;                // the sea's shore map: the eye from its middle (ECEF, m); half its width (m)
   vec4 P_shoreEast;             //   its axes (ECEF): east; in use (1) or not
   vec4 P_shoreNorth;            //   north; the distance a step of its code stands for (m; 128 the shore)
+  vec4 P_entityClear0;          // xyz = eye-relative entity-arena centroid (ECEF, m), w = enabled (1 / 0)
+  vec4 P_entityClear1;          // x = innerRadiusM, y = outerRadiusM, z = altStartM, w = altFullM
 };
 
 #define bottomRadius P_altitudeCorrection.w

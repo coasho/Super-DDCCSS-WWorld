@@ -139,6 +139,20 @@ TEST_CASE("VIS-M14 TacticalOverlayLayoutV1 wire contracts and validators", "[tac
     CHECK(validTacticalPropulsionExtV1(p));
     p.engineCount = 9;
     CHECK_FALSE(validTacticalPropulsionExtV1(p));
+
+    static_assert(sizeof(TacticalRadarTrackWireV1) == 64 && alignof(TacticalRadarTrackWireV1) == 8);
+    TacticalRadarTrackWireV1 rt{};
+    CHECK_FALSE(validTacticalRadarTrackV1(rt));
+    rt.vehicleId = 1;
+    rt.slot = 0;
+    rt.trackId = 7;
+    rt.rangeM = 16500.0f;
+    rt.flags = kTactTrackConfirmed | kTactTrackDesignated;
+    CHECK(validTacticalRadarTrackV1(rt));
+    rt.flags = kTactTrackRawPlot | kTactTrackFalseTarget;
+    CHECK(validTacticalRadarTrackV1(rt));
+    rt.reserved[0] = 1;
+    CHECK_FALSE(validTacticalRadarTrackV1(rt));
 }
 
 TEST_CASE("VIS-M14 TacticalOverlaySegmentV1 live seqlock IPC and .tact replay roundtrip", "[tactical_overlays][vis-m14]") {
@@ -215,6 +229,29 @@ TEST_CASE("VIS-M14 TacticalOverlaySegmentV1 live seqlock IPC and .tact replay ro
             pr.thrustN[i] = 52000.0f;
         }
         f0.propulsion.push_back(pr);
+
+        TacticalRadarTrackWireV1 rtConfirmed{};
+        rtConfirmed.vehicleId = 1;
+        rtConfirmed.slot = 0;
+        rtConfirmed.trackId = 42;
+        rtConfirmed.positionEcef[0] = -2700000.0;
+        rtConfirmed.positionEcef[1] = -4260000.0;
+        rtConfirmed.positionEcef[2] = 3890000.0;
+        rtConfirmed.rangeM = 15200.0f;
+        rtConfirmed.flags = kTactTrackConfirmed | kTactTrackDesignated;
+        f0.radarTracks.push_back(rtConfirmed);
+
+        TacticalRadarTrackWireV1 rtFalse{};
+        rtFalse.vehicleId = 1;
+        rtFalse.slot = 0;
+        rtFalse.trackId = 0;
+        rtFalse.positionEcef[0] = -2701200.0;
+        rtFalse.positionEcef[1] = -4259500.0;
+        rtFalse.positionEcef[2] = 3890400.0;
+        rtFalse.rangeM = 14800.0f;
+        rtFalse.snrDb = 16.5f;
+        rtFalse.flags = kTactTrackRawPlot | kTactTrackFalseTarget;
+        f0.radarTracks.push_back(rtFalse);
     }
 
     TacticalOverlayFrameV1 f1 = f0;
@@ -260,6 +297,11 @@ TEST_CASE("VIS-M14 TacticalOverlaySegmentV1 live seqlock IPC and .tact replay ro
     REQUIRE(rep.atTime(1.25, sampled));
     CHECK(sampled.simTime == Catch::Approx(1.0));
     CHECK(sampled.radars[0].burnThroughRangeM == Catch::Approx(24000.0f));
+    REQUIRE(sampled.radarTracks.size() == 2u);
+    CHECK(sampled.radarTracks[0].trackId == 42u);
+    CHECK((sampled.radarTracks[0].flags & kTactTrackDesignated) != 0u);
+    CHECK((sampled.radarTracks[1].flags & kTactTrackFalseTarget) != 0u);
+    CHECK(sampled.radarTracks[1].snrDb == Catch::Approx(16.5f));
     REQUIRE(rep.atTime(1.55, sampled));
     CHECK(sampled.simTime == Catch::Approx(1.5));
     CHECK(sampled.radars[0].burnThroughRangeM == Catch::Approx(28000.0f));

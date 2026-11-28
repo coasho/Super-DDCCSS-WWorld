@@ -40,12 +40,30 @@ float fsimNearCover(const float map) {
 // (w -1: none yet)
 vec2 fsimMapCoverage = vec2(0.0);
 vec4 fsimMapCoverAt = vec4(0.0, 0.0, 0.0, -1.0);
+// Per-sample smooth feathered cloud retention factor for entity-region overhead clearance (1.0 = natural clouds, 0.0 = clear).
+float fsimEntityCloudKeep = 1.0;
+
+float fsimEntityCloudMask(const vec3 position, const float height) {
+  if (P_entityClear0.w < 0.5) return 1.0;
+  vec3 rel = (position - altitudeCorrection - P_camera.xyz) - P_entityClear0.xyz;
+  vec3 upN = normalize(position);
+  vec3 horiz = rel - upN * dot(rel, upN);
+  float hDist = length(horiz);
+  float radialKeep = smoothstep(P_entityClear1.x, P_entityClear1.y, hDist);
+  // Double-smoothstep S-curve for extra-gradual, photographic cloud edge dissipation
+  radialKeep = radialKeep * radialKeep * (3.0 - 2.0 * radialKeep);
+  float altClear = smoothstep(P_entityClear1.z, P_entityClear1.w, height);
+  return 1.0 - (1.0 - radialKeep) * altClear;
+}
 
 // position: takram's (ECEF plus the altitude correction, m)
 float fsimCoverageAt(const vec3 position) {
+  float sampleHeight = length(position) - bottomRadius;
+  fsimEntityCloudKeep = fsimEntityCloudMask(position, sampleHeight);
+  float covScale = mix(0.18, 1.0, fsimEntityCloudKeep);
   float local = P_sun.w;
   if (P_global.x < 0.5) {
-    return local;
+    return local * covScale;
   }
   // the world's weather is the weather round the eye: within P_global.y along the ground of the point under it,
   // the map's beyond P_global.z, and everywhere once the eye is high (P_global.w, from its height)
@@ -65,7 +83,7 @@ float fsimCoverageAt(const vec3 position) {
                            fsimCoverageForCover(cover));
     fsimMapCoverAt = vec4(position, 1.0);
   }
-  return mix(fsimMapCoverage.x, fsimMapCoverage.y, away);
+  return mix(fsimMapCoverage.x, fsimMapCoverage.y, away) * covScale;
 }
 
 // The levels for a pixel footprint (m): the shape's (128 texels a repeat), the detail's (32), the turbulence's (128 a

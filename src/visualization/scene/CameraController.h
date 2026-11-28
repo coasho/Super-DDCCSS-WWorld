@@ -137,7 +137,9 @@ public:
 private:
     void normalised(int x, int y, double& nx, double& ny) const;
     void rotate(double dxNdc, double dyNdc);
-    void moveFocus(double dxNdc, double dyNdc);
+    void moveFocus(int x0Px, int y0Px, int x1Px, int y1Px, double dxNdc, double dyNdc);
+    std::optional<vsg::dvec3> horizontalPlanePoint(int x, int y, const vsg::dvec3& planeOrigin,
+                                                   const vsg::dvec3& planeNormal) const;
     /// How the view is meant to behave when the focus moves. Azimuth and
     /// elevation are measured against the focus' own east/north/up, and that
     /// frame is rebuilt from the Earth's axis at every position - near a pole

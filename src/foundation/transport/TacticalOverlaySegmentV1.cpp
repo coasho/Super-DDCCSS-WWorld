@@ -245,10 +245,20 @@ bool TacticalOverlayRecorderV1::write(const TacticalOverlayFrameV1& frame) {
     auto writeVec = [&](const auto& vec, std::uint32_t n) -> bool {
         return n == 0 || std::fwrite(vec.data(), sizeof(vec[0]), n, file_) == n;
     };
-    return writeVec(frame.radars, head.radarCount) && writeVec(frame.jammers, head.jammerCount) &&
-           writeVec(frame.esmRays, head.esmCount) && writeVec(frame.links, head.linkCount) &&
-           writeVec(frame.weapons, head.weaponCount) && writeVec(frame.swaths, head.swathCount) &&
-           writeVec(frame.propulsion, head.propulsionCount);
+    const bool ok = writeVec(frame.radars, head.radarCount) && writeVec(frame.jammers, head.jammerCount) &&
+                    writeVec(frame.esmRays, head.esmCount) && writeVec(frame.links, head.linkCount) &&
+                    writeVec(frame.weapons, head.weaponCount) && writeVec(frame.swaths, head.swathCount) &&
+                    writeVec(frame.propulsion, head.propulsionCount);
+    if (!ok) return false;
+    if (!frame.radarTracks.empty()) {
+        const std::uint32_t kCount = static_cast<std::uint32_t>(std::min<std::size_t>(frame.radarTracks.size(), kMaxTacticalRadarTracksV1));
+        const char kTag = 'K';
+        if (std::fwrite(&kTag, 1, 1, file_) != 1 || std::fwrite(&kCount, sizeof kCount, 1, file_) != 1 ||
+            !writeVec(frame.radarTracks, kCount)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 void TacticalOverlayRecorderV1::close() {
@@ -277,6 +287,14 @@ bool TacticalOverlayReplayV1::load(const std::filesystem::path& path, std::strin
     for (;;) {
         char tag = 0;
         if (std::fread(&tag, 1, 1, f) != 1) break;
+        if (tag == 'K') {
+            std::uint32_t kCount = 0;
+            if (frames_.empty() || std::fread(&kCount, sizeof kCount, 1, f) != 1 || kCount > kMaxTacticalRadarTracksV1) break;
+            auto& dst = frames_.back().radarTracks;
+            dst.resize(kCount);
+            if (kCount > 0 && std::fread(dst.data(), sizeof(dst[0]), kCount, f) != kCount) break;
+            continue;
+        }
         if (tag != 'T') break;
         TacticalFileHeadV1 head{};
         if (std::fread(&head, sizeof head, 1, f) != 1) break;

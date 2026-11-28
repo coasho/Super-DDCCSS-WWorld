@@ -102,6 +102,12 @@ void Trails::rewrite(Trail& t, bool selected) {
     t.draw->vertexCount = static_cast<std::uint32_t>(count >= 2 ? count : 0);
 }
 
+void Trails::setSlotVisible(std::size_t index, bool visible) noexcept {
+    if (root_ && index < root_->children.size()) {
+        root_->children[index].mask = visible ? vsg::MASK_ALL : vsg::MASK_OFF;
+    }
+}
+
 void Trails::setEnabled(std::size_t index, bool enabled) {
     if (index >= trails_.size()) return;
     Trail& t = trails_[index];

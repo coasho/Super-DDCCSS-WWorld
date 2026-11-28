@@ -19,10 +19,11 @@ struct TacticalOverlayFrameV1 {
     std::vector<TacticalWeaponCueWireV1> weapons;
     std::vector<TacticalSwathWireV1> swaths;
     std::vector<TacticalPropulsionExtWireV1> propulsion;
+    std::vector<TacticalRadarTrackWireV1> radarTracks; ///< Additive own-radar tracks & electronic false targets
 
     bool empty() const noexcept {
         return radars.empty() && jammers.empty() && esmRays.empty() && links.empty() &&
-               weapons.empty() && swaths.empty() && propulsion.empty();
+               weapons.empty() && swaths.empty() && propulsion.empty() && radarTracks.empty();
     }
 };
 

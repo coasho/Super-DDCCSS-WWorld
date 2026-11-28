@@ -100,6 +100,8 @@ WeatherSample sampleWeather(const vec2 uv, const float height, const float mipLe
     factor,
     factor + coverageFilterWidths
   );
+  // fsim: smooth feathered density attenuation above active entity region when enabled
+  weather.density *= smoothstep(0.0, 0.72, fsimEntityCloudKeep);
 
   return weather;
 }

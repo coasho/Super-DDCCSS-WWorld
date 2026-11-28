@@ -31,6 +31,8 @@ public:
     Attachment attachment() const noexcept { return attachment_; }
     void setBodyOffset(std::size_t index, const vsg::dvec3& bodyOffsetM);
     void setVisible(bool on) { root_->setAllChildren(on); }
+    /// Toggle display of a single slot's trail without clearing its history (Fog-of-War isolation).
+    void setSlotVisible(std::size_t index, bool visible) noexcept;
     /// Disable (and clear) a vehicle's trail, e.g. for slots without a live vehicle.
     void setEnabled(std::size_t index, bool enabled);
 

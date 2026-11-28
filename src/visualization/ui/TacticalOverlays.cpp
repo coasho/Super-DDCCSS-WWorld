@@ -384,10 +384,12 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
     zonePlaced.reserve(16);
     std::vector<PlacedBox> placed = panelBoxes;
     placed.reserve(44);
-    for (std::size_t i = 0; i < states_.size() && i < alive_.size(); ++i) {
-        if (!alive_[i]) continue;
+    if (selectedSlot_ >= 0 && static_cast<std::size_t>(selectedSlot_) < states_.size() &&
+        static_cast<std::size_t>(selectedSlot_) < alive_.size() && alive_[static_cast<std::size_t>(selectedSlot_)]) {
         float vx = 0.0f, vy = 0.0f;
-        const vsg::dvec3 p(states_[i].positionEcef[0], states_[i].positionEcef[1], states_[i].positionEcef[2]);
+        const vsg::dvec3 p(states_[static_cast<std::size_t>(selectedSlot_)].positionEcef[0],
+                           states_[static_cast<std::size_t>(selectedSlot_)].positionEcef[1],
+                           states_[static_cast<std::size_t>(selectedSlot_)].positionEcef[2]);
         if (projectPoint(p, vx, vy)) {
             placed.push_back({vx - 14.0f * k, vy - 20.0f * k, vx + 130.0f * k, vy + 20.0f * k});
         }
@@ -705,8 +707,7 @@ void TacticalOverlays::record(vsg::CommandBuffer&) const {
         for (const auto& l : frame_.links) {
             const auto kind = static_cast<ipc::TacticalLinkKindV1>(l.kind);
             const bool sameSideIncoming =
-                ((kind == ipc::TacticalLinkKindV1::Link16Dms || kind == ipc::TacticalLinkKindV1::C2Consent ||
-                  kind == ipc::TacticalLinkKindV1::Mode5IffReply) &&
+                ((kind == ipc::TacticalLinkKindV1::Link16Dms || kind == ipc::TacticalLinkKindV1::C2Consent) &&
                  static_cast<int>(l.toSlot) == selectedSlot_ &&
                  (selectedSide == world::TacticalVolumes::Side::Neutral || sideOfSlot(l.fromSlot) == selectedSide));
             const bool involvesSelected = (static_cast<int>(l.fromSlot) == selectedSlot_) || sameSideIncoming;

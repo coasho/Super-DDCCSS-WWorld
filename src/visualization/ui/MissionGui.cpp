@@ -140,9 +140,9 @@ void MissionGui::cacheFocusedTactical(const ipc::TacticalOverlayFrameV1* tactica
     }
     for (const auto& l : tactical->links) {
         const auto kind = static_cast<ipc::TacticalLinkKindV1>(l.kind);
+        // Only own outgoing links or modeled incoming Link16/C2 to own slot (avoid unverified cross-side replies)
         const bool match = (static_cast<int>(l.fromSlot) == slot) ||
-                           ((kind == ipc::TacticalLinkKindV1::Link16Dms || kind == ipc::TacticalLinkKindV1::C2Consent ||
-                             kind == ipc::TacticalLinkKindV1::Mode5IffReply) &&
+                           ((kind == ipc::TacticalLinkKindV1::Link16Dms || kind == ipc::TacticalLinkKindV1::C2Consent) &&
                             static_cast<int>(l.toSlot) == slot);
         if (match) focusedLinks_.push_back(l);
     }

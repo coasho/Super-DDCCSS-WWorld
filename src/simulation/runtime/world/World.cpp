@@ -4782,6 +4782,62 @@ ipc::TacticalOverlayFrameV1 World::collectTacticalOverlayFrame() const {
             if (w.jammerRatioDb > 0.5f) w.flags |= ipc::kTactRadarJammed;
 
             if (ipc::validTacticalRadarV1(w)) out.radars.push_back(w);
+
+            // Additive radar tracks & recent raw detections (including electronic false targets / chaff / CFAR false alarms)
+            // so replay Fog-of-War displays strictly radar-detected contacts without ever consulting omniscient truth.
+            for (const auto& tr : tracks) {
+                if (out.radarTracks.size() >= ipc::kMaxTacticalRadarTracksV1) break;
+                ipc::TacticalRadarTrackWireV1 tk{};
+                tk.slot = static_cast<std::uint32_t>(s);
+                tk.vehicleId = e->info.id;
+                tk.payloadIndex = p.index;
+                tk.trackId = static_cast<std::uint32_t>(tr.id & 0xFFFFFFFFu);
+                tk.positionEcef[0] = tr.stateEcef[0];
+                tk.positionEcef[1] = tr.stateEcef[2];
+                tk.positionEcef[2] = tr.stateEcef[4];
+                tk.rangeM = static_cast<float>(std::max(0.0, tr.rangeM));
+                tk.rangeRateMs = static_cast<float>(tr.rangeRateMs);
+                tk.flags = ipc::kTactTrackConfirmed;
+                if (st.designatedTrack != 0 && tr.id == st.designatedTrack) tk.flags |= ipc::kTactTrackDesignated;
+                if (tr.truth == 0) tk.flags |= ipc::kTactTrackFalseTarget;
+                if (ipc::validTacticalRadarTrackV1(tk)) out.radarTracks.push_back(tk);
+            }
+            for (const auto& det : rad->detections()) {
+                if (out.radarTracks.size() >= ipc::kMaxTacticalRadarTracksV1) break;
+                if (!std::isfinite(det.timeS) || simTime_ - det.timeS > 2.5 || det.timeS > simTime_ + 0.1) continue;
+                const double cEl = std::cos(det.elevationRad);
+                const double bVec[3] = {
+                    det.rangeM * cEl * std::cos(det.azimuthRad),
+                    det.rangeM * cEl * std::sin(det.azimuthRad),
+                    -det.rangeM * std::sin(det.elevationRad)};
+                double relEcef[3] = {};
+                ms::geom::toEcef(own, bVec, relEcef);
+                const double px = own.positionEcef[0] + relEcef[0];
+                const double py = own.positionEcef[1] + relEcef[1];
+                const double pz = own.positionEcef[2] + relEcef[2];
+                bool nearTrack = false;
+                for (const auto& existing : out.radarTracks) {
+                    if (existing.slot != static_cast<std::uint32_t>(s)) continue;
+                    const double dx = existing.positionEcef[0] - px;
+                    const double dy = existing.positionEcef[1] - py;
+                    const double dz = existing.positionEcef[2] - pz;
+                    if (dx * dx + dy * dy + dz * dz < 650.0 * 650.0) { nearTrack = true; break; }
+                }
+                if (nearTrack) continue;
+                ipc::TacticalRadarTrackWireV1 dk{};
+                dk.slot = static_cast<std::uint32_t>(s);
+                dk.vehicleId = e->info.id;
+                dk.payloadIndex = p.index;
+                dk.trackId = 0u;
+                dk.positionEcef[0] = px;
+                dk.positionEcef[1] = py;
+                dk.positionEcef[2] = pz;
+                dk.rangeM = static_cast<float>(std::max(0.0, det.rangeM));
+                dk.rangeRateMs = static_cast<float>(det.rangeRateMs);
+                dk.snrDb = static_cast<float>(std::isfinite(det.snrDb) ? det.snrDb : 0.0);
+                dk.flags = ipc::kTactTrackRawPlot | (det.truth == 0 ? ipc::kTactTrackFalseTarget : 0u);
+                if (ipc::validTacticalRadarTrackV1(dk)) out.radarTracks.push_back(dk);
+            }
         }
     }
 
