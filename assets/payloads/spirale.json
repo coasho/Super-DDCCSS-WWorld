@@ -2,8 +2,16 @@
   "id": "spirale",
   "designation": "Spirale",
   "family": "countermeasures",
-  "summary": "chaff and flare dispenser",
-  "parameters": {},
+  "summary": "Internal Mirage 2000 chaff and flare dispenser system (112 chaff + 16 IR flares)",
+  "parameters": {
+    "chaff_count": { "value": 112, "unit": "1", "uncertainty": 16, "basis": "assumed", "note": "Standard Spirale internal chaff cassette capacity" },
+    "flare_count": { "value": 16, "unit": "1", "uncertainty": 4, "basis": "assumed", "note": "Standard Spirale internal IR flare capacity" },
+    "min_interval_s": { "value": 0.30, "unit": "s", "uncertainty": 0.1, "basis": "assumed", "note": "Spirale dispenser minimum release interval" },
+    "flare_life_s": { "value": 4.0, "unit": "s", "uncertainty": 0.5, "basis": "assumed", "note": "French MTV pyrotechnic IR decoy burn duration" },
+    "flare_peak_intensity_w_sr": { "value": 5500, "unit": "W/sr", "uncertainty": 1400, "basis": "assumed", "note": "Spirale IR decoy MWIR peak radiant intensity" },
+    "chaff_life_s": { "value": 26.0, "unit": "s", "uncertainty": 8.0, "basis": "assumed", "note": "Spirale dipole cloud persistence" },
+    "chaff_peak_rcs_m2": { "value": 16.0, "unit": "m^2", "uncertainty": 5.0, "basis": "assumed", "note": "Spirale X-band dipole pack peak RCS" }
+  },
   "sources": {
     "wp-mirage2000": {
       "title": "Dassault Mirage 2000",

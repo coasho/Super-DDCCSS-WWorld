@@ -47,6 +47,34 @@ namespace {
 /// The stream a vehicle's sensors draw from (its radars' looks), apart from its flight model's (stream 0).
 constexpr std::uint64_t kSensorStream = 0x5345'4E53ull;
 
+void ecefToGeodeticWgs84(const double p[3], double& lat, double& lon, double& altM, double* upOut = nullptr) noexcept {
+    constexpr double a = 6378137.0;
+    constexpr double f = 1.0 / 298.257223563;
+    constexpr double e2 = f * (2.0 - f);
+    constexpr double b = a * (1.0 - f);
+    constexpr double ep2 = (a * a - b * b) / (b * b);
+    const double x = p[0], y = p[1], z = p[2];
+    const double r = std::hypot(x, y);
+    lon = std::atan2(y, x);
+    if (r < 1e-6) {
+        lat = z >= 0.0 ? 1.5707963267948966 : -1.5707963267948966;
+        altM = std::abs(z) - b;
+    } else {
+        const double th = std::atan2(z * a, r * b);
+        const double st = std::sin(th), ct = std::cos(th);
+        lat = std::atan2(z + ep2 * b * st * st * st, r - e2 * a * ct * ct * ct);
+        const double slat = std::sin(lat), clat = std::cos(lat);
+        const double N = a / std::sqrt(1.0 - e2 * slat * slat);
+        altM = (std::abs(clat) > 1e-6) ? (r / clat - N) : (std::abs(z) / std::abs(slat) - N * (1.0 - e2));
+    }
+    if (upOut) {
+        const double cl = std::cos(lat);
+        upOut[0] = cl * std::cos(lon);
+        upOut[1] = cl * std::sin(lon);
+        upOut[2] = std::sin(lat);
+    }
+}
+
 std::optional<ms::weapon::Spec> legacyWeaponSpec(const ms::StoreCard& card,std::string& error) {
     ms::weapon::Spec spec;
     spec.seeker=card.seeker;
@@ -3285,9 +3313,24 @@ void World::sense() {
             std::size_t n = 0;
             for (std::size_t s = 0; s < world.entries_.size() && n < max; ++s)
                 if (const Entry* e = world.entries_[s].get(); e && e->info.id != own) ids[n] = e->info.id, out[n++] = &states[s];
+            for (const auto& c : world.activeChaff_) {
+                if (n >= max) break;
+                ids[n] = c.id;
+                out[n++] = &c.state;
+            }
             return n;
         }
         double sigma(std::uint32_t target, double frequencyHz, double polarizationRad, double& fluctuation) const override {
+            if (target >= ms::kDecoyIds) {
+                for (const auto& c : world.activeChaff_) {
+                    if (c.id == target) {
+                        fluctuation = 1.0; // Swerling-2 Rayleigh independent dipole cloud scattering
+                        const double rcs = ms::countermeasure::chaffRcsM2(c.decoy, c.ageS, frequencyHz);
+                        return rcs > 1e-4 ? rcs : std::numeric_limits<double>::quiet_NaN();
+                    }
+                }
+                return std::numeric_limits<double>::quiet_NaN();
+            }
             ms::RcsQuery q;
             q.frequencyHz = frequencyHz;
             q.transmitPolarizationRad = polarizationRad;
@@ -3297,6 +3340,11 @@ void World::sense() {
             return rcs->sigmaM2;
         }
         double targetExtentRmsM(std::uint32_t target)const override {
+            if (target >= ms::kDecoyIds) {
+                for (const auto& c : world.activeChaff_)
+                    if (c.id == target) return c.extentRmsM;
+                return 0.0;
+            }
             const auto* e=world.entry(target);
             if(!e||!e->damage)return 0.;
             const auto view=e->damage->attachedGeometry();const auto& frame=view.airframe();
@@ -3324,6 +3372,17 @@ void World::sense() {
                 const sim::VehicleState& sb = states[b->slot];
                 bEcef[0] = sb.positionEcef[0], bEcef[1] = sb.positionEcef[1], bEcef[2] = sb.positionEcef[2];
                 bLat = sb.latitudeRad, bLon = sb.longitudeRad, bAlt = sb.altitudeMslM;
+            } else if (target >= ms::kDecoyIds) {
+                bool foundChaff = false;
+                for (const auto& c : world.activeChaff_) {
+                    if (c.id == target) {
+                        bEcef[0] = c.state.positionEcef[0], bEcef[1] = c.state.positionEcef[1], bEcef[2] = c.state.positionEcef[2];
+                        bLat = c.state.latitudeRad, bLon = c.state.longitudeRad, bAlt = c.state.altitudeMslM;
+                        foundChaff = true;
+                        break;
+                    }
+                }
+                if (!foundChaff) return 200.0;
             } else if (const comm::C2NodeSpec* c2 = world.c2Node(target)) {
                 bLat = c2->latitudeRad, bLon = c2->longitudeRad, bAlt = c2->altitudeMslM;
                 ms::rf::geodeticToEcef(bLat, bLon, bAlt, bEcef);
@@ -3413,6 +3472,7 @@ void World::sense() {
         const std::vector<ms::Emission>& emissions() const override { return world.emissions_; }
         const sim::EnvironmentState& environment() const override { return world.environment_; }
         ms::Role role(std::uint32_t id) const override {
+            if (id >= ms::kDecoyIds) return ms::Role::Debris;
             const Entry* e = world.entry(id);
             return e ? e->info.role : ms::Role::Aircraft;
         }
@@ -3480,26 +3540,62 @@ void World::sense() {
         emission.azimuthHalfWidthRad=emission.elevationHalfWidthRad=seeker.emitterHalfWidthRad;
         emissions_.push_back(emission);
     }
-    // Collect active pyrotechnic flare decoys once before parallel worker sensing.
+    // Collect active pyrotechnic flare decoys (optical/IR) and chaff dipole clouds (airborne AMTI radar)
+    // once before parallel worker sensing using physically calibrated cartridge models.
     activeFlares_.clear();
+    activeChaff_.clear();
     for (const auto* dispenser : dispensers()) {
         if (!dispenser) continue;
         for (const auto& d : dispenser->decoys()) {
-            if (d.kind != ms::countermeasure::Kind::Flare) continue;
             const double ageS = std::max(0.0, simTime_ - d.launchTimeS);
             if (ageS >= d.lifeS) continue;
-            ms::Decoy flare;
-            flare.id = d.id;
-            flare.kind = ms::Decoy::Kind::Flare;
-            flare.owner = d.owner;
-            flare.bornS = d.launchTimeS;
-            flare.state.positionEcef[0] = d.position.x;
-            flare.state.positionEcef[1] = d.position.y;
-            flare.state.positionEcef[2] = d.position.z;
-            flare.state.altitudeMslM = std::max(0.0, std::sqrt(d.position.x * d.position.x + d.position.y * d.position.y + d.position.z * d.position.z) - 6371000.0);
-            // Pyrotechnic flare radiant intensity (3-5 um MWIR, ~6000 W/sr peak decaying with tau = 2.0 s)
-            flare.intensityWSr = 6000.0 * std::exp(-ageS / 2.0);
-            activeFlares_.push_back(flare);
+            if (d.kind == ms::countermeasure::Kind::Flare) {
+                const double intensity = ms::countermeasure::flareIntensityWSr(d, ageS);
+                if (!(intensity > 0.0)) continue;
+                ms::Decoy flare;
+                flare.id = d.id;
+                flare.kind = ms::Decoy::Kind::Flare;
+                flare.owner = d.owner;
+                flare.bornS = d.launchTimeS;
+                flare.state.positionEcef[0] = d.position.x;
+                flare.state.positionEcef[1] = d.position.y;
+                flare.state.positionEcef[2] = d.position.z;
+                double lat = 0.0, lon = 0.0, alt = 0.0;
+                ecefToGeodeticWgs84(flare.state.positionEcef, lat, lon, alt);
+                flare.state.latitudeRad = lat;
+                flare.state.longitudeRad = lon;
+                flare.state.altitudeMslM = std::max(0.0, alt);
+                flare.intensityWSr = intensity;
+                activeFlares_.push_back(flare);
+            } else {
+                ActiveChaff ch;
+                ch.id = d.id;
+                ch.decoy = d;
+                ch.ageS = ageS;
+                ch.extentRmsM = ms::countermeasure::chaffBloomRadiusM(d, ageS) * 0.57735;
+                ch.state.positionEcef[0] = d.position.x;
+                ch.state.positionEcef[1] = d.position.y;
+                ch.state.positionEcef[2] = d.position.z;
+                // Identity body-to-ECEF frame so ms::geom::velocityEcef(st, v) yields exact cloud ECEF velocity.
+                ch.state.rotationBodyToEcef[0] = 1.0;
+                ch.state.rotationBodyToEcef[4] = 1.0;
+                ch.state.rotationBodyToEcef[8] = 1.0;
+                ch.state.velocityBodyMs[0] = d.velocity.x;
+                ch.state.velocityBodyMs[1] = d.velocity.y;
+                ch.state.velocityBodyMs[2] = d.velocity.z;
+                double lat = 0.0, lon = 0.0, alt = 0.0;
+                ecefToGeodeticWgs84(ch.state.positionEcef, lat, lon, alt);
+                ch.state.latitudeRad = lat;
+                ch.state.longitudeRad = lon;
+                ch.state.altitudeMslM = std::max(0.0, alt);
+                const double sl = std::sin(lat), cl = std::cos(lat), so = std::sin(lon), co = std::cos(lon);
+                ch.state.velocityNedMs[0] = -sl * co * d.velocity.x - sl * so * d.velocity.y + cl * d.velocity.z;
+                ch.state.velocityNedMs[1] = -so * d.velocity.x + co * d.velocity.y;
+                ch.state.velocityNedMs[2] = -cl * co * d.velocity.x - cl * so * d.velocity.y - sl * d.velocity.z;
+                ch.state.airspeedTrueMs = std::hypot(d.velocity.x, d.velocity.y, d.velocity.z);
+                ch.state.altitudeAglM = ch.state.altitudeMslM;
+                activeChaff_.push_back(ch);
+            }
         }
     }
     // each radar looks on its own (its stream, its detections), on the workers - a contiguous share of them each, in
@@ -4599,12 +4695,12 @@ ipc::CombatVfxFrameV1 World::collectCombatVfxFrame() const {
             w.lifeS = static_cast<float>(std::max(d.lifeS, 0.1));
             if (d.kind == ms::countermeasure::Kind::Flare) {
                 w.kind = static_cast<std::uint8_t>(ipc::DecoyKindV1::Flare);
-                w.intensityOrSigma = static_cast<float>(6000.0 * std::exp(-ageS / 2.0));
-                w.bloomRadiusM = 0.55f;
+                w.intensityOrSigma = static_cast<float>(ms::countermeasure::flareIntensityWSr(d, ageS));
+                w.bloomRadiusM = static_cast<float>(ms::countermeasure::flareCoreRadiusM(d, ageS));
             } else {
                 w.kind = static_cast<std::uint8_t>(ipc::DecoyKindV1::Chaff);
-                w.intensityOrSigma = static_cast<float>(10.0 * (1.0 - std::exp(-ageS / 0.35)) * std::exp(-ageS / 5.0));
-                w.bloomRadiusM = static_cast<float>(0.6 + 5.5 * (1.0 - std::exp(-ageS / 0.65)));
+                w.intensityOrSigma = static_cast<float>(ms::countermeasure::chaffRcsM2(d, ageS, d.spec.chaffCenterFreqHz));
+                w.bloomRadiusM = static_cast<float>(ms::countermeasure::chaffBloomRadiusM(d, ageS));
             }
             if (ipc::validDecoyWireV1(w)) out.decoys.push_back(w);
         }
@@ -4799,7 +4895,7 @@ ipc::TacticalOverlayFrameV1 World::collectTacticalOverlayFrame() const {
                 tk.rangeRateMs = static_cast<float>(tr.rangeRateMs);
                 tk.flags = ipc::kTactTrackConfirmed;
                 if (st.designatedTrack != 0 && tr.id == st.designatedTrack) tk.flags |= ipc::kTactTrackDesignated;
-                if (tr.truth == 0) tk.flags |= ipc::kTactTrackFalseTarget;
+                if (tr.truth == 0 || tr.truth >= ms::kDecoyIds) tk.flags |= ipc::kTactTrackFalseTarget;
                 if (ipc::validTacticalRadarTrackV1(tk)) out.radarTracks.push_back(tk);
             }
             for (const auto& det : rad->detections()) {
@@ -4835,7 +4931,7 @@ ipc::TacticalOverlayFrameV1 World::collectTacticalOverlayFrame() const {
                 dk.rangeM = static_cast<float>(std::max(0.0, det.rangeM));
                 dk.rangeRateMs = static_cast<float>(det.rangeRateMs);
                 dk.snrDb = static_cast<float>(std::isfinite(det.snrDb) ? det.snrDb : 0.0);
-                dk.flags = ipc::kTactTrackRawPlot | (det.truth == 0 ? ipc::kTactTrackFalseTarget : 0u);
+                dk.flags = ipc::kTactTrackRawPlot | ((det.truth == 0 || det.truth >= ms::kDecoyIds) ? ipc::kTactTrackFalseTarget : 0u);
                 if (ipc::validTacticalRadarTrackV1(dk)) out.radarTracks.push_back(dk);
             }
         }

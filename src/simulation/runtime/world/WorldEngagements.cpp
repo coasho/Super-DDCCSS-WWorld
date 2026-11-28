@@ -114,14 +114,82 @@ ms::components::ThermalSceneFrameV1 thermalBackground(const ms::components::Rece
     return frame;
 }
 void appendThermalFlare(ms::components::ThermalSceneFrameV1& frame,const ms::components::ReceiverScenePolicyV1& policy,
-    V direction,V rate,double range,double age,std::size_t source) {
+    const ms::countermeasure::Decoy& decoy,V direction,V rate,double range,double age,std::size_t source) {
     ms::components::ThermalRadiancePatchV1 flare;flare.direction=direction;flare.rangeM=range;flare.directionRate=rate;
-    const double radius=policy.flareInitialRadiusM+policy.flareExpansionMs*age;
+    // Equal-area square half-width sqrt(pi)/2 * R_core so (2*radius)^2 == pi * R_core^2 preserves exact Stefan-Boltzmann W/sr.
+    const double radius=std::max(0.04,ms::countermeasure::flareCoreRadiusM(decoy,age)*0.886226925452758);
     flare.widthRad=flare.heightRad=2*std::atan2(radius,range);
-    const double temperature=policy.groundTemperatureK+(policy.flareTemperatureK-policy.groundTemperatureK)*std::exp(-age/policy.flareCoolingS);
+    const double temperature=ms::countermeasure::flareTemperatureK(decoy,age,policy.groundTemperatureK);
     flare.radianceWm2Sr=ms::components::ThermalImageReceiverV1::bandRadiance(temperature,policy.flareEmissivity,policy.lowUm,policy.highUm);
     flare.transmission=std::exp(-policy.extinctionPerM*range);flare.pathRadianceWm2Sr=frame.skyRadianceWm2Sr;
     frame.patches.push_back(flare);frame.refereeAttributionIndices.push_back(source);
+}
+
+struct CountermeasureFit {
+    bool installed = false;
+    bool operating = false;
+    unsigned chaff = 0;
+    unsigned flare = 0;
+    ms::countermeasure::Spec spec{};
+};
+
+CountermeasureFit countermeasureFitOf(const ms::Host& host) {
+    CountermeasureFit out;
+    bool anyCardCounts = false;
+    bool hasFlareCard = false;
+    bool hasChaffCard = false;
+    bool hasInterval = false;
+    for (const auto& p : host.payloads()) {
+        if (p.family != ms::Family::Countermeasures) continue;
+        out.installed = true;
+        out.operating = out.operating || p.state == ms::PayloadState::Operate;
+        const ms::Card* card = host.card(p.index);
+        if (!card) continue;
+        const unsigned units = std::max<unsigned>(1u, p.count);
+        const bool cardHasChaff = card->parameters.count("chaff_count") > 0;
+        const bool cardHasFlare = card->parameters.count("flare_count") > 0;
+        if (cardHasChaff || cardHasFlare) {
+            anyCardCounts = true;
+            const unsigned c = cardHasChaff ? static_cast<unsigned>(std::max<long long>(0LL, std::llround(card->value("chaff_count", 0.0)))) * units : 0u;
+            const unsigned f = cardHasFlare ? static_cast<unsigned>(std::max<long long>(0LL, std::llround(card->value("flare_count", 0.0)))) * units : 0u;
+            out.chaff += c;
+            out.flare += f;
+            if (card->parameters.count("min_interval_s")) {
+                const double iv = card->value("min_interval_s", out.spec.minIntervalS);
+                out.spec.minIntervalS = hasInterval ? std::min(out.spec.minIntervalS, iv) : iv;
+                hasInterval = true;
+            }
+            if (f > 0 && !hasFlareCard) {
+                hasFlareCard = true;
+                out.spec.flareLifeS = card->value("flare_life_s", out.spec.flareLifeS);
+                out.spec.flareRiseS = card->value("flare_rise_s", out.spec.flareRiseS);
+                out.spec.flareMassKg = card->value("flare_mass_kg", out.spec.flareMassKg);
+                out.spec.flareBurnedMassKg = card->value("flare_burned_mass_kg", out.spec.flareBurnedMassKg);
+                out.spec.flareDragAreaM2 = card->value("flare_drag_area_m2", out.spec.flareDragAreaM2);
+                out.spec.flarePeakIntensityWSr = card->value("flare_peak_intensity_w_sr", out.spec.flarePeakIntensityWSr);
+                out.spec.flarePeakTemperatureK = card->value("flare_temperature_k", out.spec.flarePeakTemperatureK);
+                out.spec.flareCoreRadiusM = card->value("flare_core_radius_m", out.spec.flareCoreRadiusM);
+                out.spec.flareEjectSpeedMs = card->value("flare_eject_speed_m_s", out.spec.flareEjectSpeedMs);
+            }
+            if (c > 0 && !hasChaffCard) {
+                hasChaffCard = true;
+                out.spec.chaffLifeS = card->value("chaff_life_s", out.spec.chaffLifeS);
+                out.spec.chaffBloomTimeS = card->value("chaff_bloom_time_s", out.spec.chaffBloomTimeS);
+                out.spec.chaffBloomRadiusM = card->value("chaff_bloom_radius_m", out.spec.chaffBloomRadiusM);
+                out.spec.chaffPeakRcsM2 = card->value("chaff_peak_rcs_m2", out.spec.chaffPeakRcsM2);
+                out.spec.chaffCenterFreqHz = card->value("chaff_center_freq_hz", out.spec.chaffCenterFreqHz);
+                out.spec.chaffDragCoeffM2Kg = card->value("chaff_drag_coeff_m2_kg", out.spec.chaffDragCoeffM2Kg);
+                out.spec.chaffTerminalSinkMs = card->value("chaff_terminal_sink_m_s", out.spec.chaffTerminalSinkMs);
+                out.spec.chaffEjectSpeedMs = card->value("chaff_eject_speed_m_s", out.spec.chaffEjectSpeedMs);
+            }
+        }
+    }
+    if (out.installed && !anyCardCounts) {
+        // Fallback for uncalibrated test/external countermeasure cards without cartridge parameters.
+        out.chaff = 30u;
+        out.flare = 15u;
+    }
+    return out;
 }
 V bodyPoint(const sim::VehicleState& state,V body,const double cg[3]) {
     body=delta(body,point(cg));const auto* r=state.rotationBodyToEcef;
@@ -223,22 +291,18 @@ void World::recordEngagement(const std::string& kind, const Entry& e, std::uint3
 ms::Reason World::dispense(std::uint32_t vehicle, bool flare) {
     Entry* e = entry(vehicle);
     if (!e) return ms::Reason::UnknownVehicle;
-    bool operating = false, installed = false;
-    for (const auto& p : e->ms.payloads()) if (p.family == ms::Family::Countermeasures) {
-        installed = true;
-        operating = operating || p.state == ms::PayloadState::Operate;
-    }
-    if (!installed) return ms::Reason::NotSupported;
-    if (!operating) return ms::Reason::PayloadOff;
-    if (!e->dispenser) e->dispenser = std::make_unique<ms::countermeasure::Dispenser>(vehicle, 30, 15);
+    const CountermeasureFit fit = countermeasureFitOf(e->ms);
+    if (!fit.installed) return ms::Reason::NotSupported;
+    if (!fit.operating) return ms::Reason::PayloadOff;
+    if (!e->dispenser) e->dispenser = std::make_unique<ms::countermeasure::Dispenser>(vehicle, fit.chaff, fit.flare, fit.spec);
     const auto kind = flare ? ms::countermeasure::Kind::Flare : ms::countermeasure::Kind::Chaff;
     if (!e->dispenser->remaining(kind)) return ms::Reason::Expended;
     if (nextDecoyId_ >= kDesignations) return ms::Reason::NotSupported;
     const auto& s = pool_->states()[e->slot];
     const V v = velocity(s);
+    const auto& cmSpec = e->dispenser->spec();
     // Physical aft-ventral countermeasure dispenser buckets (e.g. AN/ALE-40/47 on tail boom / aft ventral fairing)
-    // alternating left/right ports with pyrotechnic cartridge ejection velocity so flares & chaff clear the
-    // airframe cleanly instead of clipping through the cockpit or fuselage CG.
+    // alternating left/right ports with squib cartridge ejection velocity from the calibrated payload card.
     const double sideSign = ((nextDecoyId_ & 1u) == 0u) ? 1.0 : -1.0;
     double portBody[3] = {-3.6, sideSign * 0.90, 1.05};
     if (const auto afIt = airframes_.find(e->info.aircraft); afIt != airframes_.end() && afIt->second && !afIt->second->panels.empty()) {
@@ -258,7 +322,9 @@ ms::Reason World::dispense(std::uint32_t vehicle, bool flare) {
         portBody[1] = sideSign * std::clamp(maxY * 0.16, 0.85, 2.0);
         portBody[2] = std::clamp(maxZ + 0.35, 0.95, 2.5);
     }
-    const double ejectBody[3] = {flare ? -4.0 : -5.5, sideSign * (flare ? 14.5 : 11.0), flare ? 17.5 : 13.0};
+    const double ejectSpdCfg = flare ? cmSpec.flareEjectSpeedMs : cmSpec.chaffEjectSpeedMs;
+    // Unit aft-outboard-downward squib ejection axis (~18% aft, ~62% outboard, ~76% ventral down).
+    const double ejectBody[3] = {-0.18 * ejectSpdCfg, sideSign * 0.62 * ejectSpdCfg, 0.76 * ejectSpdCfg};
     double portEcef[3] = {}, ejectEcef[3] = {};
     ms::geom::toEcef(s, portBody, portEcef);
     ms::geom::toEcef(s, ejectBody, ejectEcef);
@@ -278,8 +344,8 @@ ms::Reason World::dispense(std::uint32_t vehicle, bool flare) {
             cmEv.velocityEcef[k] = spawnVel[k];
             cmEv.dirEcef[k] = static_cast<float>(ejectEcef[k] / ejectSpd);
         }
-        cmEv.magnitude = flare ? 6000.0f : 10.0f;
-        cmEv.param = flare ? 4.0f : 6.0f;
+        cmEv.magnitude = static_cast<float>(flare ? cmSpec.flarePeakIntensityWSr : cmSpec.chaffPeakRcsM2);
+        cmEv.param = static_cast<float>(flare ? cmSpec.flareLifeS : cmSpec.chaffLifeS);
         pushCombatVfxEvent(cmEv);
     }
     recordEngagement(flare ? "flare" : "chaff", *e);
@@ -291,7 +357,8 @@ ms::CountermeasureInventory World::countermeasures(std::uint32_t vehicle) const 
     if (!e) return {};
     if (e->dispenser) return {e->dispenser->remaining(ms::countermeasure::Kind::Chaff),
                               e->dispenser->remaining(ms::countermeasure::Kind::Flare)};
-    for (const auto& p : e->ms.payloads()) if (p.family == ms::Family::Countermeasures) return {30,15};
+    const CountermeasureFit fit = countermeasureFitOf(e->ms);
+    if (fit.installed) return {fit.chaff, fit.flare};
     return {};
 }
 
@@ -533,16 +600,19 @@ void World::prepareEngagements() {
             if (range<seeker.minimumRangeM || (!finiteSensor&&range>spec.acquireM) || (!heat&&!radioReceiver && e->seekerProvider->notched(dot(r,in.up)/range,dot(v,r)/range))) continue;
             ms::rf::PathOptions path; path.ground=ground_.get();
             if (semi && illuminator) path.frequencyHz=illuminator->spec().frequencyHz;
+            const double age=std::max(0.0,simTime_-decoy.launchTimeS);
+            const double chaffFreq = (semi && illuminator) ? illuminator->spec().frequencyHz : seeker.engineering.frequencyHz;
+            const double chaffRcs = !heat ? ms::countermeasure::chaffRcsM2(decoy, age, chaffFreq) : 0.0;
             std::optional<ms::components::SeekerSceneV3> scene;
             if(finiteSensor){
                 if(thermalReceiver){if(!opticalClear(physicalPosition,p,ground_.get()))continue;scene=ms::components::SeekerSceneV3{};scene->rangeM=range;}
-                else scene=sceneFor(p,seeker.radarRcsReferenceM2);
+                else scene=sceneFor(p,std::max(chaffRcs,1e-4));
                 if(!scene)continue;
             }
             else if(ms::rf::computePath({s.latitudeRad,s.longitudeRad,s.altitudeMslM},terminal(p),path).terrainMasked)continue;
-            // basis: assumed. Relative signature bloom/fade for deterministic seeker discrimination.
-            const double age=std::max(0.0,simTime_-decoy.launchTimeS);
-            const double signal=e->seekerProvider->decoySignal(age,heat);
+            const double signal = (!heat && radioReceiver)
+                ? (chaffRcs > 1e-4 ? 1.0 : 0.0)
+                : e->seekerProvider->decoySignal(age,heat);
             if(signal>0){in.visible.push_back({decoy.id,p,v,true,signal});if(scene)sensorScenes.push_back(*scene);}
         }
         const auto old=e->origin;
@@ -600,8 +670,8 @@ void World::prepareEngagements() {
                     } else for(const auto* dispenser:activeDispensers)for(const auto& decoy:dispenser->decoys())if(decoy.id==observation.id) {
                         const double age=std::max(0.,simTime_-decoy.launchTimeS);
                         const auto rate=directionRate(relative,delta(observation.velocity,physicalVelocity));
-                        appendThermalFlare(thermalScene,*thermalScenePolicy,sample.direction,rate,range,age,index);
-                        if(dualThermal)appendThermalFlare(secondThermalScene,*receiverEnvelope->secondBandScene,sample.direction,rate,range,age,index);
+                        appendThermalFlare(thermalScene,*thermalScenePolicy,decoy,sample.direction,rate,range,age,index);
+                        if(dualThermal)appendThermalFlare(secondThermalScene,*receiverEnvelope->secondBandScene,decoy,sample.direction,rate,range,age,index);
                     }
                 }
                 if(radioReceiver&&sample.scene) {
@@ -772,8 +842,10 @@ void World::prepareEngagements() {
             const auto geo=terminal({d.position.x,d.position.y,d.position.z});
             const double sl=std::sin(geo.latitudeRad),cl=std::cos(geo.latitudeRad);
             const double so=std::sin(geo.longitudeRad),co=std::cos(geo.longitudeRad);
+            const double rho=ms::countermeasure::isaAirDensityKgM3(
+                geo.heightM,environment_.temperatureSeaLevelK,environment_.pressureSeaLevelPa);
             return ms::countermeasure::Motion{{-cl*co,-cl*so,-sl},
-                {-north*sl*co-east*so,-north*sl*so+east*co,north*cl}};
+                {-north*sl*co-east*so,-north*sl*so+east*co,north*cl},rho};
         });
         decoyTrajectories_.insert(decoyTrajectories_.end(),trajectories.begin(),trajectories.end());
     }
@@ -1615,8 +1687,8 @@ void World::evaluateOnRailSeekerV1(const Entry& launcher,std::uint16_t store,Ent
         if(physicalThermal) {
             const double age=std::max(0.,simTime_-decoy.launchTimeS);
             const auto rate=directionRate(relative,delta(V{decoy.velocity.x,decoy.velocity.y,decoy.velocity.z},frame.velocity));
-            appendThermalFlare(thermalScene,*thermalScenePolicy,ray,rate,range,age,frame.samples.size());
-            if(dualThermal)appendThermalFlare(secondThermalScene,*receiverEnvelope->secondBandScene,ray,rate,range,age,frame.samples.size());
+            appendThermalFlare(thermalScene,*thermalScenePolicy,decoy,ray,rate,range,age,frame.samples.size());
+            if(dualThermal)appendThermalFlare(secondThermalScene,*receiverEnvelope->secondBandScene,decoy,ray,rate,range,age,frame.samples.size());
         }
         // Cartridge flame geometry/signatures are not invented. An absent
         // extent is unavailable imagery, never a semantic flare discriminator.

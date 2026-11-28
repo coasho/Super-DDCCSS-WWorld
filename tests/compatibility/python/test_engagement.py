@@ -64,7 +64,7 @@ class EngagementTest(unittest.TestCase):
             with self.assertRaises(fsim.Error):
                 world.dispense(carrier, "flare")
             self.assertEqual(world.countermeasures(carrier).flare, before.flare)
-            world.step(121)
+            world.step(561)
             self.assertEqual(world.decoys(), [])
 
     def test_unknown_target_has_no_launch_zone(self):
@@ -116,7 +116,7 @@ class EngagementTest(unittest.TestCase):
             carrier.remove()
             world.step()
             self.assertEqual(world.decoys()[0].id, released)
-            world.step(81)
+            world.step(85)
             self.assertEqual(world.decoys(), [])
 
     def test_agent_handle_cannot_read_engagement_truth(self):

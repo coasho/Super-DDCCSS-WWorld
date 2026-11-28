@@ -2,8 +2,16 @@
   "id": "an-ale-24",
   "designation": "AN/ALE-24",
   "family": "countermeasures",
-  "summary": "chaff dispenser",
-  "parameters": {},
+  "summary": "Heavy bomber bulk chaff dispenser (8 systems on B-52H totaling ~1,125 chaff bundles)",
+  "parameters": {
+    "chaff_count": { "value": 140, "unit": "1", "uncertainty": 2, "basis": "derived", "source": "wp-b52h", "note": "1,125 chaff bundles divided across 8 installed AN/ALE-24 dispensers on B-52H (~140 per unit)" },
+    "flare_count": { "value": 0, "unit": "1", "uncertainty": 0, "basis": "published", "source": "wp-b52h" },
+    "min_interval_s": { "value": 0.30, "unit": "s", "uncertainty": 0.1, "basis": "assumed", "note": "Corridor-seeding chaff bundle release cadence" },
+    "chaff_life_s": { "value": 36.0, "unit": "s", "uncertainty": 10.0, "basis": "assumed", "note": "Heavy bomber chaff bundle cloud persistence" },
+    "chaff_bloom_time_s": { "value": 2.2, "unit": "s", "uncertainty": 0.6, "basis": "assumed", "note": "Large chaff bundle wake dispersal constant" },
+    "chaff_bloom_radius_m": { "value": 20.0, "unit": "m", "uncertainty": 6.0, "basis": "assumed", "note": "Large corridor chaff cloud radius" },
+    "chaff_peak_rcs_m2": { "value": 45.0, "unit": "m^2", "uncertainty": 15.0, "basis": "assumed", "note": "Heavy bomber chaff bundle broad-band peak RCS" }
+  },
   "sources": {
     "wp-b52h": {
       "title": "Boeing B-52 Stratofortress",

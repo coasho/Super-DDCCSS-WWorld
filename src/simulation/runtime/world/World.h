@@ -1196,6 +1196,15 @@ private:
     std::vector<ms::Emission> emissions_; ///< what radiates this step: every vehicle's radars, jammers and datalink carriers
     std::vector<sim::VehicleState> c2EmissionStates_; ///< synthetic carrier states for C2 nodes emitting datalink traffic
     std::vector<ms::Decoy> activeFlares_; ///< active pyrotechnic flares visible to optical/IR sensors this step
+    /// Active radar chaff dipole cloud exposed to airborne AMTI radars this step.
+    struct ActiveChaff {
+        std::uint32_t id = 0;
+        ms::countermeasure::Decoy decoy;
+        double ageS = 0.0;
+        double extentRmsM = 1.0;
+        sim::VehicleState state{};
+    };
+    std::vector<ActiveChaff> activeChaff_;
     /// Free-flying ballistic gun projectile (MS-9c / SIM-M10).
     struct GunProjectile {
         std::uint32_t id = 0;

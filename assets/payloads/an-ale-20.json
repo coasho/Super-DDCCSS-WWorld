@@ -2,8 +2,17 @@
   "id": "an-ale-20",
   "designation": "AN/ALE-20",
   "family": "countermeasures",
-  "summary": "infrared flare dispenser",
-  "parameters": {},
+  "summary": "Heavy bomber infrared flare dispenser (12 systems on B-52H totaling 192 expendables)",
+  "parameters": {
+    "chaff_count": { "value": 0, "unit": "1", "uncertainty": 0, "basis": "published", "source": "wp-b52h" },
+    "flare_count": { "value": 16, "unit": "1", "uncertainty": 0, "basis": "derived", "source": "wp-b52h", "note": "192 total expendables divided across 12 installed AN/ALE-20 dispensers on B-52H" },
+    "min_interval_s": { "value": 0.35, "unit": "s", "uncertainty": 0.1, "basis": "assumed", "note": "Bomber IR flare salvo cadence" },
+    "flare_life_s": { "value": 5.0, "unit": "s", "uncertainty": 0.8, "basis": "assumed", "note": "Heavy bomber large-caliber IR flare burn duration" },
+    "flare_mass_kg": { "value": 0.62, "unit": "kg", "uncertainty": 0.1, "basis": "assumed", "note": "Large-caliber bomber flare cartridge mass" },
+    "flare_drag_area_m2": { "value": 0.0085, "unit": "m^2", "uncertainty": 0.002, "basis": "assumed", "note": "Mean tumbling Cd*A for burning heavy bomber flare with base bleed" },
+    "flare_peak_intensity_w_sr": { "value": 9500, "unit": "W/sr", "uncertainty": 2500, "basis": "assumed", "note": "High MWIR radiant output to mask 8-engine bomber signature" },
+    "flare_core_radius_m": { "value": 0.21, "unit": "m", "uncertainty": 0.05, "basis": "assumed", "note": "Heavy pyrotechnic flame core radius consistent with 9500 W/sr MWIR" }
+  },
   "sources": {
     "wp-b52h": {
       "title": "Boeing B-52 Stratofortress",

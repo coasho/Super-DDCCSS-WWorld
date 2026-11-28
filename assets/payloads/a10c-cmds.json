@@ -2,8 +2,19 @@
   "id": "a10c-cmds",
   "designation": "A-10C chaff and flare dispensers (model not named)",
   "family": "countermeasures",
-  "summary": "chaff and flare cartridge dispensers. The source names no model.",
-  "parameters": {},
+  "summary": "16-bucket wingtip and gear-pod chaff and flare dispensers (RR-170A/AL chaff and M206 IR flares)",
+  "parameters": {
+    "chaff_count": { "value": 240, "unit": "1", "uncertainty": 30, "basis": "assumed", "note": "8 standard 30-round AN/ALE-40/47 buckets loaded with RR-170A/AL chaff" },
+    "flare_count": { "value": 120, "unit": "1", "uncertainty": 30, "basis": "assumed", "note": "8 buckets loaded with M206/MJU-7 IR flares for low-altitude MANPADS defense" },
+    "min_interval_s": { "value": 0.25, "unit": "s", "uncertainty": 0.08, "basis": "assumed", "note": "Rapid low-altitude salvo cadence" },
+    "flare_life_s": { "value": 3.8, "unit": "s", "uncertainty": 0.5, "basis": "assumed", "note": "M206 compact 1x1x8 in MTV flare nominal burn duration" },
+    "flare_mass_kg": { "value": 0.21, "unit": "kg", "uncertainty": 0.03, "basis": "assumed", "note": "M206 MTV pellet mass at ejection" },
+    "flare_drag_area_m2": { "value": 0.0038, "unit": "m^2", "uncertainty": 0.001, "basis": "assumed", "note": "Mean tumbling Cd*A for 1x1x8 in burning M206 cartridge with base bleed" },
+    "flare_core_radius_m": { "value": 0.15, "unit": "m", "uncertainty": 0.04, "basis": "assumed", "note": "M206 flame core radius consistent with 4200 W/sr MWIR at 2050 K" },
+    "flare_peak_intensity_w_sr": { "value": 4200, "unit": "W/sr", "uncertainty": 1000, "basis": "assumed", "note": "M206 MWIR peak radiant intensity" },
+    "chaff_life_s": { "value": 28.0, "unit": "s", "uncertainty": 8.0, "basis": "assumed", "note": "RR-170A/AL dipole cloud persistence" },
+    "chaff_peak_rcs_m2": { "value": 18.0, "unit": "m^2", "uncertainty": 6.0, "basis": "assumed", "note": "RR-170A/AL X-band peak RCS" }
+  },
   "sources": {
     "wp-a10c": {
       "title": "Fairchild Republic A-10 Thunderbolt II",

@@ -2,8 +2,17 @@
   "id": "f22a-flare-bays",
   "designation": "F-22A flare dispensers (model not named)",
   "family": "countermeasures",
-  "summary": "a small countermeasures bay for flares behind each side weapons bay. The source names no model.",
-  "parameters": {},
+  "summary": "Internal stealth countermeasures bay for high-output IR flares behind each side weapons bay",
+  "parameters": {
+    "chaff_count": { "value": 0, "unit": "1", "uncertainty": 0, "basis": "assumed", "note": "Internal stealth bays carry IR flares only" },
+    "flare_count": { "value": 15, "unit": "1", "uncertainty": 5, "basis": "assumed", "note": "15 MJU-39/40-class kinematic/MTV flares per side bay (30 total across 2 bays)" },
+    "min_interval_s": { "value": 0.25, "unit": "s", "uncertainty": 0.08, "basis": "assumed", "note": "High-rate stealth bay release cadence" },
+    "flare_life_s": { "value": 4.5, "unit": "s", "uncertainty": 0.6, "basis": "assumed", "note": "High-output MJU-39/40-class flare burn duration" },
+    "flare_mass_kg": { "value": 0.42, "unit": "kg", "uncertainty": 0.06, "basis": "assumed", "note": "Large-format IR decoy cartridge mass" },
+    "flare_peak_intensity_w_sr": { "value": 8000, "unit": "W/sr", "uncertainty": 2000, "basis": "assumed", "note": "High-output MWIR radiant intensity for twin-F119 afterburner masking" },
+    "flare_temperature_k": { "value": 2220, "unit": "K", "uncertainty": 150, "basis": "assumed", "note": "High-energy pyrotechnic flame temperature" },
+    "flare_eject_speed_m_s": { "value": 28.0, "unit": "m/s", "uncertainty": 5.0, "basis": "assumed", "note": "High-impulse ejection clearing internal stealth bay doors" }
+  },
   "sources": {
     "wp-f22a": {
       "title": "Lockheed Martin F-22 Raptor",

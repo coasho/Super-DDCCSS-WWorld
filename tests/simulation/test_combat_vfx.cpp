@@ -821,3 +821,169 @@ TEST_CASE("VIS-M13 live published 1x real-time radar and AIM-120C intercept show
     }
     std::cout << "[VIS-M13 live-radar] finished live showcase (" << durationS << " s)\n" << std::flush;
 }
+
+TEST_CASE("Countermeasure payload cards drive per-aircraft inventories and airborne AMTI chaff detection",
+          "[combat_vfx][countermeasure]") {
+    // 1. Per-aircraft card-driven magazine counts across distinct real dispenser systems.
+    {
+        session::World world(vfxWorldOptions("cm-card-inventories", 20261128u));
+        auto spawn = [&](const char* name, const char* type, double lonOffsetDeg, double speedMs) {
+            session::VehicleSpec spec;
+            spec.name = name;
+            spec.type = type;
+            spec.initial.latitudeDeg = 37.65;
+            spec.initial.longitudeDeg = -122.42 + lonOffsetDeg;
+            spec.initial.altitudeMslM = 4000.0;
+            spec.initial.headingDeg = 90.0;
+            spec.initial.airspeedTrueMs = speedMs;
+            const std::uint32_t id = world.createVehicle(spec);
+            REQUIRE(id != 0u);
+            return id;
+        };
+
+        const std::uint32_t f16 = spawn("viper", "jsbsim:f16c", 0.00, 230.0);
+        const std::uint32_t f15 = spawn("eagle", "jsbsim:f15c", 0.05, 240.0);
+        const std::uint32_t a10 = spawn("hog", "jsbsim:a10c", 0.10, 145.0);
+        const std::uint32_t f22 = spawn("raptor", "jsbsim:f22a", 0.15, 250.0);
+        const std::uint32_t b52 = spawn("buff", "jsbsim:b52h", 0.20, 185.0);
+
+        const auto cm16 = world.countermeasures(f16);
+        const auto cm15 = world.countermeasures(f15);
+        const auto cm10 = world.countermeasures(a10);
+        const auto cm22 = world.countermeasures(f22);
+        const auto cm52 = world.countermeasures(b52);
+
+        CHECK(cm16.chaff == 30u);
+        CHECK(cm16.flare == 15u);
+        CHECK(cm15.chaff == 60u);
+        CHECK(cm15.flare == 30u);
+        CHECK(cm10.chaff == 240u);
+        CHECK(cm10.flare == 120u);
+        CHECK(cm22.chaff == 0u);
+        CHECK(cm22.flare == 30u);
+        CHECK(cm52.chaff == 1120u);
+        CHECK(cm52.flare == 192u);
+
+        // F-22A internal stealth bays carry flares only: chaff release must reject cleanly without consuming flares.
+        const std::uint16_t f22Cm = findPayloadByFamily(world, f22, ms::Family::Countermeasures);
+        powerPayloadToOperate(world, f22, f22Cm);
+        CHECK(world.dispense(f22, false) == ms::Reason::Expended);
+        CHECK(world.dispense(f22, true) == ms::Reason::None);
+        CHECK(world.countermeasures(f22).flare == 29u);
+    }
+
+    // 2. Airborne AN/APG-68 AMTI radar physically detects chaff dipole clouds dispensed by a target aircraft,
+    //    while VFX publishes real bloomed cloud radii (>4 m) and calibrated 3-phase flare radiometry.
+    {
+        session::World world(vfxWorldOptions("cm-amti-chaff", 20261129u));
+        constexpr double kDeg = 3.14159265358979323846 / 180.0;
+        const double lat0 = 37.65;
+        const double lon0 = -122.42;
+        const double cosLat = std::cos(lat0 * kDeg);
+
+        session::VehicleSpec blueSpec;
+        blueSpec.name = "viper-radar";
+        blueSpec.type = "jsbsim:f16c";
+        blueSpec.initial.latitudeDeg = lat0;
+        blueSpec.initial.longitudeDeg = lon0;
+        blueSpec.initial.altitudeMslM = 5000.0;
+        blueSpec.initial.headingDeg = 90.0;
+        blueSpec.initial.airspeedTrueMs = 240.0;
+
+        session::VehicleSpec redSpec = blueSpec;
+        redSpec.name = "bandit-chaff";
+        // 8 km dead ahead along East, flying West head-on so stationary chaff has strong Doppler closing rate (~240 m/s).
+        redSpec.initial.longitudeDeg = lon0 + 8000.0 / (111320.0 * cosLat);
+        redSpec.initial.headingDeg = 270.0;
+        redSpec.initial.airspeedTrueMs = 230.0;
+
+        const std::uint32_t blue = world.createVehicle(blueSpec);
+        const std::uint32_t red = world.createVehicle(redSpec);
+        REQUIRE(blue != 0u);
+        REQUIRE(red != 0u);
+
+        control::HsaCommand blueHsa;
+        blueHsa.headingRad = 90.0 * kDeg;
+        blueHsa.altitudeM = 5000.0;
+        blueHsa.speed = 240.0;
+        (void)world.submit(blue, blueHsa);
+
+        control::HsaCommand redHsa;
+        redHsa.headingRad = 270.0 * kDeg;
+        redHsa.altitudeM = 5000.0;
+        redHsa.speed = 230.0;
+        (void)world.submit(red, redHsa);
+
+        const std::uint16_t radarIdx = findPayloadByFamily(world, blue, ms::Family::AirRadar);
+        const std::uint16_t cmIdx = findPayloadByFamily(world, red, ms::Family::Countermeasures);
+        (void)world.submit(blue, ms::StateCommand{radarIdx, ms::PayloadState::Operate});
+        (void)world.submit(red, ms::StateCommand{cmIdx, ms::PayloadState::Operate});
+
+        bool radarStarted = false;
+        bool dispensedChaff = false;
+        bool dispensedFlare = false;
+        bool sawChaffRadarDetection = false;
+        float maxChaffBloomM = 0.0f;
+        float maxChaffRcsM2 = 0.0f;
+        float maxFlareIntensity = 0.0f;
+        float maxFlareCoreM = 0.0f;
+        int cmOperatingStep = -1;
+
+        for (int step = 0; step < 320; ++step) {
+            world.step(1);
+            const auto* bHost = world.missionSystems(blue);
+            const auto* rHost = world.missionSystems(red);
+            if (!radarStarted && bHost && bHost->payloads()[radarIdx].state == ms::PayloadState::Operate) {
+                ms::AmtiCommand ac;
+                ac.payload = radarIdx;
+                ac.mode = ms::AmtiMode::TrackWhileScan;
+                ac.task = ms::AmtiTask::Volume;
+                ac.rangeScaleM = 30000.0;
+                ac.azimuthHalfWidthRad = 20.0 * kDeg;
+                ac.bars = 2;
+                if (world.submit(blue, ac).accepted()) radarStarted = true;
+            }
+            if (cmOperatingStep < 0 && rHost && rHost->payloads()[cmIdx].state == ms::PayloadState::Operate) {
+                cmOperatingStep = step;
+            }
+            if (radarStarted && cmOperatingStep >= 0) {
+                if (!dispensedChaff) {
+                    REQUIRE(world.dispense(red, false) == ms::Reason::None);
+                    dispensedChaff = true;
+                } else if (!dispensedFlare && step >= cmOperatingStep + 20) {
+                    REQUIRE(world.dispense(red, true) == ms::Reason::None);
+                    dispensedFlare = true;
+                } else if (dispensedChaff && (step - cmOperatingStep) == 45) {
+                    (void)world.dispense(red, false);
+                }
+            }
+            if (radarStarted) {
+                for (const auto& det : world.amtiDetections(blue, radarIdx)) {
+                    if (det.truth >= ms::kDecoyIds) {
+                        sawChaffRadarDetection = true;
+                    }
+                }
+            }
+            const auto vfx = world.combatVfxFrame();
+            for (const auto& d : vfx.decoys) {
+                if (d.kind == static_cast<std::uint8_t>(ipc::DecoyKindV1::Chaff)) {
+                    maxChaffBloomM = std::max(maxChaffBloomM, d.bloomRadiusM);
+                    maxChaffRcsM2 = std::max(maxChaffRcsM2, d.intensityOrSigma);
+                } else {
+                    maxFlareIntensity = std::max(maxFlareIntensity, d.intensityOrSigma);
+                    maxFlareCoreM = std::max(maxFlareCoreM, d.bloomRadiusM);
+                }
+            }
+        }
+
+        CHECK(radarStarted);
+        CHECK(dispensedChaff);
+        CHECK(dispensedFlare);
+        CHECK(sawChaffRadarDetection);
+        CHECK(maxChaffBloomM > 6.0f);
+        CHECK(maxChaffRcsM2 > 12.0f);
+        CHECK(maxFlareIntensity > 5000.0f);
+        CHECK(maxFlareCoreM > 0.10f);
+        CHECK(maxFlareCoreM < 0.25f);
+    }
+}

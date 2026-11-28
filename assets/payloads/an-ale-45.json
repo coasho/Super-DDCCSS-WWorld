@@ -2,9 +2,17 @@
   "id": "an-ale-45",
   "designation": "AN/ALE-45",
   "family": "countermeasures",
-  "summary": "chaff and flare dispenser, part of TEWS",
+  "summary": "chaff and flare dispenser, part of TEWS (4 dispensers carrying RR-170A/AL chaff and MJU-7/B flares)",
   "maker": "Marconi (now Tracor)",
-  "parameters": {},
+  "parameters": {
+    "chaff_count": { "value": 60, "unit": "1", "uncertainty": 0, "basis": "assumed", "note": "Two 30-round AN/ALE-45 magazines loaded with RR-170A/AL chaff cartridges" },
+    "flare_count": { "value": 30, "unit": "1", "uncertainty": 0, "basis": "assumed", "note": "Two 15-round double-width magazines loaded with MJU-7/B MTV flares" },
+    "min_interval_s": { "value": 0.35, "unit": "s", "uncertainty": 0.1, "basis": "assumed", "note": "TEWS dispenser sequencer minimum interval" },
+    "flare_life_s": { "value": 4.2, "unit": "s", "uncertainty": 0.5, "basis": "assumed", "note": "MJU-7/B nominal burn duration" },
+    "flare_peak_intensity_w_sr": { "value": 6500, "unit": "W/sr", "uncertainty": 1500, "basis": "assumed", "note": "MJU-7/B MWIR peak radiant intensity" },
+    "chaff_life_s": { "value": 28.0, "unit": "s", "uncertainty": 8.0, "basis": "assumed", "note": "RR-170A/AL dipole cloud persistence" },
+    "chaff_peak_rcs_m2": { "value": 18.0, "unit": "m^2", "uncertainty": 6.0, "basis": "assumed", "note": "RR-170A/AL X-band peak RCS" }
+  },
   "sources": {
     "wp-f15c": {
       "title": "McDonnell Douglas F-15 Eagle",

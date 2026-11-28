@@ -85,7 +85,7 @@ void probeThermal(Observation& o,const SeekerFrameV2& f,const ThermalSceneFrameV
     if(!o.countermeasure||o.channelProof[channel]||!actual||actual->timeS!=f.timeS)return;
     std::string error;if(!configured){REQUIRE(receiver.configure(policy,error));configured=true;}
     auto before=receiver;
-    const auto full=receiver.expose(scene,actual->pointing,seed,imaging);REQUIRE(full.valid);
+    const auto full=receiver.exposeFastBackgroundV1(scene,actual->pointing,seed,imaging);REQUIRE(full.valid);
     const auto replayError=maximumDifference(full.expectedElectrons,actual->expectedElectrons);
     CHECK(replayError==0); // Exact history, policy and actual pointing, before clipping/noise.
     auto without=scene;unsigned matched=0;double age=0,range=0;
@@ -97,7 +97,7 @@ void probeThermal(Observation& o,const SeekerFrameV2& f,const ThermalSceneFrameV
     }
     if(!matched)return;
     REQUIRE(matched==1);
-    const auto control=before.expose(without,actual->pointing,seed,imaging);REQUIRE(control.valid);
+    const auto control=before.exposeFastBackgroundV1(without,actual->pointing,seed,imaging);REQUIRE(control.valid);
     double positive=0;unsigned saturated=0;
     for(std::size_t i=0;i<full.expectedElectrons.size();++i) {
         positive+=std::max(0.,full.expectedElectrons[i]-control.expectedElectrons[i]);

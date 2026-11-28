@@ -2,8 +2,19 @@
   "id": "aso-2v",
   "designation": "ASO-2V",
   "family": "countermeasures",
-  "summary": "chaff and flare dispenser",
-  "parameters": {},
+  "summary": "Russian 32-round cassette chaff and PPI-26 IR flare dispenser (up to 256 rounds on Su-25)",
+  "parameters": {
+    "chaff_count": { "value": 128, "unit": "1", "uncertainty": 16, "basis": "assumed", "note": "4x32-round ASO-2V cassettes loaded with PPR-26 dipole chaff" },
+    "flare_count": { "value": 128, "unit": "1", "uncertainty": 16, "basis": "assumed", "note": "4x32-round ASO-2V cassettes loaded with PPI-26 26 mm IR flares" },
+    "min_interval_s": { "value": 0.25, "unit": "s", "uncertainty": 0.08, "basis": "assumed", "note": "ASO-2V rapid defensive salvo interval" },
+    "flare_life_s": { "value": 3.8, "unit": "s", "uncertainty": 0.5, "basis": "assumed", "note": "PPI-26 26 mm pyrotechnic IR flare burn duration" },
+    "flare_mass_kg": { "value": 0.22, "unit": "kg", "uncertainty": 0.03, "basis": "assumed", "note": "PPI-26 cartridge pellet mass" },
+    "flare_drag_area_m2": { "value": 0.0040, "unit": "m^2", "uncertainty": 0.001, "basis": "assumed", "note": "Mean tumbling Cd*A for 26 mm burning cylindrical PPI-26 grain with base bleed" },
+    "flare_core_radius_m": { "value": 0.16, "unit": "m", "uncertainty": 0.04, "basis": "assumed", "note": "PPI-26 flame core radius consistent with 4500 W/sr MWIR at 2050 K" },
+    "flare_peak_intensity_w_sr": { "value": 4500, "unit": "W/sr", "uncertainty": 1100, "basis": "assumed", "note": "PPI-26 MWIR peak radiant intensity" },
+    "chaff_life_s": { "value": 24.0, "unit": "s", "uncertainty": 7.0, "basis": "assumed", "note": "PPR-26 dipole cloud persistence" },
+    "chaff_peak_rcs_m2": { "value": 14.0, "unit": "m^2", "uncertainty": 5.0, "basis": "assumed", "note": "PPR-26 26 mm chaff cartridge X-band peak RCS" }
+  },
   "sources": {
     "wp-su25": {
       "title": "Sukhoi Su-25",
