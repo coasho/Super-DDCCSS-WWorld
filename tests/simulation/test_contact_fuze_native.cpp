@@ -194,7 +194,7 @@ struct Fixture {
                 r[2]*delta.x+r[5]*delta.y+r[8]*delta.z};
     }
 
-    void placeCrossing(bool nearMiss=false, bool detached=false, bool requireShift=false) {
+    void placeCrossing(bool nearMiss=false, bool detached=false, bool requireShift=false, bool parkOutsideGimbal=false) {
         sim::InitialConditions targetInitial;
         targetInitial.altitudeMslM=6000; targetInitial.airspeedTrueMs=250; targetInitial.headingDeg=90;
         if (!victim) victim=aircraft(world,"physical-contact-victim",targetInitial);
@@ -211,17 +211,19 @@ struct Fixture {
         auto initial=targetInitial;
         initial.fuelFraction=energy.fuelKg/energy.fuelCapacityKg;
         initial.enginesRunning=!jettisoned;
+        initial.headingDeg=135;
         initial.velocityNedMs[0]=0; initial.velocityNedMs[1]=250; initial.velocityNedMs[2]=40;
         require(world.resetVehicle(missile,&initial),"native mechanism reset failed");
         auto contactPoint=wingPoint;
-        if (nearMiss) {
+        if (nearMiss || parkOutsideGimbal) {
             double maximumY=0;
             for (const auto& panel : geometry.panels) {
                 if (panel.surface) for(const auto corner:panel.corners) maximumY=std::max(maximumY,corner.y);
                 else maximumY=std::max(maximumY,panel.centre.y+panel.half.y);
             }
             for (const auto& component : geometry.components) maximumY=std::max(maximumY,component.centre.y+component.half.y);
-            contactPoint.y=maximumY+1;
+            contactPoint.y=maximumY+(parkOutsideGimbal?15:1);
+            if (parkOutsideGimbal) contactPoint.x=25;
         }
         contactPoint.z=-.1;
         const auto target=*world.vehicleState(victim), own=*world.vehicleState(missile);
@@ -234,6 +236,7 @@ struct Fixture {
         const auto desiredNose=targetOrigin+rotate(target,contactPoint);
         const auto desiredCg=desiredNose-rotate(own,noseFromOrigin()-damage::V3{ownCg[0],ownCg[1],ownCg[2]});
         auto exact=atEcef(desiredCg);
+        exact.headingDeg=initial.headingDeg;
         exact.fuelFraction=initial.fuelFraction; exact.enginesRunning=initial.enginesRunning;
         require(world.resetVehicle(missile,&exact),"exact authored nose placement failed");
         const auto placed=relativeNose();
@@ -245,8 +248,8 @@ struct Fixture {
         const auto& state=*world.vehicleState(missile);
         const auto toTarget=position(target)-position(state);
         const auto forward=rotate(state,{1,0,0});
-        require(damage::dot(toTarget,forward)/damage::length(toTarget)<std::cos(45*kDeg),
-                "physical victim must be outside unchanged infrared seeker gimbal");
+        require(damage::dot(toTarget,forward)/damage::length(toTarget)<std::cos(90*kDeg),
+                "physical victim must be outside infrared seeker gimbal");
     }
 
     void assertNoDetonation() {
@@ -546,7 +549,7 @@ void noseContactBoundaryMaterialCoverage() {
 
 void olderFieldNoseBoundaryMaterialCoverage() {
     Fixture fixture;fixture.ageUntilArmed();
-    fixture.placeCrossing(true); // Safely park beyond all material during actual source-history capture.
+    fixture.placeCrossing(true,false,false,true); // Safely park ahead and beyond all material and HOBS gimbal during source-history capture.
     ms::WeaponLaunch release;release.type="jsbsim:aim120c";release.offsetBodyM[1]=30;
     const auto older=fixture.world.launchWeapon(fixture.victim,release);
     require(older&&older!=fixture.missile,"older field requires a distinct actual native source");

@@ -67,7 +67,7 @@ sections = [
   { le = [1.55, 0.2729, 0.2729], chord = 0.55 },
 ]
 controls = [
-  { name = "wing upper", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.5, limits = [-20, 20] },
+  { name = "wing upper", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.5, limits = [-24, 24] },
 ]
 
 [[surface]]
@@ -80,7 +80,7 @@ sections = [
   { le = [1.55, 0.2729, -0.2729], chord = 0.55 },
 ]
 controls = [
-  { name = "wing lower", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.5, limits = [-20, 20] },
+  { name = "wing lower", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.5, limits = [-24, 24] },
 ]
 
 # The tail fins: fixed, with ailerons along their trailing edges; root chord 0.48 m, tip 0.2 m, 0.235 m out from the body (assumed from photographs)
@@ -110,7 +110,7 @@ controls = [
   { name = "aileron lower", channel = "aileron", span = [0.05, 0.95], chord_fraction = 0.3, limits = [-20, 20] },
 ]
 
-# The rocket motor: single mode (the card); aluminised assumed from its trail in photographs. Its nozzle in the boattail, its exit 65 % of the base and its burn's phases assumed
+# The rocket motor: boost-sustain solid; aluminised assumed from its trail in photographs. Its nozzle in the boattail, its exit 65 % of the base and its burn's phases assumed
 # (none published): only what a replay shows the plume with until a flight model burns it.
 [motor]
 exit = [4.08, 0.0, 0.0]
@@ -119,12 +119,15 @@ throat_diameter = 0.0538
 cone_length = 0.1316
 smoke = "aluminised"
 [[motor.phase]]
-duration_s = 6
-thrust_kn = 18
+duration_s = 3.5
+thrust_kn = 42
+[[motor.phase]]
+duration_s = 6.5
+thrust_kn = 12
 
 [mass]
 empty = 253                 # kg, the card, motor full
-empty_cg = [2.04, 0.0, 0.0]  # assumed: half way along
+empty_cg = [1.8768, 0.0, 0.0]  # assumed: 46 % along
 gyration_reference = "body-length-v1"
 gyration = [0.0197, 0.289, 0.289]  # radii of gyration over length - assumed (a slender rod's: L/sqrt(12))
 
@@ -137,7 +140,7 @@ span = 0.772
 area = 0.041547562843725017
 span = 0.23000000000000001
 chord = 0.23000000000000001
-aero_point = [2.04, 0.0, 0.0]
+aero_point = [1.8768, 0.0, 0.0]
 
 # Shared source-derived fixed resolution; no equipment-specific timestep.
 [integration]

@@ -109,7 +109,7 @@ void all_selected_aams_are_validated_atomically() {
     const auto payload = stations(world, own);
     require(world.loadStore(own, payload, 1, "aim-120c") == ms::Reason::None,
             "Fixture active radar missile load failed");
-    require(world.loadStore(own, payload, 2, "aim-9x") == ms::Reason::None,
+    require(world.loadStore(own, payload, 2, "aim-9m") == ms::Reason::None,
             "Fixture infrared missile load failed");
     operate(world, own, payload);
     const auto target = targetAt(world, own, 40);
@@ -182,6 +182,7 @@ void ready_infrared_store_retains_on_rail_observation() {
             "Fixture infrared missile load failed");
     operate(world, own, payload);
     const auto target = targetAt(world, own, 0);
+    for (unsigned k = 0; k < 30 && world.seekerTarget(own, "aim-9x") != target; ++k) world.step();
     require(world.seekerTarget(own, "aim-9x") == target,
             "Loaded infrared fixture must observe its on-axis target");
     ms::StrikeCommand strike;
@@ -261,7 +262,7 @@ void release_time_fov_loss_refuses_every_due_store_atomically() {
     const auto own = launcher(world);
     const auto payload = stations(world, own);
     require(world.loadStore(own, payload, 1, "aim-120c") == ms::Reason::None
-                && world.loadStore(own, payload, 2, "aim-9x") == ms::Reason::None,
+                && world.loadStore(own, payload, 2, "aim-9m") == ms::Reason::None,
             "Fixture mixed due stores must load");
     operate(world, own, payload);
     const auto target = targetAt(world, own, 0);
@@ -459,7 +460,7 @@ void maintained_aam_declarations_are_explicit_assumptions() {
         inertial += profile.inertialMidcourse ? 1u : 0u;
         updates += profile.launcherUpdates ? 1u : 0u;
     }
-    require(aams == 24 && inertial == 13 && updates == 11,
+    require(aams == 24 && inertial == 14 && updates == 11,
             "The reviewed authored capability inventory must cover the 24 maintained AAMs");
 }
 

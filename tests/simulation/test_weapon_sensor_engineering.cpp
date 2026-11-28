@@ -850,3 +850,42 @@ TEST_CASE("Engineering seed admission is atomic and unavailable angular rates ar
     CHECK(actual.track->localId==expected.track->localId);CHECK(actual.track->direction.y==expected.track->direction.y);
     CHECK(actual.track->directionRate.x==expected.track->directionRate.x);CHECK(actual.track->directionRate.y==expected.track->directionRate.y);
 }
+
+TEST_CASE("MeasuredPnGuidanceV2 coasts bearing-only LOS rate inside memory and caps/tapers midcourse loft", "[weapon-sensor-engineering][guidance-loft-coast]") {
+    Receiver r;auto spec=r.spec;spec.loftRad=.35;spec.loftAccelerationG=2.;
+    MeasuredPnGuidanceV2 guidance(spec);
+    auto f=scene(1.);f.velocity={400,0,0};
+    SeekerResultV2 mid;mid.valid=true;mid.midcourseEstimate=LauncherEstimateV2{{30000,0,0},{-250,0,0},1.};
+    // Level flight at long range (~46 s tgo) commands full loft bias above 1g.
+    const auto climb=guidance.updateMeasured(f,mid);
+    CHECK(climb.phase==WeaponPhase::Midcourse);
+    CHECK(climb.acceleration.z>9.80665+2.);
+    // Once flight-path pitch reaches loftRad, loft bias zeroes out cleanly.
+    f.velocity={400*std::cos(.36),0,400*std::sin(.36)};
+    const auto capped=guidance.updateMeasured(f,mid);
+    CHECK(capped.phase==WeaponPhase::Midcourse);
+    CHECK(capped.acceleration.z<climb.acceleration.z);
+    // Short time-to-go (< 6 s) tapers loft cleanly to zero before terminal dive.
+    f.velocity={400,0,0};mid.midcourseEstimate=LauncherEstimateV2{{2500,0,0},{-250,0,0},1.};
+    const auto terminal=guidance.updateMeasured(f,mid);
+    CHECK(terminal.phase==WeaponPhase::Midcourse);
+    CHECK(terminal.acceleration.z==Catch::Approx(9.80665).margin(1e-9));
+
+    // Bearing-only transient missed dwell within brief coast window retains decayed LOS-rate steering.
+    Receiver ir("aim-9x");
+    MeasuredPnGuidanceV2 irGuidance(ir.spec);
+    SeekerResultV2 missed;missed.valid=true;missed.tracking=false;
+    SeekerTrackV2 trk;trk.localId=1;trk.sampleTimeS=.98;trk.direction={1,0,0};trk.directionRate={0,.05,0};trk.rateAvailable=true;
+    missed.track=trk;
+    const auto coast=irGuidance.updateMeasured(f,missed);
+    CHECK(coast.phase==WeaponPhase::Lost);
+    CHECK(coast.acceleration.y>10.);
+    // Coast decays smoothly over the 0.18 s window and drops to 0 beyond it so stale rates do not pull past CPA.
+    auto stale=missed;stale.track->sampleTimeS=.75;
+    const auto staleOut=irGuidance.updateMeasured(f,stale);
+    CHECK(staleOut.acceleration.y==Catch::Approx(0.).margin(1e-12));
+    // Once memory expires (track cleared), steering drops cleanly to 1g gravity compensation.
+    missed.track.reset();
+    const auto expired=irGuidance.updateMeasured(f,missed);
+    CHECK(expired.acceleration.y==Catch::Approx(0.).margin(1e-12));
+}

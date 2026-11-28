@@ -4,7 +4,7 @@
 scheme = "single"
 colours = ["#c4c8cc"]
 radome = "#d8dadc"
-radome_x = 0.836
+radome_x = 1.368
 panel_lines = 0.0
 wear = 0.03
 gloss = 0.3

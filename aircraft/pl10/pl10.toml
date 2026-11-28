@@ -2,7 +2,7 @@
 # (tools/hangar/hangar/missiles.py), one rule for every missile: edit the table there and write it again.
 #
 # Frame: metres, x aft from the nose's tip, y right, z up from the body's axis. The card (assets/stores/pl-10.json)
-# holds the published figures: length 3 m, diameter 0.16 m, mass 89 kg; span 0.4 m (assumed from photographs (the card has none)), tip to tip across
+# holds the published figures: length 3 m, diameter 0.16 m, mass 89 kg; span 0.44 m (assumed from photographs (the card has none)), tip to tip across
 # opposite fins. Its surfaces fly in an X, 45 deg from the vertical, as it hangs on its launcher (assumed for all).
 # Assumed from photographs, the same way for every missile: the nose's shape and length, each surface's place,
 # chords and sweep, the motor's nozzle and burn, the CG. They only shape the picture until the aero stage runs.
@@ -42,15 +42,15 @@ stations = [
   { x = 3, w = 0.128, top = 0.064, bottom = -0.064, n = 2 },
 ]
 
-# The strakes: fixed; root chord 1.5 m, tip 1.4 m, 0.04 m out from the body (assumed from photographs)
+# The strakes: fixed; root chord 1.55 m, tip 1.45 m, 0.05 m out from the body (assumed from photographs)
 [[surface]]
 name = "strake upper"
 kind = "fin"
 mirror = true
 airfoil = "plate"
 sections = [
-  { le = [0.8, 0.0549, 0.0549], chord = 1.5 },
-  { le = [0.9, 0.0849, 0.0849], chord = 1.4 },
+  { le = [0.75, 0.0549, 0.0549], chord = 1.55 },
+  { le = [0.85, 0.0919, 0.0919], chord = 1.45 },
 ]
 
 [[surface]]
@@ -59,11 +59,11 @@ kind = "fin"
 mirror = true
 airfoil = "plate"
 sections = [
-  { le = [0.8, 0.0549, -0.0549], chord = 1.5 },
-  { le = [0.9, 0.0849, -0.0849], chord = 1.4 },
+  { le = [0.75, 0.0549, -0.0549], chord = 1.55 },
+  { le = [0.85, 0.0919, -0.0919], chord = 1.45 },
 ]
 
-# The tail fins: all-moving about their spindles; root chord 0.26 m, tip 0.12 m, 0.12 m out from the body, their tips across the card's span (assumed from photographs)
+# The tail fins: all-moving about their spindles; root chord 0.26 m, tip 0.12 m, 0.14 m out from the body, their tips across the card's span (assumed from photographs)
 [[surface]]
 name = "tail fin upper"
 kind = "fin"
@@ -71,10 +71,10 @@ mirror = true
 airfoil = "biconvex4"
 sections = [
   { le = [2.66, 0.0549, 0.0549], chord = 0.26 },
-  { le = [2.8, 0.1414, 0.1414], chord = 0.12 },
+  { le = [2.8, 0.1556, 0.1556], chord = 0.12 },
 ]
 controls = [
-  { name = "tail fin upper", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-20, 20] },
+  { name = "tail fin upper", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-30, 30] },
 ]
 
 [[surface]]
@@ -84,13 +84,13 @@ mirror = true
 airfoil = "biconvex4"
 sections = [
   { le = [2.66, 0.0549, -0.0549], chord = 0.26 },
-  { le = [2.8, 0.1414, -0.1414], chord = 0.12 },
+  { le = [2.8, 0.1556, -0.1556], chord = 0.12 },
 ]
 controls = [
-  { name = "tail fin lower", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-20, 20] },
+  { name = "tail fin lower", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-30, 30] },
 ]
 
-# The rocket motor: solid (the card); its smoke assumed. Its nozzle in the boattail, its exit 65 % of the base and its burn's phases assumed
+# The rocket motor: boost-sustain solid (the card); its smoke assumed. Its nozzle in the boattail, its exit 65 % of the base and its burn's phases assumed
 # (none published): only what a replay shows the plume with until a flight model burns it.
 [motor]
 exit = [3, 0.0, 0.0]
@@ -99,12 +99,15 @@ throat_diameter = 0.0374
 cone_length = 0.0915
 smoke = "reduced"
 [[motor.phase]]
-duration_s = 5
-thrust_kn = 12
+duration_s = 2.5
+thrust_kn = 14
+[[motor.phase]]
+duration_s = 3.5
+thrust_kn = 4.5
 
 [mass]
 empty = 89                 # kg, the card, motor full
-empty_cg = [1.5, 0.0, 0.0]  # assumed: half way along
+empty_cg = [1.59, 0.0, 0.0]  # assumed: 53 % along
 gyration_reference = "body-length-v1"
 gyration = [0.0187, 0.289, 0.289]  # radii of gyration over length - assumed (a slender rod's: L/sqrt(12))
 
@@ -116,7 +119,7 @@ length = 3
 area = 0.020106192982974676
 span = 0.16
 chord = 0.16
-aero_point = [1.5, 0.0, 0.0]
+aero_point = [1.59, 0.0, 0.0]
 
 # Shared source-derived fixed resolution; no equipment-specific timestep.
 [integration]

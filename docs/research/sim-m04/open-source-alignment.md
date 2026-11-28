@@ -22,7 +22,7 @@ This note records how SIM-M04's flyout-derived 5-D Dynamic Launch Zone (DLZ) and
    - Active-radar A-pole matches $|R_0 - V_c \cdot t_{\text{TOF}}(1 - R_{\text{act}}/R_0)|$ within `5 m` and satisfies $R_{\text{A-pole}} > R_{\text{F-pole}}$.
    - Passive IR missiles (`aim-9x`) explicitly output `NaN` for `aPoleM` (no active pitbull phase).
 3. **Propulsion-Class Scaling**:
-   - Ducted-ramjet sustained thrust (`meteor`: `R_ne / R_max = 57.1%`) strictly exceeds solid-rocket boost-coast (`aim-120c`: `44.2%`, `aim-120d`: `48.0%`) by `> 5%` at identical `12 km / M 1.2` head-on conditions.
+   - Ducted-ramjet sustained thrust (`meteor`: `R_ne / R_max = 62.4%`) and dual-pulse BVR boost-sustain (`pl-15`: `57.9%`) strictly exceed single-motor solid-rocket boost-coast (`aim-120c`: `48.1%`, `aim-120d`: `52.1%`) at identical `12 km / M 1.2` head-on conditions.
    - Reduced atmospheric density at high altitude strictly increases `R_max` over sea-level launches across all 24 AAMs.
 4. **Native 6-DOF Closed-Loop Consistency**:
    - A live `World` 6-DOF JSBSim `aim-120c` launch inside `R_ne` (`22 km` head-on, `10 km MSL`) detonates within `25 m` miss distance, confirming runtime alignment between the offline `.dlz-v1.json` envelope and active flight/guidance execution.
@@ -31,12 +31,9 @@ This note records how SIM-M04's flyout-derived 5-D Dynamic Launch Zone (DLZ) and
 
 Every `.dlz-v1.json` table explicitly sets `basis: "simulated"` and `equipment_calibrated: false`, recording full 64-hex SHA-256 digests of the store XML, store card, and serialized table. Full 24-missile figures live in [dlz-published-comparison.md](dlz-published-comparison.md) and [dlz-published-comparison.json](dlz-published-comparison.json).
 
-No aerodynamic drag, lift, or rocket-motor impulse parameters were tuned to force published numbers. Three physically transparent residual patterns emerge from the current uncalibrated store cards:
+Following the 2026-11-28 24-AAM aerodynamic, propulsion, and seeker engineering calibration (`basis: "assumed"` / `"derived"` / `"simulated"`, nonzero screening uncertainties, zero OEM hardware calibration claims), all 24 missiles meet their published peak-Mach bands (`0` outliers) and span physically consistent high-altitude kinematic reach without uniform `45 s / 110 s` battery-life truncation. Two physically transparent residual patterns remain:
 
-1. **Medium-Range Solid-Rocket BVR AAMs (`aim-120c`, `pl-12`, `mica-em`, `r-27r`)**: Align closely with public open-source ranges (`aim-120c` `99.0 km` vs `90 ± 15 km`, `+10.0%`; `pl-12` `+22.2%`; `mica-em` `+24.9%`).
-2. **Short-Range IR AAMs (`r-60m`, `pl-10`, `magic-2`, `pl-8`, `asraam`, `iris-t`)**: Kinematic flyouts at `12 km / M 1.2` exceed published tactical ranges (`+44%` to `+465%`) because:
-   - Published WVR ranges are often quoted at medium/low altitude and bounded by passive IR seeker lock-on range rather than pure kinematic glide, and
-   - Several uncalibrated IR store cards currently share a uniform `45 s` battery life (`lifeS`) rather than missile-specific short thermal-battery durations.
-3. **Ultra-Long-Range / Ramjet / Dual-Pulse AAMs (`r-37m`, `pl-15`, `meteor`, `r-77m`)**: High-altitude head-on flyouts fall `-36%` to `-75%` below upper-bound public brochures because authored card `lifeS` (`110 s` for `r-37m`/`pl-15`) and assumed solid/ramjet propellant total impulse cap maximum lofted glide duration before reaching `200–350 km`.
+1. **Medium- and Long-Range BVR AAMs (`r-77m`, `aim-120d`, `r-37m`, `pl-15`, `aim-120c`, `meteor`, `r-27er`, `r-27et`)**: High-altitude (`12 km / M 1.2`) un-evaded head-on kinematic flyouts span `+5.2%` (`r-77m` `199.9 km` vs `190 km`) to `+65.0%` (`meteor` `329.9 km` vs `200 km`), while immediate `7 g` break-turn `R_ne` sits in the realistic tactical band (`aim-120c` `66.0 km`, `aim-120d` `100.4 km`, `pl-15` `149.0 km`, `meteor` `205.8 km`, `r-37m` `318.8 km`). Positive `R_max` residuals reflect optimal high-altitude lofted aerodynamic glide to `M_min` against a non-maneuvering head-on target versus conservative mixed-altitude tactical brochures.
+2. **Short- and Medium-Range IR / SARH AAMs (`r-60m`, `pl-10`, `pl-8`, `asraam`, `iris-t`, `r-73`, `aim-9m`, `aim-9x`, `r-27t`, `super-530d`)**: High-altitude (`12 km / M 1.2`) kinematic glide still exceeds published tactical ranges (`+50.8%` to `+217.6%`, e.g., `r-60m` `25.4 km` vs `8 km`, `aim-9m` `52.8 km` vs `35 km`, `r-73` `60.2 km` vs `30 km`) because published WVR figures are typically quoted at low-to-medium altitude and are bounded in live engagements by passive IR seeker acquisition range (`acquire_m`) rather than pure ballistic/lofted glide.
 
 These residuals remain intentionally documented rather than concealed by curve fitting; any future store-card propulsion or battery-life refinement will automatically update the `.dlz-v1.json` tables and SHA-256 checksums via `fsim-dlz-generator`.

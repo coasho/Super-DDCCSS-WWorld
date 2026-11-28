@@ -34,10 +34,40 @@ weapon::Output MeasuredPnGuidanceV2::updateMeasured(const SeekerFrameV2& f,const
     if(r.timeToActiveS)out.timeToActiveS=*r.timeToActiveS;
     const auto speed=norm(f.velocity);if(!std::isfinite(speed))return {};
     const auto heading=unit(f.velocity);weapon::V3 steering{};
-    if(r.tracking&&r.track) {
+    // Bearing-only seekers (IR/SARH) retain their last measured LOS/rate inside
+    // authored track_memory_s during transient missed dwells, and conscan
+    // reticles may emit a transient coarse/unresolved dwell between precise
+    // captures. Coast on the last admitted same-track measured LOS rate with
+    // smooth exponential decay over a brief dropout window (<= 0.18 s) instead
+    // of dropping instantly to 0G or holding stale high-G commands past CPA.
+    if(r.tracking&&r.track&&r.track->rateAvailable&&r.track->localId!=0&&
+       std::isfinite(r.track->sampleTimeS)&&r.track->sampleTimeS>=0&&r.track->sampleTimeS<=f.timeS&&
+       finite(r.track->direction)&&norm(r.track->direction)>0&&finite(r.track->directionRate)) {
+        lastRateTrackId_=r.track->localId;
+        lastRateTimeS_=r.track->sampleTimeS;
+        lastRateDirection_=r.track->direction;
+        lastRate_=r.track->directionRate;
+    } else if(!r.track||r.track->localId!=lastRateTrackId_) {
+        lastRateTrackId_=0;
+        lastRateTimeS_=-1.;
+    }
+    const double coastAge=(r.track&&std::isfinite(r.track->sampleTimeS)&&std::isfinite(f.timeS))?(f.timeS-r.track->sampleTimeS):-1.;
+    const bool coastingBearing=!r.tracking&&r.track&&r.track->rateAvailable&&!r.midcourseEstimate&&
+        coastAge>=0.&&coastAge<=0.18;
+    const double coarseCoastAge=(lastRateTimeS_>=0.&&std::isfinite(f.timeS))?(f.timeS-lastRateTimeS_):-1.;
+    const bool coastingCoarse=r.tracking&&r.track&&!r.track->rateAvailable&&!r.midcourseEstimate&&
+        lastRateTrackId_!=0&&r.track->localId==lastRateTrackId_&&
+        coarseCoastAge>=0.&&coarseCoastAge<=0.35;
+    if((r.tracking||coastingBearing)&&r.track) {
         auto t=*r.track;
         if(!finite(t.direction)||!finite(t.directionRate))return {};
-        if(r.measurementTimeS) {
+        if(coastingCoarse) {
+            t.sampleTimeS=lastRateTimeS_;
+            t.direction=lastRateDirection_;
+            t.directionRate=lastRate_;
+            t.rateAvailable=true;
+        }
+        if(r.measurementTimeS||coastingBearing||coastingCoarse) {
             if(!std::isfinite(t.sampleTimeS)||t.sampleTimeS>f.timeS)return {};
             t.direction=unit(add(t.direction,scale(t.directionRate,f.timeS-t.sampleTimeS)));
         }
@@ -49,7 +79,9 @@ weapon::Output MeasuredPnGuidanceV2::updateMeasured(const SeekerFrameV2& f,const
             scaleSpeed=std::max(0.,-*t.rangeRateMs);
             if(t.rangeM&&scaleSpeed>0)out.timeToGoS=*t.rangeM/scaleSpeed;
         }
-        if(t.rateAvailable)steering=scale(cross(cross(t.direction,t.directionRate),heading),spec_.navigationGain*scaleSpeed);
+        const double coastDecay=coastingBearing?std::exp(-coastAge/0.08):
+            (coastingCoarse?std::exp(-coarseCoastAge/0.25):1.);
+        if(t.rateAvailable)steering=scale(cross(cross(t.direction,t.directionRate),heading),spec_.navigationGain*scaleSpeed*coastDecay);
     } else if(r.midcourseEstimate&&spec_.inertialMidcourse) {
         const auto& estimate=*r.midcourseEstimate;
         if(!std::isfinite(estimate.sampleTimeS)||estimate.sampleTimeS<0||estimate.sampleTimeS>f.timeS)return {};
@@ -66,9 +98,14 @@ weapon::Output MeasuredPnGuidanceV2::updateMeasured(const SeekerFrameV2& f,const
                 out.timeToGoS=range/closing;
             }
         }
-        if(out.phase==WeaponPhase::Midcourse) {
-            const auto loft=std::sin(std::clamp(spec_.loftRad,0.,.7))*spec_.loftAccelerationG*9.80665;
-            const auto up=unit(f.up);steering=add(steering,scale(subtract(up,scale(heading,dot(up,heading))),loft));
+        if(out.phase==WeaponPhase::Midcourse&&spec_.loftRad>0&&spec_.loftAccelerationG>0) {
+            const auto up=unit(f.up);
+            const double targetLoft=std::clamp(spec_.loftRad,0.,.7);
+            const double flightPitch=std::asin(std::clamp(dot(heading,up),-1.,1.));
+            const double pitchFactor=std::clamp((targetLoft-flightPitch)/std::max(targetLoft,0.05),0.,1.);
+            const double tgoFactor=std::isfinite(out.timeToGoS)?std::clamp((out.timeToGoS-6.)/8.,0.,1.):1.;
+            const double loft=std::sin(targetLoft)*spec_.loftAccelerationG*9.80665*pitchFactor*tgoFactor;
+            if(loft>0)steering=add(steering,scale(subtract(up,scale(heading,dot(up,heading))),loft));
         }
     }
     steering=subtract(steering,scale(heading,dot(steering,heading)));

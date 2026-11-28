@@ -658,7 +658,11 @@ class StoresTest(unittest.TestCase):
                     with open(os.path.join(folder, *rel.split("/")), encoding="utf-8", newline="") as f:
                         self.assertEqual(f.read(), text, "%s/%s is not what `python -m hangar %s build` writes" % (folder, rel, name))
                 kept = {os.path.relpath(os.path.join(r, f), folder).replace(os.sep, "/") for r, _, fs in os.walk(folder) for f in fs}
-                self.assertEqual(kept, set(out) | {card["sources"]["hangar-vlm"]["url"]})
+                expected = set(out) | {card["sources"]["hangar-vlm"]["url"]}
+                dlz_file = name + ".dlz-v1.json"
+                if dlz_file in kept and card.get("class") == "aam":
+                    expected.add(dlz_file)
+                self.assertEqual(kept, expected)
                 empty, held, _, _ = storestages._xml_mass(out[name + ".xml"])
                 self.assertAlmostEqual(empty + held, card["parameters"]["mass_kg"]["value"], delta=0.02)
                 source=d.aircraft.spec

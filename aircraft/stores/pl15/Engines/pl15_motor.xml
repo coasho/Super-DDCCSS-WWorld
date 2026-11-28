@@ -1,18 +1,18 @@
 <?xml version="1.0"?>
 <!-- Written by hangar (storemodels.py) from the design of pl15: its motor's phases there (assumed: none is published),
-     61.6 kg of propellant at 245 s (assumed), burning 14.0 s. Do not edit. -->
+     96.2 kg of propellant at 245 s (assumed), burning 24.5 s. Do not edit. -->
 <rocket_engine name="pl15 motor">
     <isp> 245.0 </isp>
     <builduptime> 0.05 </builduptime>
     <thrust_table name="fsim/commanded-dual-pulse-v1" type="internal">
         <tableData>
-            0 5620.2235774927622
-            4.0181690113816204 5620.2235774927622
-            4.0181690113816213 0.449617886199421
-            10.01816901138162 0.449617886199421
-            10.018169011381621 2697.7073171965262
-            14.01816901138162 2697.7073171965262
-            14.018169011381621 0
+            0 7193.8861791907357
+            4.5181690113816204 7193.8861791907357
+            4.5181690113816213 0.449617886199421
+            18.518169011381616 0.449617886199421
+            18.51816901138162 3259.7296749458023
+            24.518169011381616 3259.7296749458023
+            24.51816901138162 0
         </tableData>
     </thrust_table>
 </rocket_engine>

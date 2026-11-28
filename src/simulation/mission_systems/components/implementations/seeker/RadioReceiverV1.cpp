@@ -161,6 +161,7 @@ bool RadioReceiverV1::configure(const RadioReceiverConfigV1& c,std::string& erro
 void RadioReceiverV1::reset() noexcept {
     lastTimeS_=-1;seeded_=false;cached_={};temporal_.reset();illuminationProgram_.reset();illuminationClock_.reset();
     firstIlluminationS_=lastIlluminationS_=-1;
+    terminalShortPulse_=false;lastTerminalRangeTimeS_=-1;
 }
 void RadioReceiverV1::observeIlluminationV1(const RadioSceneFrameV1& scene) {
     if(!scene.illuminationAvailable) {
@@ -203,14 +204,50 @@ RadioReceiverResultV1 RadioReceiverV1::expose(const RadioSceneFrameV1& scene,V p
         }
     }
     auto waveform=observed?observed->waveform:c.waveform;
+    auto activeConfig=c;
     const double wavelength=light/scene.frequencyHz,ratio=wavelength/waveform.wavelengthM;
     waveform.wavelengthM=wavelength;waveform.rateResolutionMs*=ratio;
     for(auto& iv:waveform.intervals)iv.ambiguousRateMs=wavelength*iv.prfHz/2;
+    // Monostatic active-radar terminal short-pulse waveform transition (Stimson /
+    // Skolnik): driven strictly by the receiver's own prior measured range, never
+    // target truth. Shortening pulse width reduces monostatic T/R transmit-blanking
+    // blind range from ~750 m to ~25 m while conserving peak transmitter power
+    // (average power scales proportionally to duty ratio).
+    bool usingTerminalShortPulse=false;
+    if(!semi&&!observed&&terminalShortPulse_&&!waveform.intervals.empty()) {
+        double totalRaPulses=0,minPrf=waveform.intervals.front().prfHz;
+        const double origDuty=waveform.intervals.front().pulseS*waveform.intervals.front().prfHz;
+        for(const auto& iv:waveform.intervals) {
+            totalRaPulses+=iv.ambiguousRangeM*static_cast<double>(iv.pulses);
+            minPrf=std::min(minPrf,iv.prfHz);
+        }
+        const double termGateM=std::min(waveform.gateM,std::max(25.,std::ceil(totalRaPulses/90000.)));
+        const double termDuty=(origDuty>0&&minPrf>0)?std::min(origDuty,std::max(1e-4,0.95*2.*termGateM*minPrf/light)):origDuty;
+        if((termGateM<waveform.gateM||termDuty<origDuty*0.99)&&origDuty>0&&minPrf>0) {
+            auto candidate=waveform;candidate.gateM=termGateM;
+            bool ok=true;
+            for(auto& iv:candidate.intervals) {
+                iv.gates=std::max(1,static_cast<int>(std::floor(iv.ambiguousRangeM/termGateM)));
+                iv.pulseS=termDuty/iv.prfHz;
+                iv.blankedGates=std::min(iv.gates,static_cast<int>(std::ceil(light*iv.pulseS/(2.*termGateM))));
+                if(iv.gates>2048||iv.blankedGates>iv.gates-8){ok=false;break;}
+            }
+            auto termProc=activeConfig.processing;
+            termProc.rangeScaleM=std::min(termProc.rangeScaleM,6000.);
+            if(ok&&validWaveform(candidate,termProc)) {
+                waveform=std::move(candidate);
+                activeConfig.transmitAveragePowerW=c.transmitAveragePowerW*(termDuty/origDuty);
+                activeConfig.bandwidthHz=light/(2.*termGateM);
+                activeConfig.processing=termProc;
+                usingTerminalShortPulse=true;
+            }
+        }
+    }
     // The physical short window may not contain M distinct transmitter PRFs.
     // Validate its cells with a feasible local count; M is enforced by the
     // measured temporal processor, never silently reduced for homing.
     auto shape=waveform;shape.m=std::min(shape.m,static_cast<int>(shape.intervals.size()));
-    if(observed?!validObservedWaveform(shape,c.processing):!validWaveform(shape,c.processing))return {};
+    if(observed?!validObservedWaveform(shape,activeConfig.processing):!validWaveform(shape,activeConfig.processing))return {};
     if(observed)waveform.m=c.waveform.m;
     // A passive bistatic SARH receiver has no local transmitter or T/R duplexer,
     // so the illuminator's monostatic transmit blanking does not gate its front end.
@@ -237,7 +274,7 @@ RadioReceiverResultV1 RadioReceiverV1::expose(const RadioSceneFrameV1& scene,V p
     std::vector<radar::signal::Echo> echoes;std::vector<std::size_t> original;
     if(!semi||scene.illuminationAvailable)for(const auto index:order) {
         const auto& source=scene.echoes[index];
-        const double snr=energySnr(c,source,gain(source.direction),scene.frequencyHz,dwell,semi);
+        const double snr=energySnr(activeConfig,source,gain(source.direction),scene.frequencyHz,dwell,semi);
         if(!std::isfinite(snr)||snr>1e25)return {};
         if(!(snr>0))continue;
         radar::signal::Echo e;e.rangeM=source.delayRangeM;e.rangeRateMs=-source.dopplerHz*wavelength/2;e.snr=snr;
@@ -249,7 +286,7 @@ RadioReceiverResultV1 RadioReceiverV1::expose(const RadioSceneFrameV1& scene,V p
     }
     const auto clutterStarted=std::chrono::steady_clock::now();
     radar::signal::ClutterMap clutter(waveform.intervals.size());
-    const double actualBandwidth=observed?light/(2*waveform.gateM):c.bandwidthHz;
+    const double actualBandwidth=(observed||usingTerminalShortPulse)?light/(2*waveform.gateM):c.bandwidthHz;
     const double thermalNoise=boltzmann*c.temperatureK*linear(c.noiseFigureDb)*actualBandwidth;
     // Aperture-weighted in-band noise jammer power (evaluated against the actual
     // steered antenna pattern) plus any direct external scene.interferencePowerW.
@@ -289,7 +326,7 @@ RadioReceiverResultV1 RadioReceiverV1::expose(const RadioSceneFrameV1& scene,V p
     std::vector<double> profile;
     if(!semi||scene.illuminationAvailable)for(const auto index:groundOrder) {
         const auto& patch=scene.groundPatches[index];
-        const double snr=energySnr(c,patch,gain(patch.direction),scene.frequencyHz,dwell,semi);
+        const double snr=energySnr(activeConfig,patch,gain(patch.direction),scene.frequencyHz,dwell,semi);
         if(!std::isfinite(snr)||snr>1e25)return {};
         if(!(snr>0))continue;
         for(std::size_t j=0;j<waveform.intervals.size();++j) {
@@ -359,7 +396,7 @@ RadioReceiverResultV1 RadioReceiverV1::expose(const RadioSceneFrameV1& scene,V p
             }
         }
     }
-    auto settings=c.processing;
+    auto settings=activeConfig.processing;
     settings.passiveBistatic=passiveBistatic;
     // A high-PRF receiver can coincide directly in its unambiguous Doppler
     // domain. With medium PRFs, use the actual measured path-delay cells to
@@ -376,7 +413,7 @@ RadioReceiverResultV1 RadioReceiverV1::expose(const RadioSceneFrameV1& scene,V p
     RadioReceiverResultV1 result;result.valid=true;result.semiActive=semi;result.timeS=scene.timeS;
     result.totalInterferencePowerW=totalInterferencePowerW;
     result.pointing=pointing;result.waveform=waveform;
-    result.config=c;result.config.bandwidthHz=actualBandwidth;
+    result.config=activeConfig;result.config.bandwidthHz=actualBandwidth;
     result.observationStartTimeS=observed?observed->observationStartTimeS:scene.timeS-dwell;
     result.observationEndTimeS=scene.timeS;result.integratedTimeS=dwell;
     if(observed){result.programIntervals=observed->programIntervals;result.intervalStartTimeS=observed->startTimeS;
@@ -475,6 +512,26 @@ RadioReceiverResultV1 RadioReceiverV1::expose(const RadioSceneFrameV1& scene,V p
         result.measurements.push_back(measurement);
     }
     tryEmitHomeOnJam(false);
+    // Update monostatic terminal short-pulse state strictly from receiver-measured
+    // range detections (never from scene truth).
+    if(!semi) {
+        double minMeasuredRangeM=std::numeric_limits<double>::infinity();
+        for(const auto& m:result.measurements) {
+            if(!m.homeOnJam&&m.rangeM&&positive(*m.rangeM))minMeasuredRangeM=std::min(minMeasuredRangeM,*m.rangeM);
+        }
+        if(std::isfinite(minMeasuredRangeM)) {
+            if(minMeasuredRangeM<2500.) {
+                terminalShortPulse_=true;lastTerminalRangeTimeS_=scene.timeS;
+            } else if(minMeasuredRangeM>3200.) {
+                terminalShortPulse_=false;lastTerminalRangeTimeS_=-1;
+            } else if(terminalShortPulse_) {
+                lastTerminalRangeTimeS_=scene.timeS;
+            }
+        } else if(terminalShortPulse_&&lastTerminalRangeTimeS_>=0&&
+                  scene.timeS-lastTerminalRangeTimeS_>std::max(c.temporalMemoryS,0.5)) {
+            terminalShortPulse_=false;lastTerminalRangeTimeS_=-1;
+        }
+    }
     lastTimeS_=scene.timeS;cached_=result;return result;
 }
 } // namespace fsim::ms::components

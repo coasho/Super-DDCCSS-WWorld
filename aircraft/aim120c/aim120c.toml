@@ -67,7 +67,7 @@ sections = [
   { le = [3.47, 0.1708, 0.1708], chord = 0.13 },
 ]
 controls = [
-  { name = "tail fin upper", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-20, 20] },
+  { name = "tail fin upper", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-25, 25] },
 ]
 
 [[surface]]
@@ -80,7 +80,7 @@ sections = [
   { le = [3.47, 0.1708, -0.1708], chord = 0.13 },
 ]
 controls = [
-  { name = "tail fin lower", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-20, 20] },
+  { name = "tail fin lower", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-25, 25] },
 ]
 
 # The rocket motor: boost-sustain (the card: reduced-smoke HTPB). Its nozzle in the boattail, its exit 65 % of the base and its burn's phases assumed
@@ -92,15 +92,15 @@ throat_diameter = 0.0416
 cone_length = 0.1017
 smoke = "reduced"
 [[motor.phase]]
-duration_s = 2.5
-thrust_kn = 22
+duration_s = 3
+thrust_kn = 26
 [[motor.phase]]
-duration_s = 5.5
-thrust_kn = 7
+duration_s = 7.5
+thrust_kn = 7.2
 
 [mass]
 empty = 161.5                 # kg, the card, motor full
-empty_cg = [1.83, 0.0, 0.0]  # assumed: half way along
+empty_cg = [1.83, 0.0, 0.0]  # assumed: 50 % along
 gyration_reference = "body-length-v1"
 gyration = [0.017, 0.289, 0.289]  # radii of gyration over length - assumed (a slender rod's: L/sqrt(12))
 

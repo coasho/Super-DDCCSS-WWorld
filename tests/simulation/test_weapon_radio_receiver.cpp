@@ -381,3 +381,47 @@ TEST_CASE("Passive bistatic SARH detects inside illuminator monostatic blanking 
     CHECK(std::none_of(blocked.measurements.begin(),blocked.measurements.end(),
         [](const auto& m){return m.refereeAttributionIndex==9;}));
 }
+
+TEST_CASE("Tracked monostatic ARH transitions to short-pulse terminal waveform below 2500 m without losing lock inside 750 m", "[weapon-radio-receiver][arh-terminal-short-pulse]") {
+    auto c=policy();
+    c.waveform=radar::signal::mediumPrf(c.frequencyHz,.012,3,2,150,.05);
+    RadioReceiverV1 arh;std::string error;REQUIRE(arh.configure(c,error));
+    // First dwell at 2000 m acquires on the long-pulse waveform and arms terminal short-pulse mode.
+    auto s=scene(0);s.echoes.at(0).receiverRangeM=s.echoes.at(0).delayRangeM=2000;s.echoes.at(0).fluctuation=0;
+    const auto acq=arh.expose(s,{1,0,0},axes,41,false);REQUIRE(acq.valid);
+    CHECK(acq.waveform.gateM==Catch::Approx(150.));
+    REQUIRE(std::any_of(acq.measurements.begin(),acq.measurements.end(),
+        [](const auto& m){return m.refereeAttributionIndex==9&&m.rangeM&&std::abs(*m.rangeM-2000)<200;}));
+    // Subsequent dwells at 600 m, 300 m, and 100 m (all well inside the 750 m acquisition blanking)
+    // run on the short-pulse terminal waveform with conserved peak power and maintain lock.
+    for(const std::pair<double,double>& step:{std::pair<double,double>{.02,600.},{.04,300.},{.06,100.}}) {
+        s.timeS=step.first;s.echoes.at(0).receiverRangeM=s.echoes.at(0).delayRangeM=step.second;
+        const auto term=arh.expose(s,{1,0,0},axes,41,false);REQUIRE(term.valid);
+        CHECK(term.waveform.gateM<=30.);
+        CHECK(term.config.transmitAveragePowerW<c.transmitAveragePowerW);
+        CHECK(std::any_of(term.measurements.begin(),term.measurements.end(),
+            [&](const auto& m){return m.refereeAttributionIndex==9&&m.rangeM&&std::abs(*m.rangeM-step.second)<60;}));
+    }
+    // Reset restores acquisition waveform cleanly.
+    arh.reset();
+    s.timeS=0;s.echoes.at(0).receiverRangeM=s.echoes.at(0).delayRangeM=200;
+    const auto afterReset=arh.expose(s,{1,0,0},axes,41,false);REQUIRE(afterReset.valid);
+    CHECK(afterReset.waveform.gateM==Catch::Approx(150.));
+    CHECK(std::none_of(afterReset.measurements.begin(),afterReset.measurements.end(),
+        [](const auto& m){return m.refereeAttributionIndex==9;}));
+
+    // Fine-gate ARH (e.g., 15 m range gates with 5% duty -> ~500 m blanking) still
+    // shortens pulse width / duty below 2500 m even when gateM <= 25 m already.
+    auto fine=policy();
+    fine.waveform=radar::signal::mediumPrf(fine.frequencyHz,.012,3,2,15,.05);
+    RadioReceiverV1 fineArh;REQUIRE(fineArh.configure(fine,error));
+    auto fs=scene(0);fs.echoes.at(0).receiverRangeM=fs.echoes.at(0).delayRangeM=2000;fs.echoes.at(0).fluctuation=0;
+    const auto fAcq=fineArh.expose(fs,{1,0,0},axes,43,false);REQUIRE(fAcq.valid);
+    REQUIRE(std::any_of(fAcq.measurements.begin(),fAcq.measurements.end(),
+        [](const auto& m){return m.refereeAttributionIndex==9&&m.rangeM&&std::abs(*m.rangeM-2000)<100;}));
+    fs.timeS=.02;fs.echoes.at(0).receiverRangeM=fs.echoes.at(0).delayRangeM=300;
+    const auto fTerm=fineArh.expose(fs,{1,0,0},axes,43,false);REQUIRE(fTerm.valid);
+    CHECK(fTerm.config.transmitAveragePowerW<fine.transmitAveragePowerW);
+    CHECK(std::any_of(fTerm.measurements.begin(),fTerm.measurements.end(),
+        [](const auto& m){return m.refereeAttributionIndex==9&&m.rangeM&&std::abs(*m.rangeM-300)<40;}));
+}

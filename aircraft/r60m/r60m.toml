@@ -74,7 +74,7 @@ sections = [
   { le = [0.44, 0.0884, 0.0884], chord = 0.04 },
 ]
 controls = [
-  { name = "canard upper", channel = "elevator", gain = -1.0, mix = { rudder = -1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.5, limits = [-20, 20] },
+  { name = "canard upper", channel = "elevator", gain = -1.0, mix = { rudder = -1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.5, limits = [-25, 25] },
 ]
 
 [[surface]]
@@ -87,7 +87,7 @@ sections = [
   { le = [0.44, 0.0884, -0.0884], chord = 0.04 },
 ]
 controls = [
-  { name = "canard lower", channel = "elevator", gain = -1.0, mix = { rudder = -1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.5, limits = [-20, 20] },
+  { name = "canard lower", channel = "elevator", gain = -1.0, mix = { rudder = -1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.5, limits = [-25, 25] },
 ]
 
 # The tail fins: fixed; root chord 0.3 m, tip 0.1 m, 0.135 m out from the body, their tips across the card's span (assumed from photographs)
@@ -120,12 +120,12 @@ throat_diameter = 0.0281
 cone_length = 0.0686
 smoke = "reduced"
 [[motor.phase]]
-duration_s = 3
-thrust_kn = 8
+duration_s = 2.8
+thrust_kn = 7
 
 [mass]
 empty = 45                 # kg, the card, motor full
-empty_cg = [1.066, 0.0, 0.0]  # assumed: half way along
+empty_cg = [1.066, 0.0, 0.0]  # assumed: 50 % along
 gyration_reference = "body-length-v1"
 gyration = [0.0197, 0.289, 0.289]  # radii of gyration over length - assumed (a slender rod's: L/sqrt(12))
 

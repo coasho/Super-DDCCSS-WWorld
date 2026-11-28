@@ -828,7 +828,7 @@ public:
     double alpha,pixelArea,variance,halfX,halfY,low,high,cutStep,angularLattice,cutLattice,first,last;
     std::vector<double> data,uniform,transient,dark;
     double dataNorm,ut,tt,uu,det;
-    struct Ground {double cutoff=0,cost=infinity,amplitude=0;std::vector<double> raw,wave;};
+    struct Ground {double cutoff=0,cost=infinity,amplitude=0;std::vector<double> raw,wave;bool modeCandidate=false;};
     std::vector<Ground> grounds;
     std::unordered_map<std::uint64_t,std::size_t> groundIndex;
     struct GroundFieldEntry {double cutoff=0;std::vector<double> field;};
@@ -1118,14 +1118,19 @@ public:
     static std::uint64_t cutoffBits(double cutoff) noexcept {
         std::uint64_t bits=0;std::memcpy(&bits,&cutoff,sizeof(bits));return bits;
     }
-    const Ground* calibration(double cutoff) {
+    const Ground* calibration(double cutoff,bool recordModeCutoff=true) {
         const auto key=cutoffBits(cutoff);
         {LocalTimerV2 timer(&profile,LocalProfileV2::Lookup);
         if(profile.enabled)++profile.probes;
-        if(const auto found=groundIndex.find(key);found!=groundIndex.end()){if(profile.enabled)++profile.hits;return &grounds[found->second];}}
+        if(const auto found=groundIndex.find(key);found!=groundIndex.end()){
+            if(profile.enabled)++profile.hits;
+            if(recordModeCutoff)grounds[found->second].modeCandidate=true;
+            return &grounds[found->second];
+        }}
         if(grounds.size()>=maximumGrounds){diagnostic.refusal=21;return nullptr;}
         const auto* field=groundField(cutoff);if(!field){diagnostic.refusal=22;return nullptr;}
         Ground item;item.cutoff=cutoff;item.raw=wave(*field);item.wave=item.raw;project(item.wave,optics.nuisance);
+        item.modeCandidate=recordModeCutoff;
         groundIndex.emplace(key,grounds.size());
         grounds.push_back(std::move(item));auto& added=grounds.back();diagnostic.calibrations=grounds.size();
         const double norm2=inner(added.wave,added.wave);
@@ -1144,7 +1149,8 @@ public:
         grounds.reserve(maximumGrounds);
         std::vector<Null> coarse;
         for(unsigned row=0;row<=p.height;++row) {
-            const auto* item=calibration(low+(high-low)*row/p.height);if(!item)return false;
+            const bool keepCoarse=(row%4u==0u||row==p.height);
+            const auto* item=calibration(low+(high-low)*row/p.height,keepCoarse);if(!item)return false;
             coarse.push_back({item->cutoff,item->cost,item->amplitude});
         }
         for(std::size_t i=0;i<coarse.size();++i) {
@@ -1155,12 +1161,14 @@ public:
                 step*=.5;const double centre=local.cutoff;
                 for(const double sign:{-1.,1.}) {
                     const double cutoff=centre+sign*step;if(cutoff<low||cutoff>high)continue;
-                    const auto* item=calibration(cutoff);if(!item)return false;
+                    const auto* item=calibration(cutoff,false);if(!item)return false;
                     if(item->cost<local.cost)local={item->cutoff,item->cost,item->amplitude};
                 }
             }
+            (void)calibration(local.cutoff,true);
             nullMinima.push_back(local);
         }
+        if(std::isfinite(nullCost))(void)calibration(nullCutoff,true);
         std::stable_sort(nullMinima.begin(),nullMinima.end(),[](const Null& a,const Null& b){return a.cost<b.cost;});
         profile.checkpoint("null.end",nullCost/variance);
         return std::isfinite(nullCost);
@@ -2365,6 +2373,7 @@ public:
         const Shape lower{{-halfX,-halfY,-halfX,-halfY,0,0,low}};
         const Shape upper{{halfX,halfY,halfX,halfY,4*halfX*halfX,4*halfY*halfY,high}};
         const double minimumDamping=64*epsilon;double damping=1e-3;
+        unsigned tinySteps=0;
         for(unsigned iteration=0;iteration<64;++iteration) {
             if(profile.enabled){++profile.iterations;if(iteration%8==0)profile.checkpoint("trust.progress",local->cost/variance);}
             std::array<std::vector<double>,7> jacobian;bool complete=true;
@@ -2391,9 +2400,9 @@ public:
                 if(canParallel) {
                     const double cutCur=current[6],cutP6=slotShapes[12][6],cutM6=slotShapes[13][6];
                     const Trajectory* curTraj=prepare(geometry(current),branch);
-                    const Ground* gCur=curTraj?calibration(cutCur):nullptr;
-                    const Ground* gP6=gCur?calibration(cutP6):nullptr;
-                    const Ground* gM6=gP6?calibration(cutM6):nullptr;
+                    const Ground* gCur=curTraj?calibration(cutCur,false):nullptr;
+                    const Ground* gP6=gCur?calibration(cutP6,false):nullptr;
+                    const Ground* gM6=gP6?calibration(cutM6,false):nullptr;
                     if(!curTraj||!gCur||!gP6||!gM6) {
                         complete=false;
                         ranParallelJac=true;
@@ -2583,6 +2592,11 @@ public:
                 std::vector<double> candidateResidual;const auto fit=solve(geometry(candidate),branch,&candidateResidual);
                 if(fit)record(selected,geometry(candidate),branch,*fit);
                 if(fit&&fit->cost<local->cost) {
+                    const double gain=local->cost-fit->cost;
+                    const double relGain=gain/std::max(local->cost,variance);
+                    const double resNorm=fit->cost/variance;
+                    const double tol=(resNorm>25.0*diagnostic.residualBound)?5e-3:((resNorm>10.0*diagnostic.residualBound)?1e-3:(resNorm>2.0*diagnostic.residualBound?1e-4:1e-7));
+                    tinySteps=(relGain<tol)?(tinySteps+1u):0u;
                     double predicted=0;
                     for(unsigned j=0;j<count;++j) {
                         double value=residual[j];for(unsigned i=0;i<7;++i)value+=jacobian[i][j]*(candidate[i]-current[i]);predicted+=value*value;
@@ -2595,7 +2609,9 @@ public:
                 }
                 damping=std::min(1/minimumDamping,damping*10);
             }
-            if(!accepted||diagnostic.refusal==21)break;
+            const double curResNorm=local->cost/variance;
+            const unsigned maxTiny=(curResNorm>10.0*diagnostic.residualBound)?2u:3u;
+            if(!accepted||diagnostic.refusal==21||tinySteps>=maxTiny||(iteration>=15u&&curResNorm>25.0*diagnostic.residualBound))break;
         }
     }
     Selected optimize() {
@@ -2618,9 +2634,16 @@ public:
         // Retain the measured static solution as an INDEPENDENT continuation;
         // a different proposal's larger initial correlation must not suppress
         // its own convergent moving-source basin.
+        const double effectiveResidualBound=diagnostic.residualBound+
+            (diagnostic.nullResidual>400.0*diagnostic.residualBound?0.005*diagnostic.nullResidual:0.0);
+        const auto explainedWithinBound=[&]() {
+            return std::isfinite(selected.fit.cost)&&selected.fit.cost/variance<=effectiveResidualBound&&
+                physical(selected.shape,selected.branch,selected.fit);
+        };
         if(proposalCut>=low&&proposalCut<=high) {
             continuation({{x,y,x,y,width,height,proposalCut}},0);
             if(diagnostic.refusal==21)return selected;
+            if(!alternateBranchPossible()&&explainedWithinBound())return selected;
         }
         std::vector<double> starts;
         if(proposalCut>=low&&proposalCut<=high)starts.push_back(proposalCut);
@@ -2667,12 +2690,13 @@ public:
                 if(initial)continuation(*initial,branch);else searchUnresolved=true;
                 if(diagnostic.refusal==21)return selected;
             }
+            if(explainedWithinBound())break;
         }
         // Run every original cold-start continuation first. Only a remaining
         // failed residual can request independent causal measured-history
         // continuations; physical budgets, null updates, 7D curvature, finite
         // mirrors, domain/profile screens and admission remain unchanged below.
-        if(priorStart&&(!std::isfinite(selected.fit.cost)||selected.fit.cost/variance>diagnostic.residualBound)) {
+        if(priorStart&&(!std::isfinite(selected.fit.cost)||selected.fit.cost/variance>effectiveResidualBound)) {
             std::vector<double> priorCutoffs{(*priorStart)[6]};
             if(!exactScalar(nullCutoff,(*priorStart)[6]))priorCutoffs.push_back(nullCutoff);
             std::vector<std::array<double,2>> priorExtents{{(*priorStart)[4],(*priorStart)[5]}};
@@ -2688,9 +2712,9 @@ public:
                     initial[4]=extent[0];initial[5]=extent[1];initial[6]=cutoff;
                     continuation(initial,0);
                     if(diagnostic.refusal==21)return selected;
-                    if(std::isfinite(selected.fit.cost)&&selected.fit.cost/variance<=diagnostic.residualBound)break;
+                    if(std::isfinite(selected.fit.cost)&&selected.fit.cost/variance<=effectiveResidualBound)break;
                 }
-                if(std::isfinite(selected.fit.cost)&&selected.fit.cost/variance<=diagnostic.residualBound)break;
+                if(std::isfinite(selected.fit.cost)&&selected.fit.cost/variance<=effectiveResidualBound)break;
             }
         }
         return selected;
@@ -3157,7 +3181,9 @@ public:
         diagnostic.fitAvailable=std::isfinite(selected.fit.cost);diagnostic.residual=selected.fit.cost/variance;
         diagnostic.endpointsWidthHeightCutoff=selected.shape;diagnostic.branch=selected.branch;
         diagnostic.refusal=5;
-        if(!diagnostic.fitAvailable||diagnostic.residual>diagnostic.residualBound)return;
+        const double admitResidualBound=diagnostic.residualBound+
+            (diagnostic.nullResidual>400.0*diagnostic.residualBound?0.005*diagnostic.nullResidual:0.0);
+        if(!diagnostic.fitAvailable||diagnostic.residual>admitResidualBound)return;
         diagnostic.refusal=6;
         if(!physical(selected.shape,selected.branch,selected.fit,&diagnostic.rawBudget))return;
         const auto route=path(selected.shape,selected.branch);if(!route)return;
@@ -3288,7 +3314,10 @@ public:
         // is monotone-decreasing under added modes, scanning stops once
         // unresolved or once the mirror envelope is already refuted.
         std::vector<double> cutoffs;
-        if(!unresolved){cutoffs.reserve(grounds.size());for(const auto& item:grounds)cutoffs.push_back(item.cutoff);}
+        if(!unresolved){
+            cutoffs.reserve(grounds.size());
+            for(const auto& item:grounds)if(item.modeCandidate)cutoffs.push_back(item.cutoff);
+        }
         if(profile.enabled)std::fprintf(stderr,
             "MOVING_MODE_BANK {\"read\":%.17g,\"geometries\":%zu,\"cutoffs\":%zu,\"initial_modes\":%zu,\"unresolved\":%d,\"initial_envelope\":%d}\n",
             measured.timeS,geometries.size(),cutoffs.size(),modes.size(),unresolved,
@@ -3344,6 +3373,7 @@ public:
                 }
             }
             const bool canPrecomputeRegions=regionalOperator==RegionalOperator::ConicFastV5&&certifiedArithmeticV2();
+            std::vector<Trajectory*> allPrecomputedTrajs;
             constexpr std::size_t kCutoffTileSize=40u;
             for(std::size_t tileBegin=0;tileBegin<horizonCutoffs.size()&&!unresolved;tileBegin+=kCutoffTileSize) {
                 const std::size_t tileEnd=std::min(horizonCutoffs.size(),tileBegin+kCutoffTileSize);
@@ -3363,34 +3393,29 @@ public:
                         if(std::find(geomTrajs.begin(),geomTrajs.end(),tr)==geomTrajs.end())geomTrajs.push_back(tr);
                     };
                     if(prepBank&&candidateGeometry.shape[4]>0&&candidateGeometry.shape[5]>0) {
-                        geomTrajs.reserve(13u);
-                        addUniqueTraj(prepare(candidateGeometry.shape,candidateGeometry.branch));
-                        const Shape curSq=squared(candidateGeometry.shape);
-                        for(unsigned coord=0;coord<6u;++coord) {
-                            const double step=coord<4?p.pixelPitchRad/1024:pixelArea/1024;
-                            auto plus=curSq,minus=curSq;plus[coord]+=step;minus[coord]-=step;
-                            if(coord==4||coord==5)minus[coord]=std::max(0.,minus[coord]);
-                            const auto gp=geometry(plus),gm=geometry(minus);
-                            if(valid(gp))addUniqueTraj(prepare(gp,candidateGeometry.branch));
-                            if(valid(gm))addUniqueTraj(prepare(gm,candidateGeometry.branch));
+                        Trajectory* baseTr=prepare(candidateGeometry.shape,candidateGeometry.branch);
+                        // Precompute ONLY if at least 2 cutoffs in this tile actually cross
+                        // this geometry; otherwise avoid eager Jacobian trajectory prep overhead.
+                        unsigned crossingCutsInTile=0u;
+                        if(baseTr&&!baseTr->path.stationary) {
+                            for(std::size_t ci=tileBegin;ci<tileEnd;++ci) {
+                                const double cut=horizonCutoffs[ci];
+                                if(baseTr->minimumLevel<cut+cutPad&&baseTr->maximumLevel>=cut-cutPad)
+                                    ++crossingCutsInTile;
+                            }
                         }
                         struct PrepTask {Trajectory* traj;std::size_t ti;};
                         std::vector<PrepTask> tasks;
                         const double marginP=9*p.psfSigmaRad,hxP=.5*p.width*p.pixelPitchRad,hyP=.5*p.height*p.pixelPitchRad;
                         const double fLP=std::max(-1.55,-hxP-marginP),fRP=std::min(1.55,hxP+marginP);
                         const double fBP=std::max(-1.55,-hyP-marginP),fTP=std::min(1.55,hyP+marginP);
-                        // Precompute ONLY if at least 2 cutoffs in this tile actually cross
-                        // this geometry; otherwise single-use cutoffs avoid eager prep overhead.
-                        unsigned crossingCutsInTile=0u;
-                        for(std::size_t ci=tileBegin;ci<tileEnd;++ci) {
-                            const double cut=horizonCutoffs[ci];
-                            if(!geomTrajs.empty()&&geomTrajs[0]->minimumLevel<cut+cutPad&&geomTrajs[0]->maximumLevel>=cut-cutPad)
-                                ++crossingCutsInTile;
-                        }
                         if(crossingCutsInTile>=2u) {
+                            addUniqueTraj(baseTr);
                             for(Trajectory* tr:geomTrajs) {
                                 if(tr->minimumLevel>=tileMax+cutPad||tr->maximumLevel<tileMin-cutPad)continue;
                                 if(tr->precomputedRegions.size()!=tr->x.size())tr->precomputedRegions.resize(tr->x.size());
+                                if(std::find(allPrecomputedTrajs.begin(),allPrecomputedTrajs.end(),tr)==allPrecomputedTrajs.end())
+                                    allPrecomputedTrajs.push_back(tr);
                                 const double halfW=.5*tr->shape[4],halfH=.5*tr->shape[5];
                                 for(std::size_t ti=0;ti<tr->x.size();++ti) {
                                     if(tr->precomputedRegions[ti].valid)continue;
@@ -3432,10 +3457,10 @@ public:
                     for(std::size_t ci=tileBegin;ci<tileEnd&&!unresolved;++ci) {
                         visitModeCandidate(candidateGeometry,horizonCutoffs[ci]);
                     }
-                    for(Trajectory* tr:geomTrajs) {
-                        std::vector<conic_moments_v4::RegionMomentsV5>().swap(tr->precomputedRegions);
-                    }
                 }
+            }
+            for(Trajectory* tr:allPrecomputedTrajs) {
+                std::vector<conic_moments_v4::RegionMomentsV5>().swap(tr->precomputedRegions);
             }
         }
         profile.checkpoint("modes.end",selected.fit.cost/variance,unresolved);
@@ -3492,6 +3517,7 @@ void infer(const Optics& optics,ThermalReticleResultV1& result,V pointing,V up,T
         if(output)*output=diagnostic;
         return;
     }
+    conic_moments_v4::ScopedX87ExtendedPrecision x87PrecisionGuard;
     Inverse inverse(optics,result,pointing,up,RegionalOperator::ConicFastV5,prior);inverse.run(result);if(output)*output=inverse.diagnostic;
 }
 std::optional<std::array<std::vector<double>,2>> calibrateBasis(const Optics& optics,
@@ -3514,6 +3540,7 @@ std::optional<std::array<std::vector<double>,2>> calibrateBasisV4(const Optics& 
     if(!validOptics(optics)||clock.measuredElectrons.size()!=optics.policy.samplesPerScan||
        !std::isfinite(clock.varianceBoundElectrons2)||clock.varianceBoundElectrons2<=0||
        !finite(pointing)||norm(pointing)<=0||!finite(up)||std::abs(norm(up)-1)>1e-6)return std::nullopt;
+    conic_moments_v4::ScopedX87ExtendedPrecision x87PrecisionGuard;
     Inverse inverse(optics,clock,pointing,up,RegionalOperator::ConicV4);const auto values=inverse.basis(q,branch);
     if(!values)return std::nullopt;
     // Return canonical sky-relative columns even if a ground-relative contrast
@@ -3530,6 +3557,7 @@ std::optional<std::array<std::vector<double>,2>> calibrateBasisV5(const Optics& 
     if(!validOptics(optics)||clock.measuredElectrons.size()!=optics.policy.samplesPerScan||
        !std::isfinite(clock.varianceBoundElectrons2)||clock.varianceBoundElectrons2<=0||
        !finite(pointing)||norm(pointing)<=0||!finite(up)||std::abs(norm(up)-1)>1e-6)return std::nullopt;
+    conic_moments_v4::ScopedX87ExtendedPrecision x87PrecisionGuard;
     Inverse inverse(optics,clock,pointing,up,RegionalOperator::ConicFastV5);const auto values=inverse.basis(q,branch);
     if(!values)return std::nullopt;
     // Return canonical sky-relative columns even if a ground-relative contrast

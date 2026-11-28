@@ -35,18 +35,18 @@ stations = [
   { x = 4, w = 0.1624, top = 0.0812, bottom = -0.0812, n = 2 },
 ]
 
-# The tail fins: all-moving about their spindles; root chord 0.3 m, tip 0.14 m, 0.1235 m out from the body, their tips across the card's span (assumed from photographs)
+# The tail fins: all-moving about their spindles; root chord 0.38 m, tip 0.18 m, 0.1235 m out from the body, their tips across the card's span (assumed from photographs)
 [[surface]]
 name = "tail fin upper"
 kind = "fin"
 mirror = true
 airfoil = "biconvex4"
 sections = [
-  { le = [3.65, 0.0696, 0.0696], chord = 0.3 },
-  { le = [3.81, 0.1591, 0.1591], chord = 0.14 },
+  { le = [3.58, 0.0696, 0.0696], chord = 0.38 },
+  { le = [3.78, 0.1591, 0.1591], chord = 0.18 },
 ]
 controls = [
-  { name = "tail fin upper", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-20, 20] },
+  { name = "tail fin upper", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-28, 28] },
 ]
 
 [[surface]]
@@ -55,11 +55,11 @@ kind = "fin"
 mirror = true
 airfoil = "biconvex4"
 sections = [
-  { le = [3.65, 0.0696, -0.0696], chord = 0.3 },
-  { le = [3.81, 0.1591, -0.1591], chord = 0.14 },
+  { le = [3.58, 0.0696, -0.0696], chord = 0.38 },
+  { le = [3.78, 0.1591, -0.1591], chord = 0.18 },
 ]
 controls = [
-  { name = "tail fin lower", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-20, 20] },
+  { name = "tail fin lower", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-28, 28] },
 ]
 
 # The rocket motor: dual pulse (the card): a coast between. Its nozzle in the boattail, its exit 65 % of the base and its burn's phases assumed
@@ -71,18 +71,18 @@ throat_diameter = 0.0475
 cone_length = 0.1161
 smoke = "reduced"
 [[motor.phase]]
-duration_s = 4
-thrust_kn = 25
+duration_s = 4.5
+thrust_kn = 32
 [[motor.phase]]
-duration_s = 6
+duration_s = 14
 thrust_kn = 0.0
 [[motor.phase]]
-duration_s = 4
-thrust_kn = 12
+duration_s = 6
+thrust_kn = 14.5
 
 [mass]
 empty = 210                 # kg, the card, motor full
-empty_cg = [2, 0.0, 0.0]  # assumed: half way along
+empty_cg = [1.92, 0.0, 0.0]  # assumed: 48 % along
 gyration_reference = "body-length-v1"
 gyration = [0.0178, 0.289, 0.289]  # radii of gyration over length - assumed (a slender rod's: L/sqrt(12))
 
@@ -94,7 +94,7 @@ length = 4
 area = 0.032365472915445448
 span = 0.20300000000000001
 chord = 0.20300000000000001
-aero_point = [2.0, 0.0, 0.0]
+aero_point = [1.92, 0.0, 0.0]
 
 # Shared source-derived fixed resolution; no equipment-specific timestep.
 [integration]

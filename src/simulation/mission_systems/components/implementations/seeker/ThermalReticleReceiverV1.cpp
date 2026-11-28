@@ -2283,6 +2283,17 @@ ThermalReticleResultV1 ThermalReticleReceiverV1::exposeWithMeasuredPriorV2(
                 }
             }
         }
+        conic_moments_v4::ScopedX87ExtendedPrecision forwardX87Guard;
+        std::shared_ptr<conic_moments_v4::Bank> forwardConicBank;
+        if(fastDeltaReady&&scene.skyRadianceWm2Sr!=scene.groundRadianceWm2Sr&&bgPrep.monoOk&&conic_moments_v4::arithmeticAvailable()) {
+            conic_moments_v4::Request req;
+            req.width=p.width;req.height=p.height;
+            req.pixelPitchRad=p.pixelPitchRad;req.psfSigmaRad=p.psfSigmaRad;
+            req.cutoff=scene.groundHorizonCosine;
+            req.pointing={{bgPrep.forward.x,bgPrep.forward.y,bgPrep.forward.z}};
+            req.up={{bgPrep.nativeUp.x,bgPrep.nativeUp.y,bgPrep.nativeUp.z}};
+            forwardConicBank=std::shared_ptr<conic_moments_v4::Bank>(conic_moments_v4::Bank::prepareSharedV5(req));
+        }
         struct FastDeltaRect {double left,right,bottom,top;};
         struct FastDeltaVisible {std::size_t source;FastDeltaRect region;};
         struct FastDeltaScratch {
@@ -2292,6 +2303,7 @@ ThermalReticleResultV1 ThermalReticleReceiverV1::exposeWithMeasuredPriorV2(
             std::vector<double> yEdges,xEdges;
             std::vector<std::size_t> active;
             std::vector<FastDeltaVisible> visible,horizontal;
+            conic_moments_v4::FieldWorkspaceV5 conicWs;
             void ensureMulti(std::size_t nPixels,std::size_t nPatches) {
                 if(deltaBuf.size()!=nPixels)deltaBuf.assign(nPixels,0.);
                 if(touched.capacity()<256u)touched.reserve(256u);
@@ -2320,6 +2332,7 @@ ThermalReticleResultV1 ThermalReticleReceiverV1::exposeWithMeasuredPriorV2(
             const auto evalSingleRun=[&](const FastDeltaVisible& run,const double* w) noexcept -> bool {
                 const auto& part=run.region;const auto& patch=compactScene.patches[run.source];
                 double bgRad=scene.skyRadianceWm2Sr;
+                bool straddlesHorizon=false;
                 if(scene.skyRadianceWm2Sr!=scene.groundRadianceWm2Sr) {
                     const double tx0=std::tan(part.left),tx1=std::tan(part.right);
                     const double ty0=std::tan(part.bottom),ty1=std::tan(part.top);
@@ -2331,9 +2344,57 @@ ThermalReticleResultV1 ThermalReticleReceiverV1::exposeWithMeasuredPriorV2(
                     const double maximum=std::max({n0/d0,n0/d1,n1/d0,n1/d1});
                     if(minimum>=scene.groundHorizonCosine)bgRad=scene.skyRadianceWm2Sr;
                     else if(maximum<scene.groundHorizonCosine)bgRad=scene.groundRadianceWm2Sr;
-                    else return false;
+                    else straddlesHorizon=true;
                 }
                 const double lightAtSensor=patch.transmission*patch.radianceWm2Sr+(1-patch.transmission)*patch.pathRadianceWm2Sr;
+                if(straddlesHorizon) {
+                    if(!forwardConicBank)return false;
+                    const std::array<double,4> reg{{part.left,part.right,part.bottom,part.top}};
+                    if(!forwardConicBank->evaluateFastIntoV5(reg,sc.conicWs))return false;
+                    const double deltaSky=(lightAtSensor-scene.skyRadianceWm2Sr)*invPitch2;
+                    const double deltaGndSky=scene.groundRadianceWm2Sr-scene.skyRadianceWm2Sr;
+                    if(!std::isfinite(deltaSky)||!std::isfinite(deltaGndSky))return false;
+                    int firstX=std::max(0,static_cast<int>(std::floor((part.left-margin)/pitch+halfW)));
+                    int lastX=std::min(static_cast<int>(p.width)-1,static_cast<int>(std::floor((part.right+margin)/pitch+halfW)));
+                    int firstY=std::max(0,static_cast<int>(std::floor((part.bottom-margin)/pitch+halfH)));
+                    int lastY=std::min(static_cast<int>(p.height)-1,static_cast<int>(std::floor((part.top+margin)/pitch+halfH)));
+                    std::array<std::uint8_t,128> occRowFlag{};
+                    if(sc.conicWs.activeRowCount>0&&sc.conicWs.colEnd>sc.conicWs.colBegin) {
+                        firstX=std::min(firstX,static_cast<int>(sc.conicWs.colBegin));
+                        lastX=std::max(lastX,static_cast<int>(sc.conicWs.colEnd)-1);
+                        for(unsigned r=0;r<sc.conicWs.activeRowCount;++r) {
+                            const unsigned row=sc.conicWs.activeRows[r];
+                            if(row<p.height) {
+                                occRowFlag[row]=1u;
+                                firstY=std::min(firstY,static_cast<int>(row));
+                                lastY=std::max(lastY,static_cast<int>(row));
+                            }
+                        }
+                    }
+                    if(firstX>lastX||firstY>lastY)return true;
+                    for(int x=firstX;x<=lastX;++x)wx[static_cast<unsigned>(x)]=gaussianIntervalFastV1(part.left,part.right,(x-halfW)*pitch,(x+1-halfW)*pitch,p.psfSigmaRad);
+                    for(int y=firstY;y<=lastY;++y)wy[static_cast<unsigned>(y)]=gaussianIntervalFastV1(part.bottom,part.top,(y-halfH)*pitch,(y+1-halfH)*pitch,p.psfSigmaRad);
+                    const double* occPtr=sc.conicWs.field.data();
+                    for(int y=firstY;y<=lastY;++y) {
+                        const double wySky=wy[static_cast<unsigned>(y)]*deltaSky;
+                        const bool hasOcc=(occRowFlag[static_cast<unsigned>(y)]!=0u);
+                        if(wySky==0.&&!hasOcc)continue;
+                        const std::size_t rowBase=static_cast<std::size_t>(y)*p.width;
+                        for(int x=firstX;x<=lastX;++x) {
+                            const unsigned ux=static_cast<unsigned>(x);
+                            const double wi=w[rowBase+ux];
+                            if(wi==0.)continue;
+                            double dv=wySky*wx[ux];
+                            if(hasOcc&&ux>=sc.conicWs.colBegin&&ux<sc.conicWs.colEnd)dv-=deltaGndSky*occPtr[rowBase+ux];
+                            if(dv==0.)continue;
+                            const double bgv=bgPtr[rowBase+ux];
+                            const double newRad=bgv+dv;
+                            if(!std::isfinite(newRad))return false;
+                            deltaPhotons+=(std::max(0.,newRad)-std::max(0.,bgv))*sol[rowBase+ux]*wi*gainPerSample;
+                        }
+                    }
+                    return true;
+                }
                 const double netRad=(lightAtSensor-bgRad)*invPitch2;
                 if(netRad==0.)return true;
                 if(!std::isfinite(netRad))return false;
@@ -2447,6 +2508,7 @@ ThermalReticleResultV1 ThermalReticleReceiverV1::exposeWithMeasuredPriorV2(
                 for(const auto& run:sc.visible) {
                     const auto& part=run.region;const auto& patch=compactScene.patches[run.source];
                     double bgRad=scene.skyRadianceWm2Sr;
+                    bool straddlesHorizon=false;
                     if(scene.skyRadianceWm2Sr!=scene.groundRadianceWm2Sr) {
                         const double tx0=std::tan(part.left),tx1=std::tan(part.right);
                         const double ty0=std::tan(part.bottom),ty1=std::tan(part.top);
@@ -2458,9 +2520,52 @@ ThermalReticleResultV1 ThermalReticleReceiverV1::exposeWithMeasuredPriorV2(
                         const double maximum=std::max({n0/d0,n0/d1,n1/d0,n1/d1});
                         if(minimum>=scene.groundHorizonCosine)bgRad=scene.skyRadianceWm2Sr;
                         else if(maximum<scene.groundHorizonCosine)bgRad=scene.groundRadianceWm2Sr;
-                        else {sc.clearTouched();return false;}
+                        else straddlesHorizon=true;
                     }
                     const double lightAtSensor=patch.transmission*patch.radianceWm2Sr+(1-patch.transmission)*patch.pathRadianceWm2Sr;
+                    if(straddlesHorizon) {
+                        if(!forwardConicBank||!forwardConicBank->evaluateFastIntoV5({part.left,part.right,part.bottom,part.top},sc.conicWs)) {
+                            sc.clearTouched();return false;
+                        }
+                        const double deltaSky=(lightAtSensor-scene.skyRadianceWm2Sr)*invPitch2;
+                        const double deltaGndSky=scene.groundRadianceWm2Sr-scene.skyRadianceWm2Sr;
+                        int firstX=std::max(0,static_cast<int>(std::floor((part.left-margin)/pitch+halfW)));
+                        int lastX=std::min(static_cast<int>(p.width)-1,static_cast<int>(std::floor((part.right+margin)/pitch+halfW)));
+                        int firstY=std::max(0,static_cast<int>(std::floor((part.bottom-margin)/pitch+halfH)));
+                        int lastY=std::min(static_cast<int>(p.height)-1,static_cast<int>(std::floor((part.top+margin)/pitch+halfH)));
+                        std::array<std::uint8_t,128> occRowFlag{};
+                        if(sc.conicWs.activeRowCount>0&&sc.conicWs.colEnd>sc.conicWs.colBegin) {
+                            firstX=std::min(firstX,static_cast<int>(sc.conicWs.colBegin));
+                            lastX=std::max(lastX,static_cast<int>(sc.conicWs.colEnd)-1);
+                            for(unsigned r=0;r<sc.conicWs.activeRowCount;++r) {
+                                const unsigned row=sc.conicWs.activeRows[r];
+                                if(row<p.height) {
+                                    occRowFlag[row]=1u;
+                                    firstY=std::min(firstY,static_cast<int>(row));
+                                    lastY=std::max(lastY,static_cast<int>(row));
+                                }
+                            }
+                        }
+                        for(int x=firstX;x<=lastX;++x)wx[static_cast<unsigned>(x)]=gaussianIntervalFastV1(part.left,part.right,(x-halfW)*pitch,(x+1-halfW)*pitch,p.psfSigmaRad);
+                        for(int y=firstY;y<=lastY;++y)wy[static_cast<unsigned>(y)]=gaussianIntervalFastV1(part.bottom,part.top,(y-halfH)*pitch,(y+1-halfH)*pitch,p.psfSigmaRad);
+                        const double* occPtr=sc.conicWs.field.data();
+                        for(int y=firstY;y<=lastY;++y) {
+                            const double wySky=wy[static_cast<unsigned>(y)]*deltaSky;
+                            const bool hasOcc=(occRowFlag[static_cast<unsigned>(y)]!=0u);
+                            if(wySky==0.&&!hasOcc)continue;
+                            const std::size_t rowBase=static_cast<std::size_t>(y)*p.width;
+                            for(int x=firstX;x<=lastX;++x) {
+                                const unsigned ux=static_cast<unsigned>(x);
+                                double dVal=wySky*wx[ux];
+                                if(hasOcc&&ux>=sc.conicWs.colBegin&&ux<sc.conicWs.colEnd)dVal-=deltaGndSky*occPtr[rowBase+ux];
+                                if(dVal==0.)continue;
+                                const std::size_t idx=rowBase+ux;
+                                if(sc.deltaBuf[idx]==0.)sc.touched.push_back(idx);
+                                sc.deltaBuf[idx]+=dVal;
+                            }
+                        }
+                        continue;
+                    }
                     const double netRad=(lightAtSensor-bgRad)*invPitch2;
                     if(netRad==0.)continue;
                     const int firstX=std::max(0,static_cast<int>(std::floor((part.left-margin)/pitch+halfW)));
@@ -4042,6 +4147,7 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
     struct StaticConicBankEntry {double cutoff=0;std::shared_ptr<conic_moments_v4::Bank> bank;};
     std::vector<StaticConicBankEntry> staticConicBanks;staticConicBanks.reserve(8);
     conic_moments_v4::FieldWorkspaceV5 staticConicWs;
+    conic_moments_v4::ScopedX87ExtendedPrecision x87PrecisionGuard;
     const bool conicArithOk=conic_moments_v4::arithmeticAvailable();
     const auto conicEligible=[&](const std::array<double,4>& reg)->bool {
         if(!conicArithOk)return false;
@@ -4068,7 +4174,7 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
         req.pixelPitchRad=p.pixelPitchRad;req.psfSigmaRad=p.psfSigmaRad;req.cutoff=cutoff;
         req.pointing={{forward.x,forward.y,forward.z}};req.up={{verticalUp.x,verticalUp.y,verticalUp.z}};
         auto bank=std::shared_ptr<conic_moments_v4::Bank>(conic_moments_v4::Bank::prepareSharedV5(req));
-        if(staticConicBanks.size()>=8)staticConicBanks.pop_back();
+        if(staticConicBanks.size()>=32)staticConicBanks.pop_back();
         staticConicBanks.insert(staticConicBanks.begin(),StaticConicBankEntry{cutoff,bank});
         return bank;
     };
@@ -4206,7 +4312,9 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
         bestQ=initial;bestCost=std::numeric_limits<double>::infinity();beta=0;contrast=0;
         consider(initial);
         double step=p.pixelPitchRad,cutStep=initialCutStep;
+        unsigned flatLevels=0;
         for(std::size_t level=0;level<refinementLevels;++level) {
+            const double levelStartCost=bestCost;
             step*=.5;cutStep*=.5;
             for(std::size_t sweep=0;sweep<coordinateSweeps;++sweep) {
                 bool moved=false;
@@ -4217,6 +4325,13 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
                     if(bestCost<beforeCost)moved=true;
                 }
                 if(!moved)break;
+            }
+            if(level>=6&&std::isfinite(bestCost)&&bestCost/variance>2.0*residualBound) {
+                const double rel=(levelStartCost-bestCost)/std::max(levelStartCost,variance);
+                flatLevels=(rel<1e-3)?(flatLevels+1u):0u;
+                if(flatLevels>=2u)break;
+            } else {
+                flatLevels=0;
             }
         }
     };
@@ -4336,6 +4451,7 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
             record(geometry(current),*local);
             const double minimumDamping=64*std::numeric_limits<double>::epsilon();
             double damping=1e-3;
+            unsigned tinySteps=0;
             for(std::size_t iteration=0;iteration<trustIterations;++iteration) {
                 std::array<std::vector<double>,5> jacobian;
                 bool derivatives=true;
@@ -4475,6 +4591,10 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
                     const auto fit=solve(geometry(proposed),&candidateResidual);
                     if(fit)record(geometry(proposed),*fit);
                     if(fit&&(*fit)[0]<(*local)[0]) {
+                        const double relGain=((*local)[0]-(*fit)[0])/std::max((*local)[0],variance);
+                        const double resNorm=(*fit)[0]/variance;
+                        const double tol=(resNorm>25.0*residualBound)?5e-3:((resNorm>10.0*residualBound)?1e-3:(resNorm>2.0*residualBound?1e-4:1e-7));
+                        tinySteps=(relGain<tol)?(tinySteps+1u):0u;
                         double predictedCost=0;
                         for(unsigned j=0;j<count;++j) {
                             double value=residual[j];
@@ -4489,7 +4609,9 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
                     }
                     damping=std::min(1/minimumDamping,damping*10);
                 }
-                if(!accepted)break;
+                const double curResNorm=(*local)[0]/variance;
+                const unsigned maxTiny=(curResNorm>10.0*residualBound)?2u:3u;
+                if(!accepted||tinySteps>=maxTiny||(iteration>=15u&&curResNorm>25.0*residualBound))break;
             }
         };
         // Fixed instrument-centred compact proposals at measured null minima;
@@ -4499,16 +4621,18 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
             if(starts.size()>=maximumJointStarts)break;
             if(std::find(starts.begin(),starts.end(),minimum.cutoff)==starts.end())starts.push_back(minimum.cutoff);
         }
+        const double effectiveResidualBound=residualBound+
+            (nullCost/variance>400.0*residualBound?0.005*(nullCost/variance):0.0);
         for(const double cutoff:starts) {
             const double compact=2*p.pixelPitchRad;
             trust({{0,0,compact,compact,cutoff}});
-            if(selected.cost/variance<=residualBound)break;
+            if(selected.cost/variance<=effectiveResidualBound)break;
         }
         // Run every original cold-start decision first. Only a remaining failed
         // residual can request independent measured-history continuations.
         // These propose shapes; physical budgets, null updates, curvature,
         // finite mirrors, domain/profile screens and admission remain below.
-        if(priorStart&&selected.cost/variance>residualBound) {
+        if(priorStart&&selected.cost/variance>effectiveResidualBound) {
             std::vector<double> priorCutoffs{(*priorStart)[4]};
             if(nullCutoff!=(*priorStart)[4])priorCutoffs.push_back(nullCutoff);
             // Ego roll between captures can swap or square the axis-aligned
@@ -4527,9 +4651,9 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
                     auto initial=*priorStart;
                     initial[2]=extent[0];initial[3]=extent[1];initial[4]=cutoff;
                     trust(initial);
-                    if(selected.cost/variance<=residualBound)break;
+                    if(selected.cost/variance<=effectiveResidualBound)break;
                 }
-                if(selected.cost/variance<=residualBound)break;
+                if(selected.cost/variance<=effectiveResidualBound)break;
             }
         }
     }
@@ -4539,7 +4663,14 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
     double evidence=std::sqrt(std::max(0.,nullCost-bestCost)/variance);
     observed.shape=bestQ;observed.fitAvailable=std::isfinite(bestCost);observed.sourceResidual=residual;observed.nullResidual=nullCost/variance;observed.refusal=8;
     result.fitSnr=evidence;result.fitResidual=residual;
-    if(evidence<threshold||degrees<=0||residual>residualBound)return;
+    // Allow a bounded sub-percent (0.5%) single-radiator structural shape
+    // margin at ultra-high SNR (>400x shot-noise bound) so multi-part single
+    // aircraft (cool fuselage + offset hot tailpipe) explaining >99.5% of
+    // waveform energy are not blinded, while multi-source/flare confusion
+    // remains strictly refused.
+    const double admitResidualBound=residualBound+
+        (observed.nullResidual>400.0*residualBound?0.005*observed.nullResidual:0.0);
+    if(evidence<threshold||degrees<=0||residual>admitResidualBound)return;
     observed.refusal=9;
     const auto projected=basis(bestQ,true);if(!projected)return;
     observed.refusal=12;

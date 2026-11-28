@@ -336,6 +336,10 @@ class ComponentsTest(unittest.TestCase):
                                   if autopilot.get('availability') == 'available' else '')
                 if autopilot_mech in (components.ACTUATOR_AWARE_AUTOPILOT,components.OPERATING_POINT_AUTOPILOT):
                     autopilot['implementation_id']=components.AUTOPILOT
+                actuator_row = rows.get('actuator', {})
+                if actuator_row.get('availability') == 'available' and 'weapon_execution_version' not in selected.get('parameters', {}):
+                    selected['parameters'][actuator_row['parameter_refs']['lag_s']]['value'] = 0.04
+                    selected['parameters'][actuator_row['parameter_refs']['rate_rad_s']]['value'] = 4.0
                 propulsion=rows['propulsion']
                 prop_mech = (components.equipment_mechanism(selected, 'propulsion', propulsion['implementation_id'])
                              if propulsion.get('availability') == 'available' else '')

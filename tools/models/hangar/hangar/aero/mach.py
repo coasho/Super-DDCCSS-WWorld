@@ -97,7 +97,12 @@ def lift_slope(num, mach):
     b = math.sqrt(mach * mach - 1.0)
     m = b / max(math.tan(le), 1e-6)         # beta cot(sweep): the leading edge supersonic at m >= 1
     if m >= 1.0:
-        return 4.0 / b * max(1.0 - 1.0 / (2.0 * ar * b), 0.5)
+        # Supersonic leading edge: Ackeret/Bonney finite-span formula holds for
+        # beta*AR >= 1; below beta*AR = 1 the tip Mach cones overlap across the
+        # whole span and linear supersonic/slender-wing theory bounds C_L_alpha
+        # at 2*AR (continuous at beta*AR = 1), preventing unphysical lift blow-up
+        # on very low-aspect-ratio missile strakes.
+        return 4.0 / b * (1.0 - 1.0 / (2.0 * ar * b)) if ar * b >= 1.0 else 2.0 * ar
     # a subsonic leading edge: Stewart's delta of the same sweep, scaled to the
     # surface's aspect ratio (that delta's is 4 cot(sweep))
     return 2 * math.pi / math.tan(le) / ellipe(math.sqrt(1.0 - m * m)) * min(1.0, ar * math.tan(le) / 4.0)

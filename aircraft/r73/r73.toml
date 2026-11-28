@@ -63,18 +63,18 @@ sections = [
   { le = [0.31, 0.0866, -0.0866], chord = 0.04 },
 ]
 
-# The canards: all-moving about their spindles; root chord 0.18 m, tip 0.05 m, 0.1075 m out from the body (assumed from photographs)
+# The canards: all-moving about their spindles; root chord 0.19 m, tip 0.06 m, 0.11 m out from the body (assumed from photographs)
 [[surface]]
 name = "canard upper"
 kind = "fin"
 mirror = true
 airfoil = "biconvex4"
 sections = [
-  { le = [0.4, 0.0566, 0.0566], chord = 0.18 },
-  { le = [0.53, 0.1344, 0.1344], chord = 0.05 },
+  { le = [0.4, 0.0566, 0.0566], chord = 0.19 },
+  { le = [0.53, 0.1361, 0.1361], chord = 0.06 },
 ]
 controls = [
-  { name = "canard upper", channel = "elevator", gain = -1.0, mix = { rudder = -1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.5, limits = [-20, 20] },
+  { name = "canard upper", channel = "elevator", gain = -1.0, mix = { rudder = -1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.5, limits = [-28, 28] },
 ]
 
 [[surface]]
@@ -83,11 +83,11 @@ kind = "fin"
 mirror = true
 airfoil = "biconvex4"
 sections = [
-  { le = [0.4, 0.0566, -0.0566], chord = 0.18 },
-  { le = [0.53, 0.1344, -0.1344], chord = 0.05 },
+  { le = [0.4, 0.0566, -0.0566], chord = 0.19 },
+  { le = [0.53, 0.1361, -0.1361], chord = 0.06 },
 ]
 controls = [
-  { name = "canard lower", channel = "elevator", gain = -1.0, mix = { rudder = -1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.5, limits = [-20, 20] },
+  { name = "canard lower", channel = "elevator", gain = -1.0, mix = { rudder = -1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.5, limits = [-28, 28] },
 ]
 
 # The tail fins: fixed, with ailerons along their trailing edges; root chord 0.45 m, tip 0.15 m, 0.1725 m out from the body, their tips across the card's span (assumed from photographs)
@@ -117,7 +117,7 @@ controls = [
   { name = "aileron lower", channel = "aileron", span = [0.05, 0.95], chord_fraction = 0.3, limits = [-20, 20] },
 ]
 
-# The rocket motor: solid (the card); aluminised assumed from its trail in photographs. Its nozzle in the boattail, its exit 65 % of the base and its burn's phases assumed
+# The rocket motor: boost-sustain solid (the card); aluminised assumed from its trail in photographs. Its nozzle in the boattail, its exit 65 % of the base and its burn's phases assumed
 # (none published): only what a replay shows the plume with until a flight model burns it.
 [motor]
 exit = [2.93, 0.0, 0.0]
@@ -126,12 +126,15 @@ throat_diameter = 0.0386
 cone_length = 0.0944
 smoke = "aluminised"
 [[motor.phase]]
-duration_s = 4
-thrust_kn = 14
+duration_s = 3
+thrust_kn = 11.5
+[[motor.phase]]
+duration_s = 3.5
+thrust_kn = 4
 
 [mass]
 empty = 105                 # kg, the card, motor full
-empty_cg = [1.465, 0.0, 0.0]  # assumed: half way along
+empty_cg = [1.2599, 0.0, 0.0]  # assumed: 43 % along
 gyration_reference = "body-length-v1"
 gyration = [0.0197, 0.289, 0.289]  # radii of gyration over length - assumed (a slender rod's: L/sqrt(12))
 
@@ -144,7 +147,7 @@ span = 0.51
 area = 0.021382464998495533
 span = 0.16500000000000001
 chord = 0.16500000000000001
-aero_point = [1.465, 0.0, 0.0]
+aero_point = [1.2599, 0.0, 0.0]
 
 # Shared source-derived fixed resolution; no equipment-specific timestep.
 [integration]

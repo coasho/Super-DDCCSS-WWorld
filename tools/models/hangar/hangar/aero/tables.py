@@ -38,9 +38,10 @@ def beta_grid():
 
 
 def control_grid(lo, hi, step=5.0):
-    pts = set(np.round(np.arange(math.floor(lo / step) * step, hi + 1e-9, step), 6))
-    pts.update([lo, hi, 0.0])
-    return np.array(sorted(p for p in pts if lo - 1e-9 <= p <= hi + 1e-9), float)
+    lo_r, hi_r = round(float(lo), 6), round(float(hi), 6)
+    pts = set(np.round(np.arange(math.floor(lo_r / step) * step, hi_r + 1e-9, step), 6))
+    pts.update([lo_r, hi_r, 0.0])
+    return np.array(sorted(p for p in pts if lo_r - 1e-9 <= p <= hi_r + 1e-9), float)
 
 
 def build(model, alpha=None, beta=None, progress=None):

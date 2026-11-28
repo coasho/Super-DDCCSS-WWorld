@@ -2315,4 +2315,42 @@ TEST_CASE("Reticle prior join tolerates 1-ULP receiver pointing normalization",
     CHECK(normalized.z==recomputed.z);
 }
 
+#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
+TEST_CASE("ScopedX87ExtendedPrecision unlocks conic arithmetic under 53-bit x87 host threads and restores CW",
+          "[thermal-reticle][thermal-reticle-x87-guard]") {
+    namespace v4 = fsim::ms::components::conic_moments_v4;
+    unsigned short origCw = 0;
+    __asm__ __volatile__("fnstcw %0" : "=m"(origCw));
+    struct RestoreCw {
+        unsigned short cw;
+        ~RestoreCw() { __asm__ __volatile__("fldcw %0" : : "m"(cw)); }
+    } restoreCw{origCw};
+
+    // Simulate MSVC CPython / Windows default x87 53-bit precision control word (0x027f).
+    const unsigned short msvcCw = static_cast<unsigned short>((origCw & ~0x0300u) | 0x0200u);
+    __asm__ __volatile__("fldcw %0" : : "m"(msvcCw));
+    REQUIRE_FALSE(v4::arithmeticAvailable());
+    {
+        v4::ScopedX87ExtendedPrecision guard;
+        CHECK(v4::arithmeticAvailable());
+    }
+    unsigned short afterCw = 0;
+    __asm__ __volatile__("fnstcw %0" : "=m"(afterCw));
+    CHECK(afterCw == msvcCw);
+    CHECK_FALSE(v4::arithmeticAvailable());
+
+    // Directed rounding must NOT be overridden by the precision guard.
+    struct RestoreRound {
+        int r;
+        ~RestoreRound() { std::fesetround(r); }
+    } restoreRound{std::fegetround()};
+    REQUIRE(std::fesetround(FE_DOWNWARD) == 0);
+    {
+        v4::ScopedX87ExtendedPrecision guard;
+        CHECK_FALSE(v4::arithmeticAvailable());
+        CHECK(std::fegetround() == FE_DOWNWARD);
+    }
+}
+#endif
+
 #endif

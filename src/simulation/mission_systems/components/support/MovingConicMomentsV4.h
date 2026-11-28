@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cfenv>
 #include <cstddef>
 #include <optional>
 #include <vector>
@@ -64,6 +65,40 @@ private:
 };
 
 bool arithmeticAvailable() noexcept;
+
+/// Scoped x87 64-bit extended-precision guard for foreign host threads (e.g. MSVC
+/// CPython, which initializes x87 PC to 53-bit 0x027f instead of MinGW's 64-bit
+/// 0x037f). Only upgrades precision control bits when rounding is already
+/// FE_TONEAREST and all x87 exceptions are masked; directed rounding or unmasked
+/// exception environments remain untouched and continue to refuse acceleration.
+class ScopedX87ExtendedPrecision {
+public:
+    ScopedX87ExtendedPrecision() noexcept {
+#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
+        if (std::fegetround() != FE_TONEAREST) return;
+        unsigned short cw = 0;
+        __asm__ __volatile__("fnstcw %0" : "=m"(cw));
+        if ((cw & 0x0c3fu) == 0x003fu && (cw & 0x0300u) != 0x0300u) {
+            saved_ = cw;
+            const unsigned short extended = static_cast<unsigned short>((cw & ~0x0300u) | 0x0300u);
+            __asm__ __volatile__("fldcw %0" : : "m"(extended));
+            active_ = true;
+        }
+#endif
+    }
+    ~ScopedX87ExtendedPrecision() noexcept {
+#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
+        if (active_) {
+            __asm__ __volatile__("fldcw %0" : : "m"(saved_));
+        }
+#endif
+    }
+    ScopedX87ExtendedPrecision(const ScopedX87ExtendedPrecision&) = delete;
+    ScopedX87ExtendedPrecision& operator=(const ScopedX87ExtendedPrecision&) = delete;
+private:
+    unsigned short saved_ = 0;
+    bool active_ = false;
+};
 // Private numeric calibration seam; no SDK/public V1 layout changes.
 std::array<long double,2> outwardForCalibration(long double);
 std::optional<Bounds> normalPdfForCalibration(double);

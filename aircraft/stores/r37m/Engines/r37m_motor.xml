@@ -1,18 +1,18 @@
 <?xml version="1.0"?>
 <!-- Written by hangar (storemodels.py) from the design of r37m: its motor's phases there (assumed: none is published),
-     137.4 kg of propellant at 245 s (assumed), burning 22.0 s. Do not edit. -->
+     312.9 kg of propellant at 255 s (assumed), burning 36.5 s. Do not edit. -->
 <rocket_engine name="r37m motor">
-    <isp> 245.0 </isp>
+    <isp> 255.0 </isp>
     <builduptime> 0.05 </builduptime>
     <thrust_table name="fsim/commanded-dual-pulse-v1" type="internal">
         <tableData>
-            0 8992.3577239884198
-            6.0181690113816204 8992.3577239884198
-            6.0181690113816213 0.449617886199421
-            16.018169011381616 0.449617886199421
-            16.01816901138162 3372.1341464956577
-            22.018169011381616 3372.1341464956577
-            22.01816901138162 0
+            0 16635.861789378578
+            7.0181690113816204 16635.861789378578
+            7.0181690113816213 0.449617886199421
+            25.018169011381616 0.449617886199421
+            25.01816901138162 5170.6056912933418
+            36.518169011381616 5170.6056912933418
+            36.518169011381623 0
         </tableData>
     </thrust_table>
 </rocket_engine>

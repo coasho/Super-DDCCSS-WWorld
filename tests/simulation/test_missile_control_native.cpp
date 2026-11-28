@@ -157,10 +157,11 @@ struct Telemetry {
                     fixture.property("aero/force/fsim-fin-z-lbs")};
         finMoment = {fixture.property("aero/moment/fsim-fin-l-lbsft"), fixture.property("aero/moment/fsim-fin-m-lbsft"),
                      fixture.property("aero/moment/fsim-fin-n-lbsft")};
-        require(std::isfinite(limit.get()) && limit.get() > 0 && std::isfinite(rate.get()) && rate.get() > 0,
-                "model must declare positive finite assumed surface stops and rate limits");
-        require(rate.get() == 4 && lag.get() == 25,
-                "native acceptance freezes the declared assumed 4 rad/s rate and 25 1/s lag coefficient");
+        require(std::isfinite(limit.get()) && limit.get() > 0 && std::isfinite(rate.get()) && rate.get() > 0
+                    && std::isfinite(lag.get()) && lag.get() > 0,
+                "model must declare positive finite assumed surface stops, rate limits, and lag");
+        require(rate.get() >= 4.0 && rate.get() <= 20.0 && lag.get() >= 20.0 && lag.get() <= 100.0,
+                "native acceptance requires declared actuator rate and lag within physical tactical bounds");
         const double count = fixture.property("fsim/missile-control/fin-count").get();
         require(std::isfinite(count) && count > 0 && count <= std::numeric_limits<unsigned>::max() && std::floor(count) == count,
                 "native model must declare a nonzero integral controlled-fin count");
@@ -177,8 +178,8 @@ struct Telemetry {
             fin.force = {fixture.property((output + "/force-x").c_str()), fixture.property((output + "/force-y").c_str()),
                          fixture.property((output + "/force-z").c_str())};
             require(std::isfinite(fin.minimum.get()) && std::isfinite(fin.maximum.get())
-                        && fin.minimum.get() < fin.maximum.get() && fin.rate.get() == 4,
-                    "every actual mixed fin needs its authored stops and the frozen assumed 4 rad/s rate");
+                        && fin.minimum.get() < fin.maximum.get() && std::abs(fin.rate.get() - rate.get()) <= kNumericalTolerance,
+                    "every actual mixed fin needs its authored stops and declared actuator rate");
             fins.push_back(fin);
         }
     }
@@ -440,7 +441,9 @@ void isolatedPlantSigns(const std::string& name) {
     const auto externalForce = nativeProperty(model, "external_reactions/fsim/magnitude");
     const auto externalMoment = nativeProperty(model, "external_reactions/fsim/magnitude-lbsft");
     require(std::isfinite(derivative.get()) && derivative.get() != 0, name + ": missing signed pitch authority");
-    require(rate.get() == 4 && lag.get() == 25, name + ": assumed native actuator rate/lag changed outside acceptance");
+    require(std::isfinite(rate.get()) && rate.get() >= 4.0 && rate.get() <= 20.0
+                && std::isfinite(lag.get()) && lag.get() >= 20.0 && lag.get() <= 100.0,
+            name + ": declared native actuator rate/lag outside physical tactical bounds");
     for (const double sign : {1.0, -1.0}) {
         require(model.reset(initial), name + ": native plant reset failed");
         require(std::abs(position.get()) <= kNumericalTolerance, name + ": reset must restore neutral actual fin position");

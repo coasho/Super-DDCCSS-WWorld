@@ -298,9 +298,10 @@ public:
         const V3 launchEast{0.0, 1.0, 0.0};
 
         // Far aimpoint at targetAltM along offBoresightDeg so Guidance executes its
-        // authentic midcourse loft/turn/climb profile until battery expiry or energy floor.
+        // authentic midcourse loft/turn/climb profile until battery expiry or energy floor,
+        // without prematurely terminating on the aimpoint at high altitude.
         const double targetRadius = launchRadius + (curve.targetAltM - p.launchAltM);
-        const double aimDistM = std::clamp(std::max(cfg_.publishedRangeKm * 1200.0, 45000.0), 45000.0, 350000.0);
+        const double aimDistM = std::clamp(std::max(cfg_.publishedRangeKm * 3000.0, 120000.0), 120000.0, 500000.0);
         const double theta = std::clamp(aimDistM / launchRadius, 0.001, 0.20);
         const double azRad = p.offBoresightDeg * kDegToRad;
         const V3 horizDir = vAdd(vScale(launchNorth, std::cos(azRad)), vScale(launchEast, std::sin(azRad)));

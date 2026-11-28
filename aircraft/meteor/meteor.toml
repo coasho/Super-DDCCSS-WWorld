@@ -2,7 +2,7 @@
 # (tools/hangar/hangar/missiles.py), one rule for every missile: edit the table there and write it again.
 #
 # Frame: metres, x aft from the nose's tip, y right, z up from the body's axis. The card (assets/stores/meteor.json)
-# holds the published figures: length 3.7 m, diameter 0.178 m, mass 190 kg; span 0.4 m (assumed from photographs (the card has none)), tip to tip across
+# holds the published figures: length 3.7 m, diameter 0.178 m, mass 190 kg; span 0.46 m (assumed from photographs (the card has none)), tip to tip across
 # opposite fins. Its surfaces fly in an X, 45 deg from the vertical, as it hangs on its launcher (assumed for all).
 # Assumed from photographs, the same way for every missile: the nose's shape and length, each surface's place,
 # chords and sweep, the motor's nozzle and burn, the CG. They only shape the picture until the aero stage runs.
@@ -48,18 +48,39 @@ stations = [
   { x = 3.1, y = 0.075, w = 0.0213, top = -0.0662, bottom = -0.0837, n = 2.4 },
 ]
 
-# The tail fins: all-moving about their spindles; root chord 0.3 m, tip 0.18 m, 0.111 m out from the body, their tips across the card's span (assumed from photographs)
+# The strakes: fixed; root chord 1.75 m, tip 1.65 m, 0.05 m out from the body (assumed from photographs)
+[[surface]]
+name = "strake upper"
+kind = "fin"
+mirror = true
+airfoil = "plate"
+sections = [
+  { le = [1.35, 0.061, 0.061], chord = 1.75 },
+  { le = [1.45, 0.0983, 0.0983], chord = 1.65 },
+]
+
+[[surface]]
+name = "strake lower"
+kind = "fin"
+mirror = true
+airfoil = "plate"
+sections = [
+  { le = [1.35, 0.061, -0.061], chord = 1.75 },
+  { le = [1.45, 0.0983, -0.0983], chord = 1.65 },
+]
+
+# The tail fins: all-moving about their spindles; root chord 0.38 m, tip 0.21 m, 0.141 m out from the body, their tips across the card's span (assumed from photographs)
 [[surface]]
 name = "tail fin upper"
 kind = "fin"
 mirror = true
 airfoil = "biconvex4"
 sections = [
-  { le = [3.25, 0.061, 0.061], chord = 0.3 },
-  { le = [3.37, 0.1414, 0.1414], chord = 0.18 },
+  { le = [3.18, 0.061, 0.061], chord = 0.38 },
+  { le = [3.35, 0.1626, 0.1626], chord = 0.21 },
 ]
 controls = [
-  { name = "tail fin upper", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-20, 20] },
+  { name = "tail fin upper", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-28, 28] },
 ]
 
 [[surface]]
@@ -68,11 +89,11 @@ kind = "fin"
 mirror = true
 airfoil = "biconvex4"
 sections = [
-  { le = [3.25, 0.061, -0.061], chord = 0.3 },
-  { le = [3.37, 0.1414, -0.1414], chord = 0.18 },
+  { le = [3.18, 0.061, -0.061], chord = 0.38 },
+  { le = [3.35, 0.1626, -0.1626], chord = 0.21 },
 ]
 controls = [
-  { name = "tail fin lower", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-20, 20] },
+  { name = "tail fin lower", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-28, 28] },
 ]
 
 # The rocket motor: the integrated booster, then the ducted rocket throttled (the card); its smoke assumed. Its nozzle in the boattail, its exit 80 % of the base and its burn's phases assumed
@@ -85,15 +106,15 @@ cone_length = 0.1253
 smoke = "reduced"
 kind = "ducted_rocket"
 [[motor.phase]]
-duration_s = 2
-thrust_kn = 25
+duration_s = 2.5
+thrust_kn = 29
 [[motor.phase]]
-duration_s = 25
-thrust_kn = 3
+duration_s = 40
+thrust_kn = 3.3
 
 [mass]
 empty = 190                 # kg, the card, motor full
-empty_cg = [1.85, 0.0, 0.0]  # assumed: half way along
+empty_cg = [1.998, 0.0, 0.0]  # assumed: 54 % along
 gyration_reference = "body-length-v1"
 gyration = [0.0168, 0.289, 0.289]  # radii of gyration over length - assumed (a slender rod's: L/sqrt(12))
 
@@ -105,7 +126,7 @@ length = 3.7
 area = 0.024884555409084748
 span = 0.17799999999999999
 chord = 0.17799999999999999
-aero_point = [1.85, 0.0, 0.0]
+aero_point = [1.998, 0.0, 0.0]
 
 # Shared source-derived fixed resolution; no equipment-specific timestep.
 [integration]

@@ -104,29 +104,29 @@
       "note": "no source names its explosive: as PBXN-110, a modern HMX-based fill - an estimate"
     },
     "drag_area_m2": {
-      "value": 0.012019808585999565,
+      "value": 0.01147919608343494,
       "unit": "m2",
       "source": "hangar-vlm",
       "basis": "assumed",
-      "uncertainty": 0.012019808585999565,
+      "uncertainty": 0.01147919608343494,
       "note": "Engineering estimate A_D = CD_simulated*S_geometry at neutral Mach .3. Inputs, dated model-specific searches and method limits are in hangar-vlm.simulation and the evidence catalog. Assumed one-sigma screening uncertainty is |A_D| in m2; its coverage probability is not established. Equipment drag error remains unknown; the table evidence basis is simulated."
     },
     "plant_actuator_lag_s": {
-      "value": 0.04,
+      "value": 0.024,
       "unit": "s",
       "uncertainty": 0,
       "basis": "assumed",
       "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
     },
     "plant_actuator_rate_rad_s": {
-      "value": 4.0,
+      "value": 8.8,
       "unit": "rad/s",
       "uncertainty": 0,
       "basis": "assumed",
       "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
     },
     "plant_motor_isp_s": {
-      "value": 245.0,
+      "value": 255.0,
       "unit": "s",
       "uncertainty": 0,
       "basis": "assumed",
@@ -224,21 +224,21 @@
       "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
     },
     "plant_motor_phase_0_duration_s": {
-      "value": 6,
+      "value": 7.0,
       "unit": "s",
       "uncertainty": 0,
       "basis": "assumed",
       "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
     },
     "plant_motor_phase_0_thrust_kn": {
-      "value": 40,
+      "value": 74.0,
       "unit": "kN",
       "uncertainty": 0,
       "basis": "assumed",
       "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
     },
     "plant_motor_phase_1_duration_s": {
-      "value": 10,
+      "value": 18.0,
       "unit": "s",
       "uncertainty": 0,
       "basis": "assumed",
@@ -252,23 +252,23 @@
       "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
     },
     "plant_motor_phase_2_duration_s": {
-      "value": 6,
+      "value": 11.5,
       "unit": "s",
       "uncertainty": 0,
       "basis": "assumed",
       "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
     },
     "plant_motor_phase_2_thrust_kn": {
-      "value": 15,
+      "value": 23.0,
       "unit": "kN",
       "uncertainty": 0,
       "basis": "assumed",
       "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
     },
     "component_seeker_acquire_m": {
-      "value": 17000,
+      "value": 40000,
       "unit": "m",
-      "uncertainty": 8500.0,
+      "uncertainty": 20000.0,
       "basis": "assumed",
       "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
@@ -427,9 +427,9 @@
       "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_decoy_resistance": {
-      "value": 1.6,
+      "value": 3.0,
       "unit": "1",
-      "uncertainty": 0.8,
+      "uncertainty": 1.5,
       "basis": "assumed",
       "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
@@ -441,9 +441,9 @@
       "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_emitter_power_w": {
-      "value": 20,
+      "value": 150.0,
       "unit": "W",
-      "uncertainty": 10.0,
+      "uncertainty": 75.0,
       "basis": "assumed",
       "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
@@ -469,7 +469,7 @@
       "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_guidance_navigation_gain": {
-      "value": 3.5,
+      "value": 4.2,
       "unit": "1",
       "uncertainty": 0,
       "basis": "assumed",
@@ -490,28 +490,28 @@
       "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
     },
     "component_guidance_loft_deg": {
-      "value": 20,
+      "value": 24,
       "unit": "deg",
       "uncertainty": 0,
       "basis": "assumed",
       "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
     },
     "component_guidance_loft_acceleration_g": {
-      "value": 2,
+      "value": 3.6,
       "unit": "1",
       "uncertainty": 0,
       "basis": "assumed",
       "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
     },
     "component_guidance_max_g": {
-      "value": 35,
+      "value": 25,
       "unit": "1",
       "uncertainty": 0,
       "basis": "assumed",
       "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
     },
     "component_guidance_life_s": {
-      "value": 110,
+      "value": 360,
       "unit": "s",
       "uncertainty": 0,
       "basis": "assumed",
@@ -560,35 +560,35 @@
       "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
     },
     "component_control_max_incidence_deg": {
-      "value": 15.0,
+      "value": 24.0,
       "unit": "deg",
       "uncertainty": 0,
       "basis": "assumed",
       "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
     },
     "component_control_rate_time_min_s": {
-      "value": 0.12,
+      "value": 0.085,
       "unit": "s",
       "uncertainty": 0,
       "basis": "assumed",
       "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
     },
     "component_control_rate_lag_multiplier": {
-      "value": 3.0,
+      "value": 3.2,
       "unit": "1",
       "uncertainty": 0,
       "basis": "assumed",
       "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
     },
     "component_control_incidence_time_min_s": {
-      "value": 0.4,
+      "value": 0.22,
       "unit": "s",
       "uncertainty": 0,
       "basis": "assumed",
       "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
     },
     "component_control_incidence_rate_multiplier": {
-      "value": 3.333333333333333,
+      "value": 2.8,
       "unit": "1",
       "uncertainty": 0,
       "basis": "assumed",
@@ -617,9 +617,9 @@
       "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
     },
     "sensor_v3_gimbal_rate_rad_s": {
-      "value": 6,
+      "value": 6.5,
       "unit": "rad/s",
-      "uncertainty": 3.0,
+      "uncertainty": 3.25,
       "basis": "assumed",
       "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
     },
@@ -631,9 +631,9 @@
       "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
     },
     "sensor_v3_track_lag_s": {
-      "value": 0.03,
+      "value": 0.035,
       "unit": "s",
-      "uncertainty": 0.015,
+      "uncertainty": 0.0175,
       "basis": "assumed",
       "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
     },
@@ -736,9 +736,9 @@
       "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
     },
     "sensor_v3_track_memory_s": {
-      "value": 0.12,
+      "value": 0.3,
       "unit": "s",
-      "uncertainty": 0.06,
+      "uncertainty": 0.15,
       "basis": "assumed",
       "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
     },
@@ -785,23 +785,23 @@
       "note": "Reduced-order lookdown clutter screening penalty from scene elevation,50 percent screening uncertainty; no fitted terrain or hardware claim."
     },
     "component_pulse_hold_limit_s": {
-      "value": 45,
+      "value": 95.0,
       "unit": "s",
-      "uncertainty": 22.5,
+      "uncertainty": 47.5,
       "basis": "assumed",
       "note": "Explicit finite energy-reserve policy with50 percent screening uncertainty, not proprietary hardware logic or equipment calibration. Native propulsion remains authoritative. Method: docs/sdk/weapon-pulse-energy.md."
     },
     "component_pulse_reserve_speed_m_s": {
-      "value": 450,
+      "value": 860.0,
       "unit": "m/s",
-      "uncertainty": 225.0,
+      "uncertainty": 430.0,
       "basis": "assumed",
       "note": "Explicit finite energy-reserve policy with50 percent screening uncertainty, not proprietary hardware logic or equipment calibration. Native propulsion remains authoritative. Method: docs/sdk/weapon-pulse-energy.md."
     },
     "component_pulse_terminal_lead_s": {
-      "value": 8,
+      "value": 28.0,
       "unit": "s",
-      "uncertainty": 4.0,
+      "uncertainty": 14.0,
       "basis": "assumed",
       "note": "Explicit finite energy-reserve policy with50 percent screening uncertainty, not proprietary hardware logic or equipment calibration. Native propulsion remains authoritative. Method: docs/sdk/weapon-pulse-energy.md."
     },
@@ -918,16 +918,16 @@
       "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
     },
     "receiver_rf_aperture_width_m": {
-      "value": 0.22799999999999998,
+      "value": 0.2736,
       "unit": "m",
-      "uncertainty": 0.11399999999999999,
+      "uncertainty": 0.1368,
       "basis": "assumed",
       "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
     },
     "receiver_rf_aperture_height_m": {
-      "value": 0.22799999999999998,
+      "value": 0.2736,
       "unit": "m",
-      "uncertainty": 0.11399999999999999,
+      "uncertainty": 0.1368,
       "basis": "assumed",
       "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
     },
@@ -1002,9 +1002,9 @@
       "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
     },
     "receiver_rf_coincidence_m": {
-      "value": 3,
+      "value": 2,
       "unit": "1",
-      "uncertainty": 1.5,
+      "uncertainty": 1.0,
       "basis": "assumed",
       "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
     },
@@ -1371,22 +1371,22 @@
     },
     "hangar-vlm": {
       "title": "Shared Hangar aircraft VLM tables",
-      "url": "aero/vlm-carriage-9296344af186698515c9596b3ff196c1dfe6f0ef80160d2117930efbbbf70cc4.json",
+      "url": "aero/vlm-carriage-e3f904f32d1b451940dccf5ee86d096fc4ffe9f85356d24484aa2b2a5bdb5362.json",
       "evidence_kind": "game_reference",
       "note": "Same base, rate and Mach data as the released JSBSim model; no equipment calibration claim.",
       "simulation": {
         "basis": "simulated",
         "tool": "Hangar shared aircraft VLM",
         "version": "0.1.0",
-        "design_sha256": "70b92830a53cd6d5b6ba2788ce8213f12f8da6ca5c50397bf4f65bf2c3956fd3",
+        "design_sha256": "69dba1c4c4fbc2aa86b3c6a002277e4fef390376b9f5e75c34b96e481bda97eb",
         "card_inputs": {
           "length_m": 4.06,
           "diameter_m": 0.38,
           "span_m": 0.72,
           "mass_kg": 510.0
         },
-        "table_inputs_hash": "c9347a2332840ff0",
-        "table_sha256": "9296344af186698515c9596b3ff196c1dfe6f0ef80160d2117930efbbbf70cc4",
+        "table_inputs_hash": "3efa365cb899e7fe",
+        "table_sha256": "e3f904f32d1b451940dccf5ee86d096fc4ffe9f85356d24484aa2b2a5bdb5362",
         "input_geometry": "aircraft/r37m/r37m.toml",
         "domain": {
           "mach": [
@@ -1406,7 +1406,7 @@
           "Katz and Plotkin, Low-Speed Aerodynamics, vortex lattice",
           "Shared aero/model.py, tables.py and mach.py; engineering extensions are not equipment measurements"
         ],
-        "solver_sha256": "c3c6c4ea54c61e3f461287dfb4f0bf1d9b83e6ba685a3352fab2a434639d0670",
+        "solver_sha256": "e63fd0b1c8850789db66888d6287eabb4870134b12c0fbd1ad5b64f5fa022750",
         "generic_validation": {
           "schema": "fsim.generic-vlm-validation.v1",
           "basis": "simulated",
@@ -1784,7 +1784,7 @@
           "design": "aircraft/r37m/r37m.toml",
           "motor": "Engines/r37m_motor.xml",
           "nozzle": "Engines/r37m_nozzle.xml",
-          "smoke": "reduced"
+          "smoke": "aluminised"
         },
         "basis": "assumed",
         "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration. Explicit commanded second-pulse energy management v1; original phase thrust, durations, total impulse and grain parameters are retained. After the original coast, an uncommanded second pulse retains propellant in a zero-thrust hold.",

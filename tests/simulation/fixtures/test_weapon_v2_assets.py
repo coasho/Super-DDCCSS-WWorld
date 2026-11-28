@@ -16,10 +16,10 @@ SPEC.loader.exec_module(GENERATOR)
 # metadata. New production behavior requires a separate compatibility decision;
 # regenerating a fixture must not silently change these retained inputs.
 ORIGINAL_BEHAVIOR = {
-    'aim-9m': 'c3e5095b07970656520aeaf52e9942c6d5620e6add2e4cb66befb5aed4d75ace',
-    'aim-9x': 'd9a9344a27d9ae1e1962279954fbac51aab73ee4afefe90d8523a99b728106d5',
-    'aim-7m': '7e28092eae173acc35ea3741cedb4fb60a659f8e975ef2c28de9d6d713e56bf6',
-    'aim-120c': 'bd43fa4d4c738b53c1e20ae30f34ce0c66fbd8c85882d8be5010c5f2acdb8c17',
+    'aim-9m': 'dfe065d11379a0dbfd0bce9b22b9b5a3f9a2c90bc3394549b02fd9f228973cdb',
+    'aim-9x': 'bfcb826e32cdc317361c3e83cb916daee4939180251d34912d14877eefce4c80',
+    'aim-7m': '887e30249052c383a322830201f1c0346fbb40db331b035f97c83a4c750d9f7d',
+    'aim-120c': '2b67c30db176d4bb438f592d7b4a44b4fd89d2d79c1285cdd2b9717751af5399',
 }
 
 

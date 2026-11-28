@@ -52,6 +52,21 @@ class MachTopology(unittest.TestCase):
         # Preserve the existing estimate for a real downstream aircraft tail.
         self.assertGreater(mach._tail_downwash(aircraft, aircraft.surfaces[3]), 0.)
 
+    def test_low_aspect_ratio_supersonic_strake_lift_slope_stays_bounded(self):
+        # Slender missile strake (AR ~ 0.06, sweep ~ 67 deg) must not jump to
+        # 2/beta when beta*cot(sweep) crosses 1; linear theory is continuous at
+        # beta*AR = 1 and bounded by 2*AR for beta*AR < 1.
+        strake = {'ar': 0.06, 'sweep_le': 1.17, 'sweep_half': 1.17}
+        below = mach.lift_slope(strake, 2.5)
+        above = mach.lift_slope(strake, 2.7)
+        self.assertLess(above, 0.25)
+        self.assertLess(above, 3.0 * below)
+        # Continuity at beta*AR = 1.0 (e.g. AR = 1.0, M = sqrt(2), beta = 1.0).
+        rect = {'ar': 1.0, 'sweep_le': 0.0, 'sweep_half': 0.0}
+        self.assertAlmostEqual(mach.lift_slope(rect, 1.4142135623730951), 2.0, places=9)
+        self.assertAlmostEqual(mach.lift_slope(rect, 1.4142135623730951 - 1e-6), 2.0, places=5)
+        self.assertAlmostEqual(mach.lift_slope(rect, 1.4142135623730951 + 1e-6), 2.0, places=5)
+
 
 if __name__ == '__main__':
     unittest.main()

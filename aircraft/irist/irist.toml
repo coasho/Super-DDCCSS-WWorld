@@ -74,7 +74,7 @@ sections = [
   { le = [2.75, 0.158, 0.158], chord = 0.15 },
 ]
 controls = [
-  { name = "tail fin upper", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-20, 20] },
+  { name = "tail fin upper", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-30, 30] },
 ]
 
 [[surface]]
@@ -87,10 +87,10 @@ sections = [
   { le = [2.75, 0.158, -0.158], chord = 0.15 },
 ]
 controls = [
-  { name = "tail fin lower", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-20, 20] },
+  { name = "tail fin lower", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-30, 30] },
 ]
 
-# The rocket motor: HTPB (the card); its nozzle's thrust vanes not drawn. Its nozzle in the boattail, its exit 65 % of the base and its burn's phases assumed
+# The rocket motor: HTPB boost-sustain (the card); its nozzle's thrust vanes not drawn. Its nozzle in the boattail, its exit 65 % of the base and its burn's phases assumed
 # (none published): only what a replay shows the plume with until a flight model burns it.
 [motor]
 exit = [2.94, 0.0, 0.0]
@@ -99,12 +99,15 @@ throat_diameter = 0.0297
 cone_length = 0.0726
 smoke = "reduced"
 [[motor.phase]]
-duration_s = 5
-thrust_kn = 12
+duration_s = 2.5
+thrust_kn = 13.5
+[[motor.phase]]
+duration_s = 3.5
+thrust_kn = 4.5
 
 [mass]
 empty = 87.4                 # kg, the card, motor full
-empty_cg = [1.468, 0.0, 0.0]  # assumed: half way along
+empty_cg = [1.5267, 0.0, 0.0]  # assumed: 52 % along
 gyration_reference = "body-length-v1"
 gyration = [0.0151, 0.289, 0.289]  # radii of gyration over length - assumed (a slender rod's: L/sqrt(12))
 
@@ -117,7 +120,7 @@ span = 0.447
 area = 0.012667686977437444
 span = 0.127
 chord = 0.127
-aero_point = [1.468, 0.0, 0.0]
+aero_point = [1.5267, 0.0, 0.0]
 
 # Shared source-derived fixed resolution; no equipment-specific timestep.
 [integration]

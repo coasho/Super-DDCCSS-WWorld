@@ -7,30 +7,30 @@
   "files": [
     {
       "input": "assets/stores/aim-9m.json",
-      "input_sha256": "6617235def65fc995ae61158a9efb3ede51aea316d749d2ad5f9489c4598e9c7",
+      "input_sha256": "398ac00268e5e2ae721d9851773bfb4d706940a56ef18c3b59624bcefccc16a9",
       "fixture": "tests/simulation/fixtures/weapon-v2/aim-9m.json",
-      "fixture_sha256": "8db0db16251ff0f309192f121b6ca5a3b7b8a6b4fc42bdc69f4918205bc8d05a",
+      "fixture_sha256": "2e71eb875b61ab2b84d816c6d8cb777d936210e2ae2ea4f707ea5d3bd725e8fe",
       "selected_seeker": "fsim.seeker.nonimaging_ir.v2"
     },
     {
       "input": "assets/stores/aim-9x.json",
-      "input_sha256": "93f4025a77e592c938fb5cd73aeaa27b7901533dbf4ccb2a072afc00a65cc299",
+      "input_sha256": "7e91b4396a2433033f8ce336c24a071b56d446fb046ab0d6a35795b452d36144",
       "fixture": "tests/simulation/fixtures/weapon-v2/aim-9x.json",
-      "fixture_sha256": "6b41ab688cafabf85b29e2fded911aa67ae3ac85bc2d8c9a511e6a8fd5534f49",
+      "fixture_sha256": "dd493ca22430fe0a4958735d1b4e65349bc9922cd12095bfd94c8ccb90f9c66f",
       "selected_seeker": "fsim.seeker.imaging_ir.v2"
     },
     {
       "input": "assets/stores/aim-7m.json",
-      "input_sha256": "6c962e768ad083153305895d78397803797d1c8dea2307d9ae576bcbeafa8b25",
+      "input_sha256": "b4c4b3b0f3aee9add0af243b26edc806076d229bacffe3d387e4cc617c07f3b1",
       "fixture": "tests/simulation/fixtures/weapon-v2/aim-7m.json",
-      "fixture_sha256": "1c83cb8935dc083917d0ddf9aab152ba650ee026be2cf0aaf774b49113c6ed19",
+      "fixture_sha256": "bc9f851832de2c644aa6a321ab2a05cda10e6e5a83206f3c5ecf5fef43713fb4",
       "selected_seeker": "fsim.seeker.semi_active_radar.v2"
     },
     {
       "input": "assets/stores/aim-120c.json",
-      "input_sha256": "f42403aa0978aee5dfbf31039f115e2283f4def566a219b11c5cdf5d97a96a55",
+      "input_sha256": "57652ecac0ec51edc518684ba7e58f0a2f7320dbab1d861fb43af47eda0b4d14",
       "fixture": "tests/simulation/fixtures/weapon-v2/aim-120c.json",
-      "fixture_sha256": "489dfcd6d672c9484f419c8eb7d70a81f7193bafbd96124190979e2fb2107c6f",
+      "fixture_sha256": "711e1db7d54ebadfcf3ffd10f58eb0ecc0e9c6c800663bd940d3e2196cf5cd5a",
       "selected_seeker": "fsim.seeker.active_radar.v2"
     }
   ],

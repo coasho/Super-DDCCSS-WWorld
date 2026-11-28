@@ -1,18 +1,18 @@
 <?xml version="1.0"?>
 <!-- Written by hangar (storemodels.py) from the design of r77m: its motor's phases there (assumed: none is published),
-     61.6 kg of propellant at 245 s (assumed), burning 14.0 s. Do not edit. -->
+     77.8 kg of propellant at 245 s (assumed), burning 25.8 s. Do not edit. -->
 <rocket_engine name="r77m motor">
     <isp> 245.0 </isp>
     <builduptime> 0.05 </builduptime>
     <thrust_table name="fsim/ignition-time-thrust-v1" type="internal">
         <tableData>
             0 5620.2235774927622
-            4.0181690113816204 5620.2235774927622
-            4.0181690113816213 0.449617886199421
-            10.01816901138162 0.449617886199421
-            10.018169011381621 2697.7073171965262
-            14.01816901138162 2697.7073171965262
-            14.018169011381621 0
+            3.8181690113816202 5620.2235774927622
+            3.8181690113816207 0.449617886199421
+            17.818169011381617 0.449617886199421
+            17.81816901138162 2585.3028456466709
+            25.818169011381617 2585.3028456466709
+            25.81816901138162 0
         </tableData>
     </thrust_table>
 </rocket_engine>

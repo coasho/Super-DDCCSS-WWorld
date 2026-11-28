@@ -31,5 +31,7 @@ private:
     std::optional<radar::signal::Waveform> illuminationProgram_;
     std::optional<radar::IlluminationClockV1> illuminationClock_;
     double firstIlluminationS_=-1,lastIlluminationS_=-1;
+    bool terminalShortPulse_=false;
+    double lastTerminalRangeTimeS_=-1;
 };
 } // namespace fsim::ms::components
