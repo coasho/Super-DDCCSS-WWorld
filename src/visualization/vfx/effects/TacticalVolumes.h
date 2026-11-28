@@ -90,12 +90,13 @@ private:
 
     void emitRadars(const ipc::TacticalOverlayFrameV1& frame, Span<const sim::VehicleState> states,
                     const std::vector<unsigned char>& alive, const std::vector<Side>& sides, int selectedSlot);
-    void emitJammers(const ipc::TacticalOverlayFrameV1& frame, const std::vector<Side>& sides, int selectedSlot);
+    void emitJammers(const ipc::TacticalOverlayFrameV1& frame, Span<const sim::VehicleState> states,
+                     const std::vector<unsigned char>& alive, const std::vector<Side>& sides, int selectedSlot);
     void emitEsm(const ipc::TacticalOverlayFrameV1& frame, const std::vector<Side>& sides, int selectedSlot);
     void emitWeapons(const ipc::TacticalOverlayFrameV1& frame, Span<const sim::VehicleState> states,
                      const std::vector<unsigned char>& alive, int selectedSlot);
-    void emitLinks(const ipc::TacticalOverlayFrameV1& frame);
-    void emitSwaths(const ipc::TacticalOverlayFrameV1& frame);
+    void emitLinks(const ipc::TacticalOverlayFrameV1& frame, int selectedSlot);
+    void emitSwaths(const ipc::TacticalOverlayFrameV1& frame, int selectedSlot);
 
     std::filesystem::path shaders_;
     bool valid_ = false;

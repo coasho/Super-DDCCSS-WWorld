@@ -4,9 +4,19 @@
 
 #include <vsgImGui/imgui.h>
 
+#include <algorithm>
 #include <cmath>
 
 namespace fsim::ui {
+
+/// Effective UI layout scale factor: stays consistent whether the viewer rasterized a native
+/// high-DPI TrueType font (FontGlobalScale == 1, FontSize ~ 21*dpi) or a headless test scaled
+/// the default 13 px bitmap font via FontGlobalScale.
+inline float uiScale() noexcept {
+    const float byFont = ImGui::GetFontSize() / 16.0f;
+    const float byGlobal = ImGui::GetIO().FontGlobalScale;
+    return std::max({byFont, byGlobal, 0.75f});
+}
 
 /// Whether the ImGui renderer writes to an sRGB target, its style's colours made linear for it (the dark style's window
 /// background, 0.06, is then some 0.005): colours given here are sRGB, and made linear likewise.

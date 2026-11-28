@@ -36,26 +36,42 @@ void orthoBasis(const vsg::dvec3& dir, vsg::dvec3& u, vsg::dvec3& v) noexcept {
     v = vsg::normalize(vsg::cross(dir, u));
 }
 
+bool jammerIlluminatesPoint(const ipc::TacticalJammerLobeWireV1& j, const vsg::dvec3& targetEcef) noexcept {
+    const vsg::dvec3 origin(j.originEcef[0], j.originEcef[1], j.originEcef[2]);
+    const vsg::dvec3 delta = targetEcef - origin;
+    const double dist = vsg::length(delta);
+    if (dist < 1.0) return false;
+    const double maxRange = std::max(static_cast<double>(j.rangeM), 15000.0) * 1.15;
+    if (dist > maxRange) return false;
+    if ((j.flags & ipc::kTactJamAllRound) != 0u) return true;
+    vsg::dvec3 dir(j.boresightEcef[0], j.boresightEcef[1], j.boresightEcef[2]);
+    const double dn = vsg::length(dir);
+    if (dn < 1e-6) return false;
+    dir /= dn;
+    const double halfAng = std::clamp(static_cast<double>(j.halfAngleRad), 0.08, 0.85) + 0.14;
+    return vsg::dot(dir, delta / dist) >= std::cos(halfAng);
+}
+
 vsg::vec3 radarSideColor(TacticalVolumes::Side side, bool stt, bool illum) noexcept {
     if (side == TacticalVolumes::Side::Red) {
-        if (illum) return vsg::vec3(0.98f, 0.14f, 0.08f);
-        if (stt)   return vsg::vec3(0.98f, 0.26f, 0.10f);
-        return vsg::vec3(0.92f, 0.12f, 0.16f); // Rich saturated tactical crimson
+        if (illum) return vsg::vec3(1.00f, 0.22f, 0.16f);
+        if (stt)   return vsg::vec3(0.98f, 0.30f, 0.20f);
+        return vsg::vec3(0.94f, 0.22f, 0.26f); // Clean tactical crimson
     }
     if (side == TacticalVolumes::Side::Blue) {
-        if (illum) return vsg::vec3(0.08f, 0.86f, 1.00f);
-        if (stt)   return vsg::vec3(0.04f, 0.72f, 1.00f);
-        return vsg::vec3(0.02f, 0.48f, 0.96f); // Rich saturated tactical sapphire-blue
+        if (illum) return vsg::vec3(0.20f, 0.84f, 1.00f);
+        if (stt)   return vsg::vec3(0.16f, 0.74f, 1.00f);
+        return vsg::vec3(0.12f, 0.62f, 0.98f); // Clean tactical sapphire-blue
     }
-    return stt ? vsg::vec3(0.55f, 0.84f, 0.98f) : vsg::vec3(0.24f, 0.62f, 0.82f);
+    return stt ? vsg::vec3(0.56f, 0.84f, 0.96f) : vsg::vec3(0.32f, 0.68f, 0.86f);
 }
 
 vsg::vec3 weatherDbzLinear(float dbz) noexcept {
-    if (dbz >= 52.0f) return vsg::vec3(0.85f, 0.12f, 0.85f);
-    if (dbz >= 42.0f) return vsg::vec3(0.95f, 0.18f, 0.14f);
-    if (dbz >= 32.0f) return vsg::vec3(0.96f, 0.72f, 0.12f);
-    if (dbz >= 20.0f) return vsg::vec3(0.18f, 0.82f, 0.30f);
-    return vsg::vec3(0.20f, 0.68f, 0.82f);
+    if (dbz >= 52.0f) return vsg::vec3(0.85f, 0.14f, 0.85f);
+    if (dbz >= 42.0f) return vsg::vec3(0.94f, 0.22f, 0.16f);
+    if (dbz >= 32.0f) return vsg::vec3(0.95f, 0.74f, 0.16f);
+    if (dbz >= 20.0f) return vsg::vec3(0.22f, 0.80f, 0.34f);
+    return vsg::vec3(0.24f, 0.68f, 0.82f);
 }
 
 } // namespace
@@ -159,7 +175,7 @@ bool TacticalVolumes::build(vsg::ref_ptr<vsg::ImageInfo> sceneDepth) {
     transform_->addChild(sg);
 
     switch_->children.clear();
-    switch_->addChild(true, transform_); // ON during Viewer::setScene() compile, then parked OFF in compiled()
+    switch_->addChild(true, transform_);
     built_ = true;
     return true;
 }
@@ -256,8 +272,12 @@ void TacticalVolumes::pushRingRibbon(const vsg::dvec3& center, const vsg::dvec3&
 
 void TacticalVolumes::emitRadars(const ipc::TacticalOverlayFrameV1& frame, Span<const sim::VehicleState> states,
                                  const std::vector<unsigned char>& alive, const std::vector<Side>& sides, int selectedSlot) {
+    if (selectedSlot < 0) return;
     for (const auto& r : frame.radars) {
+        // Strictly focused-vehicle only: zero god-view clutter from unrelated aircraft.
+        if (static_cast<int>(r.slot) != selectedSlot) continue;
         if (r.slot >= states.size() || r.slot >= alive.size() || !alive[r.slot]) continue;
+
         const sim::VehicleState& st = states[r.slot];
         const vsg::dvec3 origin(st.positionEcef[0], st.positionEcef[1], st.positionEcef[2]);
         const vsg::dvec3 bFwd = bodyToEcef(st, vsg::dvec3(1.0, 0.0, 0.0));
@@ -265,18 +285,15 @@ void TacticalVolumes::emitRadars(const ipc::TacticalOverlayFrameV1& frame, Span<
         const vsg::dvec3 bUp = bodyToEcef(st, vsg::dvec3(0.0, 0.0, -1.0));
 
         const Side side = (r.slot < sides.size()) ? sides[r.slot] : Side::Neutral;
-        const bool isSel = (static_cast<int>(r.slot) == selectedSlot);
         const bool stt = (r.flags & ipc::kTactRadarSttLock) != 0u;
         const bool illum = (r.flags & ipc::kTactRadarIlluminating) != 0u;
         const bool roto = (r.flags & ipc::kTactRadarRotodome) != 0u;
         const bool jammed = (r.flags & ipc::kTactRadarJammed) != 0u;
 
-        // Proportionally frame display envelope: show exact burn-through + compact static outer halo when jammed,
-        // or crisp <= 42 km tactical sector when unjammed so overlapping jets stay legible instead of flooding clouds.
         const double rawRange = static_cast<double>(r.detectionRangeM > 100.0f ? r.detectionRangeM : r.rangeScaleM);
         const bool hasBurn = jammed && r.burnThroughRangeM > 100.0f && r.burnThroughRangeM < static_cast<float>(rawRange) * 0.96f;
         const double nomRange = hasBurn
-                                    ? std::clamp(std::max(static_cast<double>(r.burnThroughRangeM) * 1.95,
+                                    ? std::clamp(std::max(static_cast<double>(r.burnThroughRangeM) * 2.0,
                                                           static_cast<double>(r.burnThroughRangeM) + 9500.0),
                                                  14000.0, std::min(rawRange, 42000.0))
                                     : std::clamp(rawRange, 6000.0, 42000.0);
@@ -285,11 +302,9 @@ void TacticalVolumes::emitRadars(const ipc::TacticalOverlayFrameV1& frame, Span<
                                    : 1.0f;
 
         const vsg::vec3 rgb = radarSideColor(side, stt, illum);
-        const float emph = isSel ? 1.0f : 0.82f;
-        const vsg::vec4 col(rgb.x, rgb.y, rgb.z, emph);
+        const vsg::vec4 col(rgb.x, rgb.y, rgb.z, 1.0f);
 
         if (roto) {
-            // 360-deg AWACS rotodome translucent disk + sweeping fan blade
             vsg::dvec3 e, n, u;
             localEnu(origin, e, n, u);
             const double beamAz = std::atan2(std::sin(static_cast<double>(r.beamAzimuthRad)), std::cos(static_cast<double>(r.beamAzimuthRad)));
@@ -318,7 +333,6 @@ void TacticalVolumes::emitRadars(const ipc::TacticalOverlayFrameV1& frame, Span<
             const double azC = static_cast<double>(r.azimuthCentreRad);
             const double azH = std::clamp(static_cast<double>(r.azimuthHalfWidthRad), 0.08, 1.25);
             const double elC = static_cast<double>(r.elevationCentreRad);
-            const double elH = std::clamp(static_cast<double>(r.elevationHalfWidthRad), 0.04, 0.22);
             const float beamAzNorm = std::clamp(static_cast<float>((static_cast<double>(r.beamAzimuthRad) - azC) / std::max(azH, 0.05)), -1.0f, 1.0f);
             const vsg::vec4 params(0.0f, burnFrac, beamAzNorm, static_cast<float>(nomRange));
 
@@ -326,9 +340,8 @@ void TacticalVolumes::emitRadars(const ipc::TacticalOverlayFrameV1& frame, Span<
                 return bFwd * (std::cos(el) * std::cos(az)) + bRight * (std::cos(el) * std::sin(az)) + bUp * std::sin(el);
             };
 
-            // Single clean mid-plane curved tactical sector deck (zero double-stacked ceiling/floor muddiness!)
-            // plus crisp thin side vertical skirts and a sculpted burn-through front dome wall!
-            constexpr int kAzSteps = 28;
+            // Single crisp horizontal tactical sector deck (no noisy vertical skirts or yellow walls!)
+            constexpr int kAzSteps = 32;
             constexpr int kRadSteps = 6;
             for (int ri = 0; ri < kRadSteps; ++ri) {
                 const float rf0 = static_cast<float>(ri) / static_cast<float>(kRadSteps);
@@ -347,64 +360,43 @@ void TacticalVolumes::emitRadars(const ipc::TacticalOverlayFrameV1& frame, Span<
                              col, params);
                 }
             }
-
-            // Sleek vertical elevation skirts along left/right borders for crisp 3-D volume feel
-            const double skirtEl = std::min(elH, 0.055);
-            for (const int sideSign : {-1, 1}) {
-                const float uEdge = static_cast<float>(sideSign);
-                const double az = azC + azH * uEdge;
-                const vsg::dvec3 sideNrm = vsg::normalize(bRight * std::cos(az) - bFwd * std::sin(az)) * static_cast<double>(sideSign);
-                const vsg::dvec3 dTop = dirAt(az, elC + skirtEl);
-                const vsg::dvec3 dBot = dirAt(az, elC - skirtEl);
-                for (int ri = 0; ri < kRadSteps; ++ri) {
-                    const float rf0 = static_cast<float>(ri) / static_cast<float>(kRadSteps);
-                    const float rf1 = static_cast<float>(ri + 1) / static_cast<float>(kRadSteps);
-                    pushQuad(origin + dBot * (nomRange * rf0), rf0, sideNrm, uEdge,
-                             origin + dTop * (nomRange * rf0), rf0, sideNrm, uEdge,
-                             origin + dTop * (nomRange * rf1), rf1, sideNrm, uEdge,
-                             origin + dBot * (nomRange * rf1), rf1, sideNrm, uEdge,
-                             vsg::vec4(rgb.x, rgb.y, rgb.z, emph * 0.36f), params);
-                }
-            }
-
-            // Delicate translucent gold burn-through curtain + crisp glowing arc rim (never a solid opaque yellow wall!)
-            if (burnFrac < 0.96f) {
-                const double btRad = nomRange * static_cast<double>(burnFrac);
-                const vsg::vec4 curtainCol(1.00f, 0.80f, 0.16f, emph * 0.22f);
-                const vsg::vec4 curtainParams(0.0f, 1.0f, beamAzNorm, static_cast<float>(btRad));
-                for (int ai = 0; ai < kAzSteps; ++ai) {
-                    const float u0 = -1.0f + 2.0f * static_cast<float>(ai) / static_cast<float>(kAzSteps);
-                    const float u1 = -1.0f + 2.0f * static_cast<float>(ai + 1) / static_cast<float>(kAzSteps);
-                    const double a0 = azC + azH * u0;
-                    const double a1 = azC + azH * u1;
-                    const vsg::dvec3 d00 = dirAt(a0, elC - skirtEl);
-                    const vsg::dvec3 d10 = dirAt(a1, elC - skirtEl);
-                    const vsg::dvec3 d11 = dirAt(a1, elC + skirtEl);
-                    const vsg::dvec3 d01 = dirAt(a0, elC + skirtEl);
-                    pushQuad(origin + d00 * btRad, 0.5f, d00, u0,
-                             origin + d10 * btRad, 0.5f, d10, u1,
-                             origin + d11 * btRad, 0.5f, d11, u1,
-                             origin + d01 * btRad, 0.5f, d01, u0,
-                             curtainCol, curtainParams);
-                }
-            }
         }
 
-        // Crisp volumetric STT / Illumination / TWS target track beam
+        // Clean target track line for the focused aircraft's radar
         if ((r.flags & ipc::kTactRadarHasTarget) != 0u) {
             const vsg::dvec3 tgt(r.targetEcef[0], r.targetEcef[1], r.targetEcef[2]);
             const vsg::vec3 lockRgb = radarSideColor(side, true, illum);
             if (stt || illum) {
-                pushBeamRibbon(origin, tgt, 18.0, vsg::vec4(lockRgb.x, lockRgb.y, lockRgb.z, 0.92f * emph), 6.0f, 0.0f, 0.0f);
-            } else if (isSel) {
-                pushBeamRibbon(origin, tgt, 10.0, vsg::vec4(lockRgb.x, lockRgb.y, lockRgb.z, 0.55f), 6.0f, 22.0f, 1.4f);
+                pushBeamRibbon(origin, tgt, 14.0, vsg::vec4(lockRgb.x, lockRgb.y, lockRgb.z, 0.92f), 6.0f, 0.0f, 0.0f);
+            } else {
+                pushBeamRibbon(origin, tgt, 9.0, vsg::vec4(lockRgb.x, lockRgb.y, lockRgb.z, 0.68f), 6.0f, 24.0f, 0.0f);
             }
         }
     }
 }
 
-void TacticalVolumes::emitJammers(const ipc::TacticalOverlayFrameV1& frame, const std::vector<Side>& sides, int selectedSlot) {
+void TacticalVolumes::emitJammers(const ipc::TacticalOverlayFrameV1& frame, Span<const sim::VehicleState> states,
+                                  const std::vector<unsigned char>& alive, const std::vector<Side>& sides, int selectedSlot) {
+    if (selectedSlot < 0 || static_cast<std::size_t>(selectedSlot) >= states.size() ||
+        static_cast<std::size_t>(selectedSlot) >= alive.size() || !alive[static_cast<std::size_t>(selectedSlot)]) {
+        return;
+    }
+
+    bool focusedRadarJammed = false;
+    for (const auto& r : frame.radars) {
+        if (static_cast<int>(r.slot) == selectedSlot && (r.flags & ipc::kTactRadarJammed) != 0u) {
+            focusedRadarJammed = true;
+            break;
+        }
+    }
+    const sim::VehicleState& selSt = states[static_cast<std::size_t>(selectedSlot)];
+    const vsg::dvec3 selPos(selSt.positionEcef[0], selSt.positionEcef[1], selSt.positionEcef[2]);
+
     for (const auto& j : frame.jammers) {
+        const bool isOwner = (static_cast<int>(j.slot) == selectedSlot);
+        const bool attackingFocused = !isOwner && focusedRadarJammed && jammerIlluminatesPoint(j, selPos);
+        if (!isOwner && !attackingFocused) continue;
+
         const vsg::dvec3 origin(j.originEcef[0], j.originEcef[1], j.originEcef[2]);
         vsg::dvec3 dir(j.boresightEcef[0], j.boresightEcef[1], j.boresightEcef[2]);
         const double dn = vsg::length(dir);
@@ -414,19 +406,17 @@ void TacticalVolumes::emitJammers(const ipc::TacticalOverlayFrameV1& frame, cons
         const bool allRound = (j.flags & ipc::kTactJamAllRound) != 0u;
         const bool comms = (j.flags & ipc::kTactJamComms) != 0u;
         const Side side = (j.slot < sides.size()) ? sides[j.slot] : Side::Red;
-        const float emph = (static_cast<int>(j.slot) == selectedSlot) ? 1.0f : 0.88f;
+        // Full clarity when focused on the jammer itself; restrained secondary cue when only explaining incoming jamming.
+        const float emph = isOwner ? 1.0f : 0.58f;
 
-        // Rich royal violet-purple plasma (or deep amber for comms jam) — unmistakable vs Blue/Red radars!
-        const vsg::vec3 rgb = comms ? vsg::vec3(0.92f, 0.44f, 0.04f)
-                              : (side == Side::Blue ? vsg::vec3(0.42f, 0.16f, 0.95f)
-                                                    : vsg::vec3(0.56f, 0.06f, 0.88f));
+        const vsg::vec3 rgb = comms ? vsg::vec3(0.95f, 0.56f, 0.14f)
+                              : (side == Side::Blue ? vsg::vec3(0.46f, 0.30f, 0.96f)
+                                                    : vsg::vec3(0.68f, 0.24f, 0.96f));
         const vsg::vec4 col(rgb.x, rgb.y, rgb.z, emph);
-        // Compact proportional visual cone length (<= 32 km) so wave rings clearly frame the engagement
         const double rng = std::clamp(static_cast<double>(j.rangeM), 14000.0, 32000.0);
         const vsg::vec4 params(1.0f, j.frequencyGhz, comms ? 1.0f : 0.0f, static_cast<float>(rng));
 
         if (allRound) {
-            // Smooth 3-D omnidirectional spherical EW bubble
             vsg::dvec3 e, n, u;
             localEnu(origin, e, n, u);
             const double rad = rng * 0.45;
@@ -454,7 +444,6 @@ void TacticalVolumes::emitJammers(const ipc::TacticalOverlayFrameV1& frame, cons
                 }
             }
         } else {
-            // Smooth 32-segment revolved volumetric plasma cone (NO bicycle-wheel ribs!)
             vsg::dvec3 u, v;
             orthoBasis(dir, u, v);
             const double halfAng = std::clamp(static_cast<double>(j.halfAngleRad), 0.08, 0.85);
@@ -467,9 +456,8 @@ void TacticalVolumes::emitJammers(const ipc::TacticalOverlayFrameV1& frame, cons
                 const float rf1 = static_cast<float>(ri + 1) / static_cast<float>(kRings);
                 const double d0 = rng * rf0;
                 const double d1 = rng * rf1;
-                // Slightly trumpet-shaped parabolic expansion feels authentically electromagnetic
-                const double rad0 = d0 * std::tan(halfAng) * (0.88 + 0.12 * rf0);
-                const double rad1 = d1 * std::tan(halfAng) * (0.88 + 0.12 * rf1);
+                const double rad0 = d0 * std::tan(halfAng);
+                const double rad1 = d1 * std::tan(halfAng);
                 for (int si = 0; si < kSlices; ++si) {
                     const double a0 = 2.0 * kPi * si / kSlices;
                     const double a1 = 2.0 * kPi * (si + 1) / kSlices;
@@ -492,7 +480,11 @@ void TacticalVolumes::emitJammers(const ipc::TacticalOverlayFrameV1& frame, cons
 
 void TacticalVolumes::emitEsm(const ipc::TacticalOverlayFrameV1& frame, const std::vector<Side>& sides, int selectedSlot) {
     (void)sides;
+    if (selectedSlot < 0) return;
     for (const auto& e : frame.esmRays) {
+        // Strictly focused-vehicle ESM/RWR only.
+        if (static_cast<int>(e.observerSlot) != selectedSlot) continue;
+
         const vsg::dvec3 origin(e.originEcef[0], e.originEcef[1], e.originEcef[2]);
         vsg::dvec3 dir(e.rayDirEcef[0], e.rayDirEcef[1], e.rayDirEcef[2]);
         const double dn = vsg::length(dir);
@@ -502,46 +494,18 @@ void TacticalVolumes::emitEsm(const ipc::TacticalOverlayFrameV1& frame, const st
         const bool warn = (e.flags & ipc::kTactEsmWarning) != 0u;
         const bool hasGeo = (e.flags & ipc::kTactEsmHasGeo) != 0u;
         const bool comint = (e.flags & ipc::kTactEsmComint) != 0u;
-        const bool isSel = (static_cast<int>(e.observerSlot) == selectedSlot);
 
-        const vsg::vec3 rgb = warn ? vsg::vec3(1.00f, 0.24f, 0.14f)
-                              : comint ? vsg::vec3(0.14f, 0.94f, 0.62f)
-                                       : vsg::vec3(1.00f, 0.80f, 0.18f); // Warm tactical amber-gold
-        const float emph = isSel ? 0.95f : 0.45f;
-        const vsg::vec4 col(rgb.x, rgb.y, rgb.z, emph);
-
-        // Tapered translucent golden bearing wedge (capped cleanly at 20 km when bearing-only)
+        const vsg::vec3 rgb = warn   ? vsg::vec3(1.00f, 0.30f, 0.22f)
+                            : comint ? vsg::vec3(0.20f, 0.90f, 0.64f)
+                                     : vsg::vec3(0.98f, 0.80f, 0.22f);
         const double len = hasGeo
                                ? std::clamp(vsg::length(vsg::dvec3(e.geoPosEcef[0], e.geoPosEcef[1], e.geoPosEcef[2]) - origin), 500.0, 65000.0)
-                               : std::clamp(static_cast<double>(e.rayLengthM), 7000.0, 20000.0);
-        vsg::dvec3 u, v;
-        orthoBasis(dir, u, v);
-        const vsg::dvec3 toEye = eyeEcef_ - (origin + dir * (len * 0.4));
-        vsg::dvec3 side = vsg::cross(toEye, dir);
-        if (vsg::length(side) < 1e-6) side = u;
-        else side = vsg::normalize(side);
-        const vsg::dvec3 nrm = vsg::normalize(toEye);
+                               : std::clamp(static_cast<double>(e.rayLengthM), 7000.0, 22000.0);
 
-        // Narrow angular uncertainty fan (~2.2 deg half-width) fading softly along range
-        const double halfW0 = 18.0;
-        const double halfW1 = std::max(180.0, len * 0.036);
-        const vsg::vec4 lobeParams(2.0f, 0.0f, 0.0f, static_cast<float>(len));
-        constexpr int kSteps = 6;
-        for (int i = 0; i < kSteps; ++i) {
-            const float f0 = static_cast<float>(i) / static_cast<float>(kSteps);
-            const float f1 = static_cast<float>(i + 1) / static_cast<float>(kSteps);
-            const vsg::dvec3 c0 = origin + dir * (len * f0);
-            const vsg::dvec3 c1 = origin + dir * (len * f1);
-            const double w0 = halfW0 + (halfW1 - halfW0) * f0;
-            const double w1 = halfW0 + (halfW1 - halfW0) * f1;
-            pushQuad(c0 - side * w0, f0, nrm, -1.0f,
-                     c0 + side * w0, f0, nrm,  1.0f,
-                     c1 + side * w1, f1, nrm,  1.0f,
-                     c1 - side * w1, f1, nrm, -1.0f,
-                     col, lobeParams);
-        }
+        // Clean narrow dashed bearing line (never a thick fuzzy wedge!)
+        pushBeamRibbon(origin, origin + dir * len, 12.0, vsg::vec4(rgb.x, rgb.y, rgb.z, 0.88f), 6.0f, 20.0f, 0.0f);
 
-        // True 3-D Translucent Fresnel CRLB Uncertainty Ellipsoid at geolocated fix!
+        // Clean geometric 3-D CRLB uncertainty ellipsoid at converged geolocation fix
         if (hasGeo && e.crlbCep50M > 1.0f) {
             const vsg::dvec3 geo(e.geoPosEcef[0], e.geoPosEcef[1], e.geoPosEcef[2]);
             vsg::dvec3 east, north, up;
@@ -581,10 +545,10 @@ void TacticalVolumes::emitEsm(const ipc::TacticalOverlayFrameV1& frame, const st
 
 void TacticalVolumes::emitWeapons(const ipc::TacticalOverlayFrameV1& frame, Span<const sim::VehicleState> states,
                                   const std::vector<unsigned char>& alive, int selectedSlot) {
+    if (selectedSlot < 0) return;
     for (const auto& w : frame.weapons) {
+        if (static_cast<int>(w.slot) != selectedSlot) continue;
         if (w.slot >= states.size() || w.slot >= alive.size() || !alive[w.slot]) continue;
-        // Show crisp DLZ/LCOS/CCIP deck for the selected aircraft (or if no vehicle selected, slot 0) to prevent multi-jet overlap!
-        if (selectedSlot >= 0 && static_cast<int>(w.slot) != selectedSlot) continue;
 
         const sim::VehicleState& st = states[w.slot];
         const vsg::dvec3 origin(st.positionEcef[0], st.positionEcef[1], st.positionEcef[2]);
@@ -592,7 +556,6 @@ void TacticalVolumes::emitWeapons(const ipc::TacticalOverlayFrameV1& frame, Span
         vsg::dvec3 east, north, up;
         localEnu(origin, east, north, up);
 
-        // 5-D Flyout-Derived DLZ/WEZ Color-Zoned 3-D Tactical Fan Deck
         if ((w.flags & ipc::kTactWeaponHasDlz) != 0u && w.rMaxM > 100.0f) {
             vsg::dvec3 aimDir = bFwd;
             const vsg::dvec3 tgt(w.targetEcef[0], w.targetEcef[1], w.targetEcef[2]);
@@ -602,7 +565,7 @@ void TacticalVolumes::emitWeapons(const ipc::TacticalOverlayFrameV1& frame, Span
             horiz = vsg::normalize(horiz);
             const vsg::dvec3 right = vsg::normalize(vsg::cross(horiz, up));
 
-            const double halfAng = 0.28; // ~16 deg half-angle sleek tactical WEZ fan
+            const double halfAng = 0.24; // ~14 deg clean ruler fan
             auto emitFanBand = [&](double rInner, double rOuter, const vsg::vec4& col, float zoneKind) {
                 if (!(rOuter > rInner + 20.0)) return;
                 const vsg::vec4 params(3.0f, zoneKind, 0.0f, static_cast<float>(rOuter));
@@ -627,57 +590,59 @@ void TacticalVolumes::emitWeapons(const ipc::TacticalOverlayFrameV1& frame, Span
             const double rMax = std::min(95000.0, std::max(rNe + 200.0, static_cast<double>(w.rMaxM)));
             const bool inNez = (w.flags & ipc::kTactWeaponInNez) != 0u;
 
-            // Zone 2: Inner R_min crimson collar
-            emitFanBand(rMin * 0.65, rMin, vsg::vec4(0.98f, 0.22f, 0.24f, 0.85f), 2.0f);
-            // Zone 1: NEZ high-Pk emerald kill-zone band
-            emitFanBand(rMin, rNe, inNez ? vsg::vec4(0.10f, 0.96f, 0.48f, 1.05f) : vsg::vec4(0.14f, 0.84f, 0.48f, 0.80f), 1.0f);
-            // Zone 0: Outer R_ne .. R_max soft amber-cyan envelope
-            emitFanBand(rNe, rMax, vsg::vec4(0.95f, 0.72f, 0.22f, 0.65f), 0.0f);
+            emitFanBand(rMin * 0.65, rMin, vsg::vec4(0.95f, 0.24f, 0.26f, 0.90f), 2.0f);
+            emitFanBand(rMin, rNe, inNez ? vsg::vec4(0.14f, 0.92f, 0.50f, 1.0f) : vsg::vec4(0.18f, 0.84f, 0.50f, 0.88f), 1.0f);
+            emitFanBand(rNe, rMax, vsg::vec4(0.94f, 0.74f, 0.24f, 0.80f), 0.0f);
         }
 
-        // McCoy Gun LCOS Sleek Dotted Lead Line + Glowing 3-D Ring
         if ((w.flags & ipc::kTactWeaponHasLcos) != 0u) {
             const vsg::dvec3 pip(w.lcosPipperEcef[0], w.lcosPipperEcef[1], w.lcosPipperEcef[2]);
-            const vsg::vec4 lcosCol(0.32f, 1.00f, 0.56f, 0.90f);
-            pushBeamRibbon(origin, pip, 7.0, lcosCol, 6.0f, 14.0f, 2.2f);
+            const vsg::vec4 lcosCol(0.32f, 0.96f, 0.56f, 0.92f);
+            pushBeamRibbon(origin, pip, 7.0, lcosCol, 6.0f, 14.0f, 0.0f);
             vsg::dvec3 u, v;
             const vsg::dvec3 d = vsg::normalize(pip - origin);
             orthoBasis(d, u, v);
-            pushRingRibbon(pip, u, v, 55.0, 55.0, 6.5, 28, lcosCol, 0.0f, 0.0f);
+            pushRingRibbon(pip, u, v, 55.0, 55.0, 6.0, 28, lcosCol, 0.0f, 0.0f);
         }
 
-        // Wind-Compensated Mk 82 CCIP Fall Line & Ground Impact Ring
         if ((w.flags & ipc::kTactWeaponHasCcip) != 0u) {
             const vsg::dvec3 imp(w.ccipImpactEcef[0], w.ccipImpactEcef[1], w.ccipImpactEcef[2]);
-            const vsg::vec4 ccipCol(1.00f, 0.76f, 0.16f, 0.92f);
+            const vsg::vec4 ccipCol(1.00f, 0.78f, 0.20f, 0.92f);
             vsg::dvec3 ie, in, iu;
             localEnu(imp, ie, in, iu);
-            pushBeamRibbon(origin, imp, 8.0, ccipCol, 6.0f, 18.0f, 2.5f);
-            pushRingRibbon(imp + iu * 4.0, ie, in, 65.0, 65.0, 8.0, 28, ccipCol, 0.0f, 0.0f);
+            pushBeamRibbon(origin, imp, 8.0, ccipCol, 6.0f, 18.0f, 0.0f);
+            pushRingRibbon(imp + iu * 4.0, ie, in, 65.0, 65.0, 7.5, 28, ccipCol, 0.0f, 0.0f);
         }
     }
 }
 
-void TacticalVolumes::emitLinks(const ipc::TacticalOverlayFrameV1& frame) {
+void TacticalVolumes::emitLinks(const ipc::TacticalOverlayFrameV1& frame, int selectedSlot) {
+    if (selectedSlot < 0) return;
     for (const auto& l : frame.links) {
         const auto kind = static_cast<ipc::TacticalLinkKindV1>(l.kind);
+        const bool involvesSelected =
+            (static_cast<int>(l.fromSlot) == selectedSlot) ||
+            ((kind == ipc::TacticalLinkKindV1::Link16Dms || kind == ipc::TacticalLinkKindV1::C2Consent ||
+              kind == ipc::TacticalLinkKindV1::Mode5IffReply) &&
+             static_cast<int>(l.toSlot) == selectedSlot);
+        if (!involvesSelected) continue;
+
         const vsg::dvec3 from(l.fromEcef[0], l.fromEcef[1], l.fromEcef[2]);
         const vsg::dvec3 to(l.toEcef[0], l.toEcef[1], l.toEcef[2]);
         const float phase = std::clamp(l.ageS / std::max(0.1f, l.durationS), 0.0f, 1.0f);
 
         if (kind == ipc::TacticalLinkKindV1::Link16Dms || kind == ipc::TacticalLinkKindV1::C2Consent ||
             kind == ipc::TacticalLinkKindV1::Mode5IffReply) {
-            const vsg::vec4 col = (kind == ipc::TacticalLinkKindV1::C2Consent) ? vsg::vec4(1.00f, 0.80f, 0.20f, 0.95f)
-                                  : (kind == ipc::TacticalLinkKindV1::Mode5IffReply) ? vsg::vec4(0.36f, 0.92f, 1.00f, 0.85f)
-                                                                                     : vsg::vec4(0.14f, 0.96f, 0.64f, 0.92f);
-            // Smooth elevated 3-D parabolic energy arc with animated light-packets!
+            const vsg::vec4 col = (kind == ipc::TacticalLinkKindV1::C2Consent)     ? vsg::vec4(1.00f, 0.80f, 0.22f, 0.92f)
+                                : (kind == ipc::TacticalLinkKindV1::Mode5IffReply) ? vsg::vec4(0.36f, 0.88f, 0.98f, 0.86f)
+                                                                                   : vsg::vec4(0.20f, 0.90f, 0.64f, 0.90f);
             const double span = vsg::length(to - from);
             if (span < 10.0) continue;
             const vsg::dvec3 upMid = localUp((from + to) * 0.5);
-            const double arch = std::min(span * 0.08, 1800.0);
+            const double arch = std::min(span * 0.07, 1600.0);
             constexpr int kArcSegs = 14;
             const double distEye = std::max(vsg::length(eyeEcef_ - (from + to) * 0.5), 10.0);
-            const double halfW = std::max(16.0, distEye * 0.0018);
+            const double halfW = std::max(14.0, distEye * 0.0015);
             const vsg::vec4 params(4.0f, phase, 0.0f, static_cast<float>(span));
             for (int i = 0; i < kArcSegs; ++i) {
                 const float t0 = static_cast<float>(i) / static_cast<float>(kArcSegs);
@@ -700,26 +665,28 @@ void TacticalVolumes::emitLinks(const ipc::TacticalOverlayFrameV1& frame) {
             vsg::dvec3 e, n, u;
             localEnu(from, e, n, u);
             const double rad = std::max(500.0, static_cast<double>(l.param) * phase);
-            const float a = std::clamp(1.0f - phase, 0.15f, 0.90f);
-            const vsg::vec4 col = (l.flags & ipc::kTactLinkJammed) ? vsg::vec4(1.00f, 0.42f, 0.18f, a)
-                                                                   : vsg::vec4(0.32f, 0.88f, 1.00f, a);
-            pushRingRibbon(from, e, n, rad, rad, 35.0, 40, col, 0.0f, 0.0f);
+            const float a = std::clamp(1.0f - phase, 0.18f, 0.85f);
+            const vsg::vec4 col = (l.flags & ipc::kTactLinkJammed) ? vsg::vec4(1.00f, 0.42f, 0.20f, a)
+                                                                   : vsg::vec4(0.32f, 0.86f, 0.98f, a);
+            pushRingRibbon(from, e, n, rad, rad, 28.0, 40, col, 0.0f, 0.0f);
         } else if (kind == ipc::TacticalLinkKindV1::PntGnssDrift) {
             vsg::dvec3 e, n, u;
             localEnu(from, e, n, u);
             const bool jammed = (l.flags & ipc::kTactLinkJammed) != 0u;
             const bool locked = (l.flags & ipc::kTactLinkGnssLocked) != 0u;
             const double rad = std::max(static_cast<double>(l.param), 45.0);
-            const vsg::vec4 col = jammed ? vsg::vec4(1.00f, 0.22f, 0.18f, 0.95f)
-                                  : locked ? vsg::vec4(0.18f, 0.92f, 0.46f, 0.78f)
-                                           : vsg::vec4(0.40f, 0.78f, 1.00f, 0.80f);
-            pushRingRibbon(from, e, n, rad, rad, jammed ? 18.0 : 10.0, 32, col, jammed ? 0.0f : 16.0f, 0.0f);
+            const vsg::vec4 col = jammed ? vsg::vec4(0.98f, 0.26f, 0.22f, 0.92f)
+                                : locked ? vsg::vec4(0.22f, 0.88f, 0.48f, 0.78f)
+                                         : vsg::vec4(0.42f, 0.78f, 0.98f, 0.78f);
+            pushRingRibbon(from, e, n, rad, rad, jammed ? 16.0 : 9.0, 32, col, jammed ? 0.0f : 16.0f, 0.0f);
         }
     }
 }
 
-void TacticalVolumes::emitSwaths(const ipc::TacticalOverlayFrameV1& frame) {
+void TacticalVolumes::emitSwaths(const ipc::TacticalOverlayFrameV1& frame, int selectedSlot) {
+    if (selectedSlot < 0) return;
     for (const auto& s : frame.swaths) {
+        if (static_cast<int>(s.slot) != selectedSlot) continue;
         const vsg::dvec3 center(s.centerEcef[0], s.centerEcef[1], s.centerEcef[2]);
         const vsg::dvec3 axE(s.axisEastEcef[0], s.axisEastEcef[1], s.axisEastEcef[2]);
         const vsg::dvec3 axN(s.axisNorthEcef[0], s.axisNorthEcef[1], s.axisNorthEcef[2]);
@@ -727,7 +694,7 @@ void TacticalVolumes::emitSwaths(const ipc::TacticalOverlayFrameV1& frame) {
         const double hw = static_cast<double>(s.halfWidthM);
         const double hl = static_cast<double>(s.halfLengthM);
         const bool isWx = (s.kind == static_cast<std::uint8_t>(ipc::TacticalSwathKindV1::WeatherCell));
-        const vsg::vec3 rgb = isWx ? weatherDbzLinear(s.metricDb) : vsg::vec3(0.14f, 0.88f, 0.96f);
+        const vsg::vec3 rgb = isWx ? weatherDbzLinear(s.metricDb) : vsg::vec3(0.20f, 0.84f, 0.94f);
         const vsg::vec4 col(rgb.x, rgb.y, rgb.z, 0.90f);
         const vsg::vec4 params(5.0f, isWx ? 1.0f : 0.0f, 0.0f, static_cast<float>(std::max(hw, hl)));
         const vsg::dvec3 cLift = center + up * 15.0;
@@ -757,7 +724,7 @@ void TacticalVolumes::update(std::uint32_t overlayMask,
                              double simTime,
                              double wallTime) {
     lastVertexCount_ = 0u;
-    if (!built_ || !frame || overlayMask == 0u) {
+    if (!built_ || !frame || overlayMask == 0u || selectedSlot < 0) {
         if (switch_) switch_->setAllChildren(false);
         if (draw_) draw_->vertexCount = 0u;
         return;
@@ -766,12 +733,12 @@ void TacticalVolumes::update(std::uint32_t overlayMask,
     eyeEcef_ = eyeEcef;
     cursor_ = 0u;
 
-    if (overlayMask & kMaskSwaths)  emitSwaths(*frame);
+    if (overlayMask & kMaskSwaths)  emitSwaths(*frame, selectedSlot);
     if (overlayMask & kMaskRadar)   emitRadars(*frame, states, alive, sides, selectedSlot);
-    if (overlayMask & kMaskJammer)  emitJammers(*frame, sides, selectedSlot);
+    if (overlayMask & kMaskJammer)  emitJammers(*frame, states, alive, sides, selectedSlot);
     if (overlayMask & kMaskEsm)     emitEsm(*frame, sides, selectedSlot);
     if (overlayMask & kMaskWeapons) emitWeapons(*frame, states, alive, selectedSlot);
-    if (overlayMask & kMaskLinks)   emitLinks(*frame);
+    if (overlayMask & kMaskLinks)   emitLinks(*frame, selectedSlot);
 
     lastVertexCount_ = cursor_;
     if (cursor_ == 0u) {

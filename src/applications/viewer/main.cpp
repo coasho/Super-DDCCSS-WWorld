@@ -40,6 +40,7 @@
 #include "visualization/render/GpuTimer.h"
 #include "visualization/render/Viewer.h"
 #include "visualization/scene/Atmosphere.h"
+#include "visualization/ui/Colour.h"
 #include "visualization/ui/KeyHandler.h"
 #include "visualization/ui/CameraPreview.h"
 #include "visualization/ui/MissionGui.h"
@@ -914,7 +915,10 @@ int main(int argc, char** argv) {
     std::vector<std::uint64_t> storeRevision; // per slot: the mission record's revision last drawn (~0: read it again)
     controls->cameraMode.store(opt.cameraMode);
     controls->tacticalOverlayMask.store(opt.tacticalOverlayMask, std::memory_order_relaxed);
-    auto gui = ui::MonitorGui::create(controls, replay ? "replay " + opt.replayPath : opt.aircraft);
+    const std::string monitorLabel = replay
+        ? ("回放: " + std::filesystem::path(opt.replayPath).filename().string())
+        : opt.aircraft;
+    auto gui = ui::MonitorGui::create(controls, monitorLabel);
     auto imgui = viewer.createImGui(); // (for the pass over the scene, where it is drawn last)
     auto tacticalOverlays = ui::TacticalOverlays::create(controls);
     imgui->addChild(tacticalOverlays);
@@ -928,11 +932,123 @@ int main(int argc, char** argv) {
     imgui->addChild(WeaponDiagnosticsLayerV1::create(weaponDiagnosticsGui));
     std::uint32_t weaponDiagnosticsFollowId = 0;
     std::uint64_t weaponDiagnosticsFollowGeneration = 0;
-    ImGui::GetIO().IniFilename = nullptr;
-    ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = true; // a drag that starts inside a panel is never a panel move
-    if (const double dpi = platform::systemDpiScale(); dpi > 1.01) {
-        ImGui::GetIO().FontGlobalScale = static_cast<float>(dpi);
-        ImGui::GetStyle().ScaleAllSizes(static_cast<float>(dpi));
+    {
+        auto& io = ImGui::GetIO();
+        auto& style = ImGui::GetStyle();
+        io.IniFilename = nullptr;
+        io.ConfigWindowsMoveFromTitleBarOnly = true; // a drag that starts inside a panel is never a panel move
+
+        const double dpi = std::max(platform::systemDpiScale(),
+                                    static_cast<double>(viewer.window()->extent2D().height) / 1440.0);
+        const float uiDpi = static_cast<float>(std::clamp(dpi, 1.0, 2.5));
+
+        // Detect sRGB->linear conversion applied by vsgImGui BEFORE rewriting the style palette
+        // so Colour.h::linearTarget() stays accurate and dark glass panels never wash out.
+        const bool isLinear = ui::linearTarget();
+        auto col = [isLinear](int r, int g, int b, float a = 1.0f) {
+            const float rf = static_cast<float>(r) / 255.0f;
+            const float gf = static_cast<float>(g) / 255.0f;
+            const float bf = static_cast<float>(b) / 255.0f;
+            return isLinear ? ImVec4(ui::toLinear(rf), ui::toLinear(gf), ui::toLinear(bf), a)
+                            : ImVec4(rf, gf, bf, a);
+        };
+
+        // Refined matte dark-slate tactical UI theme (clean contrast, zero garish default blue bars).
+        ImVec4* c = style.Colors;
+        c[ImGuiCol_Text]                 = col(236, 242, 249, 1.00f);
+        c[ImGuiCol_TextDisabled]         = col(146, 164, 186, 1.00f);
+        c[ImGuiCol_WindowBg]             = col(13, 18, 26, 0.90f);
+        c[ImGuiCol_ChildBg]              = col(16, 23, 34, 0.72f);
+        c[ImGuiCol_PopupBg]              = col(14, 20, 30, 0.96f);
+        c[ImGuiCol_Border]               = col(74, 100, 132, 0.42f);
+        c[ImGuiCol_BorderShadow]         = col(0, 0, 0, 0.00f);
+        c[ImGuiCol_FrameBg]              = col(24, 34, 50, 0.88f);
+        c[ImGuiCol_FrameBgHovered]       = col(34, 50, 74, 0.94f);
+        c[ImGuiCol_FrameBgActive]        = col(44, 66, 96, 1.00f);
+        c[ImGuiCol_TitleBg]              = col(19, 27, 40, 0.96f);
+        c[ImGuiCol_TitleBgActive]        = col(24, 36, 54, 0.98f);
+        c[ImGuiCol_TitleBgCollapsed]     = col(16, 23, 34, 0.85f);
+        c[ImGuiCol_MenuBarBg]            = col(18, 26, 38, 0.95f);
+        c[ImGuiCol_ScrollbarBg]          = col(12, 17, 25, 0.65f);
+        c[ImGuiCol_ScrollbarGrab]        = col(58, 78, 104, 0.75f);
+        c[ImGuiCol_ScrollbarGrabHovered] = col(76, 104, 138, 0.90f);
+        c[ImGuiCol_ScrollbarGrabActive]  = col(92, 128, 172, 1.00f);
+        c[ImGuiCol_CheckMark]            = col(72, 194, 255, 1.00f);
+        c[ImGuiCol_SliderGrab]           = col(68, 178, 245, 0.95f);
+        c[ImGuiCol_SliderGrabActive]     = col(110, 210, 255, 1.00f);
+        c[ImGuiCol_Button]               = col(30, 44, 66, 0.88f);
+        c[ImGuiCol_ButtonHovered]        = col(44, 66, 98, 0.96f);
+        c[ImGuiCol_ButtonActive]         = col(54, 86, 128, 1.00f);
+        c[ImGuiCol_Header]               = col(27, 40, 58, 0.86f);
+        c[ImGuiCol_HeaderHovered]        = col(38, 56, 82, 0.94f);
+        c[ImGuiCol_HeaderActive]         = col(48, 72, 108, 1.00f);
+        c[ImGuiCol_Separator]            = col(74, 100, 132, 0.34f);
+        c[ImGuiCol_SeparatorHovered]     = col(84, 148, 210, 0.75f);
+        c[ImGuiCol_SeparatorActive]      = col(96, 176, 245, 0.95f);
+        c[ImGuiCol_ResizeGrip]           = col(74, 100, 132, 0.30f);
+        c[ImGuiCol_ResizeGripHovered]    = col(84, 152, 218, 0.70f);
+        c[ImGuiCol_ResizeGripActive]     = col(96, 180, 255, 0.95f);
+        c[ImGuiCol_TableHeaderBg]        = col(22, 32, 46, 0.96f);
+        c[ImGuiCol_TableBorderStrong]    = col(72, 96, 126, 0.45f);
+        c[ImGuiCol_TableBorderLight]     = col(72, 96, 126, 0.24f);
+        c[ImGuiCol_TableRowBg]           = col(0, 0, 0, 0.00f);
+        c[ImGuiCol_TableRowBgAlt]        = col(255, 255, 255, 0.035f);
+
+        style.WindowRounding    = 7.0f;
+        style.ChildRounding     = 5.0f;
+        style.FrameRounding     = 4.0f;
+        style.PopupRounding     = 5.0f;
+        style.ScrollbarRounding = 6.0f;
+        style.GrabRounding      = 4.0f;
+        style.WindowBorderSize  = 1.0f;
+        style.FrameBorderSize   = 0.0f;
+        style.WindowPadding     = ImVec2(13.0f, 10.0f);
+        style.FramePadding      = ImVec2(8.0f, 4.5f);
+        style.ItemSpacing       = ImVec2(9.0f, 6.5f);
+        style.CellPadding       = ImVec2(7.0f, 4.5f);
+        style.ScrollbarSize     = 11.0f;
+        style.ScaleAllSizes(uiDpi);
+
+        // Load native high-DPI Simplified Chinese TrueType font so Chinese text is sharp and readable on 4K.
+        static ImVector<ImWchar> glyphRanges;
+        glyphRanges.clear();
+        ImFontGlyphRangesBuilder builder;
+        builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
+        builder.AddRanges(io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+        builder.AddText("°±·×≤≥—…→←▲▼■□◆◇●○【】（）《》：；，。！？、"
+                        "帧率架回放暂停单步时间步秒视角控制追踪环绕正北俯视总览自由缩小放大重置视点距离"
+                        "态势图层仅聚焦载具全开全关已开启已关闭雷达电子干扰侦察数据链武器射程气象"
+                        "当前聚焦海高离地真空速节迎角滚转俯仰航向世界环境等待仿真接入进程已退出暂未更新实时同步切换"
+                        "载具列表名称空中地面坠毁发散失控偏航低能量表速最低失速底速坡度质量燃油"
+                        "机载载荷型号状态能力挂点已挂载通电就绪释放中已释放抛弃断电损毁仅状态无"
+                        "融合航迹实体来源年龄误差速度识别在线外推丢失未知雷达链路"
+                        "烧穿压制单目标锁定边扫描边跟踪照射引导搜索全向警戒待机静默相控阵机械扫描旋转雷达罩"
+                        "最大探测扫描量程不可逃逸可发射定位通信导航授权未搜索目标");
+        builder.BuildRanges(&glyphRanges);
+
+        const float fontPx = std::round(21.0f * uiDpi);
+        bool loadedTtf = false;
+        const char* fontCandidates[] = {
+            "C:/Windows/Fonts/msyh.ttc",
+            "C:/Windows/Fonts/msyhbd.ttc",
+            "C:/Windows/Fonts/simhei.ttf",
+        };
+        for (const char* path : fontCandidates) {
+            std::error_code ec;
+            if (!std::filesystem::exists(path, ec)) continue;
+            ImFontConfig cfg;
+            cfg.OversampleH = 2;
+            cfg.OversampleV = 1;
+            cfg.PixelSnapH = true;
+            if (io.Fonts->AddFontFromFileTTF(path, fontPx, &cfg, glyphRanges.Data) != nullptr) {
+                loadedTtf = true;
+                io.FontGlobalScale = 1.0f;
+                break;
+            }
+        }
+        if (!loadedTtf && uiDpi > 1.01f) {
+            io.FontGlobalScale = uiDpi;
+        }
     }
     viewer.addEventHandler(vsgImGui::SendEventsToImGui::create());
     viewer.addEventHandler(ui::KeyHandler::create(controls));
@@ -2052,8 +2168,14 @@ int main(int argc, char** argv) {
         }
         {
             const std::size_t at = static_cast<std::size_t>(std::max(selected, 0));
-            missionGui->update(mirror.valid() ? &mirror : nullptr, anyAlive ? selected : -1, at < meta.size() ? meta[at].name : std::string(),
-                               batch ? batch->simTime : 0.0);
+            const std::string followName = at < meta.size() ? meta[at].name : std::string();
+            const std::string followType = at < meta.size() ? meta[at].type : std::string();
+            if (mirror.valid()) {
+                missionGui->update(&mirror, anyAlive ? selected : -1, followName, batch ? batch->simTime : 0.0);
+            } else {
+                missionGui->updateReplay(tacticalFramePtr, target, anyAlive ? selected : -1, followName, followType,
+                                         batch ? batch->simTime : 0.0);
+            }
         }
         controls->fps.store(viewer.fps(), std::memory_order_relaxed);
         controls->frameMs.store(viewer.frameSeconds() * 1e3, std::memory_order_relaxed);
