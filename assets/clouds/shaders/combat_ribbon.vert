@@ -65,16 +65,21 @@ void main() {
 
     vec3 offset;
     float softRange = 0.35;
+    vec4 outCol = r.colorIntensity;
+    float lightingExtra = 0.5 + 0.5 * dot(normalize(toEye), normalize(frame.sunDirLight.xyz));
+    float daylight = clamp(frame.sunDirLight.w, 0.08, 1.0);
 
     if (kind < 0.5) {
-        // Kind 0: Gun tracer streak aligned strictly along projectile velocity vector
+        // Kind 0: Gun tracer streak aligned strictly along projectile velocity vector.
+        // Bounded sub-pixel visibility floor + realistic long-range extinction so 20 mm rounds vanish at synoptic range.
         vec3 axis = normalize(r.dirLength.xyz);
         vec3 sideRaw = cross(toEye, axis);
         vec3 side = (length(sideRaw) > 1e-3) ? normalize(sideRaw) : right;
         float halfLen = 0.5 * max(r.dirLength.w, 1.0);
-        // Sleek apparent pixel width so individual 20 mm tracer dashes stay razor-sharp at combat range
-        float halfW = max(width, distM * 0.00075);
+        float tracerFade = 1.0 - smoothstep(4200.0, 9200.0, distM);
+        float halfW = (tracerFade > 1e-4) ? max(width, min(distM * 0.00055, 1.35)) : 0.0;
         offset = axis * ((corner.x - 0.65) * halfLen) + side * (corner.y * halfW);
+        outCol.a *= tracerFade;
         softRange = 0.25;
     } else if (kind < 1.5) {
         // Kind 1: Compact muzzle flash directional cone & petals anchored at gun barrel nozzle
@@ -86,22 +91,32 @@ void main() {
         offset = axis * ((corner.x + 1.0) * halfLen) + side * (corner.y * halfW);
         softRange = 0.20;
     } else if (kind < 2.5) {
-        // Kind 2: Pyrotechnic IR flare blazing magnesium star core (camera-facing billboard)
-        float rad = max(width, distM * 0.0065);
+        // Kind 2: Physically-scaled MTV pyrotechnic IR flare core (e.g. MJU-7/B ~0.35 m flame envelope).
+        // Optical inverse-square irradiance + atmospheric extinction + day/night sky contrast:
+        // crisp fiery core up close, delicate pinpoint spark at 2-6 km, completely invisible from regional/orbital views!
+        float peakRefDist = mix(3200.0, 1150.0, daylight);
+        float atmExt = exp(-distM * 0.00022);
+        float irrad = (peakRefDist * peakRefDist) / (distM * distM + peakRefDist * peakRefDist) * atmExt;
+        float visCutoff = 1.0 - smoothstep(mix(12000.0, 4800.0, daylight), mix(26000.0, 10500.0, daylight), distM);
+        float apparentEnergy = irrad * visCutoff;
+        float aaFloor = distM * 0.0011 * pow(max(apparentEnergy, 0.0), 0.38);
+        float rad = (apparentEnergy > 1e-4) ? max(width, min(aaFloor, 2.2)) : 0.0;
         offset = right * (corner.x * rad) + up * (corner.y * rad);
-        softRange = 0.35;
+        outCol.a *= clamp(apparentEnergy * 1.15, 0.0, 1.0);
+        lightingExtra = apparentEnergy;
+        softRange = 0.22;
     } else {
         // Kind 3: Expanding supersonic detonation shockwave sphere (camera-facing analytic sphere disc)
         float rad = max(r.dirLength.w, 1.0);
         offset = right * (corner.x * rad) + up * (corner.y * rad);
         softRange = max(rad * 0.14, 1.5);
+        lightingExtra = 0.5 + 0.5 * dot(normalize(offset + toEye), normalize(frame.sunDirLight.xyz));
     }
 
     vec3 posRel = center + offset;
     v_uv = corner;
-    v_color = r.colorIntensity;
+    v_color = outCol;
     v_params = r.params;
-    vec3 sun = normalize(frame.sunDirLight.xyz);
-    v_lighting = vec4(distM, max(r.dirLength.w, width), softRange, 0.5 + 0.5 * dot(normalize(offset + toEye), sun));
+    v_lighting = vec4(distM, max(r.dirLength.w, width), softRange, lightingExtra);
     gl_Position = pc.projection * pc.modelView * vec4(posRel, 1.0);
 }

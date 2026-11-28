@@ -9,12 +9,15 @@
 #include "visualization/ui/MonitorGui.h"
 #include "visualization/ui/TacticalOverlays.h"
 #include "visualization/ui/ViewerControls.h"
+#include "visualization/ui/ViewerPrefs.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <vsgImGui/imgui.h>
 #include <vsgImGui/imgui_internal.h>
 
 #include <cmath>
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <vector>
 
@@ -388,4 +391,68 @@ TEST_CASE("VIS-M14 MonitorGui::projectLabel and off-screen edge indicators stay 
     CHECK(ImGui::GetDrawData()->TotalVtxCount > 60);
 
     ImGui::DestroyContext();
+}
+
+TEST_CASE("VIS-M14 ViewerPrefs persists, reloads, clamps, and handles corrupt files safely", "[vis-m14][ui][prefs]") {
+    const auto tmpPath = std::filesystem::temp_directory_path() / "fsim_vis_m14_viewer_prefs_test.json";
+    std::error_code ec;
+    std::filesystem::remove(tmpPath, ec);
+
+    // 1. Roundtrip all interactive UI controls
+    auto controls = std::make_shared<ui::ViewerControls>();
+    controls->cameraMode.store(3);
+    controls->tacticalOverlayMask.store(ui::kOverlayRadar | ui::kOverlayWeapons | ui::kOverlayLinks);
+    controls->clearCloudsAboveEntities.store(true);
+    controls->workspacePreset.store(static_cast<int>(ui::WorkspacePreset::Custom));
+    controls->customPanelMask.store(ui::kPanelEw | ui::kPanelComms | ui::kPanelFleet);
+    controls->panelScale.store(1.18f);
+    controls->rightDockWidthPx.store(445.0f);
+    controls->solarLocalHours.store(17.25);
+
+    const ui::ViewerPrefs captured = ui::captureViewerPrefs(*controls, 13.5);
+    REQUIRE(ui::saveViewerPrefs(tmpPath, captured));
+
+    ui::ViewerPrefs loaded;
+    REQUIRE(ui::loadViewerPrefs(tmpPath, loaded));
+    CHECK(loaded == captured);
+    CHECK(loaded.cameraMode == 3);
+    CHECK(loaded.tacticalOverlayMask == (ui::kOverlayRadar | ui::kOverlayWeapons | ui::kOverlayLinks));
+    CHECK(loaded.clearCloudsAboveEntities);
+    CHECK(loaded.workspacePreset == static_cast<int>(ui::WorkspacePreset::Custom));
+    CHECK(loaded.customPanelMask == (ui::kPanelEw | ui::kPanelComms | ui::kPanelFleet));
+    CHECK(std::abs(loaded.panelScale - 1.18f) < 1e-3f);
+    CHECK(std::abs(loaded.rightDockWidthPx - 445.0f) < 0.5f);
+    CHECK(std::abs(loaded.solarLocalHours - 17.25) < 1e-3);
+
+    // 2. Apply back to fresh ViewerControls + preserve fallback solar hour under --sun-utc (-2.0)
+    auto fresh = std::make_shared<ui::ViewerControls>();
+    ui::applyViewerPrefs(loaded, *fresh);
+    CHECK(fresh->clearCloudsAboveEntities.load());
+    CHECK(fresh->cameraMode.load() == 3);
+    fresh->solarLocalHours.store(-2.0);
+    const ui::ViewerPrefs underUtcOverride = ui::captureViewerPrefs(*fresh, 17.25);
+    CHECK(std::abs(underUtcOverride.solarLocalHours - 17.25) < 1e-3);
+
+    // 3. Out-of-range values clamp safely & corrupt JSON leaves defaults untouched
+    {
+        std::ofstream out(tmpPath, std::ios::binary | std::ios::trunc);
+        out << R"({"cameraMode":99,"tacticalOverlayMask":9999,"panelScale":9.0,"rightDockWidthPx":50.0,"solarLocalHours":-5.0})";
+    }
+    ui::ViewerPrefs clamped;
+    REQUIRE(ui::loadViewerPrefs(tmpPath, clamped));
+    CHECK(clamped.cameraMode == 3);
+    CHECK(clamped.tacticalOverlayMask == (9999u & ui::kOverlayAll));
+    CHECK(clamped.panelScale == 1.35f);
+    CHECK(clamped.rightDockWidthPx == 280.0f);
+    CHECK(clamped.solarLocalHours == -1.0);
+
+    {
+        std::ofstream out(tmpPath, std::ios::binary | std::ios::trunc);
+        out << "{ not valid json !!!";
+    }
+    ui::ViewerPrefs untouched;
+    CHECK_FALSE(ui::loadViewerPrefs(tmpPath, untouched));
+    CHECK(untouched.cameraMode == 1);
+
+    std::filesystem::remove(tmpPath, ec);
 }

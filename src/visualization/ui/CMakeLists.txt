@@ -2,6 +2,8 @@
 # records (contracts); commands go through a separate adapter, never this library.
 add_library(fsim_ui STATIC
     ViewerControls.h
+    ViewerPrefs.h
+    ViewerPrefs.cpp
     MandatoryPanel.h
     Colour.h
     MonitorGui.h

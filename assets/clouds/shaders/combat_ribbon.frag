@@ -80,20 +80,30 @@ void main() {
         return;
     }
 
-    // --- Kind 2: Pyrotechnic IR flare blazing magnesium core + 6-point optical diffraction spikes ---
+    // --- Kind 2: Physically-attenuated MTV pyrotechnic IR flare core ---
     if (kind < 2.5) {
         float r = length(v_uv);
-        if (r >= 1.0) discard;
-        // Ultra-hot tight core + warm atmospheric bloom aureole + crisp 6-point optical lens spikes
-        float core = exp(-r * r * 52.0);
-        float aureole = exp(-r * r * 5.8) * 0.55;
+        if (r >= 1.0 || v_color.a <= 1e-4) discard;
+        float apparent = clamp(v_lighting.w, 0.0, 1.0);
+        // Tight white-hot magnesium-Teflon-Viton pellet core + compact warm combustion plasma sheath
+        float core = exp(-r * r * 68.0);
+        float plasma = exp(-r * r * 14.0) * 0.42;
+        // Subtle optical lens diffraction spikes ONLY when close enough to produce real lens glare
         float ang = atan(v_uv.y, v_uv.x) + seed * 3.14159;
-        float spikes = pow(abs(cos(ang * 3.0)), 18.0) * exp(-r * 3.6) * 0.65;
-        float flicker = 0.88 + 0.12 * sin(frame.eyeMeta.w * 42.0 + seed * 89.0);
-        float total = (core * 2.4 + aureole + spikes) * flicker * v_color.a * softFade;
+        float spikeMask = smoothstep(0.18, 0.72, apparent);
+        float spikes = pow(abs(cos(ang * 3.0)), 26.0) * exp(-r * 5.2) * 0.16 * spikeMask;
+        // High-frequency combustion flicker + late-burn sputtering near burnout
+        float sputter = (ageNorm > 0.72)
+            ? (0.68 + 0.32 * sin(frame.eyeMeta.w * 65.0 + seed * 141.0))
+            : (0.90 + 0.10 * sin(frame.eyeMeta.w * 42.0 + seed * 89.0));
+        float total = (core * 2.1 + plasma + spikes) * sputter * v_color.a * softFade;
         if (total < 1e-3) discard;
-        vec3 col = mix(vec3(1.0, 0.68, 0.18), vec3(1.0, 0.99, 0.92), clamp(core * 1.4 + spikes * 0.5, 0.0, 1.0));
-        outColor = vec4(col * total * 3.4, 0.0);
+        // Blackbody cooling along MTV burn lifecycle: ~2200 K blinding white-gold -> ~1500 K orange -> dying ember
+        float coolT = smoothstep(0.58, 0.98, ageNorm);
+        vec3 outerCol = mix(vec3(1.0, 0.62, 0.14), vec3(1.0, 0.30, 0.04), coolT);
+        vec3 innerCol = mix(vec3(1.0, 0.99, 0.90), vec3(1.0, 0.80, 0.38), coolT * 0.75);
+        vec3 col = mix(outerCol, innerCol, clamp(core * 1.45 + spikes * 0.4, 0.0, 1.0));
+        outColor = vec4(col * total * 2.8, 0.0);
         return;
     }
 

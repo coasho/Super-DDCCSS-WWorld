@@ -110,7 +110,7 @@ void main() {
     // --- Kind 1: Incandescent HDR molten amber-gold sparks & burning embers (additive) ---
     if (kind > 0.5 && kind < 1.5) {
         float core = exp(-v_uv.y * v_uv.y * 28.0) * exp(-v_uv.x * v_uv.x * 3.0);
-        float fade = pow(1.0 - ageNorm, 1.45) * softFade;
+        float fade = pow(1.0 - ageNorm, 1.45) * softFade * v_color.a;
         float glow = core * fade;
         if (glow < 1e-3) discard;
         // Rich molten orange-gold gradient with pinpoint hot yellow-white center (never washed-out chalk lines!)
@@ -126,7 +126,7 @@ void main() {
     if (kind > 5.5) {
         float twinkle = pow(max(0.0, sin(frame.eyeMeta.w * 22.0 + seed * 97.3)), 6.0);
         float shape = exp(-v_uv.y * v_uv.y * 18.0) * exp(-v_uv.x * v_uv.x * 5.0);
-        float fade = smoothstep(0.0, 0.08, ageNorm) * (1.0 - smoothstep(0.45, 1.0, ageNorm)) * softFade;
+        float fade = smoothstep(0.0, 0.08, ageNorm) * (1.0 - smoothstep(0.45, 1.0, ageNorm)) * softFade * v_color.a;
         float g = shape * (0.18 + 0.82 * twinkle) * fade;
         if (g < 1e-3) discard;
         vec3 glintCol = mix(vec3(0.70, 0.78, 0.88), vec3(0.98, 0.99, 1.0), twinkle) * (0.45 + 1.35 * daylight);
@@ -159,9 +159,10 @@ void main() {
     // --- Kind 2: Translucent silver-grey chaff radar-dipole dispersal cloud ---
     if (kind < 2.5) {
         float fineGlint = smoothstep(0.68, 0.93, snoise(v_uv * 12.0 + seedOff * 2.0 + vec2(frame.eyeMeta.w * 2.0, 0.0)));
-        float alpha = clamp(puff * 0.32 * fadeIn * (1.0 - smoothstep(0.38, 1.0, ageNorm)) * softFade, 0.0, 0.34);
+        float chaffDistFade = 1.0 - smoothstep(3200.0, 9000.0, v_lighting.z);
+        float alpha = clamp(puff * 0.18 * fadeIn * (1.0 - smoothstep(0.38, 1.0, ageNorm)) * softFade * chaffDistFade, 0.0, 0.20);
         if (alpha < 1e-3) discard;
-        vec3 col = mix(vec3(0.46, 0.51, 0.57), v_color.rgb, v_lighting.x) * daylight + vec3(0.42, 0.48, 0.55) * fineGlint * daylight;
+        vec3 col = mix(vec3(0.52, 0.57, 0.64), v_color.rgb, v_lighting.x) * daylight + vec3(0.42, 0.48, 0.55) * fineGlint * daylight;
         outColor = vec4(col * alpha, alpha);
         return;
     }

@@ -47,6 +47,7 @@
 #include "visualization/ui/MonitorGui.h"
 #include "visualization/ui/TacticalOverlays.h"
 #include "visualization/ui/ViewerControls.h"
+#include "visualization/ui/ViewerPrefs.h"
 #include "visualization/ui/WeaponDiagnosticsGui.h"
 #include "visualization/vfx/effects/Airflow.h"
 #include "visualization/vfx/effects/WingVapour.h"
@@ -149,10 +150,18 @@ struct ViewerOptions {
 
     render::ViewerSettings window;
     int cameraMode = 1; // orbit
+    bool cameraModeSet = false;
     std::uint32_t tacticalOverlayMask = 0u; ///< --overlays (default 0 = OFF, 0.0 ms)
+    bool tacticalOverlayMaskSet = false;
     bool clearCloudsAboveEntities = false;  ///< --clear-clouds-above-entities (smooth feathered cloud clearance above active entities)
+    bool clearCloudsSet = false;
     int workspacePreset = static_cast<int>(ui::WorkspacePreset::AirRadar); ///< --workspace
+    bool workspacePresetSet = false;
     float panelScale = 1.0f; ///< --panel-scale <0.75..1.35>
+    bool panelScaleSet = false;
+    bool sunLocalSet = false;
+    std::filesystem::path prefsPath; ///< --prefs <file> (auto-persisted user UI preferences)
+    bool noPrefs = false;            ///< --no-prefs (disable loading/saving persisted user preferences)
     std::string view;   // --view lat,lon,alt_m,distance_m[,azimuth_deg,elevation_deg]: start detached, looking at that point
     double chaseDistance = 40.0;
     bool chaseDistanceSet = false; // --chase-distance given: start there, even attached to a world
@@ -418,13 +427,16 @@ bool parse(int argc, char** argv, ViewerOptions& o) {
             else if (a == "--no-gui") { std::fprintf(stderr,"complete visualization is mandatory\n"); return false; }
             else if (a == "--no-effects") { std::fprintf(stderr,"all visual effects are mandatory\n"); return false; }
             else if (a == "--clouds") o.clouds = next();
-            else if (a == "--clear-clouds-above-entities") o.clearCloudsAboveEntities = true;
+            else if (a == "--clear-clouds-above-entities") { o.clearCloudsAboveEntities = true; o.clearCloudsSet = true; }
+            else if (a == "--prefs") o.prefsPath = next();
+            else if (a == "--no-prefs") o.noPrefs = true;
             else if (a == "--sea-wind") o.seaWindMs = std::atof(next());
             else if (a == "--no-sun") { std::fprintf(stderr,"sunlight and shadows are mandatory\n"); return false; }
             else if (a == "--sun-utc") o.sunUtcHours = std::stod(next());
             else if (a == "--sun-local") {
                 const std::string v = next();
                 o.sunLocalHours = (v == "real" || v == "live" || v == "auto") ? -1.0 : std::fmod(std::stod(v) + 240.0, 24.0);
+                o.sunLocalSet = true;
             }
             else if (a == "--on-ground") o.onGround = true;
             else if (a == "--bing-key") o.earth.bingKey = next();
@@ -449,10 +461,11 @@ bool parse(int argc, char** argv, ViewerOptions& o) {
             else if (a == "--chase-azimuth") o.chaseAzimuth = std::stod(next());
             else if (a == "--follow") o.follow = std::max(0, std::stoi(next()));
             else if (a == "--chase-elevation") { o.chaseElevation = std::stod(next()); o.chaseElevationSet = true; }
-            else if (a == "--view") { o.view = next(); o.cameraMode = 3; }
+            else if (a == "--view") { o.view = next(); o.cameraMode = 3; o.cameraModeSet = true; }
             else if (a == "--camera") {
                 const std::string v = next();
                 o.cameraMode = v == "orbit" ? 1 : v == "overview" ? 2 : v == "free" ? 3 : 0;
+                o.cameraModeSet = true;
             } else if (a == "--overlays") {
                 const std::string v = next();
                 std::uint32_t mask = 0u;
@@ -474,6 +487,7 @@ bool parse(int argc, char** argv, ViewerOptions& o) {
                     }
                 }
                 o.tacticalOverlayMask = mask;
+                o.tacticalOverlayMaskSet = true;
             } else if (a == "--workspace") {
                 const std::string v = next();
                 if (v == "clean") o.workspacePreset = static_cast<int>(ui::WorkspacePreset::Clean);
@@ -481,8 +495,10 @@ bool parse(int argc, char** argv, ViewerOptions& o) {
                 else if (v == "weapon" || v == "weapons") o.workspacePreset = static_cast<int>(ui::WorkspacePreset::Weapon);
                 else if (v == "flight" || v == "aero") o.workspacePreset = static_cast<int>(ui::WorkspacePreset::Flight);
                 else o.workspacePreset = static_cast<int>(ui::WorkspacePreset::AirRadar);
+                o.workspacePresetSet = true;
             } else if (a == "--panel-scale") {
                 o.panelScale = std::clamp(std::stof(next()), 0.75f, 1.35f);
+                o.panelScaleSet = true;
             } else if (a == "--probe") o.probe = true;
             else if (a == "--stats") o.stats = std::stod(next());
             else if (a == "--stats-budget") o.statsBudgetMs = std::stod(next());
@@ -538,8 +554,9 @@ int main(int argc, char** argv) {
         if (freopen_s(&f, logPath.string().c_str(), "w", stderr) == 0) freopen_s(&f, logPath.string().c_str(), "a", stdout);
     }
     ViewerOptions opt;
-    if (const auto cfg = configPath(argc, argv); !cfg.empty()) {
-        if (applyConfig(opt, cfg)) LOG_INFO("app") << "settings: " << cfg.string();
+    const auto cfgPath = configPath(argc, argv);
+    if (!cfgPath.empty()) {
+        if (applyConfig(opt, cfgPath)) LOG_INFO("app") << "settings: " << cfgPath.string();
     }
     if (!parse(argc, argv, opt)) {
         usage(argv[0]);
@@ -937,12 +954,42 @@ int main(int argc, char** argv) {
     };
     auto storeRecord = std::make_unique<ipc::MissionRecord>();
     std::vector<std::uint64_t> storeRevision; // per slot: the mission record's revision last drawn (~0: read it again)
-    controls->cameraMode.store(opt.cameraMode);
-    controls->tacticalOverlayMask.store(opt.tacticalOverlayMask, std::memory_order_relaxed);
-    controls->clearCloudsAboveEntities.store(opt.clearCloudsAboveEntities, std::memory_order_relaxed);
-    controls->workspacePreset.store(opt.workspacePreset, std::memory_order_relaxed);
-    controls->panelScale.store(opt.panelScale, std::memory_order_relaxed);
-    controls->solarLocalHours.store(opt.sunUtcHours >= 0.0 ? -2.0 : opt.sunLocalHours, std::memory_order_relaxed);
+    // Load & persist interactive user preferences (<configDir>/viewer_prefs.json) unless disabled or running scripted captures.
+    std::filesystem::path prefsPath = opt.prefsPath;
+    if (prefsPath.empty()) {
+        if (const char* envPrefs = std::getenv("FSIM_VIEWER_PREFS"); envPrefs && envPrefs[0]) {
+            prefsPath = envPrefs;
+        } else if (!cfgPath.empty()) {
+            prefsPath = cfgPath.parent_path() / "viewer_prefs.json";
+        } else {
+            prefsPath = platform::executableDir() / ".." / "config" / "viewer_prefs.json";
+        }
+    }
+    const bool persistPrefs = !opt.noPrefs && opt.screenshot.empty() && opt.strikeEvidence.empty() && !opt.probe && !(opt.stats > 0.0);
+    ui::ViewerPrefs savedPrefs;
+    if (persistPrefs && ui::loadViewerPrefs(prefsPath, savedPrefs)) {
+        LOG_INFO("app") << "user prefs: " << prefsPath.string();
+        ui::applyViewerPrefs(savedPrefs, *controls);
+    } else {
+        savedPrefs.cameraMode = opt.cameraMode;
+        savedPrefs.tacticalOverlayMask = opt.tacticalOverlayMask;
+        savedPrefs.clearCloudsAboveEntities = opt.clearCloudsAboveEntities;
+        savedPrefs.workspacePreset = opt.workspacePreset;
+        savedPrefs.panelScale = opt.panelScale;
+        savedPrefs.solarLocalHours = opt.sunLocalHours;
+        ui::applyViewerPrefs(savedPrefs, *controls);
+    }
+    // Explicit CLI flags always override persisted preferences for this launch.
+    if (opt.cameraModeSet) controls->cameraMode.store(opt.cameraMode, std::memory_order_relaxed);
+    if (opt.tacticalOverlayMaskSet) controls->tacticalOverlayMask.store(opt.tacticalOverlayMask, std::memory_order_relaxed);
+    if (opt.clearCloudsSet) controls->clearCloudsAboveEntities.store(opt.clearCloudsAboveEntities, std::memory_order_relaxed);
+    if (opt.workspacePresetSet) controls->workspacePreset.store(opt.workspacePreset, std::memory_order_relaxed);
+    if (opt.panelScaleSet) controls->panelScale.store(opt.panelScale, std::memory_order_relaxed);
+    if (opt.sunUtcHours >= 0.0) controls->solarLocalHours.store(-2.0, std::memory_order_relaxed);
+    else if (opt.sunLocalSet) controls->solarLocalHours.store(opt.sunLocalHours, std::memory_order_relaxed);
+    ui::ViewerPrefs lastObservedPrefs = ui::captureViewerPrefs(*controls, savedPrefs.solarLocalHours);
+    bool prefsDirty = false;
+    double prefsDirtyWallS = 0.0;
     const std::string monitorLabel = replay
         ? ("回放: " + std::filesystem::path(opt.replayPath).filename().string())
         : opt.aircraft;
@@ -2652,7 +2699,22 @@ int main(int argc, char** argv) {
                 break;
             }
         }
+
+        if (persistPrefs) {
+            const ui::ViewerPrefs curPrefs = ui::captureViewerPrefs(*controls, savedPrefs.solarLocalHours);
+            if (curPrefs != lastObservedPrefs) {
+                lastObservedPrefs = curPrefs;
+                savedPrefs = curPrefs;
+                prefsDirty = true;
+                prefsDirtyWallS = wallSeconds;
+            }
+            if (prefsDirty && (wallSeconds - prefsDirtyWallS >= 0.35)) {
+                if (ui::saveViewerPrefs(prefsPath, savedPrefs)) prefsDirty = false;
+            }
+        }
     }
+
+    if (persistPrefs && prefsDirty) (void)ui::saveViewerPrefs(prefsPath, savedPrefs);
 
     if (strikeCapture && (!batch || !strikeCapture->completed(batch->simTime))) {
         LOG_ERROR("strike") << "native strike ended before complete acceptance";

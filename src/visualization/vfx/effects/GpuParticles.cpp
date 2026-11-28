@@ -776,50 +776,53 @@ void GpuParticles::update(const ipc::CombatVfxFrameV1* vfxFrame, const ipc::Debr
             auto& trail = decoyTrails_[d.id];
 
             if (d.kind == static_cast<std::uint8_t>(ipc::DecoyKindV1::Flare)) {
-                // Blazing HDR pyrotechnic magnesium flare core + 6-point optical diffraction star!
-                if (ribbons.size() < kMaxRibbons) {
+                // Realistic MJU-7/B MTV pyrotechnic IR flare burn envelope (~0.35 m physical flame core):
+                // rapid cartridge ignition ramp (0..0.15 s) -> peak MTV combustion plateau -> sputtering burnout tail.
+                const float lifeS = std::max(d.lifeS, 0.1f);
+                const float ageNorm = std::clamp(d.ageS / lifeS, 0.0f, 1.0f);
+                const float ignite = 1.0f - std::exp(-std::max(d.ageS, 0.0f) / 0.055f);
+                const float burnout = 1.0f - std::clamp((ageNorm - 0.72f) / 0.28f, 0.0f, 1.0f);
+                const float normInt = std::clamp(std::sqrt(std::max(d.intensityOrSigma, 0.0f) / 6000.0f), 0.10f, 1.25f);
+                const float burnPower = ignite * burnout * normInt;
+
+                if (ribbons.size() < kMaxRibbons && burnPower > 1e-3f) {
                     const vsg::dvec3 rel = pos - eyeEcef;
-                    const float normInt = std::clamp(std::sqrt(std::max(d.intensityOrSigma, 0.0f) / 6000.0f), 0.12f, 1.35f);
-                    // Brief pyrotechnic cartridge ignition ramp over the first 0.06 s after leaving the dispenser bay.
-                    const float ignite = std::clamp(0.35f + (d.ageS / 0.06f) * 0.65f, 0.35f, 1.0f);
+                    // True physical flame core radius (~0.38 m at peak burn, shrinking to ~0.10 m as pellet depletes)
+                    const float physRad = std::clamp(0.10f + 0.30f * burnPower, 0.08f, 0.46f);
                     RibbonCpu r{};
-                    r.posRadius = vsg::vec4(static_cast<float>(rel.x), static_cast<float>(rel.y), static_cast<float>(rel.z),
-                                            1.75f * ignite * (0.45f + 0.65f * normInt));
-                    r.dirLength = vsg::vec4(0.0f, 0.0f, 1.0f, 1.75f);
-                    r.colorIntensity = vsg::vec4(1.0f, 0.90f, 0.56f, 1.25f * normInt * ignite);
-                    r.params = vsg::vec4(2.0f, std::clamp(d.ageS / std::max(d.lifeS, 0.1f), 0.0f, 1.0f),
-                                         static_cast<float>(d.id & 0xFFu) / 255.0f, normInt);
+                    r.posRadius = vsg::vec4(static_cast<float>(rel.x), static_cast<float>(rel.y), static_cast<float>(rel.z), physRad);
+                    r.dirLength = vsg::vec4(0.0f, 0.0f, 1.0f, physRad);
+                    r.colorIntensity = vsg::vec4(1.0f, 0.90f, 0.56f, 1.25f * burnPower);
+                    r.params = vsg::vec4(2.0f, ageNorm, static_cast<float>(d.id & 0xFFu) / 255.0f, burnPower);
                     ribbons.push_back(r);
                 }
 
-                // Continuous sub-stepped dense corkscrew white MgO smoke trail + delicate magnesium sparks!
+                // Continuous sub-stepped turbulent white MgO smoke trail + hot magnesium slag sparks (no fake helix!)
                 if (!trail.initialized) {
                     trail.lastPosEcef = pos;
                     trail.lastEmitTime = clock - 0.015;
                     trail.initialized = true;
                 }
                 const double elapsed = clock - trail.lastEmitTime;
-                if (elapsed >= 0.008 && d.ageS < d.lifeS * 0.96f) {
-                    const int steps = std::clamp(static_cast<int>(elapsed / 0.008), 1, 32);
-                    const vsg::dvec3 uAx = orthoVec(upLocal);
-                    const vsg::dvec3 vAx = vsg::cross(upLocal, uAx);
+                if (elapsed >= 0.010 && d.ageS < d.lifeS * 0.96f) {
+                    const int steps = std::clamp(static_cast<int>(elapsed / 0.010), 1, 28);
+                    const float smokeScale = 0.28f + 0.16f * burnPower;
                     for (int s = 1; s <= steps; ++s) {
                         const double frac = static_cast<double>(s) / static_cast<double>(steps);
                         const vsg::dvec3 sp = trail.lastPosEcef + (pos - trail.lastPosEcef) * frac;
-                        const double helixAng = static_cast<double>(d.id) * 1.9 + (clock - elapsed + elapsed * frac) * 14.0;
-                        const vsg::dvec3 curlVel = (uAx * std::cos(helixAng) + vAx * std::sin(helixAng)) * 3.4;
-                        queueParticle(sp, vel * 0.05 + curlVel, 2.8f + 1.4f * nextRand(),
-                                      vsg::vec3(0.95f, 0.95f, 0.94f), 0.72f + 0.28f * nextRand(), 0.0f, 3.2f, 0.0f);
-                        if ((s % 4) == 0) {
+                        const vsg::dvec3 turbVel = randomUnitVec() * 1.35 + upLocal * 0.55;
+                        queueParticle(sp, vel * 0.04 + turbVel, 2.6f + 1.4f * nextRand(),
+                                      vsg::vec3(0.94f, 0.94f, 0.93f), smokeScale + 0.12f * nextRand(), 0.0f, 3.4f, 0.0f);
+                        if ((s % 5) == 0 && burnPower > 0.18f) {
                             const vsg::dvec3 sparkDir = randomUnitVec();
-                            queueParticle(sp, vel * 0.18 + sparkDir * (5.0 + 12.0 * static_cast<double>(nextRand())),
-                                          0.14f + 0.16f * nextRand(), vsg::vec3(1.0f, 0.78f, 0.28f),
-                                          0.026f + 0.016f * nextRand(), 1.0f, 2.6f, 2.6f);
+                            queueParticle(sp, vel * 0.20 + sparkDir * (4.0 + 10.0 * static_cast<double>(nextRand())),
+                                          0.12f + 0.14f * nextRand(), vsg::vec3(1.0f, 0.78f, 0.28f),
+                                          0.022f + 0.014f * nextRand(), 1.0f, 2.8f, 2.4f);
                         }
                     }
                     trail.lastPosEcef = pos;
                     trail.lastEmitTime = clock;
-                    particleIdleUntil_ = std::max(particleIdleUntil_, clock + 4.4);
+                    particleIdleUntil_ = std::max(particleIdleUntil_, clock + 4.2);
                 }
             } else {
                 // Chaff dipole cloud: initial burst + sustained shimmering metallic flecks & translucent haze!

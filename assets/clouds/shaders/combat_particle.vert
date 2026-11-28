@@ -76,27 +76,29 @@ void main() {
         float pLen = length(projVel);
         vec3 dir = (pLen > 1e-2) ? (projVel / pLen) : up;
         vec3 perp = normalize(cross(toEye, dir));
-        float distFloor = clamp(centerDist * 0.00032, 0.0, 0.065);
-        radius = baseR * (1.0 - 0.38 * ageNorm) + distFloor;
+        float sparkFade = 1.0 - smoothstep(2200.0, 6200.0, centerDist);
+        float distFloor = clamp(centerDist * 0.00028, 0.0, 0.055) * sparkFade;
+        radius = (sparkFade > 1e-4) ? (baseR * (1.0 - 0.38 * ageNorm) + distFloor) : 0.0;
         float stretch = clamp(p.params.w * (0.45 + 0.55 * clamp(pLen / 85.0, 0.20, 1.5)), 1.6, 5.4);
         offset = dir * (corner.x * radius * stretch) + perp * (corner.y * radius);
         softRange = 0.25;
-        alpha = 1.0;
+        alpha = sparkFade;
     } else if (kind > 5.5) {
         // Kind 6: Delicate twinkling metallic chaff aluminium-foil dipole flecks (tiny sparkling diamonds)
         float ang = seed * 6.2831853 + p.posAge.w * (7.0 + 8.0 * fract(seed * 7.3));
         float ca = cos(ang), sa = sin(ang);
-        float distFloor = clamp(centerDist * 0.00042, 0.0, 0.09);
-        radius = baseR + distFloor;
+        float chaffFade = 1.0 - smoothstep(2500.0, 7500.0, centerDist);
+        float distFloor = clamp(centerDist * 0.00035, 0.0, 0.075) * chaffFade;
+        radius = (chaffFade > 1e-4) ? (baseR + distFloor) : 0.0;
         vec2 rot = vec2(corner.x * 1.45 * ca - corner.y * 0.65 * sa, corner.x * 1.45 * sa + corner.y * 0.65 * ca);
         offset = right * (rot.x * radius) + up * (rot.y * radius);
         softRange = 0.30;
-        alpha = 1.0;
+        alpha = chaffFade;
     } else {
         // Alpha volumetric puffs (Kind 0 FlareSmoke, 2 ChaffHaze, 3 MuzzleSmoke, 4 SurfaceEjecta, 5 ShockMist)
         float growth = 2.6;
-        if (kind < 0.5) growth = 4.2;       // Flare MgO corkscrew smoke expands into thick readable white ribbon
-        else if (kind < 2.5) growth = 3.4;  // Chaff dipole cloud blooms softly
+        if (kind < 0.5) growth = 3.6;       // Flare MgO turbulent white smoke expands naturally into a ~2 m plume
+        else if (kind < 2.5) growth = 3.0;  // Chaff dipole cloud blooms softly
         else if (kind < 3.5) growth = 2.0;  // Muzzle gas / HEI puff
         else if (kind < 4.5) growth = 3.0;  // Soil / water ejecta plume
         else growth = 2.2;
