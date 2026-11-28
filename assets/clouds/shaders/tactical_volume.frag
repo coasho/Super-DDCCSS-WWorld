@@ -9,6 +9,8 @@
 layout(std140, set = 0, binding = 1) uniform TacticalFrame {
     vec4 projDepth; // x = p22, y = p32, z = 1/width, w = 1/height
     vec4 timeMeta;  // x = simTime, y = wallTime, z = daylight, w = unused
+    vec4 upDir;     // xyz = localUp(eyeEcef), w = unused
+    vec4 keyLight;  // xyz = sculptural 3/4 directional key light (ECEF), w = unused
 } frame;
 
 layout(set = 0, binding = 2) uniform sampler2D sceneDepthTex;
@@ -65,17 +67,35 @@ void main() {
 
     vec3 viewDir = normalize(-v_posR.xyz);
     vec3 nrm = normalize(v_normU.xyz + vec3(1e-7));
-    float ndv = abs(dot(nrm, viewDir));
+    float facing = dot(nrm, viewDir);
+    float ndv = abs(facing);
     float fresnel = pow(clamp(1.0 - ndv, 0.0, 1.0), 1.8);
     // Boost stroke contrast slightly at grazing Chase angles so shallow planes never wash out.
     float grazingBoost = mix(1.0, 1.38, pow(clamp(1.0 - ndv, 0.0, 1.0), 1.6));
 
+    // Directional 3-value / 5-tone translucent sketch-geometry shading ("亮面 / 灰面 / 明暗交界线 / 暗面 / 微反光")
+    // aligned with scene sun azimuth at a sculptural 3/4 elevation so every 3-D volume exhibits
+    // clean airy light/mid/dark face separation over both bright clouds and dark sea.
+    vec3 upAxis = normalize(frame.upDir.xyz + vec3(0.0, 0.0, 1e-6));
+    vec3 keyDir = normalize(frame.keyLight.xyz + vec3(0.0, 0.0, 1e-6));
+    // Unflipped geometric outward normal projections: view-independent light vs. shadow sides.
+    float worldUpDot = dot(nrm, upAxis);
+    float keyDot = dot(nrm, keyDir);
+    float sideLight = smoothstep(-0.72, 0.72, keyDot);     // 0 = dark face, 0.5 = mid-tone, 1 = bright lit face
+    float sideShadow = 1.0 - sideLight;
+    // Subtle plaster-sketch terminator (core shadow ridge around keyDot ~ -0.18) & faint backside bounce light
+    float terminator = exp(-pow((keyDot + 0.18) / 0.26, 2.0));
+    float bounceLift = smoothstep(-0.35, -0.98, keyDot) * 0.14;
+
     vec3 baseCol = v_color.rgb;
     float baseAlpha = v_color.a;
+    vec3 shadowTint = mix(vec3(0.025, 0.04, 0.08), baseCol * 0.18, 0.30); // Cool charcoal dark face (暗面)
+    vec3 midTint    = mix(vec3(0.32, 0.38, 0.48), baseCol, 0.56);         // Clean neutral-tinted mid face (灰面)
+    vec3 litTint    = mix(baseCol, vec3(0.97, 0.99, 1.0), 0.58);          // Crisp pale sunlit face (亮面)
 
     // -------------------------------------------------------------------------
     // Style 0: Radar Tactical Sector (Focused Aircraft Only)
-    //   Clean flat subtle tint + dark-outlined borders & 10 km range arcs +
+    //   Clean subtle shaded tint + dark-outlined borders & 10 km range arcs +
     //   crisp live sweep ray + razor-sharp dark-outlined gold burn-through arc.
     //   Suppressed outer zone uses quiet desaturated fill + static dashed border.
     // -------------------------------------------------------------------------
@@ -90,8 +110,11 @@ void main() {
         float ringDist = fract(rangeKm / ringStep + 0.5) - 0.5;
         float centerAzDist = abs(uCoord);
 
-        vec3 col = baseCol;
-        float alpha = 0.11 * apexFade;
+        // Subtle 3-D depth shade: slightly deeper smoked tint along edges and underside
+        float topShade = mix(0.56, 0.94, 0.5 + 0.5 * clamp(facing, -1.0, 1.0));
+        float edgeShade = mix(1.0, 0.72, pow(abs(uCoord), 2.2));
+        vec3 col = mix(shadowTint, baseCol, topShade * edgeShade);
+        float alpha = (0.092 + 0.036 * pow(abs(uCoord), 2.4)) * apexFade;
 
         if (!inBlindZone) {
             // Subtle 10 km range arcs & center boresight tick
@@ -112,8 +135,8 @@ void main() {
             // Quiet suppressed outer zone: whisper-subtle cool slate tint + static dashed outer frame
             float normOut = clamp((rNorm - burnFrac) / max(1.0 - burnFrac, 0.06), 0.0, 1.0);
             float fadeOut = mix(1.0, 0.35, normOut);
-            col = vec3(0.46, 0.52, 0.62);
-            alpha = 0.032 * fadeOut * apexFade;
+            col = vec3(0.36, 0.42, 0.52);
+            alpha = 0.034 * fadeOut * apexFade;
             float dashSide = step(0.42, fract(rNorm * 18.0));
             float dashArc = step(0.42, fract((uCoord * 0.5 + 0.5) * 14.0));
             addFramedStroke(col, alpha, 1.0 - abs(uCoord), 1.35, 2.7, vec3(0.68, 0.74, 0.84), 0.56 * dashSide * fadeOut * apexFade);
@@ -133,17 +156,23 @@ void main() {
 
     // -------------------------------------------------------------------------
     // Style 1: EA Jamming Cone (Clean Geometric Violet / Amber Envelope)
-    //   Zero flashy strobe waves: quiet translucent shell + crisp Fresnel rim +
-    //   3 clean static dark-outlined range contour rings (33%, 66%, 98%).
+    //   Zero flashy strobe waves: softly hemisphere-shaded translucent shell +
+    //   crisp Fresnel rim + 3 clean static dark-outlined range contour rings.
     // -------------------------------------------------------------------------
     if (style < 1.5) {
-        float faceWeight = gl_FrontFacing ? 1.0 : 0.15;
+        float faceWeight = gl_FrontFacing ? 1.0 : 0.22;
         float apexFade = smoothstep(0.0, 0.04, rNorm);
         float farFade = mix(1.0, 0.55, pow(rNorm, 1.3));
         float env = apexFade * farFade * softClip * faceWeight;
 
-        vec3 col = baseCol;
-        float alpha = (0.052 + fresnel * 0.30) * env;
+        // Plaster-cone 5-tone translucent shading: bright highlight -> mid-tone -> core shadow terminator -> dark side + subtle bounce
+        vec3 coneLit = mix(baseCol, vec3(0.98, 0.95, 1.0), 0.54);
+        vec3 col = (sideLight >= 0.5)
+            ? mix(midTint, coneLit, (sideLight - 0.5) * 2.0)
+            : mix(shadowTint, midTint, sideLight * 2.0);
+        col = mix(col, shadowTint * 0.85, terminator * 0.45);
+        col = mix(col, midTint, bounceLift);
+        float alpha = (0.055 + sideShadow * 0.115 + terminator * 0.045 - bounceLift * 0.03 + fresnel * mix(0.20, 0.28, sideShadow)) * env;
 
         // 3 static clean range rings along the cone (at 0.33, 0.66, 0.98)
         float ring33 = abs(rNorm - 0.333);
@@ -161,12 +190,17 @@ void main() {
 
     // -------------------------------------------------------------------------
     // Style 2: ESM / RWR 3-D FIM CRLB Uncertainty Ellipsoid
-    //   Quiet scientific glass shell + clean equator and 2 orthogonal meridians.
+    //   5-tone translucent sphere/ellipsoid sketch shading + equator/meridians.
     // -------------------------------------------------------------------------
     if (style < 2.5) {
-        float faceWeight = gl_FrontFacing ? 1.0 : 0.22;
-        vec3 col = baseCol;
-        float alpha = (0.075 + fresnel * 0.24) * faceWeight;
+        float faceWeight = gl_FrontFacing ? 1.0 : 0.24;
+        vec3 ellLit = mix(baseCol, vec3(1.0, 0.99, 0.94), 0.54);
+        vec3 col = (sideLight >= 0.5)
+            ? mix(midTint, ellLit, (sideLight - 0.5) * 2.0)
+            : mix(shadowTint, midTint, sideLight * 2.0);
+        col = mix(col, shadowTint * 0.85, terminator * 0.42);
+        col = mix(col, midTint, bounceLift);
+        float alpha = (0.068 + sideShadow * 0.105 + terminator * 0.042 + fresnel * 0.24) * faceWeight;
         float eqDist = abs(rNorm - 0.5);
         float merDist = abs(fract((uCoord * 0.5 + 0.5) * 2.0 + 0.5) - 0.5);
         addFramedStroke(col, alpha, eqDist, 1.6, 3.2, mix(baseCol, vec3(1.0, 0.96, 0.80), 0.45), 0.78 * faceWeight);
@@ -182,9 +216,11 @@ void main() {
     //   aux1: 0 = R_max amber, 1 = NEZ emerald, 2 = R_min crimson
     // -------------------------------------------------------------------------
     if (style < 3.5) {
-        float fillBase = (aux1 > 0.5 && aux1 < 1.5) ? 0.19 : (aux1 >= 1.5 ? 0.20 : 0.085);
-        vec3 col = baseCol;
-        float alpha = fillBase;
+        float fillBase = (aux1 > 0.5 && aux1 < 1.5) ? 0.175 : (aux1 >= 1.5 ? 0.185 : 0.082);
+        float topShade = mix(0.54, 0.96, 0.5 + 0.5 * clamp(facing, -1.0, 1.0));
+        float edgeShade = mix(1.0, 0.72, pow(abs(uCoord), 2.4));
+        vec3 col = mix(shadowTint, baseCol, topShade * edgeShade);
+        float alpha = fillBase + 0.032 * pow(abs(uCoord), 2.6);
         float rimR = min(1.0 - rNorm, rNorm);
         float rimAz = 1.0 - abs(uCoord);
         vec3 borderCol = mix(baseCol, vec3(0.96, 1.0, 0.96), 0.32);
@@ -217,15 +253,15 @@ void main() {
         if (aux1 > 0.5) {
             float rad = length(vec2(uCoord, (rNorm - 0.5) * 2.0));
             float cell = smoothstep(1.0, 0.20, rad);
-            vec3 col = baseCol;
-            float alpha = 0.26 * cell;
+            vec3 col = mix(shadowTint, baseCol, mix(0.55, 0.98, cell));
+            float alpha = 0.24 * cell;
             addFramedStroke(col, alpha, frameDist, 1.5, 3.0, baseCol, 0.65);
             alpha = clamp(alpha * softClip * baseAlpha, 0.0, 0.72);
             if (alpha < 0.004) discard;
             outColor = vec4(col, alpha);
             return;
         }
-        vec3 col = baseCol;
+        vec3 col = mix(shadowTint, baseCol, mix(0.68, 0.95, 1.0 - 0.5 * abs(uCoord)));
         float alpha = 0.095;
         addFramedStroke(col, alpha, frameDist, 1.75, 3.5, mix(baseCol, vec3(0.92, 1.0, 1.0), 0.35), 0.86);
         alpha = clamp(alpha * softClip * baseAlpha, 0.0, 0.84);
@@ -237,15 +273,180 @@ void main() {
     // -------------------------------------------------------------------------
     // Style 6: Crisp Dark-Outlined Solid or Dashed 3-D Line / Ring
     // -------------------------------------------------------------------------
-    float dash = 1.0;
-    if (aux1 > 0.5) {
-        dash = step(0.38, fract(rNorm * aux1));
+    if (style < 6.5) {
+        float dash = 1.0;
+        if (aux1 > 0.5) {
+            dash = step(0.38, fract(rNorm * aux1));
+        }
+        if (dash < 0.5) discard;
+        vec3 col = vec3(0.02, 0.04, 0.07);
+        float alpha = 0.0;
+        addFramedStroke(col, alpha, abs(uCoord), 1.55, 3.2, mix(baseCol, vec3(0.96, 0.99, 1.0), 0.25), 0.90);
+        alpha = clamp(alpha * softClip * baseAlpha, 0.0, 0.92);
+        if (alpha < 0.004) discard;
+        outColor = vec4(col, alpha);
+        return;
     }
-    if (dash < 0.5) discard;
-    vec3 col = vec3(0.02, 0.04, 0.07);
-    float alpha = 0.0;
-    addFramedStroke(col, alpha, abs(uCoord), 1.55, 3.2, mix(baseCol, vec3(0.96, 0.99, 1.0), 0.25), 0.90);
-    alpha = clamp(alpha * softClip * baseAlpha, 0.0, 0.92);
-    if (alpha < 0.004) discard;
+
+    // -------------------------------------------------------------------------
+    // Style 7: Light Translucent 3-D Volumetric Shade Wall / Cap / Gate Curtain
+    //   aux1 = burnFrac (1.0 when not burn-through clipped)
+    //   aux2 = wallKind:
+    //     0.0 = radar elevation side wall (rNorm=range, uCoord=-1..+1 height, 0=mid-plane)
+    //     0.5 = radar top ceiling / shadowed bottom floor (rNorm=range, uCoord=-1..+1 az)
+    //     1.0 = upright DLZ gate curtain / side wall / swath skirt (rNorm=span, uCoord=-1..+1 height)
+    //     1.5 = DLZ two-tier side wall with exact deck crease at uCoord=0 (below=drop shadow, above=wall)
+    //     2.0 = curved burn-through / range portal glass pane (rNorm=az, uCoord=-1..+1 height)
+    // -------------------------------------------------------------------------
+    float wallKind = aux2;
+    // Keep opposite side walls visible enough through the volume so bright-side vs. dark-side
+    // contrast reads immediately from every azimuth around 360 deg.
+    float backDamp = (facing >= 0.0) ? 1.0 : 0.76;
+
+    if (wallKind < 0.75) {
+        // Radar 3-D corridor side walls (0.0) and differential ceiling/floor shells (0.5)
+        float burnFrac = clamp(aux1, 0.04, 1.0);
+        bool isJammed = (burnFrac < 0.985);
+        bool inBlindZone = isJammed && (rNorm > burnFrac);
+        float apexFade = smoothstep(0.0, 0.045, rNorm);
+        float farTaper = mix(1.0, 0.78, rNorm);
+        bool isRoof = (wallKind >= 0.25);
+
+        vec3 col;
+        float alpha;
+        if (!inBlindZone) {
+            if (!isRoof) {
+                // 3-value translucent sketch side walls:
+                //   Sunlit side wall -> crisp pale 亮/浅灰面
+                //   Shadow side wall -> cool charcoal 暗面 (clearly darker, still airy & see-through)
+                //   + subtle vertical depth ramp, mid-plane AO crease & matching 10 km vertical ribs
+                float vFrac = clamp(uCoord * 0.5 + 0.5, 0.0, 1.0);
+                float lowerDepth = pow(clamp(1.0 - vFrac, 0.0, 1.0), 1.45);
+                float midCrease = exp(-abs(uCoord) * 6.0);
+                float railRim = smoothstep(0.76, 1.0, abs(uCoord));
+                float rangeKm = rNorm * max(scaleM, 1000.0) * 1e-3;
+                float ringStep = (scaleM > 28000.0) ? 10.0 : 5.0;
+                float ringDist = fract(rangeKm / ringStep + 0.5) - 0.5;
+                float vRib = aaLine(ringDist, 1.35) * smoothstep(0.07, 0.13, rNorm);
+
+                vec3 faceTone = (sideLight >= 0.5)
+                    ? mix(midTint, litTint, (sideLight - 0.5) * 2.0)
+                    : mix(shadowTint, midTint, sideLight * 2.0);
+                col = mix(shadowTint, faceTone, mix(0.62, 1.0, vFrac));
+                col = mix(col, shadowTint, midCrease * mix(0.18, 0.42, sideShadow));
+                col = mix(col, mix(shadowTint, litTint, sideLight * 0.80), vRib * 0.55);
+
+                // Noticeable yet light translucent value contrast:
+                // Bright face: airy pale sheen (~0.07-0.11); Dark face: cool charcoal shadow (~0.17-0.25)
+                float sideBaseA = mix(0.068, 0.175, sideShadow);
+                float lowerA = lowerDepth * mix(0.025, 0.065, sideShadow);
+                alpha = (sideBaseA + lowerA + fresnel * mix(0.042, 0.078, sideShadow)
+                         + midCrease * mix(0.022, 0.045, sideShadow) + railRim * 0.028 + vRib * 0.082)
+                      * apexFade * farTaper * backDamp;
+            } else {
+                // Top ceiling = airy pale 亮面; Bottom floor = cool charcoal 底面暗部
+                float sideCrease = smoothstep(0.68, 1.0, abs(uCoord));
+                bool isBottomFloor = (worldUpDot < 0.0);
+                if (isBottomFloor) {
+                    float floorBack = (facing >= 0.0) ? 1.0 : 0.78;
+                    col = mix(shadowTint, midTint, 0.16);
+                    col = mix(col, shadowTint, sideCrease * 0.35);
+                    alpha = (0.098 + fresnel * 0.055 + sideCrease * 0.045) * apexFade * farTaper * floorBack;
+                } else {
+                    float roofBack = (facing >= 0.0) ? 1.0 : 0.38;
+                    col = litTint;
+                    alpha = (0.058 + fresnel * 0.038 + sideCrease * 0.018) * apexFade * farTaper * roofBack;
+                }
+            }
+        } else {
+            float normOut = clamp((rNorm - burnFrac) / max(1.0 - burnFrac, 0.06), 0.0, 1.0);
+            float fadeOut = mix(1.0, 0.24, normOut);
+            if (!isRoof) {
+                float vFrac = clamp(uCoord * 0.5 + 0.5, 0.0, 1.0);
+                float lowerDepth = pow(clamp(1.0 - vFrac, 0.0, 1.0), 1.45);
+                col = mix(vec3(0.09, 0.13, 0.20), vec3(0.74, 0.80, 0.88), sideLight);
+                alpha = (mix(0.026, 0.078, sideShadow) + lowerDepth * 0.024 + fresnel * 0.026) * fadeOut * apexFade * backDamp;
+            } else {
+                bool isBottomFloor = (worldUpDot < 0.0);
+                col = isBottomFloor ? vec3(0.12, 0.16, 0.24) : vec3(0.76, 0.82, 0.90);
+                alpha = (isBottomFloor ? 0.036 : 0.018) * fadeOut * apexFade * backDamp;
+            }
+        }
+
+        alpha = clamp(alpha * baseAlpha * softClip, 0.0, 0.34);
+        if (alpha < 0.003) discard;
+        outColor = vec4(col, alpha);
+        return;
+    }
+
+    if (wallKind < 1.25) {
+        // Upright gate curtain, rotodome cylinder skirt, or swath box side wall
+        // 3-value translucent sketch wrap + core terminator + grounded bottom shadow
+        float vFrac = clamp(uCoord * 0.5 + 0.5, 0.0, 1.0);
+        float baseShadow = pow(1.0 - vFrac, 1.50);
+        float topRim = smoothstep(0.84, 1.0, vFrac);
+        float hEdge = smoothstep(0.62, 1.0, abs(rNorm * 2.0 - 1.0));
+        vec3 faceTone = (sideLight >= 0.5)
+            ? mix(midTint, litTint, (sideLight - 0.5) * 2.0)
+            : mix(shadowTint, midTint, sideLight * 2.0);
+        faceTone = mix(faceTone, shadowTint, terminator * 0.30);
+        vec3 col = mix(shadowTint, faceTone, mix(0.48, 1.0, vFrac));
+        col = mix(col, shadowTint, baseShadow * 0.28 + hEdge * 0.16);
+        float alpha = (mix(0.056, 0.155, sideShadow) + terminator * 0.032 + baseShadow * mix(0.048, 0.105, sideShadow)
+                       + hEdge * 0.046 + topRim * 0.024 + fresnel * 0.046) * backDamp;
+        alpha = clamp(alpha * baseAlpha * softClip, 0.0, 0.34);
+        if (alpha < 0.003) discard;
+        outColor = vec4(col, alpha);
+        return;
+    }
+
+    if (wallKind < 1.75) {
+        // Two-tier DLZ architectural side walls & curved gate curtains:
+        //   Crisp translucent 亮面 vs. 灰面 vs. 暗面 contrast + exact deck crease at uCoord=0
+        float deckCrease = exp(-abs(uCoord) * 7.0);
+        float endShadow = smoothstep(0.74, 1.0, abs(rNorm * 2.0 - 1.0));
+        vec3 faceTone = (sideLight >= 0.5)
+            ? mix(midTint, litTint, (sideLight - 0.5) * 2.0)
+            : mix(shadowTint, midTint, sideLight * 2.0);
+        faceTone = mix(faceTone, shadowTint, terminator * 0.28);
+        vec3 col;
+        float alpha;
+        if (uCoord < 0.0) {
+            // Beneath the fan deck: cool translucent vertical drop-shadow skirt (暗部投影)
+            float dropFade = smoothstep(-1.0, -0.06, uCoord);
+            col = mix(shadowTint, faceTone * 0.65, 0.30 * sideLight * dropFade);
+            alpha = (mix(0.046, 0.128, sideShadow) + dropFade * mix(0.042, 0.105, sideShadow)
+                     + deckCrease * 0.042 + fresnel * 0.048) * backDamp;
+        } else {
+            // Above the fan deck: light sunlit face vs. cool shaded dark face
+            float lowerWall = pow(clamp(1.0 - uCoord, 0.0, 1.0), 1.45);
+            float topLip = smoothstep(0.84, 1.0, uCoord);
+            col = mix(shadowTint, faceTone, mix(0.56, 1.0, uCoord));
+            col = mix(col, shadowTint, deckCrease * mix(0.18, 0.40, sideShadow));
+            alpha = (mix(0.064, 0.172, sideShadow) + terminator * 0.028 + lowerWall * mix(0.028, 0.072, sideShadow)
+                     + deckCrease * mix(0.022, 0.046, sideShadow) + topLip * 0.028
+                     + endShadow * 0.036 + fresnel * 0.048) * backDamp;
+        }
+        alpha = clamp(alpha * baseAlpha * softClip, 0.0, 0.34);
+        if (alpha < 0.003) discard;
+        outColor = vec4(col, alpha);
+        return;
+    }
+
+    // Curved burn-through / active-range portal glass pane:
+    // Translucent 3-value sweep across the curved arc (bright wing -> mid center -> shaded wing), keeping center clear
+    float vFrac = clamp(uCoord * 0.5 + 0.5, 0.0, 1.0);
+    float lowerDepth = pow(clamp(1.0 - vFrac, 0.0, 1.0), 1.55);
+    float frameProx = max(smoothstep(0.56, 1.0, abs(uCoord)), smoothstep(0.64, 1.0, abs(rNorm * 2.0 - 1.0)));
+    vec3 portalLit = mix(baseCol, vec3(1.0, 0.98, 0.90), 0.54);
+    vec3 faceTone = (sideLight >= 0.5)
+        ? mix(midTint, portalLit, (sideLight - 0.5) * 2.0)
+        : mix(shadowTint, midTint, sideLight * 2.0);
+    vec3 col = mix(shadowTint, faceTone, mix(0.45, 1.0, vFrac));
+    col = mix(col, shadowTint, lowerDepth * 0.28 + terminator * 0.22);
+    float alpha = (mix(0.032, 0.095, sideShadow) + terminator * 0.024 + lowerDepth * mix(0.038, 0.088, sideShadow)
+                   + frameProx * 0.084 + fresnel * 0.044) * backDamp;
+    alpha = clamp(alpha * baseAlpha * softClip, 0.0, 0.32);
+    if (alpha < 0.003) discard;
     outColor = vec4(col, alpha);
 }

@@ -65,7 +65,8 @@ public:
                 std::uint32_t screenHeight,
                 float daylight,
                 double simTime,
-                double wallTime);
+                double wallTime,
+                const vsg::dvec3& sunDirEcef = vsg::dvec3(0.0, 0.0, 0.0));
 
     std::uint32_t lastVertexCount() const noexcept { return lastVertexCount_; }
 

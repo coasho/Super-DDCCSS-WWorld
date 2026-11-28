@@ -2152,7 +2152,7 @@ int main(int argc, char** argv) {
                 const double wallSec = std::chrono::duration<double>(vsg::clock::now().time_since_epoch()).count();
                 tacticalVolumes.update(tactMask, tacticalFramePtr, drawn, alive, tactSides, selected,
                                        viewer.camera()->projectionMatrix->transform(), viewer.lookAt()->eye,
-                                       ext.width, ext.height, light, debrisClock, wallSec);
+                                       ext.width, ext.height, light, debrisClock, wallSec, sunDir);
                 viewer.setSceneDepthCopied((flow && flow->active()) || debris.trailQuadCount() > 0 ||
                                            combatParticles.active() || tacticalVolumes.lastVertexCount() > 0);
                 vapour.update(drawn, alive, visuals, viewer.camera()->viewMatrix->transform(), viewer.camera()->projectionMatrix->transform(),

@@ -116,7 +116,7 @@ bool TacticalVolumes::build(vsg::ref_ptr<vsg::ImageInfo> sceneDepth) {
 
     vertexStaging_ = vsg::vec4Array::create(kMaxVertices * 4u, vsg::vec4(0.0f, 0.0f, 0.0f, 0.0f));
     vertexStaging_->properties.dataVariance = vsg::DYNAMIC_DATA;
-    frameUbo_ = vsg::vec4Array::create(2u, vsg::vec4(0.0f, 0.0f, 0.0f, 0.0f));
+    frameUbo_ = vsg::vec4Array::create(4u, vsg::vec4(0.0f, 0.0f, 0.0f, 0.0f));
     frameUbo_->properties.dataVariance = vsg::DYNAMIC_DATA;
 
     const VkShaderStageFlags vs = VK_SHADER_STAGE_VERTEX_BIT;
@@ -296,6 +296,25 @@ void TacticalVolumes::emitRadars(const ipc::TacticalOverlayFrameV1& frame, Span<
             const vsg::vec4 params(0.0f, burnFrac, beamNorm, static_cast<float>(nomRange));
             constexpr int kSegs = 40;
             constexpr int kRings = 4;
+
+            // Subtle translucent cylindrical rim skirt giving AWACS coverage genuine 3-D volume depth
+            const double skirtHalfH = std::clamp(nomRange * 0.015, 160.0, 520.0);
+            const vsg::vec4 skirtParams(7.0f, 1.0f, 1.0f, static_cast<float>(nomRange));
+            const vsg::vec4 skirtCol(rgb.x, rgb.y, rgb.z, 0.85f);
+            for (int i = 0; i < kSegs; ++i) {
+                const float t0 = static_cast<float>(i) / static_cast<float>(kSegs);
+                const float t1 = static_cast<float>(i + 1) / static_cast<float>(kSegs);
+                const double a0 = -kPi + 2.0 * kPi * t0;
+                const double a1 = -kPi + 2.0 * kPi * t1;
+                const vsg::dvec3 d0 = e * std::sin(a0) + n * std::cos(a0);
+                const vsg::dvec3 d1 = e * std::sin(a1) + n * std::cos(a1);
+                pushQuad(origin + d0 * nomRange - u * skirtHalfH, 0.5f, d0, -1.0f,
+                         origin + d1 * nomRange - u * skirtHalfH, 0.5f, d1, -1.0f,
+                         origin + d1 * nomRange + u * skirtHalfH, 0.5f, d1,  1.0f,
+                         origin + d0 * nomRange + u * skirtHalfH, 0.5f, d0,  1.0f,
+                         skirtCol, skirtParams);
+            }
+
             for (int ri = 0; ri < kRings; ++ri) {
                 const float r0 = static_cast<float>(ri) / static_cast<float>(kRings);
                 const float r1 = static_cast<float>(ri + 1) / static_cast<float>(kRings);
@@ -317,14 +336,96 @@ void TacticalVolumes::emitRadars(const ipc::TacticalOverlayFrameV1& frame, Span<
             const double azC = static_cast<double>(r.azimuthCentreRad);
             const double azH = std::clamp(static_cast<double>(r.azimuthHalfWidthRad), 0.08, 1.25);
             const double elC = static_cast<double>(r.elevationCentreRad);
+            const double elVisual = std::clamp(static_cast<double>(r.elevationHalfWidthRad), 0.050, 0.125);
+            const double activeEnd = hasBurn ? static_cast<double>(r.burnThroughRangeM) : nomRange;
             const float beamAzNorm = std::clamp(static_cast<float>((static_cast<double>(r.beamAzimuthRad) - azC) / std::max(azH, 0.05)), -1.0f, 1.0f);
             const vsg::vec4 params(0.0f, burnFrac, beamAzNorm, static_cast<float>(nomRange));
 
             auto dirAt = [&](double az, double el) {
                 return bFwd * (std::cos(el) * std::cos(az)) + bRight * (std::cos(el) * std::sin(az)) + bUp * std::sin(el);
             };
+            auto azRightAt = [&](double az) {
+                return -bFwd * std::sin(az) + bRight * std::cos(az);
+            };
+            auto elUpAt = [&](double az, double el) {
+                return (-bFwd * std::cos(az) - bRight * std::sin(az)) * std::sin(el) + bUp * std::cos(el);
+            };
 
-            // 1. Clean mid-plane tactical sector deck (primary top-down / orbit readability)
+            // 1. Subtle Translucent 3-D Volumetric Walls, Sloped Ceiling/Floor & Curved Portal Pane
+            //    Drawn before the mid-plane deck and border rails so crisp strokes stay razor-sharp.
+            const vsg::vec4 sideWallParams(7.0f, burnFrac, 0.0f, static_cast<float>(nomRange));
+            const vsg::vec4 roofWallParams(7.0f, burnFrac, 0.5f, static_cast<float>(nomRange));
+            const vsg::vec4 sideWallCol(rgb.x, rgb.y, rgb.z, 0.92f);
+            const vsg::vec4 roofWallCol(rgb.x, rgb.y, rgb.z, 0.78f);
+
+            // 1a. Left and right elevation side walls (bottom rail -> top rail)
+            constexpr int kWallRadSteps = 6;
+            for (const double sAz : {-1.0, 1.0}) {
+                const double az = azC + azH * sAz;
+                const vsg::dvec3 dTop = dirAt(az, elC + elVisual);
+                const vsg::dvec3 dBot = dirAt(az, elC - elVisual);
+                const vsg::dvec3 nOut = azRightAt(az) * sAz;
+                for (int ri = 0; ri < kWallRadSteps; ++ri) {
+                    const float rf0 = static_cast<float>(ri) / static_cast<float>(kWallRadSteps);
+                    const float rf1 = static_cast<float>(ri + 1) / static_cast<float>(kWallRadSteps);
+                    pushQuad(origin + dBot * (nomRange * rf0), rf0, nOut, -1.0f,
+                             origin + dBot * (nomRange * rf1), rf1, nOut, -1.0f,
+                             origin + dTop * (nomRange * rf1), rf1, nOut,  1.0f,
+                             origin + dTop * (nomRange * rf0), rf0, nOut,  1.0f,
+                             sideWallCol, sideWallParams);
+                }
+            }
+
+            // 1b. Light top sloped ceiling & shaded bottom sloped floor shells
+            constexpr int kRoofAzSteps = 16;
+            constexpr int kRoofRadSteps = 4;
+            for (const double sEl : {-1.0, 1.0}) {
+                const double el = elC + elVisual * sEl;
+                for (int ri = 0; ri < kRoofRadSteps; ++ri) {
+                    const float rf0 = static_cast<float>(ri) / static_cast<float>(kRoofRadSteps);
+                    const float rf1 = static_cast<float>(ri + 1) / static_cast<float>(kRoofRadSteps);
+                    for (int ai = 0; ai < kRoofAzSteps; ++ai) {
+                        const float u0 = -1.0f + 2.0f * static_cast<float>(ai) / static_cast<float>(kRoofAzSteps);
+                        const float u1 = -1.0f + 2.0f * static_cast<float>(ai + 1) / static_cast<float>(kRoofAzSteps);
+                        const double a0 = azC + azH * u0;
+                        const double a1 = azC + azH * u1;
+                        const vsg::dvec3 d0 = dirAt(a0, el);
+                        const vsg::dvec3 d1 = dirAt(a1, el);
+                        const vsg::dvec3 n0 = elUpAt(a0, el) * sEl;
+                        const vsg::dvec3 n1 = elUpAt(a1, el) * sEl;
+                        pushQuad(origin + d0 * (nomRange * rf0), rf0, n0, u0,
+                                 origin + d1 * (nomRange * rf0), rf0, n1, u1,
+                                 origin + d1 * (nomRange * rf1), rf1, n1, u1,
+                                 origin + d0 * (nomRange * rf1), rf1, n0, u0,
+                                 roofWallCol, roofWallParams);
+                    }
+                }
+            }
+
+            // 1c. Delicate curved optical-glass portal curtain at activeEnd (ultra-clear center, beveled rim)
+            constexpr int kPortalSegs = 16;
+            const vsg::vec4 portalPaneCol = hasBurn ? vsg::vec4(1.00f, 0.80f, 0.20f, 0.90f)
+                                                    : vsg::vec4(rgb.x, rgb.y, rgb.z, 0.78f);
+            const vsg::vec4 portalPaneParams(7.0f, 1.0f, 2.0f, static_cast<float>(activeEnd));
+            for (int i = 0; i < kPortalSegs; ++i) {
+                const float t0 = static_cast<float>(i) / static_cast<float>(kPortalSegs);
+                const float t1 = static_cast<float>(i + 1) / static_cast<float>(kPortalSegs);
+                const double a0 = azC + azH * (-1.0 + 2.0 * static_cast<double>(t0));
+                const double a1 = azC + azH * (-1.0 + 2.0 * static_cast<double>(t1));
+                const vsg::dvec3 pBot0 = origin + dirAt(a0, elC - elVisual) * activeEnd;
+                const vsg::dvec3 pBot1 = origin + dirAt(a1, elC - elVisual) * activeEnd;
+                const vsg::dvec3 pTop1 = origin + dirAt(a1, elC + elVisual) * activeEnd;
+                const vsg::dvec3 pTop0 = origin + dirAt(a0, elC + elVisual) * activeEnd;
+                const vsg::dvec3 n0 = dirAt(a0, elC);
+                const vsg::dvec3 n1 = dirAt(a1, elC);
+                pushQuad(pBot0, t0, n0, -1.0f,
+                         pBot1, t1, n1, -1.0f,
+                         pTop1, t1, n1,  1.0f,
+                         pTop0, t0, n0,  1.0f,
+                         portalPaneCol, portalPaneParams);
+            }
+
+            // 2. Clean mid-plane tactical sector deck (primary top-down / orbit readability)
             constexpr int kAzSteps = 32;
             constexpr int kRadSteps = 6;
             for (int ri = 0; ri < kRadSteps; ++ri) {
@@ -345,11 +446,9 @@ void TacticalVolumes::emitRadars(const ipc::TacticalOverlayFrameV1& frame, Span<
                 }
             }
 
-            // 2. True 3-D Stereoscopic Elevation Corridor Rails & Portal Frames:
+            // 3. True 3-D Stereoscopic Elevation Corridor Rails & Portal Frames:
             // Ensures the radar volume remains unmistakably 3-D even at grazing Chase angles behind the tail
             // (prevents flat-plane compression into an illegible thin horizontal line on the horizon).
-            const double elVisual = std::clamp(static_cast<double>(r.elevationHalfWidthRad), 0.050, 0.125);
-            const double activeEnd = hasBurn ? static_cast<double>(r.burnThroughRangeM) : nomRange;
             const vsg::vec4 railActive(rgb.x, rgb.y, rgb.z, 0.88f);
             const vsg::vec4 railLower(rgb.x, rgb.y, rgb.z, 0.54f);
             const vsg::vec4 railBlind(0.68f, 0.75f, 0.86f, 0.56f);
@@ -369,7 +468,6 @@ void TacticalVolumes::emitRadars(const ipc::TacticalOverlayFrameV1& frame, Span<
             }
 
             // Crisp 3-D curved elevation portal frame at activeEnd (Gold when jammed = Burn-Through Gate!)
-            constexpr int kPortalSegs = 16;
             const double portalW = hasBurn ? 14.0 : 11.0;
             for (int i = 0; i < kPortalSegs; ++i) {
                 const double u0 = -1.0 + 2.0 * static_cast<double>(i) / static_cast<double>(kPortalSegs);
@@ -598,6 +696,35 @@ void TacticalVolumes::emitWeapons(const ipc::TacticalOverlayFrameV1& frame, Span
             const vsg::dvec3 deckOrigin = origin - up * 35.0; // Subtle vertical stagger cleanly separates DLZ from radar deck
             auto emitFanBand = [&](double rInner, double rOuter, const vsg::vec4& col, float zoneKind) {
                 if (!(rOuter > rInner + 20.0)) return;
+                // Two-tier architectural 3-D side walls along left/right fan edges:
+                //   uCoord in [-1, 0]: cool vertical drop-shadow skirt hanging beneath deckOrigin
+                //   uCoord in [ 0, 1]: upper vertical side wall rising cleanly toward the gate arches
+                const double riseIn  = std::clamp(rInner * 0.026, 65.0, 520.0) * 0.78;
+                const double riseOut = std::clamp(rOuter * 0.026, 75.0, 520.0) * 0.78;
+                const double dropIn  = std::clamp(rInner * 0.020, 55.0, 380.0);
+                const double dropOut = std::clamp(rOuter * 0.020, 65.0, 380.0);
+                const vsg::vec4 skirtParams(7.0f, 1.0f, 1.5f, static_cast<float>(rOuter));
+                const vsg::vec4 skirtCol(col.x, col.y, col.z, col.w * 0.92f);
+                for (const double s : {-1.0, 1.0}) {
+                    const double a = s * halfAng;
+                    const vsg::dvec3 dEdge = horiz * std::cos(a) + right * std::sin(a);
+                    const vsg::dvec3 nOut = (-horiz * std::sin(a) + right * std::cos(a)) * s;
+                    const vsg::dvec3 pIn  = deckOrigin + dEdge * rInner;
+                    const vsg::dvec3 pOut = deckOrigin + dEdge * rOuter;
+                    // Lower under-deck drop-shadow skirt (uCoord = -1 .. 0)
+                    pushQuad(pIn  - up * dropIn,  0.0f, nOut, -1.0f,
+                             pOut - up * dropOut, 1.0f, nOut, -1.0f,
+                             pOut,                1.0f, nOut,  0.0f,
+                             pIn,                 0.0f, nOut,  0.0f,
+                             skirtCol, skirtParams);
+                    // Upper vertical side wall (uCoord = 0 .. +1)
+                    pushQuad(pIn,                 0.0f, nOut,  0.0f,
+                             pOut,                1.0f, nOut,  0.0f,
+                             pOut + up * riseOut, 1.0f, nOut,  1.0f,
+                             pIn  + up * riseIn,  0.0f, nOut,  1.0f,
+                             skirtCol, skirtParams);
+                }
+
                 const vsg::vec4 params(3.0f, zoneKind, 0.0f, static_cast<float>(rOuter));
                 constexpr int kSegs = 20;
                 for (int i = 0; i < kSegs; ++i) {
@@ -615,13 +742,36 @@ void TacticalVolumes::emitWeapons(const ipc::TacticalOverlayFrameV1& frame, Span
                 }
             };
 
-            // Upright 3-D range-gate brackets (vertical side posts + arched top bar) so Rmin / NEZ / Rmax
-            // remain crisp, layered, and unmistakable even in low-elevation Chase camera!
+            // Upright 3-D range-gate brackets (shaded curtain pane + under-deck shadow drop + posts + arch bar)
+            // so Rmin / NEZ / Rmax show unmistakable vertical thickness in Orbit, 3/4, and Chase cameras!
             auto emitUprightRangeGate = [&](double distM, double gateHalfWScale, const vsg::vec4& gateCol, double widthM) {
                 if (!(distM > 150.0)) return;
                 const double gAng = halfAng * gateHalfWScale;
                 const double gateH = std::clamp(distM * 0.026, 65.0, 520.0);
+                const double dropH = std::clamp(distM * 0.020, 55.0, 380.0);
                 constexpr int kArcSegs = 12;
+                const vsg::vec4 curtainParams(7.0f, 1.0f, 1.5f, static_cast<float>(distM));
+                const vsg::vec4 curtainCol(gateCol.x, gateCol.y, gateCol.z, gateCol.w * 0.92f);
+                for (int i = 0; i < kArcSegs; ++i) {
+                    const float t0 = static_cast<float>(i) / static_cast<float>(kArcSegs);
+                    const float t1 = static_cast<float>(i + 1) / static_cast<float>(kArcSegs);
+                    const double a0 = -gAng + 2.0 * gAng * static_cast<double>(t0);
+                    const double a1 = -gAng + 2.0 * gAng * static_cast<double>(t1);
+                    const vsg::dvec3 d0 = horiz * std::cos(a0) + right * std::sin(a0);
+                    const vsg::dvec3 d1 = horiz * std::cos(a1) + right * std::sin(a1);
+                    // Under-deck vertical shadow drop beneath the range gate
+                    pushQuad(deckOrigin + d0 * distM - up * dropH, t0, d0, -1.0f,
+                             deckOrigin + d1 * distM - up * dropH, t1, d1, -1.0f,
+                             deckOrigin + d1 * distM,              t1, d1,  0.0f,
+                             deckOrigin + d0 * distM,              t0, d0,  0.0f,
+                             curtainCol, curtainParams);
+                    // Upper arched range-gate curtain above the deck
+                    pushQuad(deckOrigin + d0 * distM,              t0, d0,  0.0f,
+                             deckOrigin + d1 * distM,              t1, d1,  0.0f,
+                             deckOrigin + d1 * distM + up * gateH, t1, d1,  1.0f,
+                             deckOrigin + d0 * distM + up * gateH, t0, d0,  1.0f,
+                             curtainCol, curtainParams);
+                }
                 for (int i = 0; i < kArcSegs; ++i) {
                     const double a0 = -gAng + 2.0 * gAng * static_cast<double>(i) / static_cast<double>(kArcSegs);
                     const double a1 = -gAng + 2.0 * gAng * static_cast<double>(i + 1) / static_cast<double>(kArcSegs);
@@ -632,7 +782,7 @@ void TacticalVolumes::emitWeapons(const ipc::TacticalOverlayFrameV1& frame, Span
                 }
                 for (const double s : {-1.0, 1.0}) {
                     const vsg::dvec3 dEdge = horiz * std::cos(s * gAng) + right * std::sin(s * gAng);
-                    pushBeamRibbon(deckOrigin + dEdge * distM,
+                    pushBeamRibbon(deckOrigin + dEdge * distM - up * (dropH * 0.45),
                                    deckOrigin + dEdge * distM + up * gateH, widthM, gateCol, 6.0f, 0.0f, 0.0f);
                 }
             };
@@ -762,6 +912,21 @@ void TacticalVolumes::emitSwaths(const ipc::TacticalOverlayFrameV1& frame, int s
         const vsg::dvec3 c10 = cLift + axE * hw - axN * hl;
         const vsg::dvec3 c11 = cLift + axE * hw + axN * hl;
         const vsg::dvec3 c01 = cLift - axE * hw + axN * hl;
+        // Subtle 3-D shadow skirt around SAR / weather footprint
+        const double skirtH = isWx ? 360.0 : 55.0;
+        const vsg::vec4 skirtParams(7.0f, 1.0f, 1.0f, static_cast<float>(std::max(hw, hl)));
+        const vsg::vec4 skirtCol(rgb.x, rgb.y, rgb.z, 0.72f);
+        const vsg::dvec3 corners[4] = {c00, c10, c11, c01};
+        const vsg::dvec3 normals[4] = {-axN, axE, axN, -axE};
+        for (int e = 0; e < 4; ++e) {
+            const vsg::dvec3& p0 = corners[e];
+            const vsg::dvec3& p1 = corners[(e + 1) & 3];
+            pushQuad(p0, 0.0f, normals[e], -1.0f,
+                     p1, 1.0f, normals[e], -1.0f,
+                     p1 + up * skirtH, 1.0f, normals[e], 1.0f,
+                     p0 + up * skirtH, 0.0f, normals[e], 1.0f,
+                     skirtCol, skirtParams);
+        }
         pushQuad(c00, 0.0f, up, -1.0f,
                  c10, 0.0f, up,  1.0f,
                  c11, 1.0f, up,  1.0f,
@@ -782,7 +947,8 @@ void TacticalVolumes::update(std::uint32_t overlayMask,
                              std::uint32_t screenHeight,
                              float daylight,
                              double simTime,
-                             double wallTime) {
+                             double wallTime,
+                             const vsg::dvec3& sunDirEcef) {
     lastVertexCount_ = 0u;
     if (!built_ || !frame || overlayMask == 0u || selectedSlot < 0) {
         if (switch_) switch_->setAllChildren(false);
@@ -812,10 +978,29 @@ void TacticalVolumes::update(std::uint32_t overlayMask,
     const float p32 = static_cast<float>(projection[3][2]);
     const float invW = 1.0f / static_cast<float>(std::max<std::uint32_t>(screenWidth, 1u));
     const float invH = 1.0f / static_cast<float>(std::max<std::uint32_t>(screenHeight, 1u));
+    vsg::dvec3 eyeEast(1.0, 0.0, 0.0), eyeNorth(0.0, 1.0, 0.0), eyeUp(0.0, 0.0, 1.0);
+    if (vsg::length2(eyeEcef) > 1.0) localEnu(eyeEcef, eyeEast, eyeNorth, eyeUp);
+
+    // Sculptural 3/4 directional key light aligned with scene sun azimuth (clamped to ~33 deg elevation
+    // so opposite vertical side walls always get unmistakable bright-side vs. dark-side contrast).
+    vsg::dvec3 keyLight = vsg::normalize((-eyeEast * 0.60 - eyeNorth * 0.58) + eyeUp * 0.55);
+    const double sunLen = vsg::length(sunDirEcef);
+    if (sunLen > 0.1) {
+        const vsg::dvec3 sUnit = sunDirEcef / sunLen;
+        const double sunElev = vsg::dot(sUnit, eyeUp);
+        const vsg::dvec3 sHoriz = sUnit - eyeUp * sunElev;
+        const double hLen = vsg::length(sHoriz);
+        if (sunElev > -0.05 && hLen > 0.12) {
+            keyLight = vsg::normalize((sHoriz / hLen) * 0.84 + eyeUp * 0.54);
+        }
+    }
+
     frameUbo_->set(0, vsg::vec4(p22, p32, invW, invH));
     frameUbo_->set(1, vsg::vec4(static_cast<float>(std::fmod(std::max(simTime, 0.0), 600.0)),
                                 static_cast<float>(std::fmod(std::max(wallTime, 0.0), 600.0)),
                                 std::clamp(daylight, 0.1f, 1.0f), 0.0f));
+    frameUbo_->set(2, vsg::vec4(static_cast<float>(eyeUp.x), static_cast<float>(eyeUp.y), static_cast<float>(eyeUp.z), 0.0f));
+    frameUbo_->set(3, vsg::vec4(static_cast<float>(keyLight.x), static_cast<float>(keyLight.y), static_cast<float>(keyLight.z), 0.0f));
     frameUbo_->dirty();
     vertexStaging_->dirty();
 

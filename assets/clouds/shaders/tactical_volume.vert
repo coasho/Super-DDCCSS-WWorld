@@ -13,7 +13,7 @@ struct TacticalVertex {
     vec4 posR;   // xyz = eye-relative ECEF (m), w = radial / longitudinal coord rNorm in [0, 1]
     vec4 normU;  // xyz = outward surface normal (ECEF), w = lateral / angular coord u in [-1, 1]
     vec4 color;  // rgb = linear tactical color, a = base opacity / intensity
-    vec4 params; // x = style (0..6), y = aux1, z = aux2, w = scaleM / extra
+    vec4 params; // x = style (0..7), y = aux1, z = aux2, w = scaleM / extra
 };
 
 layout(std430, set = 0, binding = 0) readonly buffer Vertices {
