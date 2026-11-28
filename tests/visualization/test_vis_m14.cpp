@@ -2,7 +2,7 @@
 // - B-57: 8-engine Exhaust::kPerSlot (B-52H 8x TF33), per-engine turbineExitK (F-22A / Mirage 2000)
 // - B-59: Rotorcraft (UH-60, UH-1H) and turboprop (C-130J) placed exhaust heat-haze & rotor disk manifests
 // - OfflineTiles::hasAnyChild & ElevatedTile::pruneOfflineLeaves (zero read_subtile warning spam)
-// - CameraController Weapon & Cockpit modes
+// - CameraController 4-mode contract & TacticalVolumes Blue/Red affiliation
 
 #include "contracts/world_stream/TacticalOverlayLayoutV1.h"
 #include "foundation/transport/TacticalOverlaySegmentV1.h"
@@ -11,6 +11,7 @@
 #include "visualization/scene/OfflineTiles.h"
 #include "visualization/scene/VehicleVisuals.h"
 #include "visualization/vfx/effects/Exhaust.h"
+#include "visualization/vfx/effects/TacticalVolumes.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -215,38 +216,17 @@ TEST_CASE("VIS-M14 OfflineTiles hasAnyChild and ElevatedTile leaf pruning stops 
     fs::remove_all(root, ec);
 }
 
-TEST_CASE("VIS-M14 CameraController Weapon and Cockpit director modes", "[vis-m14][render][camera]") {
-    auto ellipsoid = vsg::EllipsoidModel::create();
-    auto lookAt = vsg::LookAt::create(vsg::dvec3(0.0, 0.0, 7000000.0), vsg::dvec3(0.0, 0.0, 0.0), vsg::dvec3(0.0, 1.0, 0.0));
-    auto persp = vsg::Perspective::create(30.0, 16.0 / 9.0, 1.0, 1e7);
-    auto cam = vsg::Camera::create(persp, lookAt, vsg::ViewportState::create(VkExtent2D{1920, 1080}));
-    auto ctrl = world::CameraController::create(cam, lookAt, ellipsoid);
+TEST_CASE("VIS-M14 TacticalVolumes Blue/Red affiliation and clean 4-mode CameraController", "[vis-m14][render][camera]") {
+    CHECK(world::CameraController::kModeCount == 4);
+    CHECK(std::string(world::CameraController::modeName(world::CameraController::Mode::Chase)) == "chase");
+    CHECK(std::string(world::CameraController::modeName(world::CameraController::Mode::Orbit)) == "orbit");
+    CHECK(std::string(world::CameraController::modeName(world::CameraController::Mode::Overview)) == "overview");
+    CHECK(std::string(world::CameraController::modeName(world::CameraController::Mode::Free)) == "free");
 
-    CHECK(std::string(world::CameraController::modeName(world::CameraController::Mode::Weapon)) == "weapon");
-    CHECK(std::string(world::CameraController::modeName(world::CameraController::Mode::Cockpit)) == "cockpit");
-
-    const sim::VehicleState jet = sampleAirborneState(37.62, -122.38, 4000.0, 260.0);
-    const vsg::dvec3 jetPos(jet.positionEcef[0], jet.positionEcef[1], jet.positionEcef[2]);
-
-    // Weapon director mode tracks close behind the target.
-    ctrl->setMode(world::CameraController::Mode::Weapon);
-    ctrl->setTargetRadius(2.0);
-    ctrl->update(&jet, 0.016);
-    const double wpnDist = vsg::length(lookAt->eye - jetPos);
-    CHECK(wpnDist > 4.0);
-    CHECK(wpnDist < 120.0);
-
-    // Cockpit mode places the eye at the body-frame pilot eye position looking forward along nose (+X).
-    ctrl->setMode(world::CameraController::Mode::Cockpit);
-    ctrl->setCockpitEyeBodyM(vsg::dvec3(4.2, 0.0, -0.8));
-    ctrl->update(&jet, 0.016);
-    const double* R = jet.rotationBodyToEcef;
-    const vsg::dvec3 expectedEye = jetPos + vsg::dvec3(
-        R[0] * 4.2 + R[2] * (-0.8),
-        R[3] * 4.2 + R[5] * (-0.8),
-        R[6] * 4.2 + R[8] * (-0.8));
-    CHECK(vsg::length(lookAt->eye - expectedEye) < 1e-4);
-    const vsg::dvec3 fwd = vsg::normalize(lookAt->center - lookAt->eye);
-    const vsg::dvec3 bodyX(R[0], R[3], R[6]);
-    CHECK(vsg::dot(fwd, bodyX) > 0.999);
+    CHECK(world::TacticalVolumes::inferSide("viper-1") == world::TacticalVolumes::Side::Blue);
+    CHECK(world::TacticalVolumes::inferSide("blue_1") == world::TacticalVolumes::Side::Blue);
+    CHECK(world::TacticalVolumes::inferSide("growler-red") == world::TacticalVolumes::Side::Red);
+    CHECK(world::TacticalVolumes::inferSide("bandit-red") == world::TacticalVolumes::Side::Red);
+    CHECK(world::TacticalVolumes::inferSide("Su27-1") == world::TacticalVolumes::Side::Red);
+    CHECK(world::TacticalVolumes::inferSide("civil-01") == world::TacticalVolumes::Side::Neutral);
 }

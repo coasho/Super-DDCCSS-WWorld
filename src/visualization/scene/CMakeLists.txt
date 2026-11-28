@@ -48,6 +48,8 @@ add_library(fsim_world STATIC
     ../vfx/effects/DebrisVisuals.cpp
     ../vfx/effects/GpuParticles.h
     ../vfx/effects/GpuParticles.cpp
+    ../vfx/effects/TacticalVolumes.h
+    ../vfx/effects/TacticalVolumes.cpp
     Terrain.h
     Terrain.cpp)
 add_library(fsim::world ALIAS fsim_world)

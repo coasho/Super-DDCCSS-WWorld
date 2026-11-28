@@ -143,10 +143,10 @@ void MonitorGui::drawMonitor() const {
         }
     }
 
-    // 1. Camera & Director Suite (always open)
-    if (ImGui::CollapsingHeader("Camera & Director  [C / I]", ImGuiTreeNodeFlags_DefaultOpen)) {
+    // 1. Camera (clean original 4 modes)
+    if (ImGui::CollapsingHeader("Camera  [C]", ImGuiTreeNodeFlags_DefaultOpen)) {
         int mode = std::clamp(controls_->cameraMode.load(std::memory_order_relaxed), 0, world::CameraController::kModeCount - 1);
-        const char* modes[] = {"chase", "orbit (north-up)", "overview", "free", "weapon (director)", "cockpit (HUD)"};
+        const char* modes[] = {"chase", "orbit (north-up)", "overview", "free"};
         ImGui::SetNextItemWidth(-1.0f);
         if (ImGui::Combo("##camera", &mode, modes, world::CameraController::kModeCount))
             controls_->cameraMode.store(mode, std::memory_order_relaxed);
@@ -155,9 +155,6 @@ void MonitorGui::drawMonitor() const {
         if (ImGui::SmallButton("+")) controls_->cameraZoom.store(0.8, std::memory_order_relaxed);
         ImGui::SameLine();
         if (ImGui::SmallButton("reset [R]")) controls_->cameraReset.store(true, std::memory_order_relaxed);
-        ImGui::SameLine();
-        bool pip = controls_->pipEnabled.load(std::memory_order_relaxed);
-        if (ImGui::Checkbox("PiP [I]", &pip)) controls_->pipEnabled.store(pip, std::memory_order_relaxed);
         if (!compact) {
             ImGui::Text("eye %.4f %.4f | %.0f m", controls_->eyeLatDeg.load(std::memory_order_relaxed),
                         controls_->eyeLonDeg.load(std::memory_order_relaxed),
@@ -165,17 +162,23 @@ void MonitorGui::drawMonitor() const {
         }
     }
 
-    // 2. Tactical & EMSO 3-D Overlays (VIS-M14, 0.0 ms when OFF)
-    if (ImGui::CollapsingHeader("Tactical & EMSO Overlays  [O]", openUnlessCompact)) {
+    // 2. Tactical & EMSO 3-D Overlays (VIS-M14, 0.0 ms when OFF, color-keyed legend swatches)
+    if (ImGui::CollapsingHeader("Tactical Overlays", openUnlessCompact)) {
         std::uint32_t mask = controls_->tacticalOverlayMask.load(std::memory_order_relaxed);
         if (ImGui::SmallButton("All")) mask = kOverlayAll;
         ImGui::SameLine();
         if (ImGui::SmallButton("None")) mask = 0u;
         ImGui::SameLine();
-        ImGui::TextDisabled("%s", mask ? "ON" : "OFF (0 ms)");
+        ImGui::TextDisabled("%s", mask ? "3-D ON" : "OFF (0 ms)");
 
-        auto toggleBit = [&](const char* label, std::uint32_t bit) {
+        auto toggleBit = [&](const char* label, std::uint32_t bit, ImU32 swatchCol) {
             bool on = (mask & bit) != 0u;
+            const ImVec2 p = ImGui::GetCursorScreenPos();
+            const float dotR = 3.5f * l.scale;
+            const float cy = p.y + ImGui::GetFrameHeight() * 0.5f;
+            ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(p.x + dotR, cy), dotR, swatchCol);
+            ImGui::Dummy(ImVec2(dotR * 2.4f, 0.0f));
+            ImGui::SameLine(0.0f, 3.0f * l.scale);
             if (ImGui::Checkbox(label, &on)) {
                 if (on) mask |= bit;
                 else mask &= ~bit;
@@ -183,14 +186,14 @@ void MonitorGui::drawMonitor() const {
         };
         if (ImGui::BeginTable("tact_layers", 2, ImGuiTableFlags_SizingStretchSame)) {
             ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0); toggleBit("Radar / STT", kOverlayRadar);
-            ImGui::TableSetColumnIndex(1); toggleBit("EA / Burn-Thru", kOverlayJammer);
+            ImGui::TableSetColumnIndex(0); toggleBit("Radar", kOverlayRadar, IM_COL32(46, 184, 255, 255));
+            ImGui::TableSetColumnIndex(1); toggleBit("EA Jam", kOverlayJammer, IM_COL32(224, 56, 245, 255));
             ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0); toggleBit("ESM / CRLB", kOverlayEsm);
-            ImGui::TableSetColumnIndex(1); toggleBit("Link16 / IFF", kOverlayLinks);
+            ImGui::TableSetColumnIndex(0); toggleBit("ESM", kOverlayEsm, IM_COL32(255, 204, 51, 255));
+            ImGui::TableSetColumnIndex(1); toggleBit("Links", kOverlayLinks, IM_COL32(38, 242, 168, 255));
             ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0); toggleBit("DLZ / LCOS", kOverlayWeapons);
-            ImGui::TableSetColumnIndex(1); toggleBit("SAR / Weather", kOverlaySwaths);
+            ImGui::TableSetColumnIndex(0); toggleBit("DLZ / Gun", kOverlayWeapons, IM_COL32(24, 224, 120, 255));
+            ImGui::TableSetColumnIndex(1); toggleBit("SAR / Wx", kOverlaySwaths, IM_COL32(34, 211, 238, 255));
             ImGui::EndTable();
         }
         controls_->tacticalOverlayMask.store(mask, std::memory_order_relaxed);

@@ -18,17 +18,6 @@
 
 namespace fsim::render {
 
-namespace {
-class CompileDescriptorSet : public vsg::Inherit<vsg::Compilable, CompileDescriptorSet> {
-public:
-    vsg::ref_ptr<vsg::DescriptorSet> ds;
-    explicit CompileDescriptorSet(vsg::ref_ptr<vsg::DescriptorSet> d) : ds(std::move(d)) {}
-    void compile(vsg::Context& context) override {
-        if (ds) ds->compile(context);
-    }
-};
-} // namespace
-
 void Viewer::quiesce(double graceSeconds) {
     if (!viewer_) return;
     viewer_->close(); // the window goes now, not after the scene has been freed
@@ -367,7 +356,6 @@ bool Viewer::setScene(vsg::ref_ptr<vsg::Node> scene, vsg::ref_ptr<vsg::Ellipsoid
     auto renderGraph = vsg::RenderGraph::create(window_);
     if (prepassScene_ && prepassDepth_) commandGraph->addChild(depthPrepass(projection));
     if (beforePass) commandGraph->addChild(beforePass); // (compute work the scene draws from)
-    if (pipRequested_ && pipImageInfo_) commandGraph->addChild(buildPipPass(ellipsoid));
     commandGraph->addChild(renderGraph);
 
     auto view = vsg::View::create(camera_, root_);
@@ -403,110 +391,8 @@ bool Viewer::setScene(vsg::ref_ptr<vsg::Node> scene, vsg::ref_ptr<vsg::Ellipsoid
         LOG_ERROR("render") << "vsg::Viewer::compile failed";
         return false;
     }
-    // Compile the ImGui-readable PiP DescriptorSet via a Compilable wrapper (vsg::DescriptorSet
-    // is a plain vsg::Object, so CompileTraversal only compiles it when invoked from a Compilable),
-    // and park PiP disabled by default (0.0 ms cost when OFF).
-    if (pipDescriptorSet_) {
-        auto helper = CompileDescriptorSet::create(pipDescriptorSet_);
-        if (!compile(helper)) {
-            LOG_WARN("render") << "could not compile PiP descriptor set";
-            pipDescriptorSet_.reset();
-        }
-    }
-    if (pipSwitch_) pipSwitch_->setAllChildren(false);
     lastFrame_ = vsg::clock::now();
     return true;
-}
-
-void Viewer::enablePip(std::uint32_t width, std::uint32_t height) {
-    if (!window_ || pipImageInfo_) return;
-    pipRequested_ = true;
-    pipExtent_ = VkExtent2D{std::max(160u, width), std::max(90u, height)};
-    auto device = window_->getOrCreateDevice();
-    auto makeView = [&](VkFormat format, VkImageUsageFlags usage, VkImageAspectFlags aspect) {
-        auto img = vsg::Image::create();
-        img->imageType = VK_IMAGE_TYPE_2D;
-        img->format = format;
-        img->extent = VkExtent3D{pipExtent_.width, pipExtent_.height, 1};
-        img->mipLevels = 1;
-        img->arrayLayers = 1;
-        img->samples = VK_SAMPLE_COUNT_1_BIT;
-        img->tiling = VK_IMAGE_TILING_OPTIMAL;
-        img->usage = usage;
-        return vsg::createImageView(device, img, aspect);
-    };
-    pipColourView_ = makeView(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-    pipDepthView_ = makeView(VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
-    auto sampler = vsg::Sampler::create();
-    sampler->minFilter = sampler->magFilter = VK_FILTER_LINEAR;
-    sampler->addressModeU = sampler->addressModeV = sampler->addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    sampler->maxLod = 0.0f;
-    pipImageInfo_ = vsg::ImageInfo::create(sampler, pipColourView_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    // Single combined-image-sampler DescriptorSet matching Dear ImGui's Vulkan backend layout.
-    VkDescriptorSetLayoutBinding binding{};
-    binding.binding = 0;
-    binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    binding.descriptorCount = 1;
-    binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    auto layout = vsg::DescriptorSetLayout::create(vsg::DescriptorSetLayoutBindings{binding});
-    auto descImg = vsg::DescriptorImage::create(pipImageInfo_, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    pipDescriptorSet_ = vsg::DescriptorSet::create(layout, vsg::Descriptors{descImg});
-}
-
-void Viewer::setPipEnabled(bool on) {
-    if (pipSwitch_) pipSwitch_->setAllChildren(on);
-}
-
-vsg::ref_ptr<vsg::Node> Viewer::buildPipPass(vsg::ref_ptr<vsg::EllipsoidModel> ellipsoid) {
-    auto device = window_->getOrCreateDevice();
-    const VkExtent2D extent = pipExtent_;
-    const double aspect = static_cast<double>(extent.width) / static_cast<double>(std::max(1u, extent.height));
-
-    pipLookAt_ = vsg::LookAt::create(vsg::dvec3(0.0, -3.0e7, 0.0), vsg::dvec3(0.0, 0.0, 0.0), vsg::dvec3(0.0, 0.0, 1.0));
-    vsg::ref_ptr<vsg::ProjectionMatrix> proj;
-    if (ellipsoid) proj = vsg::EllipsoidPerspective::create(pipLookAt_, ellipsoid, 26.0, aspect, 1.0e-7, 9000.0);
-    else proj = vsg::Perspective::create(26.0, aspect, 1.0, 1.0e6);
-    pipCamera_ = vsg::Camera::create(proj, pipLookAt_, vsg::ViewportState::create(extent));
-
-    const vsg::AttachmentDescription colourAttachment{0, VK_FORMAT_R8G8B8A8_UNORM, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_CLEAR,
-                                                      VK_ATTACHMENT_STORE_OP_STORE, VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-                                                      VK_ATTACHMENT_STORE_OP_DONT_CARE, VK_IMAGE_LAYOUT_UNDEFINED,
-                                                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    const vsg::AttachmentDescription depthAttachment{0, VK_FORMAT_D32_SFLOAT, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_CLEAR,
-                                                     VK_ATTACHMENT_STORE_OP_DONT_CARE, VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-                                                     VK_ATTACHMENT_STORE_OP_DONT_CARE, VK_IMAGE_LAYOUT_UNDEFINED,
-                                                     VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
-    vsg::SubpassDescription subpass;
-    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachments.push_back(vsg::AttachmentReference{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 0});
-    subpass.depthStencilAttachments.push_back(vsg::AttachmentReference{1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 0});
-    const vsg::SubpassDependency in{VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                                    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-                                    VK_ACCESS_SHADER_READ_BIT,
-                                    VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, 0, 0};
-    const vsg::SubpassDependency out{0, VK_SUBPASS_EXTERNAL, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                                     VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                                     VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, 0, 0};
-    auto renderPass = vsg::RenderPass::create(device, vsg::RenderPass::Attachments{colourAttachment, depthAttachment},
-                                              vsg::RenderPass::Subpasses{subpass}, vsg::RenderPass::Dependencies{in, out});
-    auto graph = vsg::RenderGraph::create();
-    graph->framebuffer = vsg::Framebuffer::create(renderPass, vsg::ImageViews{pipColourView_, pipDepthView_}, extent.width, extent.height, 1);
-    graph->renderArea = VkRect2D{{0, 0}, extent};
-    VkClearValue clearColour{}, clearDepth{};
-    clearColour.color = {{0.10f, 0.19f, 0.32f, 1.0f}};
-    clearDepth.depthStencil = {0.0f, 0}; // reverse Z
-    graph->clearValues = {clearColour, clearDepth};
-
-    auto view = vsg::View::create(pipCamera_, root_);
-    view->mask = vsg::MASK_ALL & ~kNotInPrepass & ~kNotInPip;
-    view->viewDependentState->maxShadowDistance = 8000.0;
-    view->viewDependentState->lambda = 1.0;
-    if (settings_.headlight) view->addChild(vsg::createHeadlight());
-    graph->addChild(view);
-
-    pipSwitch_ = vsg::Switch::create();
-    pipSwitch_->addChild(true, graph); // ON during viewer_->compile() so pipelines compile for pip renderPass
-    return pipSwitch_;
 }
 
 void Viewer::setDepthPrepass(vsg::ref_ptr<vsg::Node> subgraph) {

@@ -1,7 +1,7 @@
 // VIS-M14 UI & High-DPI Layout unit tests (CPU-only ImGui context, no Vulkan device needed):
 // - B-43: MonitorGui fits cleanly inside 1600x900 @ 150% DPI without clipping or overlapping the vehicle list
-// - KeyHandler: [O] toggles tactical overlays, [I] toggles Vulkan PiP inset, [C] cycles 6 camera modes
-// - TacticalOverlays: 0 draw vertices when disabled, valid projected primitives + Cockpit HUD when enabled
+// - KeyHandler: clean original 4 camera modes via [C] with no extraneous overlay/PiP hotkeys
+// - TacticalOverlays: 0 draw vertices when disabled, clean anti-overlap micro-pills when enabled
 
 #include "visualization/ui/KeyHandler.h"
 #include "visualization/ui/MonitorGui.h"
@@ -35,45 +35,29 @@ void initHeadlessImGui(float width, float height, float dpiScale) {
 
 } // namespace
 
-TEST_CASE("VIS-M14 KeyHandler cycles 6 cameras and toggles overlays [O] and PiP [I]", "[vis-m14][ui]") {
+TEST_CASE("VIS-M14 KeyHandler keeps clean 4 camera modes and no extraneous hotkeys", "[vis-m14][ui]") {
     auto controls = std::make_shared<ui::ViewerControls>();
     auto keys = ui::KeyHandler::create(controls);
 
     CHECK(controls->tacticalOverlayMask.load() == 0u);
-    CHECK_FALSE(controls->pipEnabled.load());
 
-    // [O] toggles all overlays ON then OFF
-    {
+    // [O] and [I] must remain unhandled (no extraneous hotkeys; overlays are controlled via MonitorGui / --overlays)
+    for (const vsg::KeySymbol sym : {vsg::KEY_o, vsg::KEY_i}) {
         vsg::KeyPressEvent ev;
-        ev.keyBase = vsg::KEY_o;
+        ev.keyBase = sym;
         keys->apply(ev);
-        CHECK(ev.handled);
-        CHECK(controls->tacticalOverlayMask.load() == ui::kOverlayAll);
-        ev.handled = false;
-        keys->apply(ev);
-        CHECK(controls->tacticalOverlayMask.load() == 0u);
+        CHECK_FALSE(ev.handled);
     }
+    CHECK(controls->tacticalOverlayMask.load() == 0u);
 
-    // [I] toggles PiP ON then OFF
-    {
-        vsg::KeyPressEvent ev;
-        ev.keyBase = vsg::KEY_i;
-        keys->apply(ev);
-        CHECK(ev.handled);
-        CHECK(controls->pipEnabled.load());
-        ev.handled = false;
-        keys->apply(ev);
-        CHECK_FALSE(controls->pipEnabled.load());
-    }
-
-    // [C] cycles through all 6 modes (Chase -> Orbit -> Overview -> Free -> Weapon -> Cockpit -> Chase)
+    // [C] cycles strictly through the clean 4 camera modes (Chase -> Orbit -> Overview -> Free -> Chase)
     controls->cameraMode.store(0);
-    for (int expected = 1; expected <= 6; ++expected) {
+    for (int expected = 1; expected <= 4; ++expected) {
         vsg::KeyPressEvent ev;
         ev.keyBase = vsg::KEY_c;
         keys->apply(ev);
         CHECK(ev.handled);
-        CHECK(controls->cameraMode.load() == (expected % 6));
+        CHECK(controls->cameraMode.load() == (expected % 4));
     }
 }
 
@@ -94,7 +78,6 @@ TEST_CASE("VIS-M14 B-43 MonitorGui fits 1600x900 @ 150% DPI without clipping or 
     vehs[1].name = "viper-2"; vehs[1].type = "f16c"; vehs[1].level = "HSA"; vehs[1].alive = true;
     gui->setVehicles(vehs);
 
-    // Render 2 frames so ImGui auto-sizing settles.
     for (int f = 0; f < 2; ++f) {
         ImGui::NewFrame();
         vsg::CommandBuffer* dummy = nullptr;
@@ -107,7 +90,6 @@ TEST_CASE("VIS-M14 B-43 MonitorGui fits 1600x900 @ 150% DPI without clipping or 
     REQUIRE(monitorWin != nullptr);
     REQUIRE(listWin != nullptr);
 
-    // Neither window may overflow the 1600x900 display, nor may the monitor overlap the vehicle list!
     CHECK(monitorWin->Pos.x >= 0.0f);
     CHECK(monitorWin->Pos.y >= 0.0f);
     CHECK(monitorWin->Pos.x + monitorWin->Size.x <= 1600.0f);
@@ -118,11 +100,11 @@ TEST_CASE("VIS-M14 B-43 MonitorGui fits 1600x900 @ 150% DPI without clipping or 
     ImGui::DestroyContext();
 }
 
-TEST_CASE("VIS-M14 TacticalOverlays emits zero vertices when OFF and renders overlays + Cockpit HUD when ON", "[vis-m14][ui]") {
+TEST_CASE("VIS-M14 TacticalOverlays emits zero vertices when OFF and clean pills when ON", "[vis-m14][ui]") {
     initHeadlessImGui(1920.0f, 1080.0f, 1.0f);
 
     auto controls = std::make_shared<ui::ViewerControls>();
-    auto overlays = ui::TacticalOverlays::create(controls, 0u);
+    auto overlays = ui::TacticalOverlays::create(controls);
 
     auto ellipsoid = vsg::EllipsoidModel::create();
     const vsg::dvec3 jetPos = ellipsoid->convertLatLongAltitudeToECEF(vsg::dvec3(37.65, -122.42, 4800.0));
@@ -136,17 +118,12 @@ TEST_CASE("VIS-M14 TacticalOverlays emits zero vertices when OFF and renders ove
     st.rotationBodyToEcef[0] = east.x;  st.rotationBodyToEcef[1] = -north.x; st.rotationBodyToEcef[2] = down.x;
     st.rotationBodyToEcef[3] = east.y;  st.rotationBodyToEcef[4] = -north.y; st.rotationBodyToEcef[5] = down.y;
     st.rotationBodyToEcef[6] = east.z;  st.rotationBodyToEcef[7] = -north.z; st.rotationBodyToEcef[8] = down.z;
-    st.velocityBodyMs[0] = 250.0;
     st.airspeedTrueMs = 250.0;
-    st.airspeedCalibratedMs = 210.0;
-    st.mach = 0.80;
     st.altitudeMslM = 4800.0;
-    st.altitudeAglM = 4500.0;
-    st.loadFactor = 1.0;
 
-    const vsg::dvec3 eye = jetPos - east * 60.0 + up * 15.0;
-    const vsg::dmat4 view = vsg::lookAt(eye, jetPos + east * 200.0, up);
-    const vsg::dmat4 proj = vsg::perspective(vsg::radians(30.0), 16.0 / 9.0, 1.0, 1e6);
+    const vsg::dvec3 eye = jetPos - east * 6000.0 + up * 4000.0;
+    const vsg::dmat4 view = vsg::lookAt(eye, jetPos + east * 15000.0, up);
+    const vsg::dmat4 proj = vsg::perspective(vsg::radians(35.0), 16.0 / 9.0, 1.0, 1e6);
 
     ipc::TacticalOverlayFrameV1 frame;
     frame.simTime = 5.0;
@@ -155,8 +132,8 @@ TEST_CASE("VIS-M14 TacticalOverlays emits zero vertices when OFF and renders ove
     r.slot = 0;
     r.rangeScaleM = 50000.0f;
     r.detectionRangeM = 45000.0f;
-    r.burnThroughRangeM = 20000.0f;
-    r.jammerRatioDb = 12.0f;
+    r.burnThroughRangeM = 15000.0f;
+    r.jammerRatioDb = 18.0f;
     r.azimuthHalfWidthRad = 0.45f;
     r.elevationHalfWidthRad = 0.2f;
     r.flags = ipc::kTactRadarSearching | ipc::kTactRadarJammed;
@@ -168,33 +145,24 @@ TEST_CASE("VIS-M14 TacticalOverlays emits zero vertices when OFF and renders ove
     meta[0].name = "viper-1"; meta[0].type = "f16c"; meta[0].level = "HSA"; meta[0].alive = true;
     vsg::CommandBuffer* dummy = nullptr;
 
-    // 1. Overlays OFF + Orbit camera -> zero draw vertices & 0.0 ms draw time
+    // 1. Overlays OFF -> zero draw vertices & 0.0 ms draw time
     controls->tacticalOverlayMask.store(0u);
     overlays->update(&frame, Span<const sim::VehicleState>(states), alive, meta, 0,
-                     world::CameraController::Mode::Orbit, view, proj, eye, 1920, 1080, 5.0, false, {}, {});
+                     view, proj, eye, 1920, 1080, 5.0);
     ImGui::NewFrame();
     overlays->record(*dummy);
     ImGui::Render();
     CHECK(ImGui::GetDrawData()->TotalVtxCount == 0);
     CHECK(overlays->lastDrawMs() == 0.0);
 
-    // 2. Overlays ON -> update & record emit non-zero 3-D projected overlay geometry
+    // 2. Overlays ON -> emits clean glassmorphic burn-through micro-pill
     controls->tacticalOverlayMask.store(ui::kOverlayAll);
     overlays->update(&frame, Span<const sim::VehicleState>(states), alive, meta, 0,
-                     world::CameraController::Mode::Orbit, view, proj, eye, 1920, 1080, 5.0, false, {}, {});
+                     view, proj, eye, 1920, 1080, 5.0);
     ImGui::NewFrame();
     overlays->record(*dummy);
     ImGui::Render();
-    CHECK(ImGui::GetDrawData()->TotalVtxCount > 50);
-
-    // 3. Cockpit Mode -> Mil-Spec vector Fighter HUD renders even with overlays OFF
-    controls->tacticalOverlayMask.store(0u);
-    overlays->update(&frame, Span<const sim::VehicleState>(states), alive, meta, 0,
-                     world::CameraController::Mode::Cockpit, view, proj, jetPos, 1920, 1080, 5.0, false, {}, {});
-    ImGui::NewFrame();
-    overlays->record(*dummy);
-    ImGui::Render();
-    CHECK(ImGui::GetDrawData()->TotalVtxCount > 100);
+    CHECK(ImGui::GetDrawData()->TotalVtxCount > 20);
 
     ImGui::DestroyContext();
 }

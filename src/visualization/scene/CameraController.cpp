@@ -48,25 +48,17 @@ const char* CameraController::modeName(Mode m) noexcept {
     case Mode::Orbit: return "orbit";
     case Mode::Overview: return "overview";
     case Mode::Free: return "free";
-    case Mode::Weapon: return "weapon";
-    case Mode::Cockpit: return "cockpit";
     }
     return "?";
 }
 
 void CameraController::setMode(Mode mode) {
     if (mode == mode_) return;
-    // Keep the view where it is when switching between chase/weapon and orbit: the
+    // Keep the view where it is when switching between chase and orbit: the
     // azimuth reference changes (heading vs north), so convert.
-    const bool wasHeadingRel = (mode_ == Mode::Chase || mode_ == Mode::Weapon);
-    const bool nowHeadingRel = (mode == Mode::Chase || mode == Mode::Weapon);
-    if (wasHeadingRel && !nowHeadingRel && haveHeading_) azimuth_ = wrapAngle(azimuth_ + smoothedHeading_);
-    if (!wasHeadingRel && nowHeadingRel && haveHeading_) azimuth_ = wrapAngle(azimuth_ - smoothedHeading_);
+    if (mode_ == Mode::Chase && mode != Mode::Chase && haveHeading_) azimuth_ = wrapAngle(azimuth_ + smoothedHeading_);
+    if (mode_ != Mode::Chase && mode == Mode::Chase && haveHeading_) azimuth_ = wrapAngle(azimuth_ - smoothedHeading_);
     if (mode == Mode::Free && hasTarget_) focus_ = lastTargetPos_; // detach where the vehicle is
-    if (mode == Mode::Cockpit) {
-        cockpitYaw_ = 0.0;
-        cockpitPitch_ = 0.0;
-    }
     mode_ = mode;
 }
 
@@ -109,8 +101,6 @@ void CameraController::resetView() noexcept {
     elevation_ = detached() ? detachedElevation_ : defaultElevation_;
     distance_ = targetDistance_ = defaultDistance_;
     panRight_ = panUp_ = 0.0;
-    cockpitYaw_ = 0.0;
-    cockpitPitch_ = 0.0;
 }
 
 // Window pixels -> normalised device coordinates in [-1, 1] (x right, y up),
@@ -127,11 +117,6 @@ void CameraController::normalised(int x, int y, double& nx, double& ny) const {
 }
 
 void CameraController::rotate(double dxNdc, double dyNdc) {
-    if (mode_ == Mode::Cockpit && hasTarget_) {
-        cockpitYaw_ = std::clamp(cockpitYaw_ + dxNdc * 1.4, -2.1, 2.1);
-        cockpitPitch_ = std::clamp(cockpitPitch_ + dyNdc * 1.1, -0.75, 1.3);
-        return;
-    }
     // osgGA trackball: drag right -> the scene turns right (the eye goes left,
     // azimuth grows clockwise); drag up -> the near side rolls up (the eye sinks).
     // Starting from what was drawn rather than from elevation_ keeps the first
@@ -432,27 +417,6 @@ void CameraController::update(const sim::VehicleState* target, double dtSeconds)
     vsg::dvec3 east, north, up;
     localFrame(pos, east, north, up);
 
-    if (mode_ == Mode::Cockpit && followVehicle) {
-        const vsg::dvec3 bFwd = bodyAxisEcef(*target, 0);
-        const vsg::dvec3 bRight = bodyAxisEcef(*target, 1);
-        const vsg::dvec3 bDown = bodyAxisEcef(*target, 2);
-        const vsg::dvec3 eye = pos + bFwd * cockpitEyeBodyM_.x + bRight * cockpitEyeBodyM_.y + bDown * cockpitEyeBodyM_.z;
-        const double cp = std::cos(cockpitPitch_), sp = std::sin(cockpitPitch_);
-        const double cy = std::cos(cockpitYaw_), sy = std::sin(cockpitYaw_);
-        const vsg::dvec3 lookFwd = vsg::normalize(bFwd * (cp * cy) + bRight * (cp * sy) - bDown * sp);
-        vsg::dvec3 lookRight = vsg::cross(lookFwd, -bDown);
-        if (vsg::length(lookRight) < 1e-6) lookRight = bRight;
-        lookRight = vsg::normalize(lookRight);
-        const vsg::dvec3 lookUp = vsg::normalize(vsg::cross(lookRight, lookFwd));
-        lookAt_->eye = eye;
-        lookAt_->center = eye + lookFwd * 1000.0;
-        lookAt_->up = lookUp;
-        viewRight_ = lookRight;
-        viewForward_ = lookFwd;
-        viewUp_ = lookUp;
-        return;
-    }
-
     // Heading of the body x axis projected onto the horizontal plane.
     if (followVehicle) {
         vsg::dvec3 fwd = bodyAxisEcef(*target, 0);
@@ -466,8 +430,7 @@ void CameraController::update(const sim::VehicleState* target, double dtSeconds)
             smoothedHeading_ = heading;
             haveHeading_ = true;
         } else {
-            const double tau = (mode_ == Mode::Weapon) ? 0.12 : 0.35;
-            const double a = 1.0 - std::exp(-dtSeconds / tau);
+            const double a = 1.0 - std::exp(-dtSeconds / 0.35);
             smoothedHeading_ = wrapAngle(smoothedHeading_ + wrapAngle(heading - smoothedHeading_) * a);
         }
     }
@@ -485,7 +448,7 @@ void CameraController::update(const sim::VehicleState* target, double dtSeconds)
 
     // Direction from focus to eye: azimuth measured clockwise from the reference
     // (heading or north), elevation above the horizon.
-    const double reference = ((mode_ == Mode::Chase || mode_ == Mode::Weapon) && followVehicle) ? smoothedHeading_ : 0.0;
+    const double reference = (mode_ == Mode::Chase && followVehicle) ? smoothedHeading_ : 0.0;
     const double az = reference + azimuth_;
     const vsg::dvec3 horizontal = north * std::cos(az) + east * std::sin(az);
 

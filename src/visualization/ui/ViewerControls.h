@@ -29,10 +29,8 @@ struct ViewerControls {
     std::atomic<int> cameraMode{0};      ///< world::CameraController::Mode
     std::atomic<double> cameraZoom{1.0}; ///< multiplicative request, consumed each frame
     std::atomic<bool> cameraReset{false};
-    // VIS-M14 Tactical/EMSO overlays & Picture-in-Picture (PiP) director controls.
+    // VIS-M14 Tactical/EMSO 3-D overlay controls (toggled via MonitorGui or --overlays).
     std::atomic<std::uint32_t> tacticalOverlayMask{0u}; ///< bitmask of kOverlay* (default 0 = OFF)
-    std::atomic<bool> pipEnabled{false};                ///< toggleable Vulkan PiP inset (default OFF = 0.0 ms)
-    std::atomic<int> pipMode{0};                        ///< 0=Auto (weapon/target), 1=Weapon, 2=Tracked Target
     // Camera telemetry written by the loop for the GUI.
     std::atomic<double> eyeLatDeg{0.0}, eyeLonDeg{0.0}, eyeAltM{0.0}, eyeDistanceM{0.0};
     std::atomic<bool> quit{false};

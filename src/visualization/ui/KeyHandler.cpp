@@ -28,16 +28,6 @@ void KeyHandler::apply(vsg::KeyPressEvent& e) {
         c.cameraMode.store((c.cameraMode.load(std::memory_order_relaxed) + 1) % world::CameraController::kModeCount,
                            std::memory_order_relaxed);
         break;
-    case vsg::KEY_o:
-    case vsg::KEY_O: {
-        const std::uint32_t cur = c.tacticalOverlayMask.load(std::memory_order_relaxed);
-        c.tacticalOverlayMask.store(cur == 0u ? kOverlayAll : 0u, std::memory_order_relaxed);
-        break;
-    }
-    case vsg::KEY_i:
-    case vsg::KEY_I:
-        c.pipEnabled.store(!c.pipEnabled.load(std::memory_order_relaxed), std::memory_order_relaxed);
-        break;
     case vsg::KEY_Minus:
         c.cameraZoom.store(1.25, std::memory_order_relaxed);
         break;

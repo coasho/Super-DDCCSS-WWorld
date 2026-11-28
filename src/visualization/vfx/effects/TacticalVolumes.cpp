@@ -1,0 +1,799 @@
+#include "visualization/vfx/effects/TacticalVolumes.h"
+
+#include "foundation/core/Log.h"
+#include "visualization/scene/Clouds.h"
+#include "visualization/scene/Frames.h"
+
+#include <algorithm>
+#include <cctype>
+#include <cmath>
+
+namespace fsim::world {
+
+namespace {
+
+constexpr double kPi = 3.14159265358979323846;
+
+vsg::dvec3 bodyToEcef(const sim::VehicleState& s, const vsg::dvec3& b) noexcept {
+    const double* R = s.rotationBodyToEcef;
+    return vsg::dvec3(
+        R[0] * b.x + R[1] * b.y + R[2] * b.z,
+        R[3] * b.x + R[4] * b.y + R[5] * b.z,
+        R[6] * b.x + R[7] * b.y + R[8] * b.z);
+}
+
+void localEnu(const vsg::dvec3& pos, vsg::dvec3& east, vsg::dvec3& north, vsg::dvec3& up) noexcept {
+    up = localUp(pos);
+    east = vsg::cross(vsg::dvec3(0.0, 0.0, 1.0), up);
+    if (vsg::length(east) < 1e-6) east = vsg::dvec3(1.0, 0.0, 0.0);
+    east = vsg::normalize(east);
+    north = vsg::cross(up, east);
+}
+
+void orthoBasis(const vsg::dvec3& dir, vsg::dvec3& u, vsg::dvec3& v) noexcept {
+    const vsg::dvec3 ref = std::abs(dir.z) < 0.9 ? vsg::dvec3(0.0, 0.0, 1.0) : vsg::dvec3(1.0, 0.0, 0.0);
+    u = vsg::normalize(vsg::cross(ref, dir));
+    v = vsg::normalize(vsg::cross(dir, u));
+}
+
+vsg::vec3 radarSideColor(TacticalVolumes::Side side, bool stt, bool illum) noexcept {
+    if (side == TacticalVolumes::Side::Red) {
+        if (illum) return vsg::vec3(0.98f, 0.14f, 0.08f);
+        if (stt)   return vsg::vec3(0.98f, 0.26f, 0.10f);
+        return vsg::vec3(0.92f, 0.12f, 0.16f); // Rich saturated tactical crimson
+    }
+    if (side == TacticalVolumes::Side::Blue) {
+        if (illum) return vsg::vec3(0.08f, 0.86f, 1.00f);
+        if (stt)   return vsg::vec3(0.04f, 0.72f, 1.00f);
+        return vsg::vec3(0.02f, 0.48f, 0.96f); // Rich saturated tactical sapphire-blue
+    }
+    return stt ? vsg::vec3(0.55f, 0.84f, 0.98f) : vsg::vec3(0.24f, 0.62f, 0.82f);
+}
+
+vsg::vec3 weatherDbzLinear(float dbz) noexcept {
+    if (dbz >= 52.0f) return vsg::vec3(0.85f, 0.12f, 0.85f);
+    if (dbz >= 42.0f) return vsg::vec3(0.95f, 0.18f, 0.14f);
+    if (dbz >= 32.0f) return vsg::vec3(0.96f, 0.72f, 0.12f);
+    if (dbz >= 20.0f) return vsg::vec3(0.18f, 0.82f, 0.30f);
+    return vsg::vec3(0.20f, 0.68f, 0.82f);
+}
+
+} // namespace
+
+TacticalVolumes::TacticalVolumes(vsg::ref_ptr<const vsg::Options> options, const std::filesystem::path& shaders)
+    : shaders_(shaders) {
+    (void)options;
+    root_ = vsg::Group::create();
+    switch_ = vsg::Switch::create();
+    root_->addChild(switch_);
+    if (shaders_.empty()) {
+        LOG_WARN("world") << "no tactical volume renderer: shader directory missing";
+        return;
+    }
+    valid_ = true;
+}
+
+TacticalVolumes::Side TacticalVolumes::inferSide(const std::string& callsign) noexcept {
+    if (callsign.empty()) return Side::Neutral;
+    std::string lo;
+    lo.reserve(callsign.size());
+    for (char ch : callsign) lo.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
+    if (lo.find("red") != std::string::npos || lo.find("bandit") != std::string::npos ||
+        lo.find("hostile") != std::string::npos || lo.find("opfor") != std::string::npos ||
+        lo.find("enemy") != std::string::npos || lo.find("flanker") != std::string::npos ||
+        lo.find("fulcrum") != std::string::npos || lo.find("aggressor") != std::string::npos ||
+        lo.find("su27") != std::string::npos || lo.find("su30") != std::string::npos ||
+        lo.find("su35") != std::string::npos || lo.find("mig29") != std::string::npos ||
+        lo.find("j10") != std::string::npos || lo.find("j11") != std::string::npos ||
+        lo.find("j16") != std::string::npos || lo.find("j20") != std::string::npos) {
+        return Side::Red;
+    }
+    if (lo.find("blue") != std::string::npos || lo.find("viper") != std::string::npos ||
+        lo.find("eagle") != std::string::npos || lo.find("raptor") != std::string::npos ||
+        lo.find("hornet") != std::string::npos || lo.find("lightning") != std::string::npos ||
+        lo.find("friendly") != std::string::npos || lo.find("allied") != std::string::npos ||
+        lo.find("awacs") != std::string::npos || lo.find("hawk") != std::string::npos ||
+        lo.find("f15") != std::string::npos || lo.find("f16") != std::string::npos ||
+        lo.find("f18") != std::string::npos || lo.find("f22") != std::string::npos ||
+        lo.find("f35") != std::string::npos) {
+        return Side::Blue;
+    }
+    return Side::Neutral;
+}
+
+bool TacticalVolumes::build(vsg::ref_ptr<vsg::ImageInfo> sceneDepth) {
+    if (!valid_ || built_ || !sceneDepth || shaders_.empty()) return built_;
+
+    auto vert = loadCloudShader(shaders_, "tactical_volume.vert", VK_SHADER_STAGE_VERTEX_BIT);
+    auto frag = loadCloudShader(shaders_, "tactical_volume.frag", VK_SHADER_STAGE_FRAGMENT_BIT);
+    vsg::ShaderStages stages{vert, frag};
+    auto compiler = vsg::ShaderCompiler::create();
+    if (!vert || !frag || !compiler->supported() || !compiler->compile(stages)) {
+        LOG_WARN("world") << "VIS-M14 tactical volume shaders failed to compile; 3-D volumes disabled";
+        valid_ = false;
+        return false;
+    }
+
+    vertexStaging_ = vsg::vec4Array::create(kMaxVertices * 4u, vsg::vec4(0.0f, 0.0f, 0.0f, 0.0f));
+    vertexStaging_->properties.dataVariance = vsg::DYNAMIC_DATA;
+    frameUbo_ = vsg::vec4Array::create(2u, vsg::vec4(0.0f, 0.0f, 0.0f, 0.0f));
+    frameUbo_->properties.dataVariance = vsg::DYNAMIC_DATA;
+
+    const VkShaderStageFlags vs = VK_SHADER_STAGE_VERTEX_BIT;
+    const VkShaderStageFlags fs = VK_SHADER_STAGE_FRAGMENT_BIT;
+    auto setLayout = vsg::DescriptorSetLayout::create(vsg::DescriptorSetLayoutBindings{
+        {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, vs, nullptr},
+        {1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, fs, nullptr},
+        {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, fs, nullptr}});
+    auto pipeLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{setLayout},
+                                                  vsg::PushConstantRanges{{vs, 0, 128}});
+    auto descSet = vsg::DescriptorSet::create(
+        setLayout,
+        vsg::Descriptors{
+            vsg::DescriptorBuffer::create(vertexStaging_, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER),
+            vsg::DescriptorBuffer::create(frameUbo_, 1, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER),
+            vsg::DescriptorImage::create(sceneDepth, 2, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)});
+
+    auto assembly = vsg::InputAssemblyState::create();
+    assembly->topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    auto raster = vsg::RasterizationState::create();
+    raster->cullMode = VK_CULL_MODE_NONE;
+    auto depth = vsg::DepthStencilState::create();
+    depth->depthTestEnable = VK_FALSE; // Soft reverse-Z depth tested against sceneDepthTex in fragment shader
+    depth->depthWriteEnable = VK_FALSE;
+    auto blend = vsg::ColorBlendState::create();
+    blend->attachments = {VkPipelineColorBlendAttachmentState{
+        VK_TRUE, VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_ADD,
+        VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_ADD,
+        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT}};
+    vsg::GraphicsPipelineStates states{vsg::VertexInputState::create(), assembly, raster,
+                                       vsg::MultisampleState::create(), blend, depth};
+
+    auto sg = vsg::StateGroup::create();
+    sg->add(vsg::BindGraphicsPipeline::create(vsg::GraphicsPipeline::create(pipeLayout, stages, states)));
+    sg->add(vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_GRAPHICS, pipeLayout, 0, descSet));
+    draw_ = vsg::Draw::create(0, 1, 0, 0);
+    sg->addChild(draw_);
+
+    transform_ = vsg::MatrixTransform::create();
+    transform_->addChild(sg);
+
+    switch_->children.clear();
+    switch_->addChild(true, transform_); // ON during Viewer::setScene() compile, then parked OFF in compiled()
+    built_ = true;
+    return true;
+}
+
+void TacticalVolumes::compiled() {
+    if (switch_) switch_->setAllChildren(false);
+}
+
+void TacticalVolumes::pushVert(const vsg::dvec3& worldEcef, float rNorm,
+                               const vsg::dvec3& normalEcef, float uCoord,
+                               const vsg::vec4& color, const vsg::vec4& params) noexcept {
+    if (cursor_ >= kMaxVertices) return;
+    const vsg::dvec3 rel = worldEcef - eyeEcef_;
+    const std::uint32_t base = cursor_ * 4u;
+    vertexStaging_->set(base + 0u, vsg::vec4(static_cast<float>(rel.x), static_cast<float>(rel.y), static_cast<float>(rel.z), rNorm));
+    vertexStaging_->set(base + 1u, vsg::vec4(static_cast<float>(normalEcef.x), static_cast<float>(normalEcef.y), static_cast<float>(normalEcef.z), uCoord));
+    vertexStaging_->set(base + 2u, color);
+    vertexStaging_->set(base + 3u, params);
+    ++cursor_;
+}
+
+void TacticalVolumes::pushTri(const vsg::dvec3& p0, float r0, const vsg::dvec3& n0, float u0,
+                              const vsg::dvec3& p1, float r1, const vsg::dvec3& n1, float u1,
+                              const vsg::dvec3& p2, float r2, const vsg::dvec3& n2, float u2,
+                              const vsg::vec4& color, const vsg::vec4& params) noexcept {
+    if (cursor_ + 3u > kMaxVertices) return;
+    pushVert(p0, r0, n0, u0, color, params);
+    pushVert(p1, r1, n1, u1, color, params);
+    pushVert(p2, r2, n2, u2, color, params);
+}
+
+void TacticalVolumes::pushQuad(const vsg::dvec3& p00, float r00, const vsg::dvec3& n00, float u00,
+                               const vsg::dvec3& p10, float r10, const vsg::dvec3& n10, float u10,
+                               const vsg::dvec3& p11, float r11, const vsg::dvec3& n11, float u11,
+                               const vsg::dvec3& p01, float r01, const vsg::dvec3& n01, float u01,
+                               const vsg::vec4& color, const vsg::vec4& params) noexcept {
+    if (cursor_ + 6u > kMaxVertices) return;
+    pushTri(p00, r00, n00, u00, p10, r10, n10, u10, p11, r11, n11, u11, color, params);
+    pushTri(p00, r00, n00, u00, p11, r11, n11, u11, p01, r01, n01, u01, color, params);
+}
+
+void TacticalVolumes::pushBeamRibbon(const vsg::dvec3& a, const vsg::dvec3& b, double halfWidthM,
+                                     const vsg::vec4& color, float style, float aux1, float aux2) noexcept {
+    const vsg::dvec3 delta = b - a;
+    const double len = vsg::length(delta);
+    if (len < 1.0) return;
+    const vsg::dvec3 dir = delta / len;
+    const vsg::dvec3 mid = (a + b) * 0.5;
+    const vsg::dvec3 toEye = eyeEcef_ - mid;
+    vsg::dvec3 side = vsg::cross(toEye, dir);
+    const double sn = vsg::length(side);
+    if (sn < 1e-6) {
+        vsg::dvec3 u, v;
+        orthoBasis(dir, u, v);
+        side = u;
+    } else {
+        side /= sn;
+    }
+    const double distEye = std::max(vsg::length(toEye), 10.0);
+    const double w = std::max(halfWidthM, distEye * 0.0014);
+    const vsg::dvec3 nrm = vsg::normalize(toEye);
+    const vsg::vec4 params(style, aux1, aux2, static_cast<float>(len));
+    pushQuad(a - side * w, 0.0f, nrm, -1.0f,
+             a + side * w, 0.0f, nrm,  1.0f,
+             b + side * w, 1.0f, nrm,  1.0f,
+             b - side * w, 1.0f, nrm, -1.0f,
+             color, params);
+}
+
+void TacticalVolumes::pushRingRibbon(const vsg::dvec3& center, const vsg::dvec3& axisU, const vsg::dvec3& axisV,
+                                     double radiusU, double radiusV, double halfWidthM, int segments,
+                                     const vsg::vec4& color, float dashFreq, float dashSpeed) noexcept {
+    const int n = std::clamp(segments, 12, 64);
+    const vsg::dvec3 normal = vsg::normalize(vsg::cross(axisU, axisV));
+    const double distEye = std::max(vsg::length(eyeEcef_ - center), 10.0);
+    const double w = std::max(halfWidthM, distEye * 0.0016);
+    const vsg::vec4 params(6.0f, dashFreq, dashSpeed, static_cast<float>(radiusU));
+    for (int i = 0; i < n; ++i) {
+        const float r0 = static_cast<float>(i) / static_cast<float>(n);
+        const float r1 = static_cast<float>(i + 1) / static_cast<float>(n);
+        const double a0 = 2.0 * kPi * r0;
+        const double a1 = 2.0 * kPi * r1;
+        const vsg::dvec3 dir0 = axisU * std::cos(a0) + axisV * std::sin(a0);
+        const vsg::dvec3 dir1 = axisU * std::cos(a1) + axisV * std::sin(a1);
+        const vsg::dvec3 p0 = center + axisU * (radiusU * std::cos(a0)) + axisV * (radiusV * std::sin(a0));
+        const vsg::dvec3 p1 = center + axisU * (radiusU * std::cos(a1)) + axisV * (radiusV * std::sin(a1));
+        pushQuad(p0 - dir0 * w, r0, normal, -1.0f,
+                 p0 + dir0 * w, r0, normal,  1.0f,
+                 p1 + dir1 * w, r1, normal,  1.0f,
+                 p1 - dir1 * w, r1, normal, -1.0f,
+                 color, params);
+    }
+}
+
+void TacticalVolumes::emitRadars(const ipc::TacticalOverlayFrameV1& frame, Span<const sim::VehicleState> states,
+                                 const std::vector<unsigned char>& alive, const std::vector<Side>& sides, int selectedSlot) {
+    for (const auto& r : frame.radars) {
+        if (r.slot >= states.size() || r.slot >= alive.size() || !alive[r.slot]) continue;
+        const sim::VehicleState& st = states[r.slot];
+        const vsg::dvec3 origin(st.positionEcef[0], st.positionEcef[1], st.positionEcef[2]);
+        const vsg::dvec3 bFwd = bodyToEcef(st, vsg::dvec3(1.0, 0.0, 0.0));
+        const vsg::dvec3 bRight = bodyToEcef(st, vsg::dvec3(0.0, 1.0, 0.0));
+        const vsg::dvec3 bUp = bodyToEcef(st, vsg::dvec3(0.0, 0.0, -1.0));
+
+        const Side side = (r.slot < sides.size()) ? sides[r.slot] : Side::Neutral;
+        const bool isSel = (static_cast<int>(r.slot) == selectedSlot);
+        const bool stt = (r.flags & ipc::kTactRadarSttLock) != 0u;
+        const bool illum = (r.flags & ipc::kTactRadarIlluminating) != 0u;
+        const bool roto = (r.flags & ipc::kTactRadarRotodome) != 0u;
+        const bool jammed = (r.flags & ipc::kTactRadarJammed) != 0u;
+
+        // Proportionally frame display envelope: show exact burn-through + compact static outer halo when jammed,
+        // or crisp <= 42 km tactical sector when unjammed so overlapping jets stay legible instead of flooding clouds.
+        const double rawRange = static_cast<double>(r.detectionRangeM > 100.0f ? r.detectionRangeM : r.rangeScaleM);
+        const bool hasBurn = jammed && r.burnThroughRangeM > 100.0f && r.burnThroughRangeM < static_cast<float>(rawRange) * 0.96f;
+        const double nomRange = hasBurn
+                                    ? std::clamp(std::max(static_cast<double>(r.burnThroughRangeM) * 1.95,
+                                                          static_cast<double>(r.burnThroughRangeM) + 9500.0),
+                                                 14000.0, std::min(rawRange, 42000.0))
+                                    : std::clamp(rawRange, 6000.0, 42000.0);
+        const float burnFrac = hasBurn
+                                   ? std::clamp(r.burnThroughRangeM / static_cast<float>(nomRange), 0.12f, 0.92f)
+                                   : 1.0f;
+
+        const vsg::vec3 rgb = radarSideColor(side, stt, illum);
+        const float emph = isSel ? 1.0f : 0.82f;
+        const vsg::vec4 col(rgb.x, rgb.y, rgb.z, emph);
+
+        if (roto) {
+            // 360-deg AWACS rotodome translucent disk + sweeping fan blade
+            vsg::dvec3 e, n, u;
+            localEnu(origin, e, n, u);
+            const double beamAz = std::atan2(std::sin(static_cast<double>(r.beamAzimuthRad)), std::cos(static_cast<double>(r.beamAzimuthRad)));
+            const float beamNorm = static_cast<float>(beamAz / kPi);
+            const vsg::vec4 params(0.0f, burnFrac, beamNorm, static_cast<float>(nomRange));
+            constexpr int kSegs = 40;
+            constexpr int kRings = 4;
+            for (int ri = 0; ri < kRings; ++ri) {
+                const float r0 = static_cast<float>(ri) / static_cast<float>(kRings);
+                const float r1 = static_cast<float>(ri + 1) / static_cast<float>(kRings);
+                for (int i = 0; i < kSegs; ++i) {
+                    const double a0 = -kPi + (2.0 * kPi * i) / kSegs;
+                    const double a1 = -kPi + (2.0 * kPi * (i + 1)) / kSegs;
+                    const float u0 = static_cast<float>(a0 / kPi);
+                    const float u1 = static_cast<float>(a1 / kPi);
+                    const vsg::dvec3 d0 = e * std::sin(a0) + n * std::cos(a0);
+                    const vsg::dvec3 d1 = e * std::sin(a1) + n * std::cos(a1);
+                    pushQuad(origin + d0 * (nomRange * r0), r0, u, u0,
+                             origin + d1 * (nomRange * r0), r0, u, u1,
+                             origin + d1 * (nomRange * r1), r1, u, u1,
+                             origin + d0 * (nomRange * r1), r1, u, u0,
+                             col, params);
+                }
+            }
+        } else {
+            const double azC = static_cast<double>(r.azimuthCentreRad);
+            const double azH = std::clamp(static_cast<double>(r.azimuthHalfWidthRad), 0.08, 1.25);
+            const double elC = static_cast<double>(r.elevationCentreRad);
+            const double elH = std::clamp(static_cast<double>(r.elevationHalfWidthRad), 0.04, 0.22);
+            const float beamAzNorm = std::clamp(static_cast<float>((static_cast<double>(r.beamAzimuthRad) - azC) / std::max(azH, 0.05)), -1.0f, 1.0f);
+            const vsg::vec4 params(0.0f, burnFrac, beamAzNorm, static_cast<float>(nomRange));
+
+            auto dirAt = [&](double az, double el) {
+                return bFwd * (std::cos(el) * std::cos(az)) + bRight * (std::cos(el) * std::sin(az)) + bUp * std::sin(el);
+            };
+
+            // Single clean mid-plane curved tactical sector deck (zero double-stacked ceiling/floor muddiness!)
+            // plus crisp thin side vertical skirts and a sculpted burn-through front dome wall!
+            constexpr int kAzSteps = 28;
+            constexpr int kRadSteps = 6;
+            for (int ri = 0; ri < kRadSteps; ++ri) {
+                const float rf0 = static_cast<float>(ri) / static_cast<float>(kRadSteps);
+                const float rf1 = static_cast<float>(ri + 1) / static_cast<float>(kRadSteps);
+                for (int ai = 0; ai < kAzSteps; ++ai) {
+                    const float u0 = -1.0f + 2.0f * static_cast<float>(ai) / static_cast<float>(kAzSteps);
+                    const float u1 = -1.0f + 2.0f * static_cast<float>(ai + 1) / static_cast<float>(kAzSteps);
+                    const double a0 = azC + azH * u0;
+                    const double a1 = azC + azH * u1;
+                    const vsg::dvec3 d0 = dirAt(a0, elC);
+                    const vsg::dvec3 d1 = dirAt(a1, elC);
+                    pushQuad(origin + d0 * (nomRange * rf0), rf0, bUp, u0,
+                             origin + d1 * (nomRange * rf0), rf0, bUp, u1,
+                             origin + d1 * (nomRange * rf1), rf1, bUp, u1,
+                             origin + d0 * (nomRange * rf1), rf1, bUp, u0,
+                             col, params);
+                }
+            }
+
+            // Sleek vertical elevation skirts along left/right borders for crisp 3-D volume feel
+            const double skirtEl = std::min(elH, 0.055);
+            for (const int sideSign : {-1, 1}) {
+                const float uEdge = static_cast<float>(sideSign);
+                const double az = azC + azH * uEdge;
+                const vsg::dvec3 sideNrm = vsg::normalize(bRight * std::cos(az) - bFwd * std::sin(az)) * static_cast<double>(sideSign);
+                const vsg::dvec3 dTop = dirAt(az, elC + skirtEl);
+                const vsg::dvec3 dBot = dirAt(az, elC - skirtEl);
+                for (int ri = 0; ri < kRadSteps; ++ri) {
+                    const float rf0 = static_cast<float>(ri) / static_cast<float>(kRadSteps);
+                    const float rf1 = static_cast<float>(ri + 1) / static_cast<float>(kRadSteps);
+                    pushQuad(origin + dBot * (nomRange * rf0), rf0, sideNrm, uEdge,
+                             origin + dTop * (nomRange * rf0), rf0, sideNrm, uEdge,
+                             origin + dTop * (nomRange * rf1), rf1, sideNrm, uEdge,
+                             origin + dBot * (nomRange * rf1), rf1, sideNrm, uEdge,
+                             vsg::vec4(rgb.x, rgb.y, rgb.z, emph * 0.36f), params);
+                }
+            }
+
+            // Delicate translucent gold burn-through curtain + crisp glowing arc rim (never a solid opaque yellow wall!)
+            if (burnFrac < 0.96f) {
+                const double btRad = nomRange * static_cast<double>(burnFrac);
+                const vsg::vec4 curtainCol(1.00f, 0.80f, 0.16f, emph * 0.22f);
+                const vsg::vec4 curtainParams(0.0f, 1.0f, beamAzNorm, static_cast<float>(btRad));
+                for (int ai = 0; ai < kAzSteps; ++ai) {
+                    const float u0 = -1.0f + 2.0f * static_cast<float>(ai) / static_cast<float>(kAzSteps);
+                    const float u1 = -1.0f + 2.0f * static_cast<float>(ai + 1) / static_cast<float>(kAzSteps);
+                    const double a0 = azC + azH * u0;
+                    const double a1 = azC + azH * u1;
+                    const vsg::dvec3 d00 = dirAt(a0, elC - skirtEl);
+                    const vsg::dvec3 d10 = dirAt(a1, elC - skirtEl);
+                    const vsg::dvec3 d11 = dirAt(a1, elC + skirtEl);
+                    const vsg::dvec3 d01 = dirAt(a0, elC + skirtEl);
+                    pushQuad(origin + d00 * btRad, 0.5f, d00, u0,
+                             origin + d10 * btRad, 0.5f, d10, u1,
+                             origin + d11 * btRad, 0.5f, d11, u1,
+                             origin + d01 * btRad, 0.5f, d01, u0,
+                             curtainCol, curtainParams);
+                }
+            }
+        }
+
+        // Crisp volumetric STT / Illumination / TWS target track beam
+        if ((r.flags & ipc::kTactRadarHasTarget) != 0u) {
+            const vsg::dvec3 tgt(r.targetEcef[0], r.targetEcef[1], r.targetEcef[2]);
+            const vsg::vec3 lockRgb = radarSideColor(side, true, illum);
+            if (stt || illum) {
+                pushBeamRibbon(origin, tgt, 18.0, vsg::vec4(lockRgb.x, lockRgb.y, lockRgb.z, 0.92f * emph), 6.0f, 0.0f, 0.0f);
+            } else if (isSel) {
+                pushBeamRibbon(origin, tgt, 10.0, vsg::vec4(lockRgb.x, lockRgb.y, lockRgb.z, 0.55f), 6.0f, 22.0f, 1.4f);
+            }
+        }
+    }
+}
+
+void TacticalVolumes::emitJammers(const ipc::TacticalOverlayFrameV1& frame, const std::vector<Side>& sides, int selectedSlot) {
+    for (const auto& j : frame.jammers) {
+        const vsg::dvec3 origin(j.originEcef[0], j.originEcef[1], j.originEcef[2]);
+        vsg::dvec3 dir(j.boresightEcef[0], j.boresightEcef[1], j.boresightEcef[2]);
+        const double dn = vsg::length(dir);
+        if (dn < 1e-6) continue;
+        dir /= dn;
+
+        const bool allRound = (j.flags & ipc::kTactJamAllRound) != 0u;
+        const bool comms = (j.flags & ipc::kTactJamComms) != 0u;
+        const Side side = (j.slot < sides.size()) ? sides[j.slot] : Side::Red;
+        const float emph = (static_cast<int>(j.slot) == selectedSlot) ? 1.0f : 0.88f;
+
+        // Rich royal violet-purple plasma (or deep amber for comms jam) — unmistakable vs Blue/Red radars!
+        const vsg::vec3 rgb = comms ? vsg::vec3(0.92f, 0.44f, 0.04f)
+                              : (side == Side::Blue ? vsg::vec3(0.42f, 0.16f, 0.95f)
+                                                    : vsg::vec3(0.56f, 0.06f, 0.88f));
+        const vsg::vec4 col(rgb.x, rgb.y, rgb.z, emph);
+        // Compact proportional visual cone length (<= 32 km) so wave rings clearly frame the engagement
+        const double rng = std::clamp(static_cast<double>(j.rangeM), 14000.0, 32000.0);
+        const vsg::vec4 params(1.0f, j.frequencyGhz, comms ? 1.0f : 0.0f, static_cast<float>(rng));
+
+        if (allRound) {
+            // Smooth 3-D omnidirectional spherical EW bubble
+            vsg::dvec3 e, n, u;
+            localEnu(origin, e, n, u);
+            const double rad = rng * 0.45;
+            constexpr int kLat = 10;
+            constexpr int kLon = 24;
+            for (int li = 0; li < kLat; ++li) {
+                const double p0 = -0.5 * kPi + kPi * li / kLat;
+                const double p1 = -0.5 * kPi + kPi * (li + 1) / kLat;
+                const float r0 = static_cast<float>(li) / static_cast<float>(kLat);
+                const float r1 = static_cast<float>(li + 1) / static_cast<float>(kLat);
+                for (int ci = 0; ci < kLon; ++ci) {
+                    const double t0 = 2.0 * kPi * ci / kLon;
+                    const double t1 = 2.0 * kPi * (ci + 1) / kLon;
+                    const float u0 = -1.0f + 2.0f * static_cast<float>(ci) / static_cast<float>(kLon);
+                    const float u1 = -1.0f + 2.0f * static_cast<float>(ci + 1) / static_cast<float>(kLon);
+                    auto sDir = [&](double p, double th) {
+                        return (e * std::cos(th) + n * std::sin(th)) * std::cos(p) + u * std::sin(p);
+                    };
+                    const vsg::dvec3 d00 = sDir(p0, t0), d10 = sDir(p0, t1), d11 = sDir(p1, t1), d01 = sDir(p1, t0);
+                    pushQuad(origin + d00 * rad, r0, d00, u0,
+                             origin + d10 * rad, r0, d10, u1,
+                             origin + d11 * rad, r1, d11, u1,
+                             origin + d01 * rad, r1, d01, u0,
+                             col, params);
+                }
+            }
+        } else {
+            // Smooth 32-segment revolved volumetric plasma cone (NO bicycle-wheel ribs!)
+            vsg::dvec3 u, v;
+            orthoBasis(dir, u, v);
+            const double halfAng = std::clamp(static_cast<double>(j.halfAngleRad), 0.08, 0.85);
+            const double sinH = std::sin(halfAng);
+            const double cosH = std::cos(halfAng);
+            constexpr int kSlices = 28;
+            constexpr int kRings = 6;
+            for (int ri = 0; ri < kRings; ++ri) {
+                const float rf0 = static_cast<float>(ri) / static_cast<float>(kRings);
+                const float rf1 = static_cast<float>(ri + 1) / static_cast<float>(kRings);
+                const double d0 = rng * rf0;
+                const double d1 = rng * rf1;
+                // Slightly trumpet-shaped parabolic expansion feels authentically electromagnetic
+                const double rad0 = d0 * std::tan(halfAng) * (0.88 + 0.12 * rf0);
+                const double rad1 = d1 * std::tan(halfAng) * (0.88 + 0.12 * rf1);
+                for (int si = 0; si < kSlices; ++si) {
+                    const double a0 = 2.0 * kPi * si / kSlices;
+                    const double a1 = 2.0 * kPi * (si + 1) / kSlices;
+                    const float uc0 = -1.0f + 2.0f * static_cast<float>(si) / static_cast<float>(kSlices);
+                    const float uc1 = -1.0f + 2.0f * static_cast<float>(si + 1) / static_cast<float>(kSlices);
+                    const vsg::dvec3 rDir0 = u * std::cos(a0) + v * std::sin(a0);
+                    const vsg::dvec3 rDir1 = u * std::cos(a1) + v * std::sin(a1);
+                    const vsg::dvec3 n0 = vsg::normalize(rDir0 * cosH - dir * sinH);
+                    const vsg::dvec3 n1 = vsg::normalize(rDir1 * cosH - dir * sinH);
+                    pushQuad(origin + dir * d0 + rDir0 * rad0, rf0, n0, uc0,
+                             origin + dir * d0 + rDir1 * rad0, rf0, n1, uc1,
+                             origin + dir * d1 + rDir1 * rad1, rf1, n1, uc1,
+                             origin + dir * d1 + rDir0 * rad1, rf1, n0, uc0,
+                             col, params);
+                }
+            }
+        }
+    }
+}
+
+void TacticalVolumes::emitEsm(const ipc::TacticalOverlayFrameV1& frame, const std::vector<Side>& sides, int selectedSlot) {
+    (void)sides;
+    for (const auto& e : frame.esmRays) {
+        const vsg::dvec3 origin(e.originEcef[0], e.originEcef[1], e.originEcef[2]);
+        vsg::dvec3 dir(e.rayDirEcef[0], e.rayDirEcef[1], e.rayDirEcef[2]);
+        const double dn = vsg::length(dir);
+        if (dn < 1e-6) continue;
+        dir /= dn;
+
+        const bool warn = (e.flags & ipc::kTactEsmWarning) != 0u;
+        const bool hasGeo = (e.flags & ipc::kTactEsmHasGeo) != 0u;
+        const bool comint = (e.flags & ipc::kTactEsmComint) != 0u;
+        const bool isSel = (static_cast<int>(e.observerSlot) == selectedSlot);
+
+        const vsg::vec3 rgb = warn ? vsg::vec3(1.00f, 0.24f, 0.14f)
+                              : comint ? vsg::vec3(0.14f, 0.94f, 0.62f)
+                                       : vsg::vec3(1.00f, 0.80f, 0.18f); // Warm tactical amber-gold
+        const float emph = isSel ? 0.95f : 0.45f;
+        const vsg::vec4 col(rgb.x, rgb.y, rgb.z, emph);
+
+        // Tapered translucent golden bearing wedge (capped cleanly at 20 km when bearing-only)
+        const double len = hasGeo
+                               ? std::clamp(vsg::length(vsg::dvec3(e.geoPosEcef[0], e.geoPosEcef[1], e.geoPosEcef[2]) - origin), 500.0, 65000.0)
+                               : std::clamp(static_cast<double>(e.rayLengthM), 7000.0, 20000.0);
+        vsg::dvec3 u, v;
+        orthoBasis(dir, u, v);
+        const vsg::dvec3 toEye = eyeEcef_ - (origin + dir * (len * 0.4));
+        vsg::dvec3 side = vsg::cross(toEye, dir);
+        if (vsg::length(side) < 1e-6) side = u;
+        else side = vsg::normalize(side);
+        const vsg::dvec3 nrm = vsg::normalize(toEye);
+
+        // Narrow angular uncertainty fan (~2.2 deg half-width) fading softly along range
+        const double halfW0 = 18.0;
+        const double halfW1 = std::max(180.0, len * 0.036);
+        const vsg::vec4 lobeParams(2.0f, 0.0f, 0.0f, static_cast<float>(len));
+        constexpr int kSteps = 6;
+        for (int i = 0; i < kSteps; ++i) {
+            const float f0 = static_cast<float>(i) / static_cast<float>(kSteps);
+            const float f1 = static_cast<float>(i + 1) / static_cast<float>(kSteps);
+            const vsg::dvec3 c0 = origin + dir * (len * f0);
+            const vsg::dvec3 c1 = origin + dir * (len * f1);
+            const double w0 = halfW0 + (halfW1 - halfW0) * f0;
+            const double w1 = halfW0 + (halfW1 - halfW0) * f1;
+            pushQuad(c0 - side * w0, f0, nrm, -1.0f,
+                     c0 + side * w0, f0, nrm,  1.0f,
+                     c1 + side * w1, f1, nrm,  1.0f,
+                     c1 - side * w1, f1, nrm, -1.0f,
+                     col, lobeParams);
+        }
+
+        // True 3-D Translucent Fresnel CRLB Uncertainty Ellipsoid at geolocated fix!
+        if (hasGeo && e.crlbCep50M > 1.0f) {
+            const vsg::dvec3 geo(e.geoPosEcef[0], e.geoPosEcef[1], e.geoPosEcef[2]);
+            vsg::dvec3 east, north, up;
+            localEnu(geo, east, north, up);
+            const double rx = std::clamp(static_cast<double>(e.crlbCep50M), 60.0, 25000.0);
+            const double rz = std::clamp(static_cast<double>(e.crlbVertM > 1.0f ? e.crlbVertM : e.crlbCep50M * 0.65f), 45.0, 18000.0);
+            const vsg::vec4 ellParams(2.0f, 1.0f, 0.0f, static_cast<float>(rx));
+            constexpr int kLat = 10;
+            constexpr int kLon = 20;
+            for (int li = 0; li < kLat; ++li) {
+                const double p0 = -0.5 * kPi + kPi * li / kLat;
+                const double p1 = -0.5 * kPi + kPi * (li + 1) / kLat;
+                const float r0 = static_cast<float>(li) / static_cast<float>(kLat);
+                const float r1 = static_cast<float>(li + 1) / static_cast<float>(kLat);
+                for (int ci = 0; ci < kLon; ++ci) {
+                    const double t0 = 2.0 * kPi * ci / kLon;
+                    const double t1 = 2.0 * kPi * (ci + 1) / kLon;
+                    const float uc0 = -1.0f + 2.0f * static_cast<float>(ci) / static_cast<float>(kLon);
+                    const float uc1 = -1.0f + 2.0f * static_cast<float>(ci + 1) / static_cast<float>(kLon);
+                    auto pt = [&](double p, double th, vsg::dvec3& nOut) {
+                        const vsg::dvec3 h = east * std::cos(th) + north * std::sin(th);
+                        nOut = vsg::normalize(h * (std::cos(p) / rx) + up * (std::sin(p) / rz));
+                        return geo + h * (rx * std::cos(p)) + up * (rz * std::sin(p));
+                    };
+                    vsg::dvec3 n00, n10, n11, n01;
+                    const vsg::dvec3 q00 = pt(p0, t0, n00), q10 = pt(p0, t1, n10), q11 = pt(p1, t1, n11), q01 = pt(p1, t0, n01);
+                    pushQuad(q00, r0, n00, uc0,
+                             q10, r0, n10, uc1,
+                             q11, r1, n11, uc1,
+                             q01, r1, n01, uc0,
+                             vsg::vec4(rgb.x, rgb.y, rgb.z, 1.0f), ellParams);
+                }
+            }
+        }
+    }
+}
+
+void TacticalVolumes::emitWeapons(const ipc::TacticalOverlayFrameV1& frame, Span<const sim::VehicleState> states,
+                                  const std::vector<unsigned char>& alive, int selectedSlot) {
+    for (const auto& w : frame.weapons) {
+        if (w.slot >= states.size() || w.slot >= alive.size() || !alive[w.slot]) continue;
+        // Show crisp DLZ/LCOS/CCIP deck for the selected aircraft (or if no vehicle selected, slot 0) to prevent multi-jet overlap!
+        if (selectedSlot >= 0 && static_cast<int>(w.slot) != selectedSlot) continue;
+
+        const sim::VehicleState& st = states[w.slot];
+        const vsg::dvec3 origin(st.positionEcef[0], st.positionEcef[1], st.positionEcef[2]);
+        const vsg::dvec3 bFwd = bodyToEcef(st, vsg::dvec3(1.0, 0.0, 0.0));
+        vsg::dvec3 east, north, up;
+        localEnu(origin, east, north, up);
+
+        // 5-D Flyout-Derived DLZ/WEZ Color-Zoned 3-D Tactical Fan Deck
+        if ((w.flags & ipc::kTactWeaponHasDlz) != 0u && w.rMaxM > 100.0f) {
+            vsg::dvec3 aimDir = bFwd;
+            const vsg::dvec3 tgt(w.targetEcef[0], w.targetEcef[1], w.targetEcef[2]);
+            if (vsg::length2(tgt - origin) > 100.0) aimDir = vsg::normalize(tgt - origin);
+            vsg::dvec3 horiz = aimDir - up * vsg::dot(aimDir, up);
+            if (vsg::length(horiz) < 1e-4) horiz = north;
+            horiz = vsg::normalize(horiz);
+            const vsg::dvec3 right = vsg::normalize(vsg::cross(horiz, up));
+
+            const double halfAng = 0.28; // ~16 deg half-angle sleek tactical WEZ fan
+            auto emitFanBand = [&](double rInner, double rOuter, const vsg::vec4& col, float zoneKind) {
+                if (!(rOuter > rInner + 20.0)) return;
+                const vsg::vec4 params(3.0f, zoneKind, 0.0f, static_cast<float>(rOuter));
+                constexpr int kSegs = 20;
+                for (int i = 0; i < kSegs; ++i) {
+                    const float u0 = -1.0f + 2.0f * static_cast<float>(i) / static_cast<float>(kSegs);
+                    const float u1 = -1.0f + 2.0f * static_cast<float>(i + 1) / static_cast<float>(kSegs);
+                    const double a0 = halfAng * u0;
+                    const double a1 = halfAng * u1;
+                    const vsg::dvec3 d0 = horiz * std::cos(a0) + right * std::sin(a0);
+                    const vsg::dvec3 d1 = horiz * std::cos(a1) + right * std::sin(a1);
+                    pushQuad(origin + d0 * rInner, 0.0f, up, u0,
+                             origin + d1 * rInner, 0.0f, up, u1,
+                             origin + d1 * rOuter, 1.0f, up, u1,
+                             origin + d0 * rOuter, 1.0f, up, u0,
+                             col, params);
+                }
+            };
+
+            const double rMin = std::max(200.0, static_cast<double>(w.rMinM));
+            const double rNe  = std::max(rMin + 200.0, static_cast<double>(w.rNeM));
+            const double rMax = std::min(95000.0, std::max(rNe + 200.0, static_cast<double>(w.rMaxM)));
+            const bool inNez = (w.flags & ipc::kTactWeaponInNez) != 0u;
+
+            // Zone 2: Inner R_min crimson collar
+            emitFanBand(rMin * 0.65, rMin, vsg::vec4(0.98f, 0.22f, 0.24f, 0.85f), 2.0f);
+            // Zone 1: NEZ high-Pk emerald kill-zone band
+            emitFanBand(rMin, rNe, inNez ? vsg::vec4(0.10f, 0.96f, 0.48f, 1.05f) : vsg::vec4(0.14f, 0.84f, 0.48f, 0.80f), 1.0f);
+            // Zone 0: Outer R_ne .. R_max soft amber-cyan envelope
+            emitFanBand(rNe, rMax, vsg::vec4(0.95f, 0.72f, 0.22f, 0.65f), 0.0f);
+        }
+
+        // McCoy Gun LCOS Sleek Dotted Lead Line + Glowing 3-D Ring
+        if ((w.flags & ipc::kTactWeaponHasLcos) != 0u) {
+            const vsg::dvec3 pip(w.lcosPipperEcef[0], w.lcosPipperEcef[1], w.lcosPipperEcef[2]);
+            const vsg::vec4 lcosCol(0.32f, 1.00f, 0.56f, 0.90f);
+            pushBeamRibbon(origin, pip, 7.0, lcosCol, 6.0f, 14.0f, 2.2f);
+            vsg::dvec3 u, v;
+            const vsg::dvec3 d = vsg::normalize(pip - origin);
+            orthoBasis(d, u, v);
+            pushRingRibbon(pip, u, v, 55.0, 55.0, 6.5, 28, lcosCol, 0.0f, 0.0f);
+        }
+
+        // Wind-Compensated Mk 82 CCIP Fall Line & Ground Impact Ring
+        if ((w.flags & ipc::kTactWeaponHasCcip) != 0u) {
+            const vsg::dvec3 imp(w.ccipImpactEcef[0], w.ccipImpactEcef[1], w.ccipImpactEcef[2]);
+            const vsg::vec4 ccipCol(1.00f, 0.76f, 0.16f, 0.92f);
+            vsg::dvec3 ie, in, iu;
+            localEnu(imp, ie, in, iu);
+            pushBeamRibbon(origin, imp, 8.0, ccipCol, 6.0f, 18.0f, 2.5f);
+            pushRingRibbon(imp + iu * 4.0, ie, in, 65.0, 65.0, 8.0, 28, ccipCol, 0.0f, 0.0f);
+        }
+    }
+}
+
+void TacticalVolumes::emitLinks(const ipc::TacticalOverlayFrameV1& frame) {
+    for (const auto& l : frame.links) {
+        const auto kind = static_cast<ipc::TacticalLinkKindV1>(l.kind);
+        const vsg::dvec3 from(l.fromEcef[0], l.fromEcef[1], l.fromEcef[2]);
+        const vsg::dvec3 to(l.toEcef[0], l.toEcef[1], l.toEcef[2]);
+        const float phase = std::clamp(l.ageS / std::max(0.1f, l.durationS), 0.0f, 1.0f);
+
+        if (kind == ipc::TacticalLinkKindV1::Link16Dms || kind == ipc::TacticalLinkKindV1::C2Consent ||
+            kind == ipc::TacticalLinkKindV1::Mode5IffReply) {
+            const vsg::vec4 col = (kind == ipc::TacticalLinkKindV1::C2Consent) ? vsg::vec4(1.00f, 0.80f, 0.20f, 0.95f)
+                                  : (kind == ipc::TacticalLinkKindV1::Mode5IffReply) ? vsg::vec4(0.36f, 0.92f, 1.00f, 0.85f)
+                                                                                     : vsg::vec4(0.14f, 0.96f, 0.64f, 0.92f);
+            // Smooth elevated 3-D parabolic energy arc with animated light-packets!
+            const double span = vsg::length(to - from);
+            if (span < 10.0) continue;
+            const vsg::dvec3 upMid = localUp((from + to) * 0.5);
+            const double arch = std::min(span * 0.08, 1800.0);
+            constexpr int kArcSegs = 14;
+            const double distEye = std::max(vsg::length(eyeEcef_ - (from + to) * 0.5), 10.0);
+            const double halfW = std::max(16.0, distEye * 0.0018);
+            const vsg::vec4 params(4.0f, phase, 0.0f, static_cast<float>(span));
+            for (int i = 0; i < kArcSegs; ++i) {
+                const float t0 = static_cast<float>(i) / static_cast<float>(kArcSegs);
+                const float t1 = static_cast<float>(i + 1) / static_cast<float>(kArcSegs);
+                const vsg::dvec3 p0 = from + (to - from) * t0 + upMid * (4.0 * t0 * (1.0 - t0) * arch);
+                const vsg::dvec3 p1 = from + (to - from) * t1 + upMid * (4.0 * t1 * (1.0 - t1) * arch);
+                const vsg::dvec3 dir = vsg::normalize(p1 - p0);
+                const vsg::dvec3 toEye = eyeEcef_ - (p0 + p1) * 0.5;
+                vsg::dvec3 side = vsg::cross(toEye, dir);
+                if (vsg::length(side) < 1e-6) side = upMid;
+                else side = vsg::normalize(side);
+                const vsg::dvec3 nrm = vsg::normalize(toEye);
+                pushQuad(p0 - side * halfW, t0, nrm, -1.0f,
+                         p0 + side * halfW, t0, nrm,  1.0f,
+                         p1 + side * halfW, t1, nrm,  1.0f,
+                         p1 - side * halfW, t1, nrm, -1.0f,
+                         col, params);
+            }
+        } else if (kind == ipc::TacticalLinkKindV1::Mode5IffInterrogate) {
+            vsg::dvec3 e, n, u;
+            localEnu(from, e, n, u);
+            const double rad = std::max(500.0, static_cast<double>(l.param) * phase);
+            const float a = std::clamp(1.0f - phase, 0.15f, 0.90f);
+            const vsg::vec4 col = (l.flags & ipc::kTactLinkJammed) ? vsg::vec4(1.00f, 0.42f, 0.18f, a)
+                                                                   : vsg::vec4(0.32f, 0.88f, 1.00f, a);
+            pushRingRibbon(from, e, n, rad, rad, 35.0, 40, col, 0.0f, 0.0f);
+        } else if (kind == ipc::TacticalLinkKindV1::PntGnssDrift) {
+            vsg::dvec3 e, n, u;
+            localEnu(from, e, n, u);
+            const bool jammed = (l.flags & ipc::kTactLinkJammed) != 0u;
+            const bool locked = (l.flags & ipc::kTactLinkGnssLocked) != 0u;
+            const double rad = std::max(static_cast<double>(l.param), 45.0);
+            const vsg::vec4 col = jammed ? vsg::vec4(1.00f, 0.22f, 0.18f, 0.95f)
+                                  : locked ? vsg::vec4(0.18f, 0.92f, 0.46f, 0.78f)
+                                           : vsg::vec4(0.40f, 0.78f, 1.00f, 0.80f);
+            pushRingRibbon(from, e, n, rad, rad, jammed ? 18.0 : 10.0, 32, col, jammed ? 0.0f : 16.0f, 0.0f);
+        }
+    }
+}
+
+void TacticalVolumes::emitSwaths(const ipc::TacticalOverlayFrameV1& frame) {
+    for (const auto& s : frame.swaths) {
+        const vsg::dvec3 center(s.centerEcef[0], s.centerEcef[1], s.centerEcef[2]);
+        const vsg::dvec3 axE(s.axisEastEcef[0], s.axisEastEcef[1], s.axisEastEcef[2]);
+        const vsg::dvec3 axN(s.axisNorthEcef[0], s.axisNorthEcef[1], s.axisNorthEcef[2]);
+        const vsg::dvec3 up = localUp(center);
+        const double hw = static_cast<double>(s.halfWidthM);
+        const double hl = static_cast<double>(s.halfLengthM);
+        const bool isWx = (s.kind == static_cast<std::uint8_t>(ipc::TacticalSwathKindV1::WeatherCell));
+        const vsg::vec3 rgb = isWx ? weatherDbzLinear(s.metricDb) : vsg::vec3(0.14f, 0.88f, 0.96f);
+        const vsg::vec4 col(rgb.x, rgb.y, rgb.z, 0.90f);
+        const vsg::vec4 params(5.0f, isWx ? 1.0f : 0.0f, 0.0f, static_cast<float>(std::max(hw, hl)));
+        const vsg::dvec3 cLift = center + up * 15.0;
+        const vsg::dvec3 c00 = cLift - axE * hw - axN * hl;
+        const vsg::dvec3 c10 = cLift + axE * hw - axN * hl;
+        const vsg::dvec3 c11 = cLift + axE * hw + axN * hl;
+        const vsg::dvec3 c01 = cLift - axE * hw + axN * hl;
+        pushQuad(c00, 0.0f, up, -1.0f,
+                 c10, 0.0f, up,  1.0f,
+                 c11, 1.0f, up,  1.0f,
+                 c01, 1.0f, up, -1.0f,
+                 col, params);
+    }
+}
+
+void TacticalVolumes::update(std::uint32_t overlayMask,
+                             const ipc::TacticalOverlayFrameV1* frame,
+                             Span<const sim::VehicleState> states,
+                             const std::vector<unsigned char>& alive,
+                             const std::vector<Side>& sides,
+                             int selectedSlot,
+                             const vsg::dmat4& projection,
+                             const vsg::dvec3& eyeEcef,
+                             std::uint32_t screenWidth,
+                             std::uint32_t screenHeight,
+                             float daylight,
+                             double simTime,
+                             double wallTime) {
+    lastVertexCount_ = 0u;
+    if (!built_ || !frame || overlayMask == 0u) {
+        if (switch_) switch_->setAllChildren(false);
+        if (draw_) draw_->vertexCount = 0u;
+        return;
+    }
+
+    eyeEcef_ = eyeEcef;
+    cursor_ = 0u;
+
+    if (overlayMask & kMaskSwaths)  emitSwaths(*frame);
+    if (overlayMask & kMaskRadar)   emitRadars(*frame, states, alive, sides, selectedSlot);
+    if (overlayMask & kMaskJammer)  emitJammers(*frame, sides, selectedSlot);
+    if (overlayMask & kMaskEsm)     emitEsm(*frame, sides, selectedSlot);
+    if (overlayMask & kMaskWeapons) emitWeapons(*frame, states, alive, selectedSlot);
+    if (overlayMask & kMaskLinks)   emitLinks(*frame);
+
+    lastVertexCount_ = cursor_;
+    if (cursor_ == 0u) {
+        if (switch_) switch_->setAllChildren(false);
+        if (draw_) draw_->vertexCount = 0u;
+        return;
+    }
+
+    if (transform_) transform_->matrix = vsg::translate(eyeEcef);
+    const float p22 = static_cast<float>(projection[2][2]);
+    const float p32 = static_cast<float>(projection[3][2]);
+    const float invW = 1.0f / static_cast<float>(std::max<std::uint32_t>(screenWidth, 1u));
+    const float invH = 1.0f / static_cast<float>(std::max<std::uint32_t>(screenHeight, 1u));
+    frameUbo_->set(0, vsg::vec4(p22, p32, invW, invH));
+    frameUbo_->set(1, vsg::vec4(static_cast<float>(std::fmod(std::max(simTime, 0.0), 600.0)),
+                                static_cast<float>(std::fmod(std::max(wallTime, 0.0), 600.0)),
+                                std::clamp(daylight, 0.1f, 1.0f), 0.0f));
+    frameUbo_->dirty();
+    vertexStaging_->dirty();
+
+    if (draw_) draw_->vertexCount = cursor_;
+    if (switch_) switch_->setAllChildren(true);
+}
+
+} // namespace fsim::world
