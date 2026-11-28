@@ -91,6 +91,14 @@ public:
     void emissions(const sim::VehicleState& own, double now, std::vector<Emission>& out) const;
     /// Active directed-infrared laser countermeasure beams currently lasing on this vehicle.
     void dircmBeams(std::vector<DircmBeam>& out) const;
+    /// Best operating communications terminal RF link budget covering `frequencyHz` (false: none operating in-band).
+    bool commLinkForFrequency(double frequencyHz, CommLinkParams& out) const noexcept;
+    /// True if this vehicle carries a comm terminal covering `frequencyHz` that is explicitly Failed and no operating fallback exists.
+    bool commLinkFailedForFrequency(double frequencyHz) const noexcept;
+    /// Whether this vehicle has an active cooperative Mode 5/S IFF transponder.
+    bool iffResponderActive(bool crewLost, bool crashed) const noexcept;
+    /// Operating PNT navigation solution (prefers GNSS-capable receiver when multiple PNT payloads operate).
+    bool pntSolution(PntSolution& out) const noexcept;
     /// What a payload's sensor holds (a warning receiver's emitters): none for a payload with no such model, or not
     /// operating.
     std::vector<Contact> contacts(std::uint16_t payload) const;

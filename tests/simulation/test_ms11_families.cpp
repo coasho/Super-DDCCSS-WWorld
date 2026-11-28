@@ -343,3 +343,221 @@ TEST_CASE("SIM-M07 PNT (INS vs SAASM GPS under RF jamming), Comm/Mode-5 IFF, and
     CHECK(reportValue(gpsRecovered, "jammed") == 0.0);
     CHECK(reportValue(gpsRecovered, "gnss_locked") == 1.0);
 }
+
+TEST_CASE("Phase 2 Comm/IFF: DMS CommTerminal processing-gain coupling, failed-radio dropout and two-way Mode 5 IFF jamming", "[sim-m07][comm][iff][dms]") {
+    fsim::World world(makeOptions("phase2_comm_iff", 181));
+    // Two F-35As with AN/ASQ-242 CNI (processing_gain = 24 dB, Mode 5 IFF), a third F-35A with CNI Off,
+    // two B-52Hs with AN/ARC-210 UHF (processing_gain = 6 dB), and an EA-18G jammer.
+    auto f35Tx = createAircraft(world, "f35_tx", "f35a", 0.0, 0.0, 7000.0, 90.0, 220.0);
+    auto f35Rx = createAircraft(world, "f35_rx", "f35a", 25.0, 0.0, 7000.0, 270.0, 220.0);
+    auto f35Silent = createAircraft(world, "f35_silent", "f35a", 12.0, 4.0, 7000.0, 90.0, 220.0);
+    auto b52Tx = createAircraft(world, "b52_tx", "b52h", 0.0, -5.0, 7000.0, 90.0, 200.0);
+    auto b52Rx = createAircraft(world, "b52_rx", "b52h", 25.0, -5.0, 7000.0, 270.0, 200.0);
+    auto growler = createAircraft(world, "ea18g", "ea18g", 12.0, 40.0, 7000.0, 180.0, 220.0);
+
+    const auto cniTxIdx = findPayload(f35Tx, "cni");
+    const auto cniRxIdx = findPayload(f35Rx, "cni");
+    const auto cniSilentIdx = findPayload(f35Silent, "cni");
+    const auto uhfTxIdx = findPayload(b52Tx, "radio");
+    const auto uhfRxIdx = findPayload(b52Rx, "radio");
+    const auto jamIdx = findPayload(growler, "jammers");
+
+    powerToOperate(world, f35Tx, cniTxIdx);
+    powerToOperate(world, f35Rx, cniRxIdx);
+    powerToOperate(world, b52Tx, uhfTxIdx);
+    powerToOperate(world, b52Rx, uhfRxIdx);
+    powerToOperate(world, growler, jamIdx);
+
+    // 1) Cooperative Mode 5 IFF transponder gating: f35Silent (CNI Off) must NOT be counted until powered on.
+    world.step(20);
+    const double iffBeforePower = reportValue(f35Tx.payloadReport(cniTxIdx), "iff_in_range");
+    // Expected: f35Rx (CNI Operate) + b52Tx + b52Rx + growler = 4 (NOT f35Silent whose IFF terminal is Off)
+    CHECK(iffBeforePower == Catch::Approx(4.0));
+
+    powerToOperate(world, f35Silent, cniSilentIdx);
+    world.step(20);
+    const double iffAfterPower = reportValue(f35Tx.payloadReport(cniTxIdx), "iff_in_range");
+    CHECK(iffAfterPower == Catch::Approx(5.0));
+
+    // 2) Two-way 1030/1090 MHz Mode 5 IFF jamming suppresses IFF replies
+    fsim::ms::PayloadTask iffJam;
+    iffJam.payload = jamIdx;
+    iffJam.kind = fsim::ms::TaskKind::Jam;
+    iffJam.frequencyHz = 1.060e9; // covers both 1030 MHz interrogation and 1090 MHz reply
+    iffJam.bandwidthHz = 80.0e6;
+    iffJam.azimuthCentreRad = 0.0;
+    iffJam.elevationCentreRad = 0.0;
+    iffJam.azimuthHalfWidthRad = 45.0 * kDeg;
+    iffJam.elevationHalfWidthRad = 25.0 * kDeg;
+    const auto iffJamAct = growler.submit(iffJam);
+    REQUIRE(iffJamAct.accepted());
+    world.step(25);
+    CHECK(reportValue(f35Tx.payloadReport(cniTxIdx), "iff_jammed") == 1.0);
+    CHECK(reportValue(f35Tx.payloadReport(cniTxIdx), "iff_in_range") < iffAfterPower);
+    REQUIRE(growler.cancelMission(iffJamAct.activity).status == fsim::control::CommandStatus::Canceled);
+    world.step(15);
+    CHECK(reportValue(f35Tx.payloadReport(cniTxIdx), "iff_in_range") == Catch::Approx(5.0));
+
+    // 3) Real CommTerminal processing-gain coupling on DMS:
+    //    At 40 km jammer standoff (same geometry for both nets), AN/ASQ-242 (24 dB AJ) survives
+    //    a wideband 1.0 GHz barrage that easily jams AN/ARC-210 (6 dB AJ) at 300 MHz.
+    fsim::comm::NetSpec link16Spec;
+    link16Spec.name = "link16_f35";
+    link16Spec.frequencyHz = 1.0e9;
+    link16Spec.rangeM = 200e3;
+    link16Spec.latencyS = 0.05;
+    link16Spec.jitterS = 0.0;
+    const auto link16Net = world.createNet(link16Spec);
+    REQUIRE(world.joinNet(f35Tx.id(), link16Net));
+    REQUIRE(world.joinNet(f35Rx.id(), link16Net));
+
+    fsim::comm::NetSpec uhfSpec;
+    uhfSpec.name = "uhf_b52";
+    uhfSpec.frequencyHz = 300.0e6;
+    uhfSpec.rangeM = 200e3;
+    uhfSpec.latencyS = 0.05;
+    uhfSpec.jitterS = 0.0;
+    const auto uhfNet = world.createNet(uhfSpec);
+    REQUIRE(world.joinNet(b52Tx.id(), uhfNet));
+    REQUIRE(world.joinNet(b52Rx.id(), uhfNet));
+
+    auto f35TxAg = world.createAgent(f35Tx, "f35-tx");
+    auto f35RxAg = world.createAgent(f35Rx, "f35-rx");
+    auto b52TxAg = world.createAgent(b52Tx, "b52-tx");
+    auto b52RxAg = world.createAgent(b52Rx, "b52-rx");
+    fsim::comm::DmsMessage msg;
+    msg.topic = fsim::comm::topic::kFreeForm + 1;
+    msg.bytes = {'O', 'K'};
+
+    // Wideband 1.0 GHz barrage (200 MHz BW) at 40 km -> J/S ~ +13 dB: below AN/ASQ-242's 16 dB margin -> delivers!
+    fsim::ms::PayloadTask l16Barrage = iffJam;
+    l16Barrage.frequencyHz = 1.0e9;
+    l16Barrage.bandwidthHz = 200.0e6;
+    const auto l16Act = growler.submit(l16Barrage);
+    REQUIRE(l16Act.accepted());
+    world.step(5);
+    REQUIRE(f35TxAg.send(msg) != 0);
+    world.step(15);
+    CHECK(f35RxAg.receive().size() == 1u);
+
+    // Narrowband 1.0 GHz spot jam (10 MHz BW) -> +13 dB higher PSD -> exceeds AN/ASQ-242 margin -> drops!
+    l16Barrage.bandwidthHz = 10.0e6;
+    REQUIRE(growler.submit(l16Barrage).accepted());
+    world.step(5);
+    REQUIRE(f35TxAg.send(msg) != 0);
+    world.step(15);
+    CHECK(f35RxAg.receive().empty());
+
+    // Focused 300 MHz UHF sub-band jam (10 MHz BW) against B-52 AN/ARC-210 (6 dB AJ, 25 W, 25 kHz ch) -> jammed!
+    l16Barrage.frequencyHz = 300.0e6;
+    l16Barrage.bandwidthHz = 10.0e6;
+    REQUIRE(growler.submit(l16Barrage).accepted());
+    world.step(5);
+    REQUIRE(b52TxAg.send(msg) != 0);
+    world.step(15);
+    CHECK(b52RxAg.receive().empty());
+
+    // Stop jamming, then fail F-35 Rx CNI -> failed terminal blocks DMS link even with zero jamming
+    REQUIRE(growler.submit(fsim::ms::StateCommand{jamIdx, fsim::ms::PayloadState::Off}).accepted());
+    world.step(10);
+    REQUIRE(f35TxAg.send(msg) != 0);
+    world.step(15);
+    CHECK(f35RxAg.receive().size() == 1u);
+
+    REQUIRE(f35Rx.failPayload(cniRxIdx, true) == fsim::ms::Reason::None);
+    world.step(5);
+    REQUIRE(f35TxAg.send(msg) != 0);
+    world.step(15);
+    CHECK(f35RxAg.receive().empty());
+}
+
+TEST_CASE("Phase 2 PNT: PntReceiver GNSS denial/INS drift couple to sensedState and GPS jamming denies weapon strapdown GNSS", "[sim-m07][pnt][weapon-strapdown]") {
+    fsim::World world(makeOptions("phase2_pnt_coupling", 183));
+    auto kc46 = createAircraft(world, "kc46", "kc46a", 0.0, 0.0, 7000.0, 90.0, 200.0);
+    auto f15 = createAircraft(world, "f15", "f15c", 2.0, 0.0, 7000.0, 90.0, 220.0);
+    auto f16 = createAircraft(world, "f16", "f16c", 0.0, -2.0, 7000.0, 90.0, 260.0);
+    auto growler = createAircraft(world, "ea18g", "ea18g", 10.0, 0.0, 7000.0, 270.0, 220.0);
+
+    const auto gpsIdx = findPayload(kc46, "gps");
+    const auto insIdx = findPayload(f15, "ins");
+    const auto jamIdx = findPayload(growler, "jammers");
+    powerToOperate(world, kc46, gpsIdx);
+    powerToOperate(world, f15, insIdx);
+    powerToOperate(world, growler, jamIdx);
+
+    // 1) Clean baseline: MAGR 2K has valid GNSS and small nominal error; AN/ASN-109 has Schuler INS drift.
+    world.step(30);
+    CHECK(kc46.sensed().gnssValid);
+    CHECK(kc46.sensed().positionErrorM > 1.0);
+    CHECK(kc46.sensed().positionErrorM < 10.0);
+    CHECK(f15.sensed().gnssValid);
+    CHECK(f15.sensed().positionErrorM > 15.0);
+
+    // Verify truth pool state is NOT mutated by sensed PNT drift.
+    const double insDiffM = std::hypot(
+        f15.sensed().state.positionEcef[0] - f15.state().positionEcef[0],
+        f15.sensed().state.positionEcef[1] - f15.state().positionEcef[1],
+        f15.sensed().state.positionEcef[2] - f15.state().positionEcef[2]);
+    CHECK(insDiffM > 10.0);
+    CHECK(std::fabs(f15.state().altitudeMslM - 7000.0) < 200.0);
+
+    // 2) Launch a GNSS-aided AIM-120D from F-16C and verify live L1/L2 GPS jamming denies BOTH KC-46 and missile GNSS
+    REQUIRE(f16.loadLoadout("air superiority AIM-120D") == fsim::ms::Reason::None);
+    const auto stIdx = findPayload(f16, "stations");
+    powerToOperate(world, f16, stIdx);
+    fsim::ms::StrikeCommand strike;
+    strike.payload = stIdx;
+    strike.store = "aim-120d";
+    strike.quantity = 1;
+    strike.target = 0;
+    strike.consent = true;
+    const auto stAct = f16.submit(strike);
+    REQUIRE(stAct.accepted());
+    std::uint32_t missileId = 0;
+    for (int i = 0; i < 300; ++i) {
+        world.step(1);
+        const auto status = f16.strikeStatus(stAct.activity);
+        if (status && !status->weapons.empty()) {
+            missileId = status->weapons.front();
+            break;
+        }
+    }
+    REQUIRE(missileId != 0);
+    auto missile = world.vehicle(missileId);
+    REQUIRE(missile.valid());
+    CHECK(missile.sensed().gnssValid);
+
+    // Growler jams GPS L1 + L2 (1.40 GHz, 450 MHz BW)
+    fsim::ms::PayloadTask gpsJam;
+    gpsJam.payload = jamIdx;
+    gpsJam.kind = fsim::ms::TaskKind::Jam;
+    gpsJam.frequencyHz = 1.40e9;
+    gpsJam.bandwidthHz = 450.0e6;
+    gpsJam.azimuthCentreRad = 0.0;
+    gpsJam.elevationCentreRad = 0.0;
+    gpsJam.azimuthHalfWidthRad = 45.0 * kDeg;
+    gpsJam.elevationHalfWidthRad = 25.0 * kDeg;
+    const auto gpsJamAct = growler.submit(gpsJam);
+    REQUIRE(gpsJamAct.accepted());
+    world.step(90); // 3 s of L1/L2 denial
+
+    // KC-46 MAGR 2K loses GNSS lock -> sensed().gnssValid becomes false and positionErrorM grows
+    CHECK(!kc46.sensed().gnssValid);
+    CHECK(kc46.sensed().positionErrorM > 5.0);
+    const double kcDiffM = std::hypot(
+        kc46.sensed().state.positionEcef[0] - kc46.state().positionEcef[0],
+        kc46.sensed().state.positionEcef[1] - kc46.state().positionEcef[1],
+        kc46.sensed().state.positionEcef[2] - kc46.state().positionEcef[2]);
+    CHECK(kcDiffM > 3.5);
+    // Pure INS on F-15C remains completely immune to RF GPS jamming
+    CHECK(f15.sensed().gnssValid);
+    // In-flight AIM-120D loses GNSS aiding under live L1/L2 RF jamming
+    REQUIRE(missile.valid());
+    CHECK(!missile.sensed().gnssValid);
+
+    // Stop GPS jammer -> both KC-46 and AIM-120D cleanly recover GNSS lock
+    REQUIRE(growler.cancelMission(gpsJamAct.activity).status == fsim::control::CommandStatus::Canceled);
+    world.step(15);
+    CHECK(kc46.sensed().gnssValid);
+    CHECK(missile.sensed().gnssValid);
+}

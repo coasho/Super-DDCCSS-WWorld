@@ -60,7 +60,8 @@ public:
         double j0L1 = 0.0;
         double j0L2 = 0.0;
         for (const Emission& e : scene.emissions()) {
-            if (e.mode != EmitterMode::Jammer || !e.state || e.state == &own) continue;
+            if (e.mode != EmitterMode::Jammer || !e.state || e.state == &own ||
+                e.deceptionMode != EaDeceptionModeV1::Noise) continue;
             const double ov1 = ea::spectralOverlap(e.frequencyHz, e.bandwidthHz, kGpsL1Hz, kGpsBwHz);
             const double ov2 = ea::spectralOverlap(e.frequencyHz, e.bandwidthHz, kGpsL2Hz, kGpsBwHz);
             if (ov1 <= 0.0 && ov2 <= 0.0) continue;
@@ -106,6 +107,18 @@ public:
         deniedS_ = 0.0;
         jammed_ = false;
         gnssLocked_ = false;
+    }
+
+    bool pntSolution(PntSolution& out) const override {
+        if (!started_) return false;
+        out.active = true;
+        out.gnssCapable = gnssCapable_;
+        out.gnssLocked = gnssLocked_;
+        out.jammed = jammed_;
+        out.horizErrorM = horizErrorM_;
+        out.vertErrorM = vertErrorM_;
+        out.velErrorMs = velErrorMs_;
+        return true;
     }
 
     void report(std::vector<PayloadValue>& out) const override {

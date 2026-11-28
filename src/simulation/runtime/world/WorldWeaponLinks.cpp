@@ -1,5 +1,6 @@
 #include "World.h"
 #include "simulation/mission_systems/ea/Jammer.h"
+#include "simulation/mission_systems/pnt/PntReceiver.h"
 #include "simulation/mission_systems/rf/Path.h"
 #include "simulation/mission_systems/weapon/TrackKinematics.h"
 #include "simulation/runtime/services/AgentRules.h"
@@ -125,19 +126,20 @@ void World::bindWeaponLinkV1(Entry& weapon,const Entry& launcher,const ms::Store
         if(!ms::weapon::navigationConfigurationV2(card,selected,error))throw std::runtime_error(error);
         const auto seed=Rng::forVehicle(options_.seed,0x574E4156ull,weapon.info.id).next();
         const auto& own=pool_->states()[weapon.slot];
+        const bool releaseGnss=launcher.sensed.gnssValid;
         if(selected) {
             b.strapdownNavigation=std::make_unique<ms::weapon::NavigationStrapdownV2>(*selected,seed);
-            if(!b.strapdownNavigation->initialize(nativeNavigationInputV2(own,simTime_,true)))
+            if(!b.strapdownNavigation->initialize(nativeNavigationInputV2(own,simTime_,releaseGnss)))
                 throw std::runtime_error("Own strapdown navigation initialization refused native release pose");
-            b.navigationCapturesV2.reset(nativeNavigationInputV2(own,simTime_,true));
+            b.navigationCapturesV2.reset(nativeNavigationInputV2(own,simTime_,releaseGnss));
         } else {
             ms::weapon::NavigationConfigV1 navigationConfig;navigationConfig.gnssAiding=card.id=="aim-120d";
             b.navigation=std::make_unique<ms::weapon::NavigationV1>(navigationConfig,seed);
-            const auto input=nativeNavigationInputV2(own,simTime_,true);
+            const auto input=nativeNavigationInputV2(own,simTime_,releaseGnss);
             ms::weapon::NavigationInputV1 legacy;legacy.timeS=input.timeS;legacy.position=input.position;legacy.velocity=input.velocity;
             b.navigation->initialize(legacy);
         }
-        b.navigationVelocity=nativeNavigationInputV2(own,simTime_,true).velocity;b.navigationTimeS=simTime_;
+        b.navigationVelocity=nativeNavigationInputV2(own,simTime_,releaseGnss).velocity;b.navigationTimeS=simTime_;
     }
     weaponLinksV1_.emplace(weapon.info.id,std::move(b));
 }
@@ -180,6 +182,68 @@ ms::weapon::WeaponLinkPathV1 World::weaponLinkPathV1(const Entry& a,const Entry&
         }
     }
     return {path.slantRangeM,clear};
+}
+void World::evaluateWeaponGnssJamming() {
+    if(weaponLinksV1_.empty())return;
+    const auto states=pool_->states();
+    constexpr double kGpsL1Hz=1.57542e9;
+    constexpr double kGpsL2Hz=1.22760e9;
+    constexpr double kGpsBwHz=20.46e6;          // IS-GPS-200 P(Y)-code null-to-null bandwidth
+    constexpr double kCarrierDbw=-160.0;        // IS-GPS-200 nominal military received carrier power (dBW)
+    constexpr double kNoiseFigureDb=3.0;
+    constexpr double kAntiJamDb=24.0;           // Military SAASM processing gain margin (Groves Eq. 8.35)
+    constexpr double kLockThresholdDbHz=22.0;   // Code/carrier tracking lock threshold (dB-Hz)
+
+    std::vector<ms::Emission> activeJammers;
+    gatherActiveEaEmissions(states,activeJammers);
+    std::vector<const ms::Emission*> gnssJammers;
+    for(const ms::Emission& em:activeJammers) {
+        if(em.mode!=ms::EmitterMode::Jammer||!em.state||em.deceptionMode!=ms::EaDeceptionModeV1::Noise)continue;
+        if(ms::ea::spectralOverlap(em.frequencyHz,em.bandwidthHz,kGpsL1Hz,kGpsBwHz)>0.0||
+           ms::ea::spectralOverlap(em.frequencyHz,em.bandwidthHz,kGpsL2Hz,kGpsBwHz)>0.0) {
+            gnssJammers.push_back(&em);
+        }
+    }
+    for(auto& pair:weaponLinksV1_) {
+        Entry* w=entry(pair.first);
+        if(!w||w->weaponEnded||w->slot>=states.size())continue;
+        if(gnssJammers.empty()) {
+            if(w->pntCoupling.gnssDenied)w->sensed.gnssValid=true;
+            w->pntCoupling.active=false;
+            w->pntCoupling.gnssDenied=false;
+            continue;
+        }
+        const auto& ws=states[w->slot];
+        double j0L1=0.0,j0L2=0.0;
+        for(const ms::Emission* em:gnssJammers) {
+            if(em->entity==w->info.id)continue;
+            const double ov1=ms::ea::spectralOverlap(em->frequencyHz,em->bandwidthHz,kGpsL1Hz,kGpsBwHz);
+            const double ov2=ms::ea::spectralOverlap(em->frequencyHz,em->bandwidthHz,kGpsL2Hz,kGpsBwHz);
+            const double txGain=em->gainTowardsDbi(ws.positionEcef);
+            if(ov1>0.0) {
+                ms::rf::PathOptions po;po.frequencyHz=kGpsL1Hz;po.ground=ground_.get();
+                const auto p=ms::rf::computePath(
+                    {em->state->latitudeRad,em->state->longitudeRad,em->state->altitudeMslM},
+                    {ws.latitudeRad,ws.longitudeRad,ws.altitudeMslM},po);
+                if(!p.terrainMasked&&std::isfinite(p.totalDb))
+                    j0L1+=ms::ea::receivedJammerDensityWHz(em->powerW,txGain,0.0,p.totalDb,em->bandwidthHz,ov1);
+            }
+            if(ov2>0.0) {
+                ms::rf::PathOptions po;po.frequencyHz=kGpsL2Hz;po.ground=ground_.get();
+                const auto p=ms::rf::computePath(
+                    {em->state->latitudeRad,em->state->longitudeRad,em->state->altitudeMslM},
+                    {ws.latitudeRad,ws.longitudeRad,ws.altitudeMslM},po);
+                if(!p.terrainMasked&&std::isfinite(p.totalDb))
+                    j0L2+=ms::ea::receivedJammerDensityWHz(em->powerW,txGain,0.0,p.totalDb,em->bandwidthHz,ov2);
+            }
+        }
+        const double cn0=ms::pnt::effectiveGnssCn0DbHz(kCarrierDbw,kNoiseFigureDb,std::min(j0L1,j0L2),kAntiJamDb);
+        const bool denied=(cn0<kLockThresholdDbHz);
+        if(w->pntCoupling.gnssDenied&&!denied)w->sensed.gnssValid=true;
+        w->pntCoupling.active=denied;
+        w->pntCoupling.gnssDenied=denied;
+        if(denied)w->sensed.gnssValid=false;
+    }
 }
 void World::prepareWeaponLinksV1() {
     for(auto& pair:weaponLinksV1_) {

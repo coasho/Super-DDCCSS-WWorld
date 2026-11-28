@@ -779,6 +779,7 @@ bool World::resetVehicle(std::uint32_t id, const sim::InitialConditions* ic, std
     e->fireRates.clear();
     e->wreckFireUntilS = 0.0;
     e->wreckFireName.clear();
+    e->pntCoupling = {};
     const auto restoredEnergy=model.energy();
     e->host.setLoad(restoredEnergy.massKg,restoredEnergy.fuelKg);
     e->storeFlight.loadPublished();
@@ -1055,7 +1056,13 @@ void World::stepDms() {
         }
         bool jammed(std::uint32_t from, std::uint32_t to, const comm::NetSpec& spec,
                     double rangeM, double) const override {
-            (void)from;
+            const Entry* txE = world.entry(from);
+            const Entry* rxE = world.entry(to);
+            // Explicitly failed in-band CommTerminal on either endpoint breaks link closure.
+            if ((txE && txE->ms.commLinkFailedForFrequency(spec.frequencyHz)) ||
+                (rxE && rxE->ms.commLinkFailedForFrequency(spec.frequencyHz))) {
+                return true;
+            }
             if (world.emissions_.empty()) return false;
             double latB = 0.0, lonB = 0.0, hB = 0.0;
             if (!locate(to, latB, lonB, hB)) return false;
@@ -1063,11 +1070,27 @@ void World::stepDms() {
             ms::rf::geodeticToEcef(latB, lonB, hB, rxEcef);
             constexpr double kPi = 3.14159265358979323846;
             constexpr double kLight = 299792458.0;
-            constexpr double kTxPowerW = 200.0;        // basis: assumed tactical datalink terminal RF power
-            constexpr double kCommsJamMarginDb = 10.0; // basis: assumed tactical spread-spectrum link jam margin
-            const double rxBwHz = std::clamp(spec.dataRateBps * 50.0, 250.0e3, 3.0e6);
+            // Minimum post-despreading SIR for coded tactical QPSK/MSK packet decode (8 dB Eb/N0 threshold).
+            constexpr double kRequiredSirDb = 8.0;
+
+            // Resolve physical RF link parameters from operating CommTerminal payloads on tx/rx;
+            // fall back to NetSpec tactical baseline ONLY for C2 nodes or aircraft without operating comm payloads.
+            ms::CommLinkParams txParams{};
+            const bool hasTxTerm = txE && txE->ms.commLinkForFrequency(spec.frequencyHz, txParams);
+            ms::CommLinkParams rxParams{};
+            const bool hasRxTerm = rxE && rxE->ms.commLinkForFrequency(spec.frequencyHz, rxParams);
+
+            const double txPowerW = hasTxTerm ? txParams.txPowerW : 200.0;
+            const double txGainDbi = hasTxTerm ? txParams.rxGainDbi : 0.0;
+            const double rxGainDbi = hasRxTerm ? rxParams.rxGainDbi : 0.0;
+            const double rxBwHz = hasRxTerm
+                                      ? std::max(1.0e3, rxParams.channelBwHz)
+                                      : std::clamp(spec.dataRateBps * 50.0, 250.0e3, 3.0e6);
+            // Baseline compatibility margin: 18 dB processing gain - 8 dB SIR = 10 dB J/S margin (matches prior NetSpec).
+            const double processingGainDb = hasRxTerm ? rxParams.processingGainDb : 18.0;
+
             const double sigLossDb = 20.0 * std::log10(4.0 * kPi * std::max(rangeM, 1.0) * std::max(spec.frequencyHz, 1.0) / kLight);
-            const double rxSignalW = kTxPowerW * std::pow(10.0, -sigLossDb / 10.0);
+            const double rxSignalW = txPowerW * std::pow(10.0, (txGainDbi + rxGainDbi - sigLossDb) / 10.0);
             double jamPowerW = 0.0;
             for (const ms::Emission& em : world.emissions_) {
                 if (em.mode != ms::EmitterMode::Jammer || !em.state || em.entity == to ||
@@ -1088,13 +1111,14 @@ void World::stepDms() {
                         {latB, lonB, hB}, po);
                     if (std::isfinite(path.totalDb) && path.totalDb > jamLossDb) jamLossDb = path.totalDb;
                 }
-                const double txGainDbi = em.gainTowardsDbi(rxEcef);
-                const double j0WHz = ms::ea::receivedJammerDensityWHz(em.powerW, txGainDbi, 0.0, jamLossDb, em.bandwidthHz, overlap);
+                const double jTxGainDbi = em.gainTowardsDbi(rxEcef);
+                const double j0WHz = ms::ea::receivedJammerDensityWHz(em.powerW, jTxGainDbi, rxGainDbi, jamLossDb, em.bandwidthHz, overlap);
                 jamPowerW += j0WHz * rxBwHz;
             }
             if (!(jamPowerW > 0.0)) return false;
-            const double jToSDb = 10.0 * std::log10(jamPowerW / std::max(rxSignalW, 1e-30));
-            return jToSDb > kCommsJamMarginDb;
+            const double effJamW = jamPowerW / std::pow(10.0, std::max(0.0, processingGainDb) / 10.0);
+            const double sirEffDb = 10.0 * std::log10(std::max(rxSignalW, 1e-30) / std::max(effJamW, 1e-35));
+            return sirEffDb < kRequiredSirDb;
         }
     };
     dms_.step(simTime_, Where(*this), ground_.get(), dmsRng_);
@@ -2237,6 +2261,7 @@ void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim:
             pushed = true;
         }
     }
+    applyPntCouplingToSensed(*e, t);
     if (e->damage) { // (what its damage takes off the aerodynamic force)
         ms::damage::Flight f;
         damageFlight(*e, f);
@@ -2588,6 +2613,34 @@ void World::gatherActiveDircmBeams(std::vector<ms::DircmBeam>& out) const {
         const Entry* e = entries_[s].get();
         if (!e) continue;
         e->ms.dircmBeams(out);
+    }
+}
+
+void World::applyPntCouplingToSensed(Entry& e, double nowS) const noexcept {
+    if (!e.pntCoupling.active) return;
+    if (e.pntCoupling.gnssDenied) e.sensed.gnssValid = false;
+    const double totalErrM = std::hypot(e.pntCoupling.horizErrorM, e.pntCoupling.vertErrorM);
+    if (std::isfinite(totalErrM) && totalErrM > 0.0) {
+        e.sensed.positionErrorM = std::max(e.sensed.positionErrorM, totalErrM);
+    }
+    if (e.pntCoupling.horizErrorM > 0.0 || e.pntCoupling.vertErrorM > 0.0 || e.pntCoupling.velErrorMs > 0.0) {
+        // Deterministic Schuler-period (84.4 min) drift direction on sensed navigation only; truth pool_->states() untouched.
+        constexpr double kSchulerPeriodS = 5063.5;
+        const double phase = e.pntCoupling.driftAzRad + (2.0 * ms::geom::kPi / kSchulerPeriodS) * nowS;
+        const double cPh = std::cos(phase);
+        const double sPh = std::sin(phase);
+        const double dNorth = e.pntCoupling.horizErrorM * cPh;
+        const double dEast = e.pntCoupling.horizErrorM * sPh;
+        const double dAlt = e.pntCoupling.vertErrorM * std::cos(0.7 * phase + 0.5);
+        double lat = e.sensed.state.latitudeRad;
+        double lon = e.sensed.state.longitudeRad;
+        geo::offsetLatLon(lat, lon, dNorth, dEast, lat, lon);
+        e.sensed.state.latitudeRad = lat;
+        e.sensed.state.longitudeRad = lon;
+        e.sensed.state.altitudeMslM += dAlt;
+        ms::rf::geodeticToEcef(lat, lon, e.sensed.state.altitudeMslM, e.sensed.state.positionEcef);
+        e.sensed.state.velocityNedMs[0] += e.pntCoupling.velErrorMs * cPh;
+        e.sensed.state.velocityNedMs[1] += e.pntCoupling.velErrorMs * sPh;
     }
 }
 
@@ -3610,6 +3663,11 @@ void World::sense() {
             const Entry* e = world.entry(id);
             return e ? e->origin.burning : false;
         }
+        bool iffTransponderActive(std::uint32_t id) const override {
+            const Entry* e = world.entry(id);
+            if (!e || e->slot >= states.size()) return false;
+            return e->ms.iffResponderActive(e->crewLost, states[e->slot].crashed || states[e->slot].diverged);
+        }
         const std::vector<ms::Decoy>& flares() const override { return world.activeFlares_; }
     };
     const auto states = pool_->states();
@@ -3640,6 +3698,12 @@ void World::sense() {
             em.sidelobeDbi = 0.0;
             em.allRound = true;
             if (const Entry* e = entry(c.entity)) {
+                ms::CommLinkParams cp{};
+                if (e->ms.commLinkForFrequency(c.frequencyHz, cp)) {
+                    em.powerW = cp.txPowerW;
+                    em.bandwidthHz = std::max(1.0e3, cp.channelBwHz);
+                    em.peakGainDbi = cp.rxGainDbi;
+                }
                 em.state = &states[e->slot];
                 emissions_.push_back(em);
             } else if (const comm::C2NodeSpec* c2 = c2Node(c.entity)) {
@@ -3735,6 +3799,28 @@ void World::sense() {
         scene.own = e.info.id;
         e.ms.sense(simTime_, states[s], scene);
     });
+    // Couple operating aircraft PNT solutions (GNSS lock/denial + Schuler INS drift) into sensed state.
+    for (std::size_t s = 0; s < entries_.size() && s < states.size(); ++s) {
+        Entry* e = entries_[s].get();
+        if (!e || e->info.role != ms::Role::Aircraft) continue;
+        ms::PntSolution pnt{};
+        if (e->ms.pntSolution(pnt) && pnt.active) {
+            e->pntCoupling.active = true;
+            e->pntCoupling.gnssDenied = pnt.gnssCapable && !pnt.gnssLocked;
+            e->pntCoupling.horizErrorM = pnt.horizErrorM;
+            e->pntCoupling.vertErrorM = pnt.vertErrorM;
+            e->pntCoupling.velErrorMs = pnt.velErrorMs;
+            if (e->pntCoupling.driftAzRad == 0.0) {
+                e->pntCoupling.driftAzRad = Rng::forVehicle(options_.seed, 0x504E5444ull, e->info.id).uniform(0.0, 2.0 * ms::geom::kPi);
+            }
+            e->sensed.state = states[s];
+            e->sensed.gnssValid = true;
+            e->sensed.positionErrorM = 0.0;
+            applyPntCouplingToSensed(*e, simTime_);
+        } else if (e->pntCoupling.active) {
+            e->pntCoupling = {};
+        }
+    }
     if (pathExcess_.size() > 65536) pathExcess_.clear(); // (pairs that ended: worked out again where still wanted)
 }
 
@@ -3761,6 +3847,7 @@ void World::step(unsigned n) {
         if (!designations_.empty()) refreshDesignations();
         sampleOnRailSeekers();
         prepareWeaponLinksV1();
+        evaluateWeaponGnssJamming();
         prepareEngagements();
         const auto before = pool_->states();
         std::copy(before.begin(), before.end(), stepStates_.begin());

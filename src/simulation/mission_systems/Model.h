@@ -95,6 +95,8 @@ public:
         static const std::vector<Decoy> empty;
         return empty;
     }
+    /// Whether target aircraft `id` has an active cooperative Mode 5/S IFF transponder.
+    virtual bool iffTransponderActive(std::uint32_t id) const { (void)id; return true; }
     virtual const sim::EnvironmentState& environment() const = 0;
     /// The terrain, or the earth's curve, stands between the carrier and another entity: the radio path's loss at
     /// 10 GHz past free space by more than a ridge's edge gives (20 dB).
@@ -126,6 +128,30 @@ struct Dispensed {
     double burnS = 0.0;     ///< a flare's burn time; a chaff cloud's bloom time
 };
 
+/// Operating communications terminal RF parameters exposed to DMS and IFF physics.
+struct CommLinkParams {
+    double bandMinHz = 0.0;
+    double bandMaxHz = 0.0;
+    double txPowerW = 200.0;
+    double channelBwHz = 3.0e6;
+    double processingGainDb = 17.0;
+    double jamThresholdJToNDb = 25.0;
+    double rxGainDbi = 0.0;
+    bool iffCapable = false;
+    bool iffMode5 = false;
+};
+
+/// Operating PNT receiver navigation solution exposed to sensed-state coupling.
+struct PntSolution {
+    bool active = false;
+    bool gnssCapable = false;
+    bool gnssLocked = false;
+    bool jammed = false;
+    double horizErrorM = 0.0;
+    double vertErrorM = 0.0;
+    double velErrorMs = 0.0;
+};
+
 /// One payload's model beyond its state machine. Stepped with its vehicle's sensors, on the workers: it reads the
 /// scene, and writes nothing but itself.
 class Model {
@@ -155,6 +181,14 @@ public:
     virtual bool emission(Emission& out) const { (void)out; return false; }
     /// Active directed-infrared laser countermeasure beam now (false: not lasing).
     virtual bool dircmBeam(DircmBeam& out) const { (void)out; return false; }
+    /// Operating communications terminal RF parameters (false: not an operating comm terminal).
+    virtual bool commLinkParams(CommLinkParams& out) const { (void)out; return false; }
+    /// Whether this model's hardware includes a cooperative IFF transponder/interrogator, regardless of power state.
+    virtual bool isIffCapable() const { return false; }
+    /// Frequency coverage for comm terminals regardless of power state (used to detect failed in-band radios).
+    virtual bool coversCommFrequency(double frequencyHz) const { (void)frequencyHz; return false; }
+    /// Operating PNT receiver navigation solution (false: not an active PNT receiver).
+    virtual bool pntSolution(PntSolution& out) const { (void)out; return false; }
     /// What left it since last asked (the world flies them).
     virtual bool takeBurst(GunBurst& out) { (void)out; return false; }
     virtual bool takeDispensed(std::vector<Dispensed>& out) { (void)out; return false; }

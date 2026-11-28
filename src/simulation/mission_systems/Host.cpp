@@ -996,6 +996,65 @@ void Host::dircmBeams(std::vector<DircmBeam>& out) const {
     }
 }
 
+bool Host::commLinkForFrequency(double frequencyHz, CommLinkParams& out) const noexcept {
+    if (!std::isfinite(frequencyHz) || !(frequencyHz > 0.0)) return false;
+    bool found = false;
+    CommLinkParams best{};
+    for (std::size_t i = 0; i < models_.size(); ++i) {
+        if (!models_[i] || state_[i].state != PayloadState::Operate) continue;
+        CommLinkParams p;
+        if (!models_[i]->commLinkParams(p)) continue;
+        if (frequencyHz < p.bandMinHz || frequencyHz > p.bandMaxHz) continue;
+        if (!found || p.processingGainDb > best.processingGainDb ||
+            (p.processingGainDb == best.processingGainDb && p.txPowerW > best.txPowerW)) {
+            best = p;
+            found = true;
+        }
+    }
+    if (found) out = best;
+    return found;
+}
+
+bool Host::commLinkFailedForFrequency(double frequencyHz) const noexcept {
+    if (!std::isfinite(frequencyHz) || !(frequencyHz > 0.0)) return false;
+    bool hasFailed = false;
+    for (std::size_t i = 0; i < models_.size(); ++i) {
+        if (!models_[i] || !models_[i]->coversCommFrequency(frequencyHz)) continue;
+        if (state_[i].state == PayloadState::Operate) return false;
+        if (state_[i].state == PayloadState::Failed) hasFailed = true;
+    }
+    return hasFailed;
+}
+
+bool Host::iffResponderActive(bool crewLost, bool crashed) const noexcept {
+    if (crewLost || crashed) return false;
+    bool hasExplicitIff = false;
+    for (std::size_t i = 0; i < models_.size(); ++i) {
+        if (!models_[i] || !models_[i]->isIffCapable()) continue;
+        hasExplicitIff = true;
+        if (state_[i].state == PayloadState::Operate) return true;
+    }
+    // Aircraft carrying an explicit Mode 5 IFF terminal only reply when it operates;
+    // airframes without a separate IFF payload card use their baseline transponder while alive.
+    return !hasExplicitIff;
+}
+
+bool Host::pntSolution(PntSolution& out) const noexcept {
+    bool found = false;
+    PntSolution best{};
+    for (std::size_t i = 0; i < models_.size(); ++i) {
+        if (!models_[i] || state_[i].state != PayloadState::Operate) continue;
+        PntSolution s;
+        if (!models_[i]->pntSolution(s) || !s.active) continue;
+        if (!found || (s.gnssCapable && !best.gnssCapable)) {
+            best = s;
+            found = true;
+        }
+    }
+    if (found) out = best;
+    return found;
+}
+
 std::vector<Contact> Host::contacts(std::uint16_t payload) const {
     std::vector<Contact> out;
     if (payload >= models_.size() || !models_[payload] || state_[payload].state != PayloadState::Operate) return out;

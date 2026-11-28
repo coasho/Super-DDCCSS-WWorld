@@ -804,6 +804,14 @@ private:
         sim::EffectorInputs effectors;                       ///< as last written to the flight model
         std::vector<std::unique_ptr<effects::Effect>> effects;
         effects::SensedState sensed;
+        struct PntCoupling {
+            bool active = false;
+            bool gnssDenied = false;
+            double horizErrorM = 0.0;
+            double vertErrorM = 0.0;
+            double velErrorMs = 0.0;
+            double driftAzRad = 0.0;
+        } pntCoupling;
         Rng rng;
         sim::ControlInputs inputs;         ///< last inputs the cascade produced
         sim::VehicleState working;         ///< per-sub-step state for control/effects
@@ -1196,6 +1204,8 @@ private:
     mutable std::mutex pathExcessMutex_; ///< (the radars look in parallel)
     void gatherActiveEaEmissions(Span<const sim::VehicleState> states, std::vector<ms::Emission>& out) const;
     void gatherActiveDircmBeams(std::vector<ms::DircmBeam>& out) const;
+    void applyPntCouplingToSensed(Entry& e, double nowS) const noexcept;
+    void evaluateWeaponGnssJamming();
     std::vector<std::size_t> sensing_;   ///< the slots whose sensors look this step
     std::vector<ms::Emission> emissions_; ///< what radiates this step: every vehicle's radars, jammers and datalink carriers
     std::vector<sim::VehicleState> c2EmissionStates_; ///< synthetic carrier states for C2 nodes emitting datalink traffic
