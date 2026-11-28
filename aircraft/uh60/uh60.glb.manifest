@@ -2,3 +2,9 @@
 forward -y
 up +z
 scale 1.0
+# turboshaft exhaust stacks: <engine> <x> <y> <z> <radius> [<exhaust_k>] (body axes from the origin, m)
+exhaust 0 -1.450 -0.820 -0.680 0.175 840
+exhaust 1 -1.450 0.820 -0.680 0.175 840
+# rotors: <engine> <x> <y> <z> <radius> <nx> <ny> <nz> (body axes from the origin, m)
+rotor 0 0.488 0.000 -1.722 8.180 0.0000 0.0000 -1.0000
+rotor 1 -9.439 0.477 -2.142 1.676 0.0000 1.0000 0.0000

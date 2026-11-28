@@ -26,6 +26,7 @@
 #include "fsim/MissionSystems.h"
 #include "foundation/transport/DebrisSegmentV1.h"
 #include "foundation/transport/CombatVfxSegmentV1.h"
+#include "foundation/transport/TacticalOverlaySegmentV1.h"
 #include "foundation/transport/Recording.h"
 #include "foundation/transport/WeaponDiagnosticsV1.h"
 #include "foundation/transport/WeaponDiagnosticCaptureBindingV1.h"
@@ -43,6 +44,7 @@
 #include "visualization/ui/CameraPreview.h"
 #include "visualization/ui/MissionGui.h"
 #include "visualization/ui/MonitorGui.h"
+#include "visualization/ui/TacticalOverlays.h"
 #include "visualization/ui/ViewerControls.h"
 #include "visualization/ui/WeaponDiagnosticsGui.h"
 #include "visualization/vfx/effects/Airflow.h"
@@ -144,6 +146,8 @@ struct ViewerOptions {
 
     render::ViewerSettings window;
     int cameraMode = 1; // orbit
+    std::uint32_t tacticalOverlayMask = 0u; ///< --overlays (default 0 = OFF, 0.0 ms)
+    bool pipEnabled = false;                ///< --pip (default OFF, 0.0 ms)
     std::string view;   // --view lat,lon,alt_m,distance_m[,azimuth_deg,elevation_deg]: start detached, looking at that point
     double chaseDistance = 40.0;
     bool chaseDistanceSet = false; // --chase-distance given: start there, even attached to a world
@@ -181,7 +185,9 @@ void usage(const char* prog) {
         "  --list                   list live worlds and exit\n"
         "\n"
         "  --view lat,lon,alt,dist[,az,el]   start looking at that place\n"
-        "  --camera chase|orbit|overview|free\n"
+        "  --camera chase|orbit|overview|free|weapon|cockpit\n"
+        "  --overlays all|none|radar,jammer,esm,links,weapons,swaths\n"
+        "  --pip                    enable real-time Vulkan PiP inset camera\n"
         "  --aircraft <name>        JSBSim aircraft for --demo (c172x)\n"
         "  --vehicles <n>           how many (8)\n"
         "\n"
@@ -197,7 +203,7 @@ void usage(const char* prog) {
         "Most of what the flags reach is in config/viewer.json - map\n"
         "sources, where the tiles live - and a flag overrides the file for one run.\n"
         "\n"
-        "Keys: space pause, . step, tab next vehicle, c camera, -/= zoom, r reset view,\n"
+        "Keys: space pause, . step, tab next vehicle, c camera, o overlays, i pip, -/= zoom, r reset view,\n"
         "      esc quit\n"
         "Mouse: left drag rotates, space + left drag pans (not while locked to a vehicle), wheel zooms towards the pointer\n",
         prog);
@@ -261,13 +267,15 @@ void usageAll(const char* prog) {
         "  --model-scale <x>        model scale (1.0)\n"
         "  --width <px> --height <px> --fullscreen --msaa <1|2|4|8> --fov <deg> --max-fps <n> (0 = vsync only)\n"
         "  --debug-layer            Vulkan validation layer\n"
-        "  --camera chase|orbit|overview|free   initial camera (orbit)\n"
+        "  --camera chase|orbit|overview|free|weapon|cockpit   initial camera (orbit)\n"
+        "  --overlays all|none|radar,jammer,esm,links,weapons,swaths   initial 3-D tactical/EMSO overlays (none)\n"
+        "  --pip                    enable real-time Vulkan Picture-in-Picture inset camera (off)\n"
         "  --chase-distance <m>     start this far from the vehicle (40; attached to a world the view\n"
         "                           starts regional unless this is given)\n"
         "  --chase-azimuth <deg>  --chase-elevation <deg>   where the camera sits (180 = behind, 14 up)\n"
         "  --follow <slot>          start on that vehicle, or go to it when it appears (zero-based recording slot; native scene evidence reports entity slots)\n"
         "  --log-level <lvl>\n"
-        "Keys: space pause (demo), . step (demo), tab next vehicle, c camera, -/= zoom, r reset view,\n"
+        "Keys: space pause (demo), . step (demo), tab next vehicle, c camera, o overlays, i pip, -/= zoom, r reset view,\n"
         "      esc quit\n"
         "Mouse: left drag rotates, wheel zooms (6 m .. whole Earth), space + left drag pans - drags the globe in free mode or\n"
         "      while no vehicle exists; locked to a vehicle the camera only rotates; the eye never goes below the terrain\n",
@@ -434,8 +442,31 @@ bool parse(int argc, char** argv, ViewerOptions& o) {
             else if (a == "--view") { o.view = next(); o.cameraMode = 3; }
             else if (a == "--camera") {
                 const std::string v = next();
-                o.cameraMode = v == "orbit" ? 1 : v == "overview" ? 2 : v == "free" ? 3 : 0;
-            } else if (a == "--probe") o.probe = true;
+                o.cameraMode = v == "orbit" ? 1 : v == "overview" ? 2 : v == "free" ? 3
+                             : v == "weapon" ? 4 : v == "cockpit" ? 5 : 0;
+            } else if (a == "--overlays") {
+                const std::string v = next();
+                std::uint32_t mask = 0u;
+                if (v == "all") mask = ui::kOverlayAll;
+                else if (v != "none" && v != "off") {
+                    std::size_t pos = 0;
+                    while (pos <= v.size()) {
+                        const auto comma = v.find(',', pos);
+                        const std::string tok = v.substr(pos, comma == std::string::npos ? std::string::npos : comma - pos);
+                        if (tok == "radar") mask |= ui::kOverlayRadar;
+                        else if (tok == "jammer" || tok == "ea") mask |= ui::kOverlayJammer;
+                        else if (tok == "esm" || tok == "rwr") mask |= ui::kOverlayEsm;
+                        else if (tok == "links" || tok == "link" || tok == "c2") mask |= ui::kOverlayLinks;
+                        else if (tok == "weapons" || tok == "dlz" || tok == "wez") mask |= ui::kOverlayWeapons;
+                        else if (tok == "swaths" || tok == "sar" || tok == "weather") mask |= ui::kOverlaySwaths;
+                        else if (tok == "all") mask = ui::kOverlayAll;
+                        if (comma == std::string::npos) break;
+                        pos = comma + 1;
+                    }
+                }
+                o.tacticalOverlayMask = mask;
+            } else if (a == "--pip") o.pipEnabled = true;
+            else if (a == "--probe") o.probe = true;
             else if (a == "--stats") o.stats = std::stod(next());
             else if (a == "--stats-budget") o.statsBudgetMs = std::stod(next());
             else if (a == "--screenshot") o.screenshot = next();
@@ -578,6 +609,8 @@ int main(int argc, char** argv) {
     ipc::DebrisFrameV1 activeDebrisFrame;
     ipc::CombatVfxReplayV1 combatVfxReplay;
     ipc::CombatVfxFrameV1 activeCombatVfxFrame;
+    ipc::TacticalOverlayReplayV1 tacticalReplay;
+    ipc::TacticalOverlayFrameV1 activeTacticalFrame;
     ipc::BoundWeaponDiagnosticsReplayV1 weaponDiagnosticsReplay;
     bool weaponDiagnosticsReplayLoaded = false;
     std::unique_ptr<ipc::WeaponDiagnosticFrameV1> weaponDiagnosticsReplayScratch;
@@ -633,6 +666,15 @@ int main(int argc, char** argv) {
                 LOG_WARN("app") << "could not load combat VFX companion '" << vfxCompanion << "': " << vfxError;
             }
         }
+        const auto tactCompanion = opt.replayPath + ".tact";
+        if (std::filesystem::is_regular_file(tactCompanion, companionError)) {
+            std::string tactError;
+            if (tacticalReplay.load(tactCompanion, &tactError)) {
+                LOG_INFO("app") << "tactical overlay companion '" << tactCompanion << "' (" << tacticalReplay.frameCount() << " frames)";
+            } else {
+                LOG_WARN("app") << "could not load tactical overlay companion '" << tactCompanion << "': " << tactError;
+            }
+        }
     }
     const bool replay = !recording.frames().empty();
     std::size_t replayFrame = static_cast<std::size_t>(-1);
@@ -682,6 +724,11 @@ int main(int argc, char** argv) {
     const auto addBackdrop = [&](vsg::ref_ptr<vsg::Node> node) {
         auto visible = vsg::Switch::create();
         visible->addChild(vsg::MASK_ALL & ~vsg::Mask(1), node);
+        scene->addChild(visible);
+    };
+    const auto addMainOnlyBackdrop = [&](vsg::ref_ptr<vsg::Node> node) {
+        auto visible = vsg::Switch::create();
+        visible->addChild(vsg::MASK_ALL & ~vsg::Mask(1) & ~render::Viewer::kNotInPip, node);
         scene->addChild(visible);
     };
     int day = 172; double hours = 12.0;
@@ -768,7 +815,7 @@ int main(int argc, char** argv) {
         if (ownSky) clouds.setWeather(*ownSky);
         if (opt.seaWindMs >= 0.0) clouds.setSeaWind(opt.seaWindMs);
     }
-    addBackdrop(clouds.under()); // (the clouds' shade on the ground, and the sea)
+    addMainOnlyBackdrop(clouds.under()); // (the clouds' shade on the ground, and the sea)
     if (atmosphere) addBackdrop(atmosphere->node());
 
     world::VehicleVisuals::Settings visualSettings;
@@ -802,7 +849,7 @@ int main(int argc, char** argv) {
     world::DebrisVisuals debris(viewer.options(), cloudFiles ? *cloudFiles / "shaders" : std::filesystem::path{});
     addBackdrop(debris.solidNode());
     world::GpuParticles combatParticles(viewer.options(), cloudFiles ? *cloudFiles / "shaders" : std::filesystem::path{});
-    addBackdrop(clouds.over());
+    addMainOnlyBackdrop(clouds.over());
     world::Trails trails(slots, 900, 0.25, viewer.options());
     addBackdrop(trails.node());
     // After the vehicles: vapour and contrails blend over them.
@@ -831,12 +878,12 @@ int main(int argc, char** argv) {
         airflow.setAircraft(slot, m ? m->wingspanM : 0.0, m ? m->emptyMassKg + m->pointMassKg : 0.0);
         if (flow) flow->setAircraft(slot, m ? m->wingspanM : 0.0, m ? m->emptyMassKg + m->pointMassKg : 0.0);
     };
-    addBackdrop(airflow.node());
+    addMainOnlyBackdrop(airflow.node());
     // the engagement's detonations and fires (MS-7h), solved as a fluid by NVIDIA Flow: the one way they are drawn
     flow = std::make_unique<world::FlowVolumes>(viewer.options(), cloudFiles ? *cloudFiles / "shaders" : std::filesystem::path{},
                                                 clouds.atmosphere(), viewer.coarseShading());
     if (flow->available()) {
-        addBackdrop(flow->node());
+        addMainOnlyBackdrop(flow->node());
         airflow.setFireHandOver(world::FlowVolumes::nearFieldThinning());
     }
     else {
@@ -874,8 +921,12 @@ int main(int argc, char** argv) {
     auto storeRecord = std::make_unique<ipc::MissionRecord>();
     std::vector<std::uint64_t> storeRevision; // per slot: the mission record's revision last drawn (~0: read it again)
     controls->cameraMode.store(opt.cameraMode);
+    controls->tacticalOverlayMask.store(opt.tacticalOverlayMask, std::memory_order_relaxed);
+    controls->pipEnabled.store(opt.pipEnabled, std::memory_order_relaxed);
     auto gui = ui::MonitorGui::create(controls, replay ? "replay " + opt.replayPath : opt.aircraft);
     auto imgui = viewer.createImGui(); // (for the pass over the scene, where it is drawn last)
+    auto tacticalOverlays = ui::TacticalOverlays::create(controls, viewer.window()->getOrCreateDevice()->deviceID);
+    imgui->addChild(tacticalOverlays);
     imgui->addChild(gui);
     auto cameraPreview = ui::CameraPreview::create(controls, [&viewer](vsg::ref_ptr<vsg::Object> o) { return viewer.compile(o); },
                                                    viewer.window()->getOrCreateDevice()->deviceID);
@@ -937,8 +988,13 @@ int main(int argc, char** argv) {
             {clouds.under(), "clouds under"}, {visuals.node(), "vehicles+exhaust"}, {debris.solidNode(), "debris solid"},
             {clouds.over(), "clouds over"}, {trails.node(), "trails"}, {airflow.node(), "contrails"},
             {flow ? flow->node() : vsg::ref_ptr<vsg::Node>{}, "flow"}};
+        auto addMainMark = [&](const char* label) {
+            auto sw = vsg::Switch::create();
+            sw->addChild(render::Viewer::kNotInPip, gpuTimer.mark(label));
+            return sw;
+        };
         auto marked = vsg::Group::create();
-        marked->addChild(gpuTimer.mark("prepass, pass begin"));
+        marked->addChild(addMainMark("prepass, pass begin"));
         for (const auto& child : scene->children) {
             marked->addChild(child);
             vsg::Node* inner = child.get();
@@ -946,7 +1002,7 @@ int main(int argc, char** argv) {
             std::string label = "sky, earth, rest";
             for (const auto& [node, name] : named)
                 if (node && (node.get() == child.get() || node.get() == inner)) label = name;
-            marked->addChild(gpuTimer.mark(label));
+            marked->addChild(addMainMark(label.c_str()));
         }
         scene = marked;
     }
@@ -981,7 +1037,9 @@ int main(int argc, char** argv) {
     overGroup->addChild(combatParticles.drawNode());
     if (opt.stats > 0.0) overGroup->addChild(gpuTimer.mark("combat vfx"));
     vsg::ref_ptr<vsg::Node> over = overGroup;
+    viewer.enablePip(480, 270); // VIS-M14: toggleable zero-copy offscreen Vulkan PiP pass (0.0 ms when OFF)
     if (!viewer.setScene(scene, ellipsoid, imgui, beforePass, over, betweenPass)) return 1;
+    tacticalOverlays->setPipSource(viewer.pipDescriptorSet(), viewer.pipExtent().width, viewer.pipExtent().height);
     vapour.compiled();
     if (flow) flow->compiled();
     debris.compiled();
@@ -1167,12 +1225,15 @@ int main(int argc, char** argv) {
         std::uint64_t flowWaiting = 0;
         std::uint64_t flowLeaves = 0, flowPages = 0;
         int flowFrames = 0;
+        double tactMs = 0.0;
     } stats;
     // the world's environment as the scene draws it - its clouds (unless --clouds gave a sky of its own), the air the
     // contrails, smoke and vapour form in, and the sun by its clock (unless --sun-utc): a live world's every frame, a
     // replay's as its recording has it (format 4; an older recording none: the defaults)
     std::optional<sim::EnvironmentState> replayEnvironment;
+    double envHumidity = 0.0;
     const auto applyEnvironment = [&](const sim::EnvironmentState& env) {
+        if (std::isfinite(env.humidity)) envHumidity = std::clamp(env.humidity, 0.0, 1.0);
         if (!ownSky) {
             world::Clouds::Weather w;
             w.cover = std::isfinite(env.cloudCover) ? env.cloudCover : 0.0;
@@ -1605,6 +1666,7 @@ int main(int argc, char** argv) {
         const bool anyAlive = std::any_of(alive.begin(), alive.end(), [](unsigned char a) { return a != 0; });
         const ipc::DebrisFrameV1* debrisFramePtr = nullptr;
         const ipc::CombatVfxFrameV1* combatVfxFramePtr = nullptr;
+        const ipc::TacticalOverlayFrameV1* tacticalFramePtr = nullptr;
         double debrisClock = 0.0;
         if (batch) {
             if (shotsOnReplay) interpolator.updateAt(replayTime);
@@ -1622,6 +1684,11 @@ int main(int argc, char** argv) {
             } else if (mirror.valid()) {
                 combatVfxFramePtr = &mirror.combatVfx();
             }
+            if (replay && !tacticalReplay.empty()) {
+                if (tacticalReplay.atTime(debrisClock, activeTacticalFrame)) tacticalFramePtr = &activeTacticalFrame;
+            } else if (mirror.valid()) {
+                tacticalFramePtr = &mirror.tactical();
+            }
             std::vector<unsigned char> retiredNow(slots, 0);
             if (debrisFramePtr) {
                 for (const auto& vd : debrisFramePtr->vehicles)
@@ -1630,7 +1697,7 @@ int main(int argc, char** argv) {
             for (std::size_t i = 0; i < slots; ++i) visuals.setHullRetired(i, retiredNow[i] != 0);
             visuals.setWeaponControlsTime(interpolator.renderSimTime(),opt.interpolate);
             visuals.setExhaust(true);
-            visuals.update(Span<const sim::VehicleState>(states));
+            visuals.update(Span<const sim::VehicleState>(states), tacticalFramePtr);
             viewer.setSceneCopied(!visuals.flames().empty()); // (the exhausts' heat haze reads it; nothing else does)
             visuals.setSelected(selected);
             trails.setSelected(selected);
@@ -1639,11 +1706,59 @@ int main(int argc, char** argv) {
 
             controls->snapshotSequence.store(batch->sequence, std::memory_order_relaxed);
         }
-        camera->setMode(static_cast<world::CameraController::Mode>(controls->cameraMode.load(std::memory_order_relaxed)));
+        const auto isWeaponSlot = [&](std::size_t slot) -> bool {
+            if (slot >= slots || !alive[slot]) return false;
+            if (!visuals.shape(slot).rockets.empty()) return true;
+            if (slot < meta.size()) {
+                const auto& t = meta[slot].type;
+                if (t.find("aim") != std::string::npos || t.find("mk8") != std::string::npos || t.find("gbu") != std::string::npos ||
+                    t.find("agm") != std::string::npos || t.find("r27") != std::string::npos || t.find("r73") != std::string::npos ||
+                    t.find("r77") != std::string::npos || t.find("pl1") != std::string::npos || t.find("meteor") != std::string::npos ||
+                    t.find("mica") != std::string::npos || t.find("missile") != std::string::npos || t.find("bomb") != std::string::npos)
+                    return true;
+            }
+            return false;
+        };
+        int newestWeaponSlot = -1;
+        std::uint32_t newestWeaponId = 0;
+        for (std::size_t i = 0; i < slots; ++i) {
+            if (!isWeaponSlot(i)) continue;
+            const std::uint32_t vid = visualVehicleSeen[i] != 0 ? visualVehicleSeen[i] : static_cast<std::uint32_t>(i + 1u);
+            if (newestWeaponSlot < 0 || vid >= newestWeaponId) {
+                newestWeaponSlot = static_cast<int>(i);
+                newestWeaponId = vid;
+            }
+        }
+        const auto camMode = static_cast<world::CameraController::Mode>(controls->cameraMode.load(std::memory_order_relaxed));
+        camera->setMode(camMode);
         if (const double z = controls->cameraZoom.exchange(1.0); z != 1.0) camera->zoom(z);
         if (controls->cameraReset.exchange(false)) camera->resetView();
-        const sim::VehicleState* target = (batch && anyAlive && selected >= 0)
-            ? &(opt.interpolate ? interpolator.states() : batch->states)[static_cast<std::size_t>(selected)] : nullptr;
+        int cameraSlot = selected;
+        if (camMode == world::CameraController::Mode::Weapon && newestWeaponSlot >= 0) {
+            cameraSlot = newestWeaponSlot;
+        }
+        // In Cockpit mode hide own-aircraft mesh so canopy interior does not clip the camera; restore all other slots.
+        for (std::size_t i = 0; i < slots; ++i) {
+            const bool hideOwn = (camMode == world::CameraController::Mode::Cockpit && static_cast<int>(i) == cameraSlot);
+            visuals.setMask(i, hideOwn ? vsg::MASK_OFF : vsg::MASK_ALL);
+        }
+        if (camMode == world::CameraController::Mode::Cockpit && cameraSlot >= 0 && static_cast<std::size_t>(cameraSlot) < slots) {
+            const auto& sh = visuals.shape(static_cast<std::size_t>(cameraSlot));
+            vsg::dvec3 eyeBody(std::max(2.2, sh.hi.x * 0.42), 0.0, sh.valid ? std::min(-0.6, sh.lo.z * 0.55) : -0.75);
+            bool foundCrew = false;
+            double bestCrewX = -1e9;
+            for (const auto& c : sh.components) {
+                if (c.kind == "crew" && c.at.x > bestCrewX) {
+                    bestCrewX = c.at.x;
+                    eyeBody = vsg::dvec3(c.at.x + 0.15, c.at.y, c.at.z - 0.14);
+                    foundCrew = true;
+                }
+            }
+            (void)foundCrew;
+            camera->setCockpitEyeBodyM(eyeBody);
+        }
+        const sim::VehicleState* target = (batch && anyAlive && cameraSlot >= 0)
+            ? &(opt.interpolate ? interpolator.states() : batch->states)[static_cast<std::size_t>(cameraSlot)] : nullptr;
         if (target) {
             cameraHeldAfterDeath = false;
             deathGlideActive = false;
@@ -1674,7 +1789,7 @@ int main(int argc, char** argv) {
                 cameraHeldAfterDeath = true;
             }
         }
-        camera->setTargetRadius(target ? visuals.shape(static_cast<std::size_t>(selected)).reach() : 0.0);
+        camera->setTargetRadius(target && cameraSlot >= 0 ? visuals.shape(static_cast<std::size_t>(cameraSlot)).reach() : 0.0);
         camera->update(target, viewer.frameSeconds());
         // After an aircraft explodes and its simulation instance is destroyed, smoothly track the major breaking-apart
         // airframe sections (nose/centre/wings/tail) until the airframe thoroughly disperses, then ease smoothly to a stop!
@@ -1844,7 +1959,8 @@ int main(int argc, char** argv) {
                     }
                 airflow.setFuelFlows(fuelFlows);
                 airflow.setClock(drawnTime);
-                airflow.update(drawn, alive, visuals, viewer.camera()->projectionMatrix->transform(), viewer.lookAt()->eye, *ellipsoid, sunDir);
+                airflow.update(drawn, alive, visuals, viewer.camera()->projectionMatrix->transform(), viewer.lookAt()->eye, *ellipsoid, sunDir,
+                               tacticalFramePtr);
                 world::DebrisVisuals::FlowInterleave flowRef;
                 if (flow) {
                     const vsg::dmat4 viewMat = viewer.camera()->viewMatrix->transform();
@@ -1876,6 +1992,7 @@ int main(int argc, char** argv) {
                 } else {
                     debris.clear();
                 }
+                combatParticles.addRotorEffects(drawn, alive, visuals, tacticalFramePtr, envHumidity, debrisClock);
                 combatParticles.update(combatVfxFramePtr, debrisFramePtr, viewer.camera()->viewMatrix->transform(),
                                        viewer.camera()->projectionMatrix->transform(), ext.width, ext.height,
                                        viewer.lookAt()->eye, camRight, camUp, sunDir, light, debrisClock,
@@ -1883,6 +2000,109 @@ int main(int argc, char** argv) {
                 viewer.setSceneDepthCopied((flow && flow->active()) || debris.trailQuadCount() > 0 || combatParticles.active());
                 vapour.update(drawn, alive, visuals, viewer.camera()->viewMatrix->transform(), viewer.camera()->projectionMatrix->transform(),
                               viewer.lookAt()->eye, sunDir, light);
+
+                // VIS-M14: Vulkan Picture-in-Picture (PiP) director + 3-D Tactical & EMSO overlays + Cockpit HUD.
+                const bool wantPip = controls->pipEnabled.load(std::memory_order_relaxed) && viewer.pipLookAt() != nullptr && anyAlive;
+                int pipSlot = -1;
+                std::string pipTitle = "PIP INSET";
+                std::string pipSub;
+                if (wantPip) {
+                    const int pMode = controls->pipMode.load(std::memory_order_relaxed);
+                    if ((pMode == 0 || pMode == 1) && newestWeaponSlot >= 0) {
+                        pipSlot = newestWeaponSlot;
+                        pipTitle = "WEAPON CAM";
+                    }
+                    if (pipSlot < 0 && (pMode == 0 || pMode == 2)) {
+                        if (tacticalFramePtr && selected >= 0) {
+                            for (const auto& r : tacticalFramePtr->radars) {
+                                if (static_cast<int>(r.slot) == selected && r.targetId != 0u) {
+                                    for (std::size_t si = 0; si < slots; ++si) {
+                                        if (alive[si] && visualVehicleSeen[si] == r.targetId) {
+                                            pipSlot = static_cast<int>(si);
+                                            pipTitle = "LOCKED TARGET";
+                                            break;
+                                        }
+                                    }
+                                    if (pipSlot >= 0) break;
+                                }
+                            }
+                            if (pipSlot < 0) {
+                                for (const auto& w : tacticalFramePtr->weapons) {
+                                    if (static_cast<int>(w.slot) == selected && (w.flags & ipc::kTactWeaponHasDlz) != 0u) {
+                                        const vsg::dvec3 tp(w.targetEcef[0], w.targetEcef[1], w.targetEcef[2]);
+                                        double bestD2 = 1e12;
+                                        for (std::size_t si = 0; si < slots && si < drawn.size(); ++si) {
+                                            if (!alive[si] || static_cast<int>(si) == selected) continue;
+                                            const vsg::dvec3 p(drawn[si].positionEcef[0], drawn[si].positionEcef[1], drawn[si].positionEcef[2]);
+                                            const double d2 = vsg::length2(p - tp);
+                                            if (d2 < bestD2) {
+                                                bestD2 = d2;
+                                                pipSlot = static_cast<int>(si);
+                                                pipTitle = "DESIGNATED TGT";
+                                            }
+                                        }
+                                        if (pipSlot >= 0) break;
+                                    }
+                                }
+                            }
+                        }
+                        if (pipSlot < 0) {
+                            double bestDist2 = 1e30;
+                            const vsg::dvec3 refPos = (cameraSlot >= 0 && static_cast<std::size_t>(cameraSlot) < drawn.size())
+                                                          ? vsg::dvec3(drawn[static_cast<std::size_t>(cameraSlot)].positionEcef[0],
+                                                                       drawn[static_cast<std::size_t>(cameraSlot)].positionEcef[1],
+                                                                       drawn[static_cast<std::size_t>(cameraSlot)].positionEcef[2])
+                                                          : viewer.lookAt()->center;
+                            for (std::size_t i = 0; i < slots && i < drawn.size(); ++i) {
+                                if (!alive[i] || static_cast<int>(i) == cameraSlot) continue;
+                                const vsg::dvec3 p(drawn[i].positionEcef[0], drawn[i].positionEcef[1], drawn[i].positionEcef[2]);
+                                const double d2 = vsg::length2(p - refPos);
+                                if (d2 < bestDist2) {
+                                    bestDist2 = d2;
+                                    pipSlot = static_cast<int>(i);
+                                    pipTitle = isWeaponSlot(i) ? "WEAPON CAM" : "TACTICAL CAM";
+                                }
+                            }
+                        }
+                        if (pipSlot < 0 && selected >= 0 && static_cast<std::size_t>(selected) < drawn.size() && alive[static_cast<std::size_t>(selected)]) {
+                            pipSlot = selected;
+                            pipTitle = "OWNSHIP EXT";
+                        }
+                    }
+                }
+                const bool pipActive = wantPip && pipSlot >= 0 && static_cast<std::size_t>(pipSlot) < drawn.size();
+                viewer.setPipEnabled(pipActive);
+                if (pipActive) {
+                    const auto& ps = drawn[static_cast<std::size_t>(pipSlot)];
+                    const vsg::dvec3 pPos(ps.positionEcef[0], ps.positionEcef[1], ps.positionEcef[2]);
+                    const vsg::dvec3 pUp = vsg::length(pPos) > 1.0 ? vsg::normalize(pPos) : vsg::dvec3(0.0, 0.0, 1.0);
+                    const double* R = ps.rotationBodyToEcef;
+                    vsg::dvec3 pFwd(R[0], R[3], R[6]);
+                    if (vsg::length2(pFwd) < 0.25) pFwd = vsg::dvec3(1.0, 0.0, 0.0);
+                    else pFwd = vsg::normalize(pFwd);
+                    const bool isWpn = isWeaponSlot(static_cast<std::size_t>(pipSlot));
+                    const double dist = isWpn ? 9.5 : std::max(26.0, visuals.shape(static_cast<std::size_t>(pipSlot)).reach() * 3.0);
+                    const vsg::dvec3 right = vsg::normalize(vsg::cross(pFwd, pUp));
+                    viewer.pipLookAt()->center = pPos;
+                    viewer.pipLookAt()->eye = pPos - pFwd * dist + pUp * (dist * 0.24) + right * (dist * 0.14);
+                    viewer.pipLookAt()->up = pUp;
+                    char subBuf[96];
+                    const std::string callsign = (static_cast<std::size_t>(pipSlot) < meta.size() && !meta[static_cast<std::size_t>(pipSlot)].name.empty())
+                                                     ? meta[static_cast<std::size_t>(pipSlot)].name
+                                                     : ("slot " + std::to_string(pipSlot));
+                    std::snprintf(subBuf, sizeof subBuf, "%s | M%.2f | %.0f m", callsign.c_str(), ps.mach, ps.altitudeMslM);
+                    pipSub = subBuf;
+                }
+                tacticalOverlays->update(tacticalFramePtr, drawn, alive, meta, selected, camMode,
+                                         viewer.camera()->viewMatrix->transform(), viewer.camera()->projectionMatrix->transform(),
+                                         viewer.lookAt()->eye, ext.width, ext.height, debrisClock, pipActive, pipTitle, pipSub);
+                stats.tactMs += tacticalOverlays->lastDrawMs();
+            } else {
+                viewer.setPipEnabled(false);
+                tacticalOverlays->update(nullptr, {}, alive, meta, selected, camMode,
+                                         viewer.camera()->viewMatrix->transform(), viewer.camera()->projectionMatrix->transform(),
+                                         viewer.lookAt()->eye, viewer.window()->extent2D().width, viewer.window()->extent2D().height,
+                                         0.0, false, {}, {});
             }
         }
         // the vehicles' depth, drawn while the vapour reads it
@@ -2034,11 +2254,12 @@ int main(int argc, char** argv) {
             if (stats.window >= 1.0) {
                 const double cpu = platform::processCpuSeconds();
                 const double n = static_cast<double>(stats.frames);
-                std::printf("stats t=%5.1f  %5.1f fps  frame avg %5.2f max %5.2f ms | app %4.2f advance %5.2f events %4.2f update %4.2f record %4.2f present %5.2f sleep %5.2f ms | cpu %5.1f%% | vehicles %zu\n",
+                std::printf("stats t=%5.1f  %5.1f fps  frame avg %5.2f max %5.2f ms | app %4.2f advance %5.2f events %4.2f update %4.2f record %4.2f present %5.2f sleep %5.2f ms | cpu %5.1f%% | vehicles %zu | tact %.3f ms\n",
                             wallSeconds, n / stats.window, stats.window / n * 1e3, stats.maxFrame * 1e3, stats.sum.app / n * 1e3, stats.sum.advance / n * 1e3,
                             stats.sum.events / n * 1e3, stats.sum.update / n * 1e3, stats.sum.record / n * 1e3, stats.sum.present / n * 1e3,
                             stats.sum.sleep / n * 1e3, (cpu - stats.cpu0) / stats.window * 100.0,
-                            static_cast<std::size_t>(std::count(alive.begin(), alive.end(), 1)));
+                            static_cast<std::size_t>(std::count(alive.begin(), alive.end(), 1)),
+                            stats.tactMs / n);
                 const auto& w = stats.worst;
                 std::printf("worst | app %.2f advance %.2f events %.2f update %.2f record %.2f present %.2f sleep %.2f ms | %d late\n",
                             w.app * 1e3, w.advance * 1e3, w.events * 1e3, w.update * 1e3, w.record * 1e3, w.present * 1e3, w.sleep * 1e3,

@@ -1468,25 +1468,30 @@ def refresh_engine_lines(aircraft, manifest, origin=None):
 def engine_lines(aircraft):
     """The manifest's lines for the jets' kinds, the exhaust the viewer draws
     at their fsim:afterburner nodes: `engine <index> <bypass ratio>
-    <afterburner 0|1>`, one per engine index those nodes follow (the first
-    engine on it). Without them the viewer draws every jet as a fighter's
-    augmented turbofan - a tanker's nozzles glowed orange at cruise."""
+    <afterburner 0|1> [<dry kN> <wet kN> <tsfc dry> <tsfc wet> [<exhaust_k>]]`,
+    supporting up to 8 engines (B-57) plus optional per-engine turbine exit
+    temperature."""
     from .jsbsim import _engine_units
     lines, seen = [], set()
     for i, (e, _) in enumerate(_engine_units(aircraft)):
-        k = _engine_joint(i)
+        k = i if i < 8 else _engine_joint(i)
         if e.type != "turbofan" or k in seen:
             continue
         seen.add(k)
         if not lines:
             lines.append("# jet engines by index: <bypass ratio> <afterburner 0|1> <dry thrust, kN> <thrust with reheat, kN (0: none)>"
-                         " <fuel a second for each kN, dry and with reheat, g/(kN s)>")
+                         " <fuel a second for each kN, dry and with reheat, g/(kN s)> [<turbine exit K>]")
         # (its ratings, the design's: what its plume is drawn from - a reheat's temperature from the thrust it adds;
         # its specific fuel consumption lb/(lbf h) in SI)
         tsfc = lambda v: float(v or 0.0) * 0.45359237 / (4.4482216152605 * 3600.0) * 1e6  # noqa: E731
-        lines.append("engine %d %.3f %d %.2f %.2f %.3f %.3f" % (
+        spec = getattr(e, "spec", None) or {}
+        exhaust_k = spec.get("exhaust_k")
+        row = "engine %d %.3f %d %.2f %.2f %.3f %.3f" % (
             k, float(getattr(e, "bypass_ratio", 0.0) or 0.0), 1 if e.thrust_wet_kn else 0, float(e.thrust_dry_kn or 0.0),
-            float(e.thrust_wet_kn or 0.0), tsfc(getattr(e, "tsfc_dry", 0.0)), tsfc(getattr(e, "tsfc_wet", 0.0))))
+            float(e.thrust_wet_kn or 0.0), tsfc(getattr(e, "tsfc_dry", 0.0)), tsfc(getattr(e, "tsfc_wet", 0.0)))
+        if exhaust_k is not None:
+            row += " %.0f" % float(exhaust_k)
+        lines.append(row)
     m = getattr(aircraft, "motor", None)
     if m is not None:
         # a missile's motor at its fsim:afterburner:0 node: `rocket <index> <smoke> <exit diameter m> <boost thrust kN>`

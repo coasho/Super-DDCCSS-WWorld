@@ -53,6 +53,7 @@
 #include "contracts/simulation/WorldOptions.h"
 #include "foundation/io/TerrainTiles.h"
 #include "foundation/transport/Recording.h"
+#include "foundation/transport/TacticalOverlaySegmentV1.h"
 #include "foundation/transport/WorldPublisher.h"
 #include "foundation/transport/WeaponDiagnosticsV1.h"
 #include "foundation/transport/WeaponThermalBandV1.h"
@@ -534,6 +535,8 @@ public:
     std::vector<ms::WeaponFeedbackV1> weaponFeedbackV1(std::uint32_t owner,std::uint32_t controller,std::uint32_t weapon,std::uint64_t assessment,std::uint64_t since) const;
     /// What a payload's passive sensor holds (MS-9a: a warning receiver's emitters).
     std::vector<ms::Contact> contacts(std::uint32_t id, std::uint16_t payload) const;
+    /// Read-only native Tactical & EMSO overlay snapshot (VIS-M14: radars, EA jammers, ESM CRLB, links, DLZ/LCOS/CCIP, swaths, extended propulsion).
+    ipc::TacticalOverlayFrameV1 tacticalOverlayFrame() const;
     ms::CommandResult cancelMission(std::uint32_t id, control::Caller caller, ms::ActivityId activity);
     /// The platform fails a payload (a contingency), or repairs it (back to off).
     ms::Reason failPayload(std::uint32_t id, std::uint16_t payload, bool failed);
@@ -1299,6 +1302,8 @@ private:
     ipc::RecordWriter recorder_;
     ipc::DebrisRecorderV1 debrisRecorder_;
     ipc::CombatVfxRecorderV1 combatVfxRecorder_;
+    ipc::TacticalOverlayRecorderV1 tacticalRecorder_;
+    ipc::TacticalOverlayFrameV1 collectTacticalOverlayFrame() const;
     struct TimedCombatVfxEvent {
         double simTime = 0.0;
         ipc::CombatVfxEventWireV1 wire;

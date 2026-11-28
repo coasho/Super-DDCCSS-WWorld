@@ -528,7 +528,8 @@ Airflow::Source* Airflow::source(int slot, bool create) {
 }
 
 void Airflow::update(Span<const sim::VehicleState> states, const std::vector<unsigned char>& alive, const VehicleVisuals& visuals,
-                     const vsg::dmat4& projection, const vsg::dvec3& eye, const vsg::EllipsoidModel& ellipsoid, const vsg::dvec3& sunEcef) {
+                     const vsg::dmat4& projection, const vsg::dvec3& eye, const vsg::EllipsoidModel& ellipsoid, const vsg::dvec3& sunEcef,
+                     const ipc::TacticalOverlayFrameV1* tactical) {
     if (!state_ || !visible_) return;
     const std::size_t n = std::min({states.size(), alive.size(), visuals.count()});
 
@@ -564,6 +565,11 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
         const double V = finite(st.airspeedTrueMs);
         const double altitude = finite(st.altitudeMslM);
         // the jets: their middle, how wide they lie and how wide each is
+        const ipc::TacticalPropulsionExtWireV1* propExt = nullptr;
+        if (tactical) {
+            for (const auto& pe : tactical->propulsion)
+                if (pe.slot == static_cast<std::uint32_t>(i)) { propExt = &pe; break; }
+        }
         vsg::dvec3 mid(0.0, 0.0, 0.0);
         double lo = 1e9, hi = -1e9, radius = 0.0, thrust = 0.0;
         for (const auto& jet : shape.jets) {
@@ -572,17 +578,26 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
             hi = std::max(hi, jet.exit.y);
             radius = std::max(radius, jet.radius);
             const int e = jet.engine;
-            if (e >= 0 && e < st.engineCount && e < sim::VehicleState::kMaxEngines) thrust += std::max(finite(st.thrustN[e]), 0.0);
+            if (!propExt && e >= 0 && e < st.engineCount && e < sim::VehicleState::kMaxEngines)
+                thrust += std::max(finite(st.thrustN[e]), 0.0);
+        }
+        double burnt = 0.0;
+        if (propExt && propExt->engineCount > 0u) {
+            // B-57: exact per-engine thrust and fuel flow across all 8 engines (e.g. B-52H 8x TF33).
+            for (std::uint32_t e = 0; e < std::min<std::uint32_t>(propExt->engineCount, ipc::kTacticalMaxEnginesV1); ++e) {
+                thrust += std::max(finite(propExt->thrustN[e]), 0.0);
+                burnt += std::max(finite(propExt->fuelFlowKgS[e]), 0.0);
+            }
         }
         mid = mid / static_cast<double>(shape.jets.size());
         // the fuel flow: what its engines burn as the simulation has it; not told (a recording from before it was),
         // the thrust's power over the fuel's energy at pycontrails' engine efficiency
-        double burnt = 0.0;
-        if (i < flows_.size())
+        if (burnt <= 0.0 && i < flows_.size()) {
             for (int e = 0; e < std::min(st.engineCount, sim::VehicleState::kMaxEngines); ++e)
                 burnt += std::isfinite(flows_[i][static_cast<std::size_t>(e)]) ? std::max(flows_[i][static_cast<std::size_t>(e)], 0.0) : 0.0;
-        // (engines past the state's four burn as the four do)
-        if (st.engineCount > sim::VehicleState::kMaxEngines) burnt *= static_cast<double>(st.engineCount) / sim::VehicleState::kMaxEngines;
+            // (engines past the state's four burn as the four do when extended propulsion sidecar is absent)
+            if (st.engineCount > sim::VehicleState::kMaxEngines) burnt *= static_cast<double>(st.engineCount) / sim::VehicleState::kMaxEngines;
+        }
         const double fuelFlow = burnt > 0.0 ? burnt : thrust * V / (kEngineEfficiency * kQFuel);
         const vsg::dvec2 known = i < aircraft_.size() ? aircraft_[i] : vsg::dvec2(0.0, 0.0);
         const double span = known.x > 0.0 ? known.x : std::max(2.0 * std::abs(shape.tip.y), 2.0);

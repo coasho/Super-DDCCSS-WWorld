@@ -1,7 +1,9 @@
 #pragma once
 #include "fsim/WeaponControls.h"
 
+#include "contracts/world_stream/TacticalOverlayLayoutV1.h"
 #include "foundation/core/Span.h"
+#include "foundation/transport/TacticalOverlaySegmentV1.h"
 #include "fsim/VehicleState.h"
 
 #include <vsg/all.h>
@@ -110,14 +112,25 @@ public:
         /// each one's ratings where its manifest gives them: its thrust dry and with reheat (N), the fuel a second each
         /// newton takes, dry and with reheat (kg/(N s)); 0: not said
         std::map<int, std::array<double, 4>> engineRatings;
-        /// engines without a nozzle on the model (a turboprop's, a piston engine's exhaust: the manifest's `exhaust`
+        /// engines without a nozzle on the model (a turboprop's, a turboshaft's, a piston engine's exhaust: the manifest's `exhaust`
         /// lines): the engine's index, where its exhaust leaves it (body axes from the model's origin, m), its radius
         struct ExhaustAt {
             int engine = 0;
             vsg::dvec3 at;
             double radius = 0.1;
+            double turbineExitK = 0.0; ///< optional exhaust stack temperature (K, B-59)
         };
         std::vector<ExhaustAt> exhausts;
+        /// per-engine full-dry turbine exit temperature override (K, optional 8th field on `engine` lines, B-57)
+        std::map<int, double> engineExhaustK;
+        /// main/tail rotor or propeller disk geometry (`rotor <engine> <x> <y> <z> <radius> <nx> <ny> <nz>`, B-59)
+        struct RotorAt {
+            int engine = 0;
+            vsg::dvec3 hub{0.0, 0.0, 0.0};
+            double radiusM = 0.0;
+            vsg::dvec3 axis{0.0, 0.0, -1.0}; ///< unit thrust/shaft axis in body frame (x fwd, y right, z down)
+        };
+        std::vector<RotorAt> rotors;
         /// a missile's rocket motors by their index (the manifest's `rocket` lines)
         std::map<int, Rocket> rockets;
         /// its store stations by number (the manifest's `station` lines)
@@ -168,7 +181,8 @@ public:
     }
 
     /// Write the latest snapshot into the transforms (render thread, per frame).
-    void update(Span<const sim::VehicleState> states);
+    /// Optional `tactical` carries B-57/B-59 8-engine and rotorcraft telemetry without breaking VehicleState.
+    void update(Span<const sim::VehicleState> states, const ipc::TacticalOverlayFrameV1* tactical = nullptr);
     void setWeaponControls(const ms::WeaponControlSnapshotV1& sample);
     /// One base snapshot on the same simulation/wall clock as the body interpolator.
     void setWeaponControlsFrame(double clock,const std::vector<ms::WeaponControlSnapshotV1>& samples);
@@ -235,11 +249,15 @@ public:
             vsg::dvec3 exit, direction; ///< the jet's centre as it leaves the nozzle, and which way it runs
             double radius = 0.0;
             int engine = 0;
+            bool exhaustStack = false;  ///< true for manifest-placed turboshaft/turboprop/piston exhaust stacks (B-59)
+            double turbineExitK = 0.0;  ///< optional stack gas temperature (K)
         };
-        std::vector<Jet> jets;          ///< the fsim:afterburner nodes at rest
+        std::vector<Jet> jets;          ///< the fsim:afterburner nodes at rest and placed manifest exhaust stacks
         std::vector<Surface> surfaces;  ///< from the manifest
         std::map<int, std::array<double, 4>> engineRatings; ///< from the manifest: thrust dry, with reheat (N); fuel per newton-second, dry, reheat
         std::map<int, std::pair<double, bool>> engines; ///< from the manifest: by index, the bypass ratio and an afterburner
+        std::map<int, double> engineExhaustK;           ///< from the manifest: optional turbine exit temperature (K, B-57)
+        std::vector<Settings::RotorAt> rotors;          ///< from the manifest: rotor/propeller hubs & radii (B-59)
         std::map<int, Rocket> rockets;                  ///< from the manifest: a missile's rocket motors, by index
         std::map<int, Station> stations;                ///< from the manifest: its store stations, by number (moved as the model is)
         std::vector<Component> components;              ///< from the manifest: its vulnerable components (moved and scaled as the model is)
@@ -371,10 +389,20 @@ public:
         vsg::ref_ptr<vsg::Node> normal, geometry; ///< the slot's copies (null: the shared graph)
         std::vector<Joint> joints;                ///< one per transform, both copies
         std::vector<vsg::ref_ptr<vsg::MatrixTransform>> transforms;
-        /// per transform: the Exhaust drawing it carries (-1 none), and the
-        /// switch between that drawing and the model's own flame
+        /// per transform: the Exhaust drawing it carries (-1 none), its logical engine index (0..7 for B-57),
+        /// and the switch between that drawing and the model's own flame
         std::vector<int> flames;
+        std::vector<int> flameEngines;
         std::vector<vsg::ref_ptr<vsg::Switch>> flameSwitches;
+        /// Placed manifest exhaust stacks (B-59: UH-1H, UH-60, C-130J, C172) without fsim:afterburner nodes.
+        struct PlacedFlame {
+            int flameSlot = -1;
+            int engine = 0;
+            double radius = 0.15;
+            double turbineExitK = 0.0;
+            vsg::dmat4 inModel;
+        };
+        std::vector<PlacedFlame> placedFlames;
     };
     const Pose& pose(std::size_t index) const { return poses_.at(index); }
 

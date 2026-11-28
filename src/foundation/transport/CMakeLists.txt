@@ -15,6 +15,7 @@ target_sources(fsim_ipc PRIVATE WeaponControlsSegment.h WeaponControlsSegment.cp
 target_sources(fsim_ipc PRIVATE FusionSegment.h FusionSegment.cpp)
 target_sources(fsim_ipc PRIVATE DebrisSegmentV1.h DebrisSegmentV1.cpp)
 target_sources(fsim_ipc PRIVATE CombatVfxSegmentV1.h CombatVfxSegmentV1.cpp)
+target_sources(fsim_ipc PRIVATE TacticalOverlaySegmentV1.h TacticalOverlaySegmentV1.cpp)
 target_sources(fsim_ipc PRIVATE WeaponDiagnosticsV1.h WeaponDiagnosticsV1.cpp)
 target_sources(fsim_ipc PRIVATE WeaponDiagnosticCaptureBindingV1.h WeaponDiagnosticCaptureBindingV1.cpp)
 target_include_directories(fsim_ipc SYSTEM PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/third_party/picosha2")

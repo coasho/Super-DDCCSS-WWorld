@@ -159,6 +159,19 @@ bool OfflineTiles::exists(Layer layer, unsigned z, unsigned x, unsigned y) const
     return std::filesystem::is_regular_file(path(layer, z, x, y), ec);
 }
 
+bool OfflineTiles::hasAnyInQuad(unsigned z, unsigned x, unsigned y) const {
+    const unsigned bx = x & ~1u, by = y & ~1u;
+    for (unsigned dy = 0; dy < 2; ++dy)
+        for (unsigned dx = 0; dx < 2; ++dx)
+            if (exists(Layer::Imagery, z, bx + dx, by + dy) || exists(Layer::Elevation, z, bx + dx, by + dy))
+                return true;
+    return false;
+}
+
+bool OfflineTiles::hasAnyChild(unsigned parentZ, unsigned parentX, unsigned parentY) const {
+    return hasAnyInQuad(parentZ + 1u, parentX * 2u, parentY * 2u);
+}
+
 vsg::ref_ptr<vsg::Object> OfflineTiles::read(const vsg::Path& filename, vsg::ref_ptr<const vsg::Options> options) const {
     Layer layer;
     unsigned z = 0, x = 0, y = 0;
@@ -169,12 +182,7 @@ vsg::ref_ptr<vsg::Object> OfflineTiles::read(const vsg::Path& filename, vsg::ref
     // Only where something real is: VSG reads the four children of a tile
     // together, so the question is whether any of them has anything at this
     // level. If none does, decline, the read fails, and the parent stays.
-    const unsigned bx = x & ~1u, by = y & ~1u;
-    bool anyReal = false;
-    for (unsigned dy = 0; dy < 2 && !anyReal; ++dy)
-        for (unsigned dx = 0; dx < 2 && !anyReal; ++dx)
-            anyReal = exists(Layer::Imagery, z, bx + dx, by + dy) || exists(Layer::Elevation, z, bx + dx, by + dy);
-    if (!anyReal) return {};
+    if (!hasAnyInQuad(z, x, y)) return {};
 
     // The nearest real ancestor in this layer, and this tile's share of it.
     for (unsigned d = 1; d <= z; ++d) {

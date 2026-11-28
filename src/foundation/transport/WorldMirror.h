@@ -6,6 +6,7 @@
 #include "foundation/transport/FusionSegment.h"
 #include "foundation/transport/DebrisSegmentV1.h"
 #include "foundation/transport/CombatVfxSegmentV1.h"
+#include "foundation/transport/TacticalOverlaySegmentV1.h"
 #include "contracts/world_stream/SnapshotBatch.h"
 
 #include <cstdint>
@@ -75,6 +76,7 @@ public:
     const std::vector<ms::WeaponControlSnapshotV1>& weaponControls() const noexcept { return weaponControls_; }
     const DebrisFrameV1& debris() const noexcept { return debris_; }
     const CombatVfxFrameV1& combatVfx() const noexcept { return combatVfx_; }
+    const TacticalOverlayFrameV1& tactical() const noexcept { return tactical_; }
     std::int64_t lastWallNs() const noexcept { return lastWallNs_; }
     /// The engagement's events written since the last call, appended to `out` in their order (the first call: those
     /// still in the ring - a viewer that attaches to a fire sees it); how many.
@@ -100,6 +102,8 @@ private:
     DebrisFrameV1 debris_;
     CombatVfxSegmentV1 combatVfxSegment_;
     CombatVfxFrameV1 combatVfx_;
+    TacticalOverlaySegmentV1 tacticalSegment_;
+    TacticalOverlayFrameV1 tactical_;
     std::vector<ms::WeaponControlSnapshotV1> weaponControls_;
     const WorldHeader* header_ = nullptr;
     const unsigned char* base_ = nullptr;

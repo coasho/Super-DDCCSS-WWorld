@@ -82,10 +82,26 @@ public:
     /// exhausts' ray-marched flames, which cost as much again drawn there):
     /// a child shown with only this bit is drawn by every other view.
     static constexpr vsg::Mask kNotInPrepass = vsg::Mask(1) << 62;
+    /// Nodes masked with this bit are excluded from the offscreen PiP inset
+    /// camera (e.g. main-viewport screen-space cloud/flow passes).
+    static constexpr vsg::Mask kNotInPip = vsg::Mask(1) << 61;
     /// That depth (reverse depth, 0 = nothing; in DEPTH_STENCIL_READ_ONLY
     /// layout) and the switch drawing it (on to begin with); null before
     /// setScene() or without setDepthPrepass().
     std::pair<vsg::ref_ptr<vsg::ImageInfo>, vsg::ref_ptr<vsg::Switch>> depthPrepass() const { return {prepassDepth_, prepassSwitch_}; }
+
+    /// Enable an optional offscreen Vulkan Picture-in-Picture (PiP) render
+    /// target (`width x height` RGBA8 + D32_SFLOAT) compiled alongside the
+    /// main scene and gated by a vsg::Switch (0.0 ms GPU cost when disabled).
+    /// Call before setScene().
+    void enablePip(std::uint32_t width = 480, std::uint32_t height = 270);
+    vsg::ref_ptr<vsg::Camera> pipCamera() const { return pipCamera_; }
+    vsg::ref_ptr<vsg::LookAt> pipLookAt() const { return pipLookAt_; }
+    vsg::ref_ptr<vsg::Switch> pipSwitch() const { return pipSwitch_; }
+    vsg::ref_ptr<vsg::ImageInfo> pipImageInfo() const { return pipImageInfo_; }
+    vsg::ref_ptr<vsg::DescriptorSet> pipDescriptorSet() const { return pipDescriptorSet_; }
+    VkExtent2D pipExtent() const noexcept { return pipExtent_; }
+    void setPipEnabled(bool on);
 
     /// Compile a subgraph added to the scene after setScene() (a vehicle model
     /// loaded when a new type appears). Returns false when nothing was compiled.
@@ -135,6 +151,7 @@ public:
 
 private:
     vsg::ref_ptr<vsg::Node> depthPrepass(vsg::ref_ptr<vsg::ProjectionMatrix> projection);
+    vsg::ref_ptr<vsg::Node> buildPipPass(vsg::ref_ptr<vsg::EllipsoidModel> ellipsoid);
     void selectOverFramebuffer();
 
     ViewerSettings settings_;
@@ -149,6 +166,15 @@ private:
     vsg::ref_ptr<vsg::ImageView> prepassColourView_, prepassDepthView_;
     VkExtent2D prepassExtent_{};
     vsg::ref_ptr<vsg::Switch> prepassSwitch_;
+    // Offscreen Vulkan Picture-in-Picture (PiP) inset pass (VIS-M14, 0.0 ms when pipSwitch_ is OFF).
+    bool pipRequested_ = false;
+    VkExtent2D pipExtent_{480, 270};
+    vsg::ref_ptr<vsg::ImageView> pipColourView_, pipDepthView_;
+    vsg::ref_ptr<vsg::ImageInfo> pipImageInfo_;
+    vsg::ref_ptr<vsg::DescriptorSet> pipDescriptorSet_;
+    vsg::ref_ptr<vsg::Camera> pipCamera_;
+    vsg::ref_ptr<vsg::LookAt> pipLookAt_;
+    vsg::ref_ptr<vsg::Switch> pipSwitch_;
     // the pass over the scene: its render pass (the swapchain image and the resolved depth, both loaded), a
     // framebuffer per swapchain image (remade when the swapchain is), the copy of the scene's colour
     vsg::ref_ptr<vsg::Image> sceneCopy_;

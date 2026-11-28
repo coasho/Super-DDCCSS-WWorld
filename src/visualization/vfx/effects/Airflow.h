@@ -1,6 +1,7 @@
 #pragma once
 
 #include "foundation/core/Span.h"
+#include "foundation/transport/TacticalOverlaySegmentV1.h"
 #include "fsim/VehicleState.h"
 #include "visualization/scene/Blackbody.h"
 #include "visualization/scene/Clouds.h"
@@ -93,9 +94,11 @@ public:
     void setAircraft(std::size_t slot, double wingspanM, double massWithoutFuelKg);
 
     /// Per frame, after VehicleVisuals::update(): `states` as drawn, `alive` per slot, the camera (view and
-    /// projection, the eye ECEF), the ellipsoid and the sun (ECEF, towards it).
+    /// projection, the eye ECEF), the ellipsoid and the sun (ECEF, towards it). Optional `tactical` supplies
+    /// exact 8-engine thrust and fuel flow (B-57).
     void update(Span<const sim::VehicleState> states, const std::vector<unsigned char>& alive, const VehicleVisuals& visuals,
-                const vsg::dmat4& projection, const vsg::dvec3& eye, const vsg::EllipsoidModel& ellipsoid, const vsg::dvec3& sun);
+                const vsg::dmat4& projection, const vsg::dvec3& eye, const vsg::EllipsoidModel& ellipsoid, const vsg::dvec3& sun,
+                const ipc::TacticalOverlayFrameV1* tactical = nullptr);
 
     /// Samples kept per trail (the oldest half thinned when full), trails kept.
     static constexpr std::size_t kSamples = 256, kSources = 32;

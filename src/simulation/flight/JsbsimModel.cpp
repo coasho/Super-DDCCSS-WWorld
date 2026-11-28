@@ -1477,7 +1477,7 @@ void JsbsimModel::state(VehicleState& out) const {
     for (std::size_t i = 0; i < engines; ++i) {
         out.throttlePosition[i] = fcs->GetThrottlePos(static_cast<int>(i));
         const auto engine = propulsion->GetEngine(static_cast<unsigned>(i));
-        out.thrustN[i] = poundsForceToNewtons(engine->GetThrust());
+        out.thrustN[i] = units::poundsForceToNewtons(engine->GetThrust());
         out.engineRpm[i] = i < rotorRpm_.size() && rotorRpm_[i].valid() ? rotorRpm_[i].get()
                            : engine->GetThruster()                      ? engine->GetThruster()->GetRPM()
                                                                         : 0.0;
@@ -1513,6 +1513,30 @@ void JsbsimModel::state(VehicleState& out) const {
     const JSBSim::FGMatrix33& tb2ec = prop->GetTb2ec(); // body -> ECEF
     for (unsigned r = 1; r <= 3; ++r)
         for (unsigned c = 1; c <= 3; ++c) out.rotationBodyToEcef[(r - 1) * 3 + (c - 1)] = tb2ec(r, c);
+}
+
+bool JsbsimModel::propulsionExtendedV1(PropulsionExtendedV1& out) const noexcept {
+    out = PropulsionExtendedV1{};
+    if (!loaded_ || !fdm_) return false;
+    const auto& propulsion = fdm_->GetPropulsion();
+    const auto& fcs = fdm_->GetFCS();
+    const auto engines = std::min<std::size_t>(propulsion->GetNumEngines(), PropulsionExtendedV1::kMaxEngines);
+    out.engineCount = static_cast<int>(engines);
+    for (std::size_t i = 0; i < engines; ++i) {
+        out.throttlePosition[i] = fcs->GetThrottlePos(static_cast<int>(i));
+        const auto engine = propulsion->GetEngine(static_cast<unsigned>(i));
+        out.thrustN[i] = units::poundsForceToNewtons(engine->GetThrust());
+        out.engineRpm[i] = i < rotorRpm_.size() && rotorRpm_[i].valid() ? rotorRpm_[i].get()
+                           : engine->GetThruster()                      ? engine->GetThruster()->GetRPM()
+                                                                        : 0.0;
+        if (engine->GetType() == JSBSim::FGEngine::etTurbine) {
+            const auto* turbine = static_cast<const JSBSim::FGTurbine*>(engine.get());
+            out.engineN2[i] = turbine->GetN2();
+            if (turbine->GetAugmentation()) out.afterburner[i] = std::min(std::max(turbine->GetNozzle(), 0.0), 1.0);
+        }
+        out.fuelFlowKgS[i] = engineFuelFlowKgS(static_cast<int>(i));
+    }
+    return true;
 }
 
 double JsbsimModel::engineFuelFlowKgS(int engine) const {

@@ -376,6 +376,7 @@ void GpuParticles::clear() {
     seenEventSerials_.clear();
     decoyTrails_.clear();
     debrisEmbers_.clear();
+    rotorStates_.clear();
     muzzleFlashes_.clear();
     shockwaves_.clear();
     hasOrigin_ = false;
@@ -461,6 +462,114 @@ void GpuParticles::addDetonationShockwave(const vsg::dvec3& posEcef, const vsg::
                       vsg::vec3(0.90f, 0.93f, 0.96f), 1.6f + 1.8f * nextRand(), 5.0f, 2.4f, 0.0f);
     }
     particleIdleUntil_ = std::max(particleIdleUntil_, simTime + 1.6);
+}
+
+void GpuParticles::addRotorEffects(Span<const sim::VehicleState> states, const std::vector<unsigned char>& alive,
+                                   const VehicleVisuals& visuals, const ipc::TacticalOverlayFrameV1* tactical,
+                                   double humidity, double simTime) {
+    if (!built_ || !std::isfinite(simTime)) return;
+    const double rh = std::isfinite(humidity) ? std::clamp(humidity, 0.0, 1.0) : 0.0;
+    const std::size_t n = std::min(states.size(), alive.size());
+    for (std::size_t i = 0; i < n; ++i) {
+        if (!alive[i] || states[i].crashed || !visuals.visible(i)) continue;
+        const auto& shape = visuals.shape(i);
+        if (shape.rotors.empty()) continue;
+
+        const ipc::TacticalPropulsionExtWireV1* propExt = nullptr;
+        if (tactical) {
+            for (const auto& p : tactical->propulsion) {
+                if (p.slot == i) {
+                    propExt = &p;
+                    break;
+                }
+            }
+        }
+
+        const sim::VehicleState& st = states[i];
+        const vsg::dvec3 posEcef(st.positionEcef[0], st.positionEcef[1], st.positionEcef[2]);
+        if (vsg::length2(posEcef) < 1e6) continue;
+        const vsg::dvec3 zenith = vsg::normalize(posEcef);
+        const double* R = st.rotationBodyToEcef;
+        const auto bodyVecToEcef = [&](const vsg::dvec3& b) {
+            return vsg::dvec3(R[0] * b.x + R[1] * b.y + R[2] * b.z,
+                              R[3] * b.x + R[4] * b.y + R[5] * b.z,
+                              R[6] * b.x + R[7] * b.y + R[8] * b.z);
+        };
+        const vsg::dvec3 velEcef = bodyVecToEcef(vsg::dvec3(st.velocityBodyMs[0], st.velocityBodyMs[1], st.velocityBodyMs[2]));
+        const double agl = std::isfinite(st.altitudeAglM) ? st.altitudeAglM : 1000.0;
+        const double tas = std::isfinite(st.airspeedTrueMs) ? st.airspeedTrueMs : 0.0;
+        const bool overWater = propExt && ((propExt->flags & ipc::kTactPropOverWater) != 0u);
+
+        for (std::size_t rIdx = 0; rIdx < shape.rotors.size(); ++rIdx) {
+            const auto& r = shape.rotors[rIdx];
+            if (!(r.radiusM > 0.25)) continue;
+            double rpm = 0.0;
+            if (r.engine >= 0 && r.engine < st.engineCount && r.engine < sim::VehicleState::kMaxEngines && std::abs(st.engineRpm[r.engine]) > 1.0)
+                rpm = st.engineRpm[r.engine];
+            else if (propExt && propExt->rotorRpm > 1.0f)
+                rpm = static_cast<double>(propExt->rotorRpm);
+            else if (st.engineCount > 0)
+                rpm = st.engineRpm[0];
+            rpm = std::abs(rpm);
+            if (!std::isfinite(rpm) || rpm < 40.0) continue;
+
+            const std::uint64_t key = (static_cast<std::uint64_t>(i) << 8u) | static_cast<std::uint64_t>(rIdx & 0xFFu);
+            auto& rv = rotorStates_[key];
+            if (simTime < rv.lastEmitTime - 0.05 || simTime > rv.lastEmitTime + 3.0) {
+                rv.lastEmitTime = simTime - 0.035;
+            }
+            const double elapsed = simTime - rv.lastEmitTime;
+            if (elapsed < 0.032) continue;
+            rv.lastEmitTime = simTime;
+            rv.phaseRad = std::fmod(rv.phaseRad + (rpm / 60.0) * 6.283185307179586 * std::min(elapsed, 0.1), 6.283185307179586);
+
+            const vsg::dvec3 hubEcef = posEcef + bodyVecToEcef(r.hub);
+            const vsg::dvec3 axisEcef = vsg::normalize(bodyVecToEcef(r.axis));
+            const bool isLiftRotor = std::abs(r.axis.z) > 0.7;
+
+            if (!hasOrigin_) {
+                originEcef_ = hubEcef;
+                hasOrigin_ = true;
+            }
+
+            // 1. Rotor downwash dust / sea-spray ground ring near terrain or water (AGL < 2.8 R).
+            if (isLiftRotor && agl > 0.2 && agl < 2.8 * r.radiusM && tas < 45.0) {
+                const double gf = std::pow(std::clamp(1.0 - agl / (2.8 * r.radiusM), 0.0, 1.0), 1.35);
+                const vsg::dvec3 groundCenter = hubEcef - zenith * std::max(agl - 0.35, 0.0);
+                const vsg::dvec3 hU = orthoVec(zenith);
+                const vsg::dvec3 hV = vsg::cross(zenith, hU);
+                const vsg::vec3 ringCol = overWater ? vsg::vec3(0.90f, 0.96f, 0.99f) : vsg::vec3(0.58f, 0.49f, 0.38f);
+                const int nRing = std::clamp(static_cast<int>(3.0 + 4.0 * gf), 3, 7);
+                for (int k = 0; k < nRing; ++k) {
+                    const double ang = 6.283185307179586 * static_cast<double>(nextRand());
+                    const vsg::dvec3 radial = hU * std::cos(ang) + hV * std::sin(ang);
+                    const double startR = r.radiusM * (0.65 + 0.48 * static_cast<double>(nextRand()));
+                    const double outSpd = (7.5 + 15.0 * gf) * (0.75 + 0.50 * static_cast<double>(nextRand()));
+                    const double liftSpd = (1.6 + 3.2 * gf) * (0.6 + 0.8 * static_cast<double>(nextRand()));
+                    queueParticle(groundCenter + radial * startR + zenith * (0.25 + 0.55 * static_cast<double>(nextRand())),
+                                  radial * outSpd + zenith * liftSpd,
+                                  0.75f + 0.85f * nextRand(), ringCol,
+                                  static_cast<float>(0.55 + 0.55 * gf + 0.40 * nextRand()), 4.0f, 2.3f, 0.0f);
+                }
+                particleIdleUntil_ = std::max(particleIdleUntil_, simTime + 1.8);
+            }
+
+            // 2. Blade-tip / propeller-tip helical condensation vortices in humid air or high-load low flight.
+            if (rpm > 80.0 && (rh >= 0.55 || (isLiftRotor && agl < 250.0) || (!isLiftRotor && rh >= 0.40 && tas > 25.0))) {
+                const vsg::dvec3 uPlane = orthoVec(axisEcef);
+                const vsg::dvec3 vPlane = vsg::cross(axisEcef, uPlane);
+                const float mistRadius = static_cast<float>(std::clamp(r.radiusM * 0.042, 0.08, 0.30));
+                const vsg::dvec3 washVel = velEcef * 0.18 - axisEcef * (isLiftRotor ? 6.5 : 3.2);
+                for (int tip = 0; tip < 2; ++tip) {
+                    const double ang = rv.phaseRad + static_cast<double>(tip) * 3.14159265358979323846;
+                    const vsg::dvec3 tipPos = hubEcef + (uPlane * std::cos(ang) + vPlane * std::sin(ang)) * (0.97 * r.radiusM);
+                    queueParticle(tipPos, washVel, 0.58f + 0.42f * nextRand(),
+                                  vsg::vec3(0.92f, 0.95f, 0.98f), mistRadius, 5.0f, 2.8f, 0.0f);
+                }
+                particleIdleUntil_ = std::max(particleIdleUntil_, simTime + 1.2);
+            }
+        }
+    }
 }
 
 void GpuParticles::update(const ipc::CombatVfxFrameV1* vfxFrame, const ipc::DebrisFrameV1* debrisFrame,

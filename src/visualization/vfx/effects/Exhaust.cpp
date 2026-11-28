@@ -61,18 +61,40 @@ constexpr double kNightExposure = 120.0, kDayExposure = 26.4616;
 // preset, a tanker's or a bomber's nozzles glowed orange: the preset's turbine at 1,200 K at cruise
 Engine engineOf(const Exhaust::Kind& kind) {
     Engine e;
+    const double baseTurbineK = (std::isfinite(kind.turbineExitK) && kind.turbineExitK > 450.0)
+                                    ? std::clamp(kind.turbineExitK, 550.0, 1550.0)
+                                    : Exhaust::kTurbineExitK;
+    if (kind.exhaustStack) {
+        // B-59: turboprop / turboshaft / piston exhaust stack — warm subsonic plume producing realistic
+        // Gladstone-Dale heat-haze shimmer behind UH-1H/UH-60/C-130J/C172 stacks without orange jet glow.
+        e.exitMach = 0.42;
+        e.pressureRatio = 1.03;
+        e.dryTemperatureK = (kind.turbineExitK > 450.0) ? std::clamp(kind.turbineExitK, 550.0, 880.0) : 740.0;
+        e.exitTemperatureK = e.dryTemperatureK;
+        e.afterburningK = 0.0;
+        e.sootPerM = 0.05;
+        e.bandStrength = 0.0;
+        e.turbulence = 0.24;
+        e.meander = 0.05;
+        return e;
+    }
     if (kind.augmented) {
         // its reheat as hot as its own ratings make it (Exhaust::reheatTotalK): the gas at its exit, where the preset's
         // 1,700 K is 2,236 K of total temperature at its exit's Mach number - an engine that adds less thrust burns
         // cooler and shows a shorter, redder flame; one that adds more, a longer and whiter one
-        const double total = Exhaust::reheatTotalK(kind.bypassRatio, kind.dryThrustN, kind.reheatThrustN);
+        const double bypass = std::isfinite(kind.bypassRatio) ? std::max(kind.bypassRatio, 0.0) : 0.5;
+        e.dryTemperatureK = std::clamp((baseTurbineK + bypass * Exhaust::kBypassK) / (1.0 + bypass) * 1.15, 820.0, 1250.0);
+        const double total = Exhaust::reheatTotalK(kind.bypassRatio, kind.dryThrustN, kind.reheatThrustN, baseTurbineK);
         if (total > 0.0) e.exitTemperatureK = total / (1.0 + 0.5 * (e.gamma - 1.0) * e.exitMach * e.exitMach);
         return e;
     }
     const double bypass = std::isfinite(kind.bypassRatio) ? std::max(kind.bypassRatio, 0.0) : 0.0;
     e.exitMach = 1.0;
     e.pressureRatio = 1.1; // (a convergent nozzle a little underexpanded, at most)
-    e.dryTemperatureK = 1000.0 - 150.0 * smoothstepd(1.0, 4.0, bypass);
+    const double defaultDry = 1000.0 - 150.0 * smoothstepd(1.0, 4.0, bypass);
+    e.dryTemperatureK = (kind.turbineExitK > 450.0)
+                            ? std::clamp((baseTurbineK + bypass * Exhaust::kBypassK) / (1.0 + bypass), 680.0, 1180.0)
+                            : defaultDry;
     e.exitTemperatureK = e.dryTemperatureK; // (no burner)
     e.afterburningK = 0.0;
     return e;
@@ -705,10 +727,11 @@ vec4 marchFlame(int which, vec3 origin, vec3 dir, float tier, float budgetIn, ve
 
 } // namespace
 
-double Exhaust::reheatTotalK(double bypassRatio, double dryThrustN, double reheatThrustN) {
+double Exhaust::reheatTotalK(double bypassRatio, double dryThrustN, double reheatThrustN, double turbineExitK) {
     if (!(dryThrustN > 0.0) || !(reheatThrustN > dryThrustN)) return 0.0;
     const double bypass = std::isfinite(bypassRatio) ? std::max(bypassRatio, 0.0) : 0.0;
-    const double dryK = (kTurbineExitK + bypass * kBypassK) / (1.0 + bypass);
+    const double texK = (std::isfinite(turbineExitK) && turbineExitK > 450.0) ? turbineExitK : kTurbineExitK;
+    const double dryK = (texK + bypass * kBypassK) / (1.0 + bypass);
     const double speed = reheatThrustN / dryThrustN / (1.0 + kFuelMassShare); // (the jet's speed with reheat over dry)
     return std::clamp(dryK * speed * speed, kLeastReheatK, kMostReheatK);
 }
@@ -768,16 +791,49 @@ vsg::ref_ptr<vsg::Node> Exhaust::node(std::size_t slot, std::size_t k) {
 
 const char* Exhaust::marchSource() { return kMarch; }
 
-bool Exhaust::set(std::size_t slot, std::size_t k, double radiusY, double radiusZ, const sim::VehicleState& s, int engine, const Kind& kind) {
+bool Exhaust::set(std::size_t slot, std::size_t k, double radiusY, double radiusZ, const sim::VehicleState& s, int engine,
+                  const Kind& kind, const ipc::TacticalPropulsionExtWireV1* propExt) {
     const std::size_t i = slot * kPerSlot + k;
     if (!rows_ || k >= kPerSlot || i >= flames_.size()) return false;
-    const bool ok = engine >= 0 && engine < s.engineCount && engine < sim::VehicleState::kMaxEngines;
-    const double ab = ok && std::isfinite(s.afterburner[engine]) ? std::clamp(s.afterburner[engine], 0.0, 1.0) : 0.0;
-    const double dry = ok ? dryPower(s.engineN2[engine]) : 0.0;
-    const double run = ok ? running(s.engineN2[engine]) : 0.0;
+    double n2Val = 0.0, abVal = 0.0, thrustVal = 0.0, thrVal = 0.0, rpmVal = 0.0;
+    bool ok = false;
+    if (propExt && engine >= 0 && engine < static_cast<int>(propExt->engineCount) && engine < static_cast<int>(ipc::kTacticalMaxEnginesV1)) {
+        ok = true;
+        n2Val = propExt->engineN2[engine];
+        abVal = propExt->afterburner[engine];
+        thrustVal = propExt->thrustN[engine];
+        thrVal = propExt->throttle[engine];
+        rpmVal = propExt->rotorRpm;
+    } else if (engine >= 0 && engine < s.engineCount && engine < sim::VehicleState::kMaxEngines) {
+        ok = true;
+        n2Val = s.engineN2[engine];
+        abVal = s.afterburner[engine];
+        thrustVal = s.thrustN[engine];
+        thrVal = s.throttlePosition[engine];
+        rpmVal = s.engineRpm[engine];
+    } else if (engine >= sim::VehicleState::kMaxEngines && s.engineCount > 0) {
+        // Fallback when extended propulsion sidecar is absent (e.g. legacy replay): mirror paired engine slot.
+        const int paired = engine % std::min(s.engineCount, sim::VehicleState::kMaxEngines);
+        ok = true;
+        n2Val = s.engineN2[paired];
+        abVal = s.afterburner[paired];
+        thrustVal = s.thrustN[paired];
+        thrVal = s.throttlePosition[paired];
+        rpmVal = s.engineRpm[paired];
+    }
+    const double ab = ok && std::isfinite(abVal) ? std::clamp(abVal, 0.0, 1.0) : 0.0;
+    double dry = ok ? dryPower(n2Val) : 0.0;
+    double run = ok ? running(n2Val) : 0.0;
+    if (kind.exhaustStack && ok) {
+        // Piston / turboshaft / turboprop engines report RPM and/or throttle even when turbine N2 is 0.
+        const double rpmRun = std::isfinite(rpmVal) && rpmVal > 60.0 ? std::clamp((rpmVal - 60.0) / 140.0, 0.0, 1.0) : 0.0;
+        const double thrRun = std::isfinite(thrVal) && thrVal > 0.02 ? std::clamp(thrVal, 0.0, 1.0) : 0.0;
+        run = std::max({run, rpmRun, thrRun > 0.05 ? 0.6 : 0.0});
+        dry = std::max(dry, std::max(thrRun, 0.35 * rpmRun));
+    }
     const double ry = std::isfinite(radiusY) && radiusY > 0.0 ? radiusY : 0.5, rz = std::isfinite(radiusZ) && radiusZ > 0.0 ? radiusZ : ry;
     // a rocket burns while it makes thrust, its plume at the share of its boost's it makes (its chamber's pressure)
-    const double thrust = ok && std::isfinite(s.thrustN[engine]) ? std::max(s.thrustN[engine], 0.0) : 0.0;
+    const double thrust = ok && std::isfinite(thrustVal) ? std::max(thrustVal, 0.0) : 0.0;
     const double burning = kind.rocket && thrust > 0.0 ? (kind.peakThrustN > 0.0 ? std::min(thrust / kind.peakThrustN, 1.0) : 1.0) : 0.0;
     const bool shows = kind.rocket ? burning > 0.0 : run > 0.0;
 

@@ -21,7 +21,7 @@ class PassiveRolleronV1;
 /// JSBSim adapter: one FGFDMExec per vehicle, JSBSim used as-is (design 7,
 /// ADR-3). Construct and load on one thread; step() may run on any thread as
 /// long as no two threads touch the same instance concurrently.
-class JsbsimModel final : public FlightModel, public TerrainStrikeSourceV1, public TerrainContactSourceV1, public TerrainContactLoadSourceV1, public RigidMassSourceV1, public NativePositionSourceV1, public NativeThermalSourceV1 {
+class JsbsimModel final : public FlightModel, public TerrainStrikeSourceV1, public TerrainContactSourceV1, public TerrainContactLoadSourceV1, public RigidMassSourceV1, public NativePositionSourceV1, public NativeThermalSourceV1, public PropulsionExtendedSourceV1 {
 public:
     /// @param dt fixed step in seconds (design 6.4)
     /// @param ground terrain source for gear contact and AGL; shared by all vehicles
@@ -83,6 +83,7 @@ public:
     bool ownRotorAirframeAccelerationV1(double acceleration[3],double lagS[3],double specificForceBody[3],bool& passiveIncluded);
     bool nativePositionV1(const double positionEcefM[3], NativePositionV1& out) const noexcept override;
     bool nativeThermalSnapshotV1(NativeThermalSnapshotV1& out) const noexcept override;
+    bool propulsionExtendedV1(PropulsionExtendedV1& out) const noexcept override;
 
     /// Direct access for tests and tooling only.
     JSBSim::FGFDMExec& exec() noexcept { return *fdm_; }

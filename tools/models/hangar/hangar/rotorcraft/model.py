@@ -313,6 +313,33 @@ def origin_of(spec):
     return np.zeros(3)
 
 
+def manifest_lines(spec, origin):
+    """Manifest lines for rotorcraft exhaust stacks and rotor disks (B-59)."""
+    lines = []
+    origin = np.asarray(origin, float)
+    rots = rotors(spec)
+    if spec["aircraft"]["kind"] == "helicopter":
+        eng = spec.get("engine", {})
+        exhausts = eng.get("exhausts", [])
+        if not exhausts and "exhaust" in eng:
+            exhausts = [eng["exhaust"]]
+        if exhausts:
+            lines.append("# turboshaft exhaust stacks: <engine> <x> <y> <z> <radius> [<exhaust_k>] (body axes, m)")
+            for idx, ex in enumerate(exhausts):
+                pos = np.asarray(ex.get("position", [2.0, 0.0, 0.7]), float) - origin
+                rad = 0.5 * float(ex.get("diameter", 0.36))
+                temp_k = float(ex.get("exhaust_k", 830.0))
+                lines.append("exhaust %d %.3f %.3f %.3f %.3f %.0f" % (idx, -pos[0], pos[1], -pos[2], rad, temp_k))
+    if rots:
+        lines.append("# rotors: <engine> <x> <y> <z> <radius> <nx> <ny> <nz> (body axes from the origin, m)")
+        for rot in rots:
+            q = np.asarray(rot["hub"], float) - origin
+            t = _unit(rot["thrust"])
+            lines.append("rotor %d %.3f %.3f %.3f %.3f %.4f %.4f %.4f" % (
+                rot["engine"], -q[0], q[1], -q[2], float(rot["radius"]), -t[0], t[1], -t[2]))
+    return lines
+
+
 def write(spec, path, design_path=None):
     """The .glb (and its manifest) at path; returns the report: the airframe's and the
     rotors' meshes, what the checks read."""
@@ -328,7 +355,7 @@ def write(spec, path, design_path=None):
         node, info = _rotor_node(B, rot, origin, mats)
         top.append(node)
         report["rotors"].append(info)
-    m3.finish(B, top, spec["aircraft"]["name"], path)
+    m3.finish(B, top, spec["aircraft"]["name"], path, manifest=manifest_lines(spec, origin))
     return report
 
 

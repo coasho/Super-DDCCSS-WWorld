@@ -1,10 +1,13 @@
 #include "visualization/scene/ElevatedTile.h"
 
 #include "foundation/core/Log.h"
+#include "visualization/scene/OfflineTiles.h"
 
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <sstream>
+#include <string>
 
 namespace fsim::world {
 
@@ -76,11 +79,62 @@ public:
     }
 };
 
+bool parseTileKey(const vsg::Path& filename, unsigned& x, unsigned& y, unsigned& lod) {
+    const std::string ext = vsg::lowerCaseFileExtension(filename).string();
+    if (ext != ".tile") return false;
+    const std::string s = filename.string();
+    if (s.size() <= 5) return false;
+    const std::string stem = s.substr(0, s.size() - 5);
+    if (stem == "root") return false;
+    std::istringstream is(stem);
+    if (is >> x >> y >> lod) return true;
+    return false;
+}
+
+class PruneOfflineLeaves : public vsg::Visitor {
+public:
+    explicit PruneOfflineLeaves(const OfflineTiles& offline) : offline_(offline) {}
+    std::size_t pruned = 0;
+
+    void apply(vsg::Object& object) override { object.traverse(*this); }
+
+    void apply(vsg::Group& group) override {
+        for (auto& child : group.children) {
+            if (auto plod = child.cast<vsg::PagedLOD>()) {
+                unsigned x = 0, y = 0, lod = 0;
+                if (parseTileKey(plod->filename, x, y, lod) && !offline_.hasAnyChild(lod, x, y)) {
+                    if (plod->children[1].node) {
+                        auto cull = vsg::CullGroup::create();
+                        cull->bound = plod->bound;
+                        cull->addChild(plod->children[1].node);
+                        child = cull;
+                        ++pruned;
+                        continue;
+                    }
+                }
+            }
+            if (child) child->accept(*this);
+        }
+    }
+
+private:
+    const OfflineTiles& offline_;
+};
+
 } // namespace
 
 vsg::ref_ptr<vsg::Object> ElevatedTile::read(const vsg::Path& filename, vsg::ref_ptr<const vsg::Options> options) const {
+    if (offline_) {
+        unsigned x = 0, y = 0, lod = 0;
+        if (parseTileKey(filename, x, y, lod) && !offline_->hasAnyChild(lod, x, y)) {
+            return {};
+        }
+    }
     auto result = vsg::tile::read(filename, options);
-    if (result && settings && settings->elevationLayer) fixBounds(result.get());
+    if (result) {
+        if (settings && settings->elevationLayer) fixBounds(result.get());
+        if (offline_) pruneOfflineLeaves(result.get(), *offline_);
+    }
     return result;
 }
 
@@ -88,6 +142,13 @@ void ElevatedTile::fixBounds(vsg::Object* node) {
     if (!node) return;
     FixBounds fix;
     node->accept(fix);
+}
+
+std::size_t ElevatedTile::pruneOfflineLeaves(vsg::Object* node, const OfflineTiles& offline) {
+    if (!node) return 0;
+    PruneOfflineLeaves pruner(offline);
+    node->accept(pruner);
+    return pruner.pruned;
 }
 
 bool readElevatedDatabase(vsg::TileDatabase& database, vsg::ref_ptr<const vsg::Options> options,
@@ -99,8 +160,12 @@ bool readElevatedDatabase(vsg::TileDatabase& database, vsg::ref_ptr<const vsg::O
     // subtiles it loads go through vsg::read(paths, options) with the options
     // it was created with.
     auto local = options ? vsg::clone(options) : vsg::Options::create();
-    for (auto it = extraReaders.rbegin(); it != extraReaders.rend(); ++it) local->readerWriters.insert(local->readerWriters.begin(), *it);
-    auto reader = ElevatedTile::create(database.settings, local);
+    vsg::ref_ptr<const OfflineTiles> offline;
+    for (auto it = extraReaders.rbegin(); it != extraReaders.rend(); ++it) {
+        local->readerWriters.insert(local->readerWriters.begin(), *it);
+        if (!offline) offline = (*it).cast<OfflineTiles>();
+    }
+    auto reader = ElevatedTile::create(database.settings, local, offline);
     local->readerWriters.insert(local->readerWriters.begin(), reader);
 
     auto result = vsg::read("root.tile", local);

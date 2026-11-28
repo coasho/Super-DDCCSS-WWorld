@@ -40,8 +40,8 @@ namespace fsim::world {
 ///  - Free:     detached: orbit a point on the globe that the left button moves
 class CameraController : public vsg::Inherit<vsg::Visitor, CameraController> {
 public:
-    enum class Mode { Chase, Orbit, Overview, Free };
-    static constexpr int kModeCount = 4;
+    enum class Mode { Chase, Orbit, Overview, Free, Weapon, Cockpit };
+    static constexpr int kModeCount = 6;
 
     /// Terrain height (metres above the ellipsoid) at a position, or nullopt
     /// when unknown yet. Must not block (render thread).
@@ -72,6 +72,10 @@ public:
     /// followed as closely as an airliner is; a full-size vehicle keeps the
     /// fixed limits.
     void setTargetRadius(double radiusM) noexcept { targetRadius_ = radiusM > 0.0 ? radiusM : 0.0; }
+    /// Body-frame pilot eye position (x forward, y right, z down, m) for Mode::Cockpit.
+    void setCockpitEyeBodyM(const vsg::dvec3& bodyM) noexcept { cockpitEyeBodyM_ = bodyM; }
+    double cockpitYawRad() const noexcept { return cockpitYaw_; }
+    double cockpitPitchRad() const noexcept { return cockpitPitch_; }
 
     /// The angle the detached camera looks down at the ground from, in degrees
     /// above the focus' horizon, and what resetView() returns to while nothing
@@ -202,6 +206,10 @@ private:
     int lastX_ = 0, lastY_ = 0;
     // Last frame's view vectors, for screen-plane operations.
     vsg::dvec3 viewRight_{1.0, 0.0, 0.0}, viewForward_{0.0, 1.0, 0.0}, viewUp_{0.0, 0.0, 1.0};
+    // Cockpit pilot eye offset (body axes: x fwd, y right, z down) & mouse head-look offset.
+    vsg::dvec3 cockpitEyeBodyM_{3.5, 0.0, -0.75};
+    double cockpitYaw_ = 0.0;
+    double cockpitPitch_ = 0.0;
 };
 
 } // namespace fsim::world

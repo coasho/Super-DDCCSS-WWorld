@@ -49,6 +49,8 @@ bool WorldMirror::open(const std::string& name) {
 }
 
 void WorldMirror::close() {
+    tacticalSegment_.close();
+    tactical_ = TacticalOverlayFrameV1{};
     combatVfxSegment_.close();
     combatVfx_.projectiles.clear();
     combatVfx_.decoys.clear();
@@ -196,6 +198,10 @@ bool WorldMirror::pollSnapshot(sim::SnapshotBatch& out) {
         if (!combatVfxSegment_.read(sequence, combatVfx_)) {
             if (combatVfxSegment_.open(name_, header_->publisherPid, incarnation_))
                 combatVfxSegment_.read(sequence, combatVfx_);
+        }
+        if (!tacticalSegment_.read(sequence, tactical_)) {
+            if (tacticalSegment_.open(name_, header_->publisherPid, incarnation_))
+                tacticalSegment_.read(sequence, tactical_);
         }
         out.simTime = simTime;
         out.wallNs = wallNs;

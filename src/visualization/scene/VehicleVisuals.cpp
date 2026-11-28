@@ -933,7 +933,7 @@ bool VehicleVisuals::Joint::parse(const std::string& name, Joint& joint) {
         std::vector<double> v;
         if (!parseNumbers(terms.size() > 11 ? terms.substr(12) : std::string(), v) || v.size() > 1) return false;
         const double e = v.empty() ? 0.0 : v[0];
-        if (e < 0.0 || e >= sim::VehicleState::kMaxEngines || e != std::floor(e)) return false;
+        if (e < 0.0 || e >= static_cast<double>(ipc::kTacticalMaxEnginesV1) || e != std::floor(e)) return false;
         joint.kind = Afterburner;
         joint.engine = static_cast<int>(e);
         return true;
@@ -1127,7 +1127,9 @@ bool VehicleVisuals::applyManifest(Settings& settings) {
     settings.surfaces.clear();
     settings.engines.clear();
     settings.engineRatings.clear();
+    settings.engineExhaustK.clear();
     settings.exhausts.clear();
+    settings.rotors.clear();
     settings.rockets.clear();
     settings.stations.clear();
     settings.components.clear();
@@ -1150,24 +1152,42 @@ bool VehicleVisuals::applyManifest(Settings& settings) {
             if (s.sections.size() >= 2 && v.size() % 4 == 0) settings.surfaces.push_back(std::move(s));
             else LOG_WARN("world") << "manifest: '" << key << "' needs sections of x y z chord, two or more, in " << settings.modelPath << ".manifest";
         } else if (key == "engine") {
-            // engine <index> <bypass ratio> <afterburner 0|1> [<dry thrust kN> <thrust with reheat kN> <fuel g/(kN s) dry> <with reheat>]
+            // engine <index> <bypass ratio> <afterburner 0|1> [<dry thrust kN> <thrust with reheat kN> <fuel g/(kN s) dry> <with reheat> [<exhaust_k>]]
             std::istringstream values(line.substr(line.find(key) + key.size()));
             int index = -1, augmented = 1;
             double bypass = 0.0;
-            if (values >> index >> bypass >> augmented && index >= 0 && index < sim::VehicleState::kMaxEngines) {
+            if (values >> index >> bypass >> augmented && index >= 0 && index < static_cast<int>(ipc::kTacticalMaxEnginesV1)) {
                 settings.engines[index] = {bypass, augmented != 0};
-                double dryKn = 0.0, wetKn = 0.0, fuelDry = 0.0, fuelWet = 0.0;
+                double dryKn = 0.0, wetKn = 0.0, fuelDry = 0.0, fuelWet = 0.0, exhaustK = 0.0;
                 if (values >> dryKn >> wetKn) {
-                    values >> fuelDry >> fuelWet; // (g/(kN s) is mg/(N s): 1e-6 kg/(N s))
+                    if (values >> fuelDry >> fuelWet) {
+                        if (values >> exhaustK && std::isfinite(exhaustK) && exhaustK > 300.0 && exhaustK < 3000.0)
+                            settings.engineExhaustK[index] = exhaustK;
+                    }
                     settings.engineRatings[index] = {1000.0 * dryKn, 1000.0 * wetKn, 1e-6 * fuelDry, 1e-6 * fuelWet};
                 }
             } else LOG_WARN("world") << "manifest: 'engine' needs <index> <bypass ratio> <afterburner 0|1> in " << settings.modelPath << ".manifest";
         } else if (key == "exhaust") {
-            // exhaust <engine index> <x> <y> <z> <radius>: an engine without a nozzle on the model
+            // exhaust <engine index> <x> <y> <z> <radius> [<exhaust_k>]: an engine without a nozzle on the model
             std::istringstream values(line.substr(line.find(key) + key.size()));
             Settings::ExhaustAt e;
-            if (values >> e.engine >> e.at.x >> e.at.y >> e.at.z >> e.radius && e.engine >= 0 && e.radius > 0.0) settings.exhausts.push_back(e);
-            else LOG_WARN("world") << "manifest: 'exhaust' needs <engine index> <x> <y> <z> <radius> in " << settings.modelPath << ".manifest";
+            if (values >> e.engine >> e.at.x >> e.at.y >> e.at.z >> e.radius && e.engine >= 0 &&
+                e.engine < static_cast<int>(ipc::kTacticalMaxEnginesV1) && e.radius > 0.0) {
+                double exhaustK = 0.0;
+                if (values >> exhaustK && std::isfinite(exhaustK) && exhaustK > 300.0 && exhaustK < 3000.0)
+                    e.turbineExitK = exhaustK;
+                settings.exhausts.push_back(e);
+            } else LOG_WARN("world") << "manifest: 'exhaust' needs <engine index> <x> <y> <z> <radius> in " << settings.modelPath << ".manifest";
+        } else if (key == "rotor") {
+            // rotor <engine index> <x> <y> <z> <radius> <nx> <ny> <nz> (body axes from the model's origin, m)
+            std::istringstream values(line.substr(line.find(key) + key.size()));
+            Settings::RotorAt r;
+            if (values >> r.engine >> r.hub.x >> r.hub.y >> r.hub.z >> r.radiusM >> r.axis.x >> r.axis.y >> r.axis.z &&
+                r.engine >= 0 && r.engine < static_cast<int>(ipc::kTacticalMaxEnginesV1) && r.radiusM > 0.0 &&
+                vsg::length(r.axis) > 1e-4) {
+                r.axis = vsg::normalize(r.axis);
+                settings.rotors.push_back(r);
+            } else LOG_WARN("world") << "manifest: 'rotor' needs <engine> <x y z> <radius> <nx ny nz> in " << settings.modelPath << ".manifest";
         } else if (key == "rocket") {
             // rocket <index> <smoke: minimum | reduced | aluminised> <exit diameter m> [<peak thrust kN>]
             std::istringstream values(line.substr(line.find(key) + key.size()));
@@ -1274,17 +1294,26 @@ VehicleVisuals::Shape VehicleVisuals::measure(const vsg::ref_ptr<vsg::Node>& mod
         jet.engine = j.engine;
         shape.jets.push_back(jet);
     }
-    // and the exhausts the manifest places (engines that turn a propeller: no nozzle node): a jet for the trails, aft
+    // and the exhausts the manifest places (engines that turn a propeller or rotor: no nozzle node): a jet for trails & heat haze, aft
     for (const auto& e : s.exhausts) {
         Shape::Jet jet;
         jet.exit = s.modelOffset + e.at * s.modelScale;
         jet.direction = vsg::dvec3(-1.0, 0.0, 0.0);
         jet.radius = e.radius * s.modelScale;
         jet.engine = e.engine;
+        jet.exhaustStack = true;
+        jet.turbineExitK = e.turbineExitK;
         shape.jets.push_back(jet);
     }
     shape.engines = s.engines;
     shape.engineRatings = s.engineRatings;
+    shape.engineExhaustK = s.engineExhaustK;
+    shape.rotors.clear();
+    for (auto r : s.rotors) {
+        r.hub = s.modelOffset + r.hub * s.modelScale;
+        r.radiusM *= s.modelScale;
+        shape.rotors.push_back(r);
+    }
     shape.rockets = s.rockets;
     for (auto [number, st] : s.stations) { // moved and scaled as the model is
         st.at = s.modelOffset + st.at * s.modelScale;
@@ -1503,7 +1532,8 @@ void VehicleVisuals::setModel(std::size_t index, const std::string& modelPath, c
     assign(index, modelFor(key));
     if (!sectionOnly_[index].empty()) {
         Shape piece = slotModels_[index] ? slotModels_[index]->shape : Shape{};
-        piece.jets.clear(), piece.surfaces.clear(), piece.engines.clear(), piece.engineRatings.clear(), piece.rockets.clear();
+        piece.jets.clear(), piece.surfaces.clear(), piece.engines.clear(), piece.engineRatings.clear(), piece.engineExhaustK.clear();
+        piece.rotors.clear(), piece.rockets.clear();
         piece.stations.clear(), piece.components.clear(), piece.dispensers.clear();
         piece.valid = false; // (no effect hangs on it: not its aircraft's wing tips' vortices either)
         pieceShapes_[index] = piece;
@@ -1578,9 +1608,12 @@ void VehicleVisuals::assign(std::size_t index, const Model& m) {
     // The exhaust hangs under this vehicle's own copy of each afterburner
     // node, beside the model's flame mesh, a switch choosing between them.
     pose.flames.assign(pose.transforms.size(), -1);
+    pose.flameEngines.assign(pose.transforms.size(), -1);
     pose.flameSwitches.assign(pose.transforms.size(), {});
+    pose.placedFlames.clear();
     if (exhaust_ && exhaust_->valid()) {
         std::size_t k = 0;
+        std::array<int, ipc::kTacticalMaxEnginesV1> seenEngine{};
         for (std::size_t j = 0; j < pose.joints.size() && k < Exhaust::kPerSlot; ++j) {
             if (pose.joints[j].kind != Joint::Afterburner) continue;
             auto flame = exhaust_->node(index, k);
@@ -1598,8 +1631,41 @@ void VehicleVisuals::assign(std::size_t index, const Model& m) {
                 if (!compiler_(flame)) LOG_WARN("world") << "could not compile an engine's exhaust";
                 flameCompiled_[f] = 1;
             }
+            // B-57: legacy 8-engine GLBs (e.g. b52h.glb) repeat fsim:afterburner:0..3 for engines 4..7;
+            // map the second occurrence of engine index e to logical engine e + 4 so all 8 engines operate independently.
+            int logicalEngine = pose.joints[j].engine;
+            if (logicalEngine >= 0 && logicalEngine < static_cast<int>(seenEngine.size())) {
+                if (seenEngine[static_cast<std::size_t>(logicalEngine)] > 0 &&
+                    logicalEngine + 4 < static_cast<int>(ipc::kTacticalMaxEnginesV1)) {
+                    logicalEngine += 4;
+                }
+                if (logicalEngine < static_cast<int>(seenEngine.size()))
+                    ++seenEngine[static_cast<std::size_t>(logicalEngine)];
+            }
             pose.flames[j] = static_cast<int>(k);
+            pose.flameEngines[j] = logicalEngine;
             pose.flameSwitches[j] = sw;
+            ++k;
+        }
+        // B-59: manifest-placed turboshaft/turboprop/piston exhaust stacks (UH-1H, UH-60, C-130J, C172)
+        // feed directly into world::Exhaust + WingVapour Gladstone-Dale heat-haze raymarching.
+        for (const auto& jet : m.shape.jets) {
+            if (!jet.exhaustStack || k >= Exhaust::kPerSlot) continue;
+            const vsg::dvec3 dir = vsg::length(jet.direction) > 1e-6 ? vsg::normalize(jet.direction) : vsg::dvec3(-1.0, 0.0, 0.0);
+            const vsg::dvec3 ref = std::abs(dir.z) < 0.9 ? vsg::dvec3(0.0, 0.0, 1.0) : vsg::dvec3(0.0, 1.0, 0.0);
+            const vsg::dvec3 yAxis = vsg::normalize(vsg::cross(ref, dir));
+            const vsg::dvec3 zAxis = vsg::normalize(vsg::cross(dir, yAxis));
+            vsg::dmat4 inModel(dir.x, dir.y, dir.z, 0.0,
+                               yAxis.x, yAxis.y, yAxis.z, 0.0,
+                               zAxis.x, zAxis.y, zAxis.z, 0.0,
+                               jet.exit.x, jet.exit.y, jet.exit.z, 1.0);
+            Pose::PlacedFlame pf;
+            pf.flameSlot = static_cast<int>(k);
+            pf.engine = jet.engine;
+            pf.radius = std::max(jet.radius, 0.05);
+            pf.turbineExitK = jet.turbineExitK;
+            pf.inModel = inModel;
+            pose.placedFlames.push_back(pf);
             ++k;
         }
     }
@@ -1618,6 +1684,7 @@ void VehicleVisuals::assign(std::size_t index, const Model& m) {
         if (geometry) segState_[index]->addChild(geometry);
     }
     pose.flames.resize(pose.transforms.size(), -1); // the segmentation copy's joints carry none
+    pose.flameEngines.resize(pose.transforms.size(), -1);
     pose.flameSwitches.resize(pose.transforms.size());
 }
 
@@ -1720,11 +1787,20 @@ void VehicleVisuals::clearWeaponControls() {
     finRenderClock_=std::numeric_limits<double>::quiet_NaN(); finInterpolate_=true;
 }
 
-void VehicleVisuals::update(Span<const sim::VehicleState> states) {
+void VehicleVisuals::update(Span<const sim::VehicleState> states, const ipc::TacticalOverlayFrameV1* tactical) {
     const std::size_t n = std::min(states.size(), transforms_.size());
     double clock = std::numeric_limits<double>::quiet_NaN();
     shownFlames_.clear();
     for (std::size_t i = 0; i < n; ++i) {
+        const ipc::TacticalPropulsionExtWireV1* propExt = nullptr;
+        if (tactical) {
+            for (const auto& p : tactical->propulsion) {
+                if (p.slot == i) {
+                    propExt = &p;
+                    break;
+                }
+            }
+        }
         const vsg::dmat4 m = bodyToEcef(states[i]);
         transforms_[i]->matrix = m;
         if (i < segTransforms_.size()) segTransforms_[i]->matrix = m;
@@ -1770,15 +1846,24 @@ void VehicleVisuals::update(Span<const sim::VehicleState> states) {
             // the exhaust sizes itself: its node stays as the model placed it
             // (or as whatever turns it)
             const Joint& joint = pose.joints[j];
+            const int logicalEngine = (j < pose.flameEngines.size() && pose.flameEngines[j] >= 0) ? pose.flameEngines[j] : joint.engine;
             pose.transforms[j]->matrix = joint.rest;
             Exhaust::Kind kind;
             double ry = joint.radiusY, rz = joint.radiusZ;
             if (i < slotModels_.size() && slotModels_[i]) {
-                const auto& engines = slotModels_[i]->shape.engines;
-                if (const auto at = engines.find(joint.engine); at != engines.end()) kind = Exhaust::Kind{at->second.first, at->second.second};
-                const auto& ratings = slotModels_[i]->shape.engineRatings;
-                if (const auto at = ratings.find(joint.engine); at != ratings.end()) kind.dryThrustN = at->second[0], kind.reheatThrustN = at->second[1];
-                const auto& rockets = slotModels_[i]->shape.rockets;
+                const auto& shapeRef = slotModels_[i]->shape;
+                const auto findEngine = [&](const auto& table) {
+                    auto it = table.find(logicalEngine);
+                    if (it == table.end()) it = table.find(joint.engine);
+                    return it;
+                };
+                if (const auto at = findEngine(shapeRef.engines); at != shapeRef.engines.end())
+                    kind = Exhaust::Kind{at->second.first, at->second.second};
+                if (const auto at = findEngine(shapeRef.engineRatings); at != shapeRef.engineRatings.end())
+                    kind.dryThrustN = at->second[0], kind.reheatThrustN = at->second[1];
+                if (const auto at = findEngine(shapeRef.engineExhaustK); at != shapeRef.engineExhaustK.end())
+                    kind.turbineExitK = at->second;
+                const auto& rockets = shapeRef.rockets;
                 if (const auto at = rockets.find(joint.engine); at != rockets.end()) {
                     // a missile's motor: its node carries no flame to size it by; its exit is the manifest's
                     kind.rocket = true, kind.augmented = false;
@@ -1787,11 +1872,29 @@ void VehicleVisuals::update(Span<const sim::VehicleState> states) {
                     ry = rz = 0.5 * at->second.exitDiameterM;
                 }
             }
-            const bool shows = visible(i) && !states[i].crashed && exhaust_->set(i, static_cast<std::size_t>(flame), ry, rz, states[i], joint.engine, kind);
+            const bool shows = visible(i) && !states[i].crashed &&
+                               exhaust_->set(i, static_cast<std::size_t>(flame), ry, rz, states[i], logicalEngine, kind, propExt);
             // where it runs from: its node at rest in the body, the body in the world
             if (shows) shownFlames_.push_back({static_cast<std::uint32_t>(i * Exhaust::kPerSlot + static_cast<std::size_t>(flame)), m * joint.inModel});
             // (left out of the vehicles' depth pass: gas, and as costly again drawn there)
             pose.flameSwitches[j]->children[1].mask = shows ? render::Viewer::kNotInPrepass : vsg::MASK_OFF;
+        }
+        // B-59: manifest-placed turboshaft / turboprop / piston exhaust stacks (heat-haze shimmer via WingVapour)
+        if (exhaust_ && exhaustOn_ && !pose.placedFlames.empty() && sectionOnly_[i].empty()) {
+            for (const auto& pf : pose.placedFlames) {
+                if (pf.flameSlot < 0) continue;
+                Exhaust::Kind kind;
+                kind.augmented = false;
+                kind.exhaustStack = true;
+                kind.turbineExitK = pf.turbineExitK;
+                const bool shows = visible(i) && !states[i].crashed &&
+                                   exhaust_->set(i, static_cast<std::size_t>(pf.flameSlot), pf.radius, pf.radius,
+                                                 states[i], pf.engine, kind, propExt);
+                if (shows) {
+                    shownFlames_.push_back({static_cast<std::uint32_t>(i * Exhaust::kPerSlot + static_cast<std::size_t>(pf.flameSlot)),
+                                            m * pf.inModel});
+                }
+            }
         }
         if (visible_[i] && !std::isfinite(clock) && std::isfinite(states[i].simTime)) clock = states[i].simTime;
     }

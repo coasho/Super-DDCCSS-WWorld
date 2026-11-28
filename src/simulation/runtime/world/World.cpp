@@ -19,6 +19,7 @@
 #include "fsim/ControllerRegistry.h"
 #include "simulation/flight/JsbsimModel.h"
 #include "simulation/mission_systems/ea/Jammer.h"
+#include "simulation/mission_systems/gun/Gun.h"
 #include "simulation/mission_systems/radar/Radar.h"
 #include "simulation/mission_systems/rcs/StoreRcs.h"
 #include "simulation/mission_systems/rf/Path.h"
@@ -292,6 +293,7 @@ World::World(const WorldOptions& options)
 
 World::~World() {
     stopStandbyPreloader();
+    tacticalRecorder_.close();
     combatVfxRecorder_.close();
     debrisRecorder_.close();
     if(weaponLinkAccess_){std::lock_guard<std::mutex> lock(weaponLinkAccess_->mutex);weaponLinkAccess_->world=nullptr;}
@@ -3689,6 +3691,7 @@ void World::step(unsigned n) {
                     applySlidePose(s, pubStates[s]);
                 publisher_->setDebris(collectDebrisFrame());
                 publisher_->setCombatVfx(collectCombatVfxFrame());
+                publisher_->setTacticalOverlay(collectTacticalOverlayFrame());
                 if (publisher_->publish(simTime_, Span<const sim::VehicleState>(pubStates), Span<const sim::ControlInputs>(poolInputs_), false,
                                         Span<const ipc::FlightStatus>(poolStatus_),collectWeaponControls()))
                     {publishMission();publishWeaponDiagnosticsV1();}
@@ -3708,6 +3711,7 @@ void World::publishNow() {
         applySlidePose(s, pubStates[s]);
     publisher_->setDebris(collectDebrisFrame());
     publisher_->setCombatVfx(collectCombatVfxFrame());
+    publisher_->setTacticalOverlay(collectTacticalOverlayFrame());
     publisher_->publish(simTime_, Span<const sim::VehicleState>(pubStates), Span<const sim::ControlInputs>(poolInputs_), true, Span<const ipc::FlightStatus>(poolStatus_),collectWeaponControls());
     publishMission();
     publishWeaponDiagnosticsV1();
@@ -4532,6 +4536,15 @@ void World::recordFrame() {
             combatVfxRecorder_.open(options_.recordPath.string() + ".vfx");
         if (combatVfxRecorder_.isOpen()) combatVfxRecorder_.write(vfxFrame);
     }
+    // Optional companion .tact sidecar (VIS-M14): lazy-opened on first tactical/EMSO/extended-propulsion record
+    // so legacy recordings produce zero extra files while tactical replays carry exact native overlay frames.
+    const auto tactFrame = collectTacticalOverlayFrame();
+    const bool wantTactSidecar = !tactFrame.empty() || tacticalRecorder_.isOpen();
+    if (wantTactSidecar) {
+        if (!tacticalRecorder_.isOpen() && !options_.recordPath.empty())
+            tacticalRecorder_.open(options_.recordPath.string() + ".tact");
+        if (tacticalRecorder_.isOpen()) tacticalRecorder_.write(tactFrame);
+    }
 }
 
 void World::pushCombatVfxEvent(ipc::CombatVfxEventWireV1 ev) {
@@ -4603,6 +4616,746 @@ ipc::CombatVfxFrameV1 World::collectCombatVfxFrame() const {
         if (out.events.size() >= ipc::kMaxCombatVfxEventsV1) break;
         out.events.push_back(timed.wire);
     }
+    return out;
+}
+
+ipc::TacticalOverlayFrameV1 World::tacticalOverlayFrame() const {
+    return collectTacticalOverlayFrame();
+}
+
+ipc::TacticalOverlayFrameV1 World::collectTacticalOverlayFrame() const {
+    ipc::TacticalOverlayFrameV1 out;
+    out.simTime = simTime_;
+    if (!pool_) return out;
+
+    const auto states = pool_->states();
+    constexpr double kPi = 3.14159265358979323846;
+    constexpr double kLight = 299792458.0;
+    constexpr double kBoltzmannT0 = 1.380649e-23 * 290.0;
+
+    auto findReportVal = [](const std::vector<ms::PayloadValue>& rep, const char* key, double fallback) noexcept {
+        for (const auto& v : rep) {
+            if (v.name && std::strcmp(v.name, key) == 0)
+                return std::isfinite(v.value) ? v.value : fallback;
+        }
+        return fallback;
+    };
+
+    auto entityEcef = [&](std::uint32_t entityId, double posOut[3], std::uint32_t& slotOut) noexcept -> bool {
+        if (const Entry* ent = entry(entityId); ent && ent->slot < states.size()) {
+            std::copy_n(states[ent->slot].positionEcef, 3, posOut);
+            slotOut = static_cast<std::uint32_t>(ent->slot);
+            return true;
+        }
+        if (const comm::C2NodeSpec* c2 = c2Node(entityId)) {
+            ms::rf::geodeticToEcef(c2->latitudeRad, c2->longitudeRad, c2->altitudeMslM, posOut);
+            slotOut = 0;
+            return true;
+        }
+        return false;
+    };
+
+    auto pathLossReadOnlyDb = [&](std::uint32_t a, std::uint32_t b, double rangeM, double freqHz) -> double {
+        const double freeSpace = 20.0 * std::log10(4.0 * kPi * std::max(rangeM, 1.0) * std::max(freqHz, 1.0) / kLight);
+        const PathKey key{std::min(a, b), std::max(a, b), std::round(freqHz / 1e7) * 1e7};
+        double excess = 0.0;
+        {
+            std::lock_guard<std::mutex> lock(pathExcessMutex_);
+            if (const auto it = pathExcess_.find(key); it != pathExcess_.end() && std::isfinite(it->second.excessDb))
+                excess = std::max(0.0, it->second.excessDb);
+        }
+        return freeSpace + excess;
+    };
+
+    // 1. Active Air Radars: scan volume, instantaneous beam, RCS-aware detection range, and live EA burn-through
+    for (std::size_t s = 0; s < entries_.size() && s < states.size(); ++s) {
+        const Entry* e = entries_[s].get();
+        if (!e || !e->info.alive || states[s].crashed) continue;
+        const sim::VehicleState& own = states[s];
+        const auto& payloads = e->ms.payloads();
+        for (const auto& p : payloads) {
+            if (p.family != ms::Family::AirRadar) continue;
+            if (out.radars.size() >= ipc::kMaxTacticalRadarsV1) break;
+            const ms::RadarStatus st = e->ms.radarStatus(p.index);
+            const ms::radar::Radar* rad = e->ms.radar(p.index);
+            if (!st.searching || !rad) continue;
+
+            ipc::TacticalRadarVolumeWireV1 w{};
+            w.slot = static_cast<std::uint32_t>(s);
+            w.vehicleId = e->info.id;
+            w.payloadIndex = p.index;
+            w.mode = static_cast<std::uint8_t>(st.mode);
+            w.azimuthCentreRad = static_cast<float>(st.azimuthCentreRad);
+            w.azimuthHalfWidthRad = static_cast<float>(st.rotodome ? kPi : std::max(0.02, st.azimuthHalfWidthRad));
+            w.elevationCentreRad = static_cast<float>(st.elevationCentreRad);
+            const double elHalf = std::isfinite(rad->searching().elevationHalfWidthRad)
+                                      ? rad->searching().elevationHalfWidthRad
+                                      : std::max(0.04, 0.5 * std::max(st.bars, 1) * std::max(st.beamwidthElevationRad, 0.03));
+            w.elevationHalfWidthRad = static_cast<float>(std::clamp(elHalf, 0.02, 1.4));
+            w.beamAzimuthRad = static_cast<float>(st.beamAzimuthRad);
+            w.beamElevationRad = static_cast<float>(st.beamElevationRad);
+            w.rangeScaleM = static_cast<float>(std::max(1000.0, st.rangeScaleM));
+            w.flags = ipc::kTactRadarSearching;
+            if (st.rotodome) w.flags |= ipc::kTactRadarRotodome;
+            if (st.electronic) w.flags |= ipc::kTactRadarElectronic;
+            if (st.mode == ms::AmtiMode::SingleTargetTrack) w.flags |= ipc::kTactRadarSttLock;
+            if (st.illuminating) w.flags |= ipc::kTactRadarIlluminating;
+
+            // Track / STT target & RCS-aware detection range (B-37 stealth contrast)
+            double refSigmaM2 = 5.0;
+            const auto tracks = e->ms.amtiTracks(p.index, simTime_, own);
+            const ms::AmtiTrack* focusTrack = nullptr;
+            if (st.designatedTrack != 0) {
+                for (const auto& tr : tracks)
+                    if (tr.id == st.designatedTrack) { focusTrack = &tr; break; }
+            }
+            if (!focusTrack && !tracks.empty()) focusTrack = &tracks.front();
+            if (focusTrack) {
+                w.flags |= ipc::kTactRadarHasTarget;
+                w.targetId = static_cast<std::uint32_t>(focusTrack->id & 0xFFFFFFFFu);
+                w.targetRangeM = static_cast<float>(std::max(0.0, focusTrack->rangeM));
+                w.targetEcef[0] = focusTrack->stateEcef[0];
+                w.targetEcef[1] = focusTrack->stateEcef[2];
+                w.targetEcef[2] = focusTrack->stateEcef[4];
+                if (focusTrack->truth != 0) {
+                    const ms::RcsQuery rq{rad->spec().frequencyHz, rad->spec().polarizationRad, rad->spec().polarizationRad};
+                    if (const auto rcs = radarCrossSection(e->info.id, focusTrack->truth, rq);
+                        rcs && rcs->modelled && std::isfinite(rcs->sigmaM2) && rcs->sigmaM2 > 1e-6) {
+                        refSigmaM2 = rcs->sigmaM2;
+                    }
+                }
+            }
+            const double detRaw = rad->detectionRangeM(refSigmaM2, 0.5, 1, st.mode);
+            const double detM = std::isfinite(detRaw) && detRaw > 0.0
+                                    ? std::min(detRaw, std::max(st.instrumentedRangeM, st.rangeScaleM))
+                                    : st.rangeScaleM;
+            w.detectionRangeM = static_cast<float>(std::max(0.0, detM));
+
+            // Live EA jammer interference & burn-through range under (1 + J0/N0)^(-1/4)
+            double totalJ0 = 0.0;
+            if (!emissions_.empty()) {
+                const double cb = std::cos(st.beamElevationRad);
+                const double beamBody[3] = {cb * std::cos(st.beamAzimuthRad), cb * std::sin(st.beamAzimuthRad), -std::sin(st.beamElevationRad)};
+                const double sy = beamBody[1], sz = beamBody[2];
+                const double rxBwHz = std::max(1.0e5, 1.0 / std::max(rad->spec().dwellS, 1e-4));
+                for (const ms::Emission& em : emissions_) {
+                    if (em.mode != ms::EmitterMode::Jammer || !em.state || em.entity == e->info.id) continue;
+                    const double overlap = ms::ea::spectralOverlap(em.frequencyHz, em.bandwidthHz, rad->spec().frequencyHz, rxBwHz);
+                    if (overlap <= 0.0) continue;
+                    double los[3];
+                    const double rangeM = ms::geom::lineOfSight(own, em.state->positionEcef, los);
+                    if (!(rangeM > 1.0)) continue;
+                    double db[3];
+                    ms::geom::toBody(own, los, db);
+                    double rxGainDbi = 0.0;
+                    if (st.electronic) {
+                        if (rad->spec().azimuthFaces <= 1) {
+                            rxGainDbi = rad->pattern().gainDbi(db, sy, sz);
+                        } else {
+                            const double spacing = 2.0 * kPi / static_cast<double>(rad->spec().azimuthFaces);
+                            const double centre = std::round(std::atan2(beamBody[1], beamBody[0]) / spacing) * spacing;
+                            const double c = std::cos(centre), sn = std::sin(centre);
+                            const double local[3] = {c * db[0] + sn * db[1], -sn * db[0] + c * db[1], db[2]};
+                            rxGainDbi = 10.0 * std::log10(std::max(1e-12, rad->pattern().gain(local, -sn * beamBody[0] + c * beamBody[1], beamBody[2])));
+                        }
+                    } else {
+                        double y[3] = {-beamBody[1], beamBody[0], 0.0};
+                        const double yl = std::hypot(y[0], y[1]);
+                        if (yl < 1e-9) y[0] = 0.0, y[1] = 1.0, y[2] = 0.0;
+                        else y[0] /= yl, y[1] /= yl;
+                        const double z[3] = {
+                            beamBody[1] * y[2] - beamBody[2] * y[1],
+                            beamBody[2] * y[0] - beamBody[0] * y[2],
+                            beamBody[0] * y[1] - beamBody[1] * y[0]};
+                        const double face[3] = {ms::geom::dot3(db, beamBody), ms::geom::dot3(db, y), ms::geom::dot3(db, z)};
+                        rxGainDbi = rad->pattern().gainDbi(face);
+                    }
+                    const double txGainDbi = em.gainTowardsDbi(own.positionEcef);
+                    const double lossDb = pathLossReadOnlyDb(e->info.id, em.entity, rangeM, rad->spec().frequencyHz);
+                    totalJ0 += ms::ea::receivedJammerDensityWHz(em.powerW, txGainDbi, rxGainDbi, lossDb, em.bandwidthHz, overlap);
+                }
+            }
+            const double n0 = kBoltzmannT0 * std::pow(10.0, rad->spec().noiseFigureDb / 10.0);
+            const double factor = 1.0 + totalJ0 / std::max(n0, 1e-30);
+            w.jammerRatioDb = static_cast<float>(std::max(0.0, 10.0 * std::log10(factor)));
+            w.burnThroughRangeM = static_cast<float>(detM * std::pow(factor, -0.25));
+            if (w.jammerRatioDb > 0.5f) w.flags |= ipc::kTactRadarJammed;
+
+            if (ipc::validTacticalRadarV1(w)) out.radars.push_back(w);
+        }
+    }
+
+    // 2. Active EA Jammer Lobes
+    for (const ms::Emission& em : emissions_) {
+        if (out.jammers.size() >= ipc::kMaxTacticalJammersV1) break;
+        if (em.mode != ms::EmitterMode::Jammer || !em.state || !(em.powerW > 0.0)) continue;
+        ipc::TacticalJammerLobeWireV1 j{};
+        j.vehicleId = em.entity;
+        if (const Entry* je = entry(em.entity)) j.slot = static_cast<std::uint32_t>(je->slot);
+        std::copy_n(em.state->positionEcef, 3, j.originEcef);
+        const double cb = std::cos(em.elevationCentreRad);
+        const double bodyDir[3] = {cb * std::cos(em.azimuthCentreRad), cb * std::sin(em.azimuthCentreRad), -std::sin(em.elevationCentreRad)};
+        ms::geom::toEcef(*em.state, bodyDir, j.boresightEcef);
+        const double bn = ms::geom::norm3(j.boresightEcef);
+        if (bn > 1e-9) {
+            for (double& v : j.boresightEcef) v /= bn;
+        } else {
+            j.boresightEcef[0] = 1.0, j.boresightEcef[1] = 0.0, j.boresightEcef[2] = 0.0;
+        }
+        j.halfAngleRad = static_cast<float>(em.allRound ? kPi : std::clamp(em.azimuthHalfWidthRad, 0.05, 1.4));
+        const double erpDbw = 10.0 * std::log10(em.powerW) + em.peakGainDbi;
+        j.erpDbw = static_cast<float>(erpDbw);
+        j.rangeM = static_cast<float>(std::clamp(25000.0 * std::pow(10.0, (erpDbw - 40.0) / 40.0), 25000.0, 220000.0));
+        j.frequencyGhz = static_cast<float>(em.frequencyHz * 1e-9);
+        j.bandwidthMhz = static_cast<float>(em.bandwidthHz * 1e-6);
+        j.flags = (em.allRound ? ipc::kTactJamAllRound : 0u) | (em.frequencyHz < 2.0e9 ? ipc::kTactJamComms : 0u);
+        if (ipc::validTacticalJammerV1(j)) out.jammers.push_back(j);
+    }
+
+    // 3. ESM / RWR Bearing-Only DF Rays & 3-D Gauss-Newton FIM CRLB Geolocation Ellipsoids
+    for (std::size_t s = 0; s < entries_.size() && s < states.size(); ++s) {
+        const Entry* e = entries_[s].get();
+        if (!e || !e->info.alive || states[s].crashed) continue;
+        const sim::VehicleState& own = states[s];
+        for (const auto& p : e->ms.payloads()) {
+            if (p.family != ms::Family::Esm || p.state != ms::PayloadState::Operate) continue;
+            const auto contacts = e->ms.contacts(p.index);
+            for (const ms::Contact& c : contacts) {
+                if (out.esmRays.size() >= ipc::kMaxTacticalEsmRaysV1) break;
+                ipc::TacticalEsmRayWireV1 r{};
+                r.observerSlot = static_cast<std::uint32_t>(s);
+                r.observerVehicleId = e->info.id;
+                std::copy_n(own.positionEcef, 3, r.originEcef);
+                const double cb = std::cos(c.elevationRad);
+                const double bDir[3] = {cb * std::cos(c.azimuthRad), cb * std::sin(c.azimuthRad), -std::sin(c.elevationRad)};
+                double rayE[3];
+                ms::geom::toEcef(own, bDir, rayE);
+                const double rn = ms::geom::norm3(rayE);
+                if (!(rn > 1e-9)) continue;
+                for (int k = 0; k < 3; ++k) r.rayDirEcef[k] = static_cast<float>(rayE[k] / rn);
+                r.receivedDbm = static_cast<float>(std::isfinite(c.strengthDb) ? c.strengthDb : -70.0);
+                r.emitterMode = static_cast<std::uint8_t>(c.mode);
+                r.flags = (c.warning ? ipc::kTactEsmWarning : 0u) | (c.mode == ms::EmitterMode::Datalink ? ipc::kTactEsmComint : 0u);
+                if (std::isfinite(c.rangeM) && c.rangeM > 0.0 && std::isfinite(c.latitudeRad) && std::isfinite(c.longitudeRad)) {
+                    r.flags |= ipc::kTactEsmHasGeo;
+                    ms::rf::geodeticToEcef(c.latitudeRad, c.longitudeRad, std::isfinite(c.heightM) ? c.heightM : 0.0, r.geoPosEcef);
+                    r.rayLengthM = static_cast<float>(std::clamp(c.rangeM, 500.0, 400000.0));
+                    const double cep = (std::isfinite(c.sizeM) && c.sizeM > 0.0)
+                                           ? c.sizeM
+                                           : std::max(100.0, c.rangeM * std::max(c.bearingSigmaRad, 0.005));
+                    r.crlbCep50M = static_cast<float>(cep);
+                    r.crlbVertM = static_cast<float>(cep * 0.65);
+                } else {
+                    const double estLen = 120000.0 * std::pow(10.0, std::clamp((static_cast<double>(r.receivedDbm) + 75.0) / 40.0, -0.5, 0.5));
+                    r.rayLengthM = static_cast<float>(std::clamp(estLen, 25000.0, 200000.0));
+                }
+                if (ipc::validTacticalEsmRayV1(r)) out.esmRays.push_back(r);
+            }
+        }
+    }
+
+    // 4. Link 16 / DMS Pulses, C2 Consent Arcs, Mode 5 IFF Rings, and PNT GNSS Drift Rings
+    if (dms_.active()) {
+        std::vector<Dms::CarrierEmission> carriers;
+        dms_.activeCarriers(simTime_, 2.0, carriers);
+        const auto dmsEnts = dms_.entities();
+        for (const auto& c : carriers) {
+            if (out.links.size() >= ipc::kMaxTacticalLinksV1) break;
+            double fromPos[3];
+            std::uint32_t fromSlot = 0;
+            if (!entityEcef(c.entity, fromPos, fromSlot)) continue;
+            const comm::SystemId txSys = dms_.systemOf(c.entity);
+            bool emittedPeer = false;
+            for (const std::uint32_t rxEnt : dmsEnts) {
+                if (rxEnt == c.entity || out.links.size() >= ipc::kMaxTacticalLinksV1) continue;
+                const auto* peers = dms_.peersOf(rxEnt);
+                if (!peers) continue;
+                for (const auto& pr : *peers) {
+                    if (pr.system != txSys || !std::isfinite(pr.receivedS)) continue;
+                    const double age = simTime_ - pr.receivedS;
+                    if (age < 0.0 || age > 3.0) continue;
+                    double toPos[3];
+                    std::uint32_t toSlot = 0;
+                    if (!entityEcef(rxEnt, toPos, toSlot)) continue;
+                    ipc::TacticalLinkPulseWireV1 l{};
+                    std::copy_n(fromPos, 3, l.fromEcef);
+                    std::copy_n(toPos, 3, l.toEcef);
+                    l.fromSlot = fromSlot;
+                    l.toSlot = toSlot;
+                    l.fromVehicleId = c.entity;
+                    l.toVehicleId = rxEnt;
+                    l.ageS = static_cast<float>(age);
+                    l.durationS = 3.0f;
+                    l.param = static_cast<float>(c.frequencyHz * 1e-6);
+                    l.kind = static_cast<std::uint8_t>(ipc::TacticalLinkKindV1::Link16Dms);
+                    if (ipc::validTacticalLinkPulseV1(l)) {
+                        out.links.push_back(l);
+                        emittedPeer = true;
+                    }
+                    break;
+                }
+            }
+            if (!emittedPeer) {
+                const auto txNets = dms_.netsOf(c.entity);
+                for (const std::uint32_t rxEnt : dmsEnts) {
+                    if (rxEnt == c.entity || out.links.size() >= ipc::kMaxTacticalLinksV1) continue;
+                    const auto rxNets = dms_.netsOf(rxEnt);
+                    bool shared = false;
+                    for (const auto& tn : txNets)
+                        for (const auto& rn : rxNets)
+                            if (tn.id == rn.id) shared = true;
+                    if (!shared) continue;
+                    double toPos[3];
+                    std::uint32_t toSlot = 0;
+                    if (!entityEcef(rxEnt, toPos, toSlot)) continue;
+                    ipc::TacticalLinkPulseWireV1 l{};
+                    std::copy_n(fromPos, 3, l.fromEcef);
+                    std::copy_n(toPos, 3, l.toEcef);
+                    l.fromSlot = fromSlot;
+                    l.toSlot = toSlot;
+                    l.fromVehicleId = c.entity;
+                    l.toVehicleId = rxEnt;
+                    l.ageS = static_cast<float>(std::fmod(std::max(0.0, simTime_), 2.0));
+                    l.durationS = 2.0f;
+                    l.param = static_cast<float>(c.frequencyHz * 1e-6);
+                    l.kind = static_cast<std::uint8_t>(ipc::TacticalLinkKindV1::Link16Dms);
+                    if (ipc::validTacticalLinkPulseV1(l)) out.links.push_back(l);
+                }
+            }
+        }
+    }
+
+    for (std::size_t s = 0; s < entries_.size() && s < states.size(); ++s) {
+        const Entry* e = entries_[s].get();
+        if (!e || !e->info.alive || states[s].crashed) continue;
+        const sim::VehicleState& own = states[s];
+
+        // C2 consent requests awaiting approval
+        std::vector<ms::ActivityId> awaiting;
+        e->ms.awaitingConsent(awaiting);
+        if (!awaiting.empty() && out.links.size() < ipc::kMaxTacticalLinksV1) {
+            ipc::TacticalLinkPulseWireV1 l{};
+            std::copy_n(own.positionEcef, 3, l.fromEcef);
+            std::copy_n(own.positionEcef, 3, l.toEcef);
+            l.fromSlot = static_cast<std::uint32_t>(s);
+            l.fromVehicleId = e->info.id;
+            for (std::size_t ci = 0; ci < c2Nodes_.size(); ++ci) {
+                if (!c2Nodes_[ci].alive) continue;
+                ms::rf::geodeticToEcef(c2Nodes_[ci].spec.latitudeRad, c2Nodes_[ci].spec.longitudeRad, c2Nodes_[ci].spec.altitudeMslM, l.toEcef);
+                l.toVehicleId = kC2Nodes + static_cast<std::uint32_t>(ci) + 1u;
+                break;
+            }
+            l.ageS = static_cast<float>(std::fmod(std::max(0.0, simTime_), 2.0));
+            l.durationS = 2.0f;
+            l.kind = static_cast<std::uint8_t>(ipc::TacticalLinkKindV1::C2Consent);
+            if (ipc::validTacticalLinkPulseV1(l)) out.links.push_back(l);
+        }
+
+        for (const auto& p : e->ms.payloads()) {
+            if (p.state != ms::PayloadState::Operate) continue;
+            if (p.family == ms::Family::CommTerminal && out.links.size() < ipc::kMaxTacticalLinksV1) {
+                const auto rep = e->ms.report(p.index);
+                const bool mode5 = findReportVal(rep, "iff_mode5", 0.0) > 0.5;
+                const double iffCount = findReportVal(rep, "iff_in_range", 0.0);
+                const bool jammed = findReportVal(rep, "jammed", 0.0) > 0.5;
+                if (mode5 && iffCount > 0.5) {
+                    ipc::TacticalLinkPulseWireV1 ring{};
+                    std::copy_n(own.positionEcef, 3, ring.fromEcef);
+                    std::copy_n(own.positionEcef, 3, ring.toEcef);
+                    ring.fromSlot = static_cast<std::uint32_t>(s);
+                    ring.fromVehicleId = e->info.id;
+                    ring.ageS = static_cast<float>(std::fmod(std::max(0.0, simTime_), 3.0));
+                    ring.durationS = 3.0f;
+                    ring.param = 90000.0f;
+                    ring.kind = static_cast<std::uint8_t>(ipc::TacticalLinkKindV1::Mode5IffInterrogate);
+                    ring.flags = jammed ? ipc::kTactLinkJammed : 0u;
+                    if (ipc::validTacticalLinkPulseV1(ring)) out.links.push_back(ring);
+
+                    int replies = 0;
+                    for (std::size_t o = 0; o < entries_.size() && o < states.size() && replies < 4 && out.links.size() < ipc::kMaxTacticalLinksV1; ++o) {
+                        const Entry* oe = entries_[o].get();
+                        if (!oe || oe == e || !oe->info.alive || oe->info.role != ms::Role::Aircraft || states[o].crashed) continue;
+                        double los[3];
+                        const double r = ms::geom::lineOfSight(own, states[o].positionEcef, los);
+                        if (!(r > 1.0 && r <= 180000.0)) continue;
+                        ipc::TacticalLinkPulseWireV1 repPulse{};
+                        std::copy_n(states[o].positionEcef, 3, repPulse.fromEcef);
+                        std::copy_n(own.positionEcef, 3, repPulse.toEcef);
+                        repPulse.fromSlot = static_cast<std::uint32_t>(o);
+                        repPulse.toSlot = static_cast<std::uint32_t>(s);
+                        repPulse.fromVehicleId = oe->info.id;
+                        repPulse.toVehicleId = e->info.id;
+                        repPulse.ageS = static_cast<float>(std::fmod(std::max(0.0, simTime_) + 0.35 * replies, 3.0));
+                        repPulse.durationS = 3.0f;
+                        repPulse.param = static_cast<float>(r);
+                        repPulse.kind = static_cast<std::uint8_t>(ipc::TacticalLinkKindV1::Mode5IffReply);
+                        if (ipc::validTacticalLinkPulseV1(repPulse)) {
+                            out.links.push_back(repPulse);
+                            ++replies;
+                        }
+                    }
+                }
+            } else if (p.family == ms::Family::Pnt && out.links.size() < ipc::kMaxTacticalLinksV1) {
+                const auto rep = e->ms.report(p.index);
+                if (findReportVal(rep, "valid", 0.0) > 0.5) {
+                    const double errH = findReportVal(rep, "pos_error_h", 0.0);
+                    const bool jammed = findReportVal(rep, "jammed", 0.0) > 0.5;
+                    const bool locked = findReportVal(rep, "gnss_locked", 0.0) > 0.5;
+                    if (errH > 0.1) {
+                        ipc::TacticalLinkPulseWireV1 drift{};
+                        std::copy_n(own.positionEcef, 3, drift.fromEcef);
+                        std::copy_n(own.positionEcef, 3, drift.toEcef);
+                        drift.fromSlot = static_cast<std::uint32_t>(s);
+                        drift.fromVehicleId = e->info.id;
+                        drift.ageS = 0.0f;
+                        drift.durationS = 1.0f;
+                        drift.param = static_cast<float>(std::clamp(errH, 0.5, 50000.0));
+                        drift.kind = static_cast<std::uint8_t>(ipc::TacticalLinkKindV1::PntGnssDrift);
+                        drift.flags = (jammed ? ipc::kTactLinkJammed : 0u) | (locked ? ipc::kTactLinkGnssLocked : 0u);
+                        if (ipc::validTacticalLinkPulseV1(drift)) out.links.push_back(drift);
+                    }
+                }
+            }
+        }
+    }
+
+    // 5. Dynamic 5-D launchZoneV2 DLZ + McCoy/STANAG 4355 Gun LCOS + Wind-Compensated Bomb CCIP
+    for (std::size_t s = 0; s < entries_.size() && s < states.size(); ++s) {
+        if (out.weapons.size() >= ipc::kMaxTacticalWeaponsV1) break;
+        const Entry* e = entries_[s].get();
+        if (!e || !e->info.alive || e->info.role != ms::Role::Aircraft || states[s].crashed) continue;
+        const sim::VehicleState& own = states[s];
+
+        ipc::TacticalWeaponCueWireV1 w{};
+        w.slot = static_cast<std::uint32_t>(s);
+        w.vehicleId = e->info.id;
+
+        // Resolve own tracked air target (strictly from own radar or fused tracks — never omniscient truth)
+        std::uint32_t targetId = 0;
+        double targetPos[3] = {0.0, 0.0, 0.0};
+        double targetVel[3] = {0.0, 0.0, 0.0};
+        bool haveTarget = false;
+        for (const auto& p : e->ms.payloads()) {
+            if (p.family != ms::Family::AirRadar) continue;
+            const ms::RadarStatus st = e->ms.radarStatus(p.index);
+            if (!st.searching) continue;
+            const auto tracks = e->ms.amtiTracks(p.index, simTime_, own);
+            const ms::AmtiTrack* best = nullptr;
+            if (st.designatedTrack != 0) {
+                for (const auto& tr : tracks)
+                    if (tr.id == st.designatedTrack) { best = &tr; break; }
+            }
+            if (!best && !tracks.empty()) best = &tracks.front();
+            if (best) {
+                targetId = best->truth;
+                targetPos[0] = best->stateEcef[0];
+                targetPos[1] = best->stateEcef[2];
+                targetPos[2] = best->stateEcef[4];
+                targetVel[0] = best->stateEcef[1];
+                targetVel[1] = best->stateEcef[3];
+                targetVel[2] = best->stateEcef[5];
+                haveTarget = true;
+                break;
+            }
+        }
+        if (!haveTarget) {
+            const auto fused = e->fusion.snapshot();
+            if (!fused.empty()) {
+                const auto& fe = fused.front();
+                targetPos[0] = fe.stateEcef[0];
+                targetPos[1] = fe.stateEcef[2];
+                targetPos[2] = fe.stateEcef[4];
+                targetVel[0] = fe.stateEcef[1];
+                targetVel[1] = fe.stateEcef[3];
+                targetVel[2] = fe.stateEcef[5];
+                haveTarget = true;
+            }
+        }
+
+        // 5a. Flyout-derived 5-D launchZoneV2 DLZ
+        if (haveTarget) {
+            std::copy_n(targetPos, 3, w.targetEcef);
+            if (targetId != 0) {
+                for (const auto& stInfo : e->ms.stores()) {
+                    if (!stInfo.storeClass || std::strcmp(stInfo.storeClass, "aam") != 0) continue;
+                    if (stInfo.status != ms::StoreStatus::Loaded && stInfo.status != ms::StoreStatus::PoweringUp &&
+                        stInfo.status != ms::StoreStatus::Ready)
+                        continue;
+                    const ms::LaunchZoneV2 v2 = launchZoneV2(e->info.id, stInfo.store, targetId);
+                    if (!v2.valid) continue;
+                    w.rAeroM = static_cast<float>(std::max(v2.maximumM * 1.15, v2.maximumM));
+                    w.rMaxM = static_cast<float>(std::max(0.0, v2.maximumM));
+                    w.rNeM = static_cast<float>(std::max(0.0, v2.noEscapeM));
+                    w.rMinM = static_cast<float>(std::max(0.0, v2.minimumM));
+                    copyName(w.storeName, sizeof w.storeName, stInfo.mnemonic && stInfo.mnemonic[0] ? stInfo.mnemonic : stInfo.store);
+                    w.flags |= ipc::kTactWeaponHasDlz;
+                    if (v2.inRange) w.flags |= ipc::kTactWeaponInRange;
+                    if (v2.inNoEscape) w.flags |= ipc::kTactWeaponInNez;
+                    break;
+                }
+            }
+        }
+
+        // 5b. Native McCoy / STANAG 4355 ballistic gun LCOS lead aimpoint
+        for (const auto& p : e->ms.payloads()) {
+            if (p.family != ms::Family::Gun) continue;
+            const ms::Card* card = e->ms.card(p.index);
+            if (!card) continue;
+            const auto rep = e->ms.report(p.index);
+            const double roundsLeft = findReportVal(rep, "rounds_remaining", 1.0);
+            if (!(roundsLeft > 0.0)) continue;
+            const ms::gun::Spec gspec = ms::gun::specOf(*card, p.count);
+            const double dragK = ms::gun::dragRetardationPerM(gspec.calibreM, gspec.projectileKg, gspec.dragCd);
+            w.gunMuzzleSpeedMs = static_cast<float>(gspec.muzzleMs);
+            w.gunDragK = static_cast<float>(dragK);
+
+            const double ownNorm = ms::geom::norm3(own.positionEcef);
+            const double upHat[3] = {
+                ownNorm > 1.0 ? own.positionEcef[0] / ownNorm : 0.0,
+                ownNorm > 1.0 ? own.positionEcef[1] / ownNorm : 0.0,
+                ownNorm > 1.0 ? own.positionEcef[2] / ownNorm : 1.0};
+            double ownVel[3];
+            ms::geom::velocityEcef(own, ownVel);
+            const double rhoRatio = ms::geom::densityRatio(own.altitudeMslM);
+            const double v0 = std::max(gspec.muzzleMs, 200.0);
+
+            double refPos[3] = {};
+            double refVel[3] = {};
+            double slantM = 0.0;
+            bool computeLcos = false;
+            if (haveTarget) {
+                double los[3];
+                slantM = ms::geom::lineOfSight(own, targetPos, los);
+                if (slantM >= 50.0 && slantM <= 4500.0) {
+                    std::copy_n(targetPos, 3, refPos);
+                    std::copy_n(targetVel, 3, refVel);
+                    computeLcos = true;
+                }
+            }
+            if (!computeLcos && !own.onGround && (p.state == ms::PayloadState::Operate || findReportVal(rep, "firing", 0.0) > 0.5)) {
+                // Nominal 800 m boresight ballistic drop reticle when gun is armed without close air target
+                const double fwdBody[3] = {std::cos(gspec.elevationRad), 0.0, -std::sin(gspec.elevationRad)};
+                double fwdE[3];
+                ms::geom::toEcef(own, fwdBody, fwdE);
+                slantM = 800.0;
+                for (int k = 0; k < 3; ++k) {
+                    refPos[k] = own.positionEcef[k] + fwdE[k] * slantM;
+                    refVel[k] = ownVel[k];
+                }
+                computeLcos = true;
+            }
+            if (computeLcos) {
+                double tof = slantM / v0;
+                for (int it = 0; it < 3; ++it) {
+                    const double vAvg = v0 / (1.0 + 0.5 * dragK * rhoRatio * v0 * tof);
+                    const double pred[3] = {
+                        refPos[0] + (refVel[0] - ownVel[0]) * tof - own.positionEcef[0],
+                        refPos[1] + (refVel[1] - ownVel[1]) * tof - own.positionEcef[1],
+                        refPos[2] + (refVel[2] - ownVel[2]) * tof - own.positionEcef[2]};
+                    tof = std::clamp(ms::geom::norm3(pred) / std::max(vAvg, 120.0), 0.02, 6.0);
+                }
+                for (int k = 0; k < 3; ++k)
+                    w.lcosPipperEcef[k] = refPos[k] + (refVel[k] - ownVel[k]) * tof + 0.5 * 9.80665 * upHat[k] * tof * tof;
+                w.flags |= ipc::kTactWeaponHasLcos;
+            }
+            break;
+        }
+
+        // 5c. Wind-compensated Mk 82 / gravity bomb CCIP terrain impact prediction
+        if (!own.onGround && own.altitudeAglM > 20.0) {
+            const ms::StoreInfo* bombStore = nullptr;
+            for (const auto& stInfo : e->ms.stores()) {
+                if (!stInfo.storeClass || std::strcmp(stInfo.storeClass, "bomb") != 0) continue;
+                if (stInfo.status == ms::StoreStatus::Loaded || stInfo.status == ms::StoreStatus::PoweringUp ||
+                    stInfo.status == ms::StoreStatus::Ready) {
+                    bombStore = &stInfo;
+                    break;
+                }
+            }
+            if (bombStore) {
+                double pos[3] = {own.positionEcef[0], own.positionEcef[1], own.positionEcef[2]};
+                double vel[3];
+                ms::geom::velocityEcef(own, vel);
+                const double sl = std::sin(own.latitudeRad), cl = std::cos(own.latitudeRad);
+                const double so = std::sin(own.longitudeRad), co = std::cos(own.longitudeRad);
+                const double up[3] = {cl * co, cl * so, sl};
+                const double east[3] = {-so, co, 0.0};
+                const double north[3] = {-sl * co, -sl * so, cl};
+                const double windRad = environment_.windDirectionDeg * (kPi / 180.0);
+                const double windToN = -environment_.windSpeedMs * std::cos(windRad);
+                const double windToE = -environment_.windSpeedMs * std::sin(windRad);
+                const double windEcef[3] = {
+                    windToN * north[0] + windToE * east[0],
+                    windToN * north[1] + windToE * east[1],
+                    windToN * north[2] + windToE * east[2]};
+                const double dtB = 0.20;
+                double altM = own.altitudeMslM;
+                const double gndH = own.altitudeMslM - own.altitudeAglM;
+                bool hit = false;
+                for (int step = 0; step < 240; ++step) {
+                    const double relV[3] = {vel[0] - windEcef[0], vel[1] - windEcef[1], vel[2] - windEcef[2]};
+                    const double speed = ms::geom::norm3(relV);
+                    const double kDrag = 0.00018 * ms::geom::densityRatio(altM);
+                    double prevPos[3] = {pos[0], pos[1], pos[2]};
+                    for (int k = 0; k < 3; ++k) {
+                        const double acc = -9.80665 * up[k] - kDrag * speed * relV[k];
+                        vel[k] += acc * dtB;
+                        pos[k] += vel[k] * dtB;
+                    }
+                    constexpr double kA = 6378137.0, kB = 6356752.314245, kE2 = 1.0 - (kB * kB) / (kA * kA);
+                    constexpr double kEp2 = (kA * kA - kB * kB) / (kB * kB);
+                    const double rhoP = std::hypot(pos[0], pos[1]);
+                    const double theta = std::atan2(pos[2] * kA, std::max(rhoP, 1e-6) * kB);
+                    const double stH = std::sin(theta), ctH = std::cos(theta);
+                    const double lat = std::atan2(pos[2] + kEp2 * kB * stH * stH * stH,
+                                                  std::max(rhoP, 1e-6) - kE2 * kA * ctH * ctH * ctH);
+                    const double lon = std::atan2(pos[1], pos[0]);
+                    const double slL = std::sin(lat), clL = std::cos(lat);
+                    const double N = kA / std::sqrt(1.0 - kE2 * slL * slL);
+                    const double h = (std::abs(clL) > 1e-4) ? (rhoP / clL - N) : (std::abs(pos[2]) / std::max(std::abs(slL), 1e-6) - N * (1.0 - kE2));
+                    double terrainH = gndH;
+                    if (ground_) {
+                        const double th = ground_->pointHeightAboveEllipsoidM(lat, lon);
+                        if (std::isfinite(th)) terrainH = th;
+                    }
+                    if (h <= terrainH) {
+                        const double denom = std::max(1e-3, altM - h);
+                        const double frac = std::clamp((altM - terrainH) / denom, 0.0, 1.0);
+                        for (int k = 0; k < 3; ++k) w.ccipImpactEcef[k] = prevPos[k] + (pos[k] - prevPos[k]) * frac;
+                        hit = true;
+                        break;
+                    }
+                    altM = h;
+                }
+                if (hit) {
+                    w.flags |= ipc::kTactWeaponHasCcip;
+                    if (w.storeName[0] == '\0')
+                        copyName(w.storeName, sizeof w.storeName, bombStore->mnemonic && bombStore->mnemonic[0] ? bombStore->mnemonic : bombStore->store);
+                }
+            }
+        }
+
+        if (w.flags != 0u && ipc::validTacticalWeaponCueV1(w)) out.weapons.push_back(w);
+    }
+
+    // 6. SAR Spotlight Footprints & Weather Radar Precipitation Cells
+    for (std::size_t s = 0; s < entries_.size() && s < states.size(); ++s) {
+        const Entry* e = entries_[s].get();
+        if (!e || !e->info.alive || states[s].crashed) continue;
+        for (const auto& p : e->ms.payloads()) {
+            if (p.state != ms::PayloadState::Operate) continue;
+            if (p.family != ms::Family::Sar && p.family != ms::Family::WeatherRadar) continue;
+            const auto contacts = e->ms.contacts(p.index);
+            const auto rep = e->ms.report(p.index);
+            const bool sarJammed = (p.family == ms::Family::Sar) && (findReportVal(rep, "jam_degradation", 0.0) > 1.0);
+            for (const ms::Contact& c : contacts) {
+                if (out.swaths.size() >= ipc::kMaxTacticalSwathsV1) break;
+                if (!std::isfinite(c.latitudeRad) || !std::isfinite(c.longitudeRad)) continue;
+                ipc::TacticalSwathWireV1 sw{};
+                sw.slot = static_cast<std::uint32_t>(s);
+                sw.vehicleId = e->info.id;
+                const double hM = std::isfinite(c.heightM) ? c.heightM : 0.0;
+                ms::rf::geodeticToEcef(c.latitudeRad, c.longitudeRad, hM, sw.centerEcef);
+                const double sl = std::sin(c.latitudeRad), cl = std::cos(c.latitudeRad);
+                const double so = std::sin(c.longitudeRad), co = std::cos(c.longitudeRad);
+                sw.axisEastEcef[0] = static_cast<float>(-so);
+                sw.axisEastEcef[1] = static_cast<float>(co);
+                sw.axisEastEcef[2] = 0.0f;
+                sw.axisNorthEcef[0] = static_cast<float>(-sl * co);
+                sw.axisNorthEcef[1] = static_cast<float>(-sl * so);
+                sw.axisNorthEcef[2] = static_cast<float>(cl);
+                if (p.family == ms::Family::Sar) {
+                    sw.kind = static_cast<std::uint8_t>(ipc::TacticalSwathKindV1::SarSpotlight);
+                    const double res = std::isfinite(c.sizeM) && c.sizeM > 0.0 ? c.sizeM : 1.0;
+                    const float half = static_cast<float>(std::clamp(std::max(800.0, res * 400.0), 800.0, 5000.0));
+                    sw.halfWidthM = half;
+                    sw.halfLengthM = half;
+                    sw.metricDb = static_cast<float>(std::isfinite(c.strengthDb) ? c.strengthDb : -25.0);
+                    sw.resolutionM = static_cast<float>(res);
+                    sw.flags = sarJammed ? ipc::kTactSwathJammed : 0u;
+                } else {
+                    sw.kind = static_cast<std::uint8_t>(ipc::TacticalSwathKindV1::WeatherCell);
+                    const float half = static_cast<float>(std::clamp(std::isfinite(c.sizeM) ? 0.5 * c.sizeM : 3000.0, 1200.0, 8000.0));
+                    sw.halfWidthM = half;
+                    sw.halfLengthM = half;
+                    sw.metricDb = static_cast<float>(std::isfinite(c.strengthDb) ? c.strengthDb : 20.0);
+                    sw.resolutionM = static_cast<float>(std::max(0.0, hM));
+                }
+                if (ipc::validTacticalSwathV1(sw)) out.swaths.push_back(sw);
+            }
+        }
+    }
+
+    // 7. Extended 8-Engine & Rotorcraft/Propeller Propulsion Telemetry (B-57 & B-59, zero break to VehicleState)
+    for (std::size_t s = 0; s < entries_.size() && s < states.size(); ++s) {
+        if (out.propulsion.size() >= ipc::kMaxTacticalPropulsionV1) break;
+        const Entry* e = entries_[s].get();
+        if (!e || !e->info.alive || e->info.role != ms::Role::Aircraft || states[s].crashed) continue;
+        const sim::VehicleState& own = states[s];
+        const auto* extSrc = dynamic_cast<const sim::PropulsionExtendedSourceV1*>(&pool_->vehicle(s));
+        sim::PropulsionExtendedV1 ext{};
+        const bool haveExt = extSrc && extSrc->propulsionExtendedV1(ext);
+
+        const std::string& ac = e->info.aircraft;
+        const bool isRotor = e->host.performance().hovers ||
+                             ac.find("uh1") != std::string::npos || ac.find("uh60") != std::string::npos ||
+                             ac.find("ah64") != std::string::npos || ac.find("ch47") != std::string::npos ||
+                             ac.find("mi24") != std::string::npos || ac.find("ec135") != std::string::npos;
+        const bool isProp = !isRotor &&
+                            (ac.find("c130") != std::string::npos || ac.find("c172") != std::string::npos ||
+                             ac.find("mq9") != std::string::npos || ac.find("p3") != std::string::npos ||
+                             ac.find("e2") != std::string::npos || ac.find("tu95") != std::string::npos ||
+                             ac.find("an26") != std::string::npos || ac.find("a400") != std::string::npos);
+
+        const std::uint8_t nEng = haveExt ? static_cast<std::uint8_t>(std::clamp(ext.engineCount, 0, static_cast<int>(ipc::kTacticalMaxEnginesV1)))
+                                          : static_cast<std::uint8_t>(std::clamp(own.engineCount, 0, sim::VehicleState::kMaxEngines));
+        if (nEng <= sim::VehicleState::kMaxEngines && !isRotor && !isProp) continue;
+
+        ipc::TacticalPropulsionExtWireV1 pr{};
+        pr.slot = static_cast<std::uint32_t>(s);
+        pr.vehicleId = e->info.id;
+        pr.engineCount = nEng;
+        if (haveExt) {
+            for (std::uint32_t k = 0; k < nEng; ++k) {
+                pr.throttle[k] = static_cast<float>(std::isfinite(ext.throttlePosition[k]) ? ext.throttlePosition[k] : 0.0);
+                pr.thrustN[k] = static_cast<float>(std::isfinite(ext.thrustN[k]) ? ext.thrustN[k] : 0.0);
+                pr.engineN2[k] = static_cast<float>(std::isfinite(ext.engineN2[k]) ? ext.engineN2[k] : 0.0);
+                pr.afterburner[k] = static_cast<float>(std::isfinite(ext.afterburner[k]) ? ext.afterburner[k] : 0.0);
+                pr.fuelFlowKgS[k] = static_cast<float>(std::isfinite(ext.fuelFlowKgS[k]) ? ext.fuelFlowKgS[k] : 0.0);
+            }
+            if (nEng > 0 && std::isfinite(ext.engineRpm[0]) && ext.engineRpm[0] > 0.0)
+                pr.rotorRpm = static_cast<float>(ext.engineRpm[0]);
+        } else {
+            for (std::uint32_t k = 0; k < nEng; ++k) {
+                pr.throttle[k] = static_cast<float>(own.throttlePosition[k]);
+                pr.thrustN[k] = static_cast<float>(own.thrustN[k]);
+                pr.engineN2[k] = static_cast<float>(own.engineN2[k]);
+                pr.afterburner[k] = static_cast<float>(own.afterburner[k]);
+            }
+            if (nEng > 0 && std::isfinite(own.engineRpm[0]) && own.engineRpm[0] > 0.0)
+                pr.rotorRpm = static_cast<float>(own.engineRpm[0]);
+        }
+        if (isRotor) {
+            pr.flags |= ipc::kTactPropRotorcraft;
+            if (ac.find("uh60") != std::string::npos) pr.rotorRadiusM = 8.18f;
+            else if (ac.find("uh1") != std::string::npos) pr.rotorRadiusM = 7.32f;
+            else if (ac.find("ch47") != std::string::npos) pr.rotorRadiusM = 9.14f;
+            else pr.rotorRadiusM = 7.0f;
+            if (pr.rotorRpm < 1.0f && own.engineCount > 0 && own.engineN2[0] > 20.0)
+                pr.rotorRpm = static_cast<float>((ac.find("uh60") != std::string::npos ? 258.0 : 324.0) * std::clamp(own.engineN2[0] / 100.0, 0.2, 1.1));
+            const double massKg = std::isfinite(e->host.massKg()) && e->host.massKg() > 100.0 ? e->host.massKg() : 4500.0;
+            const double rr = static_cast<double>(pr.rotorRadiusM);
+            pr.diskLoadingPa = static_cast<float>((massKg * 9.80665) / (kPi * rr * rr));
+        } else if (isProp) {
+            pr.flags |= ipc::kTactPropPropeller;
+            if (ac.find("c130") != std::string::npos) pr.rotorRadiusM = 2.06f;
+            else if (ac.find("c172") != std::string::npos) pr.rotorRadiusM = 0.95f;
+            else pr.rotorRadiusM = 1.8f;
+        }
+        if (detectImpactSurface(own) == ms::damage::SurfaceKind::Water) pr.flags |= ipc::kTactPropOverWater;
+        if (ipc::validTacticalPropulsionExtV1(pr)) out.propulsion.push_back(pr);
+    }
+
     return out;
 }
 

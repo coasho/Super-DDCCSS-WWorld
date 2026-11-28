@@ -132,6 +132,24 @@ public:
     virtual bool nativePositionV1(const double positionEcefM[3], NativePositionV1& out) const noexcept = 0;
 };
 
+/// Optional extended propulsion snapshot (up to 8 engines + rotor RPM, B-57 / B-59).
+/// Separate from FlightModel's primary vtable so existing ABIs and VehicleState::kMaxEngines stay frozen.
+struct PropulsionExtendedV1 {
+    static constexpr int kMaxEngines = 8;
+    int engineCount = 0;
+    double throttlePosition[kMaxEngines] = {};
+    double thrustN[kMaxEngines] = {};
+    double engineN2[kMaxEngines] = {};
+    double afterburner[kMaxEngines] = {};
+    double engineRpm[kMaxEngines] = {};
+    double fuelFlowKgS[kMaxEngines] = {};
+};
+class PropulsionExtendedSourceV1 {
+public:
+    virtual ~PropulsionExtendedSourceV1() = default;
+    virtual bool propulsionExtendedV1(PropulsionExtendedV1& out) const noexcept = 0;
+};
+
 /// Flight-dynamics interface hiding JSBSim (design 7.1, ADR-10).
 class FlightModel {
 public:

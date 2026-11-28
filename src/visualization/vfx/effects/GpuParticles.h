@@ -6,8 +6,12 @@
 // shockwaves, and burning debris chunks); never simulates combat authority.
 
 #include "contracts/world_stream/CombatVfxLayoutV1.h"
+#include "foundation/core/Span.h"
 #include "foundation/transport/CombatVfxSegmentV1.h"
 #include "foundation/transport/DebrisSegmentV1.h"
+#include "foundation/transport/TacticalOverlaySegmentV1.h"
+#include "fsim/VehicleState.h"
+#include "visualization/scene/VehicleVisuals.h"
 #include "visualization/vfx/effects/DebrisVisuals.h"
 
 #include <vsg/all.h>
@@ -50,6 +54,11 @@ public:
     /// Trigger an expanding supersonic detonation shockwave directly from EngagementKind::Detonation
     /// (deduplicated against CombatVfxEventKindV1::DetonationShockwave so legacy replays benefit too).
     void addDetonationShockwave(const vsg::dvec3& posEcef, const vsg::dvec3& velEcef, double tntKg, double simTime);
+
+    /// Emit B-59 rotorcraft low-hover downwash dust/water-mist rings and blade-tip/propeller-tip condensation helices.
+    void addRotorEffects(Span<const sim::VehicleState> states, const std::vector<unsigned char>& alive,
+                         const VehicleVisuals& visuals, const ipc::TacticalOverlayFrameV1* tactical,
+                         double humidity, double simTime);
 
     /// Clear all GPU particles, active ribbons, and event deduplication state (on replay seek/rewind).
     void clear();
@@ -105,6 +114,10 @@ private:
     struct DebrisEmberState {
         double lastEmitTime = -1e9;
     };
+    struct RotorVfxState {
+        double lastEmitTime = -1e9;
+        double phaseRad = 0.0;
+    };
 
     void queueParticle(const vsg::dvec3& posEcef, const vsg::dvec3& velEcef, float maxLifeS,
                        const vsg::vec3& color, float baseRadiusM, float kind, float dragPerS, float extra);
@@ -147,6 +160,7 @@ private:
     std::unordered_set<std::uint32_t> seenEventSerials_;
     std::unordered_map<std::uint32_t, DecoyTrailState> decoyTrails_;
     std::unordered_map<std::uint32_t, DebrisEmberState> debrisEmbers_;
+    std::unordered_map<std::uint64_t, RotorVfxState> rotorStates_;
     std::vector<ActiveMuzzleFlash> muzzleFlashes_;
     std::vector<ActiveShockwave> shockwaves_;
 };

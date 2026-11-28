@@ -1146,13 +1146,19 @@ if(FSIM_WITH_RENDER)
     add_test(NAME mandatory_presentation COMMAND fsim_mandatory_presentation_test)
     set_tests_properties(mandatory_presentation PROPERTIES LABELS render TIMEOUT 30)
     add_executable(fsim_render_tests visualization/test_terrain_render.cpp visualization/test_vehicle_visuals.cpp visualization/test_cocip.cpp visualization/test_contrail_observed.cpp
-                                     visualization/test_gpu_timer.cpp)
+                                     visualization/test_gpu_timer.cpp visualization/test_vis_m14.cpp)
     target_link_libraries(fsim_render_tests PRIVATE fsim::world fsim::core fsim::ipc Catch2::Catch2WithMain)
     target_compile_definitions(fsim_render_tests PRIVATE FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft")
     fsim_set_warnings(fsim_render_tests)
     fsim_relax_third_party_warnings(fsim_render_tests)
     # (the render label: tools/validation/testing/scopes.toml selects these on ucrt64-release for a renderer change)
     catch_discover_tests(fsim_render_tests ${FSIM_CATCH_DISCOVERY} PROPERTIES LABELS render RUN_SERIAL TRUE)
+    add_executable(fsim_vis_m14_ui_test visualization/test_vis_m14_ui.cpp)
+    target_link_libraries(fsim_vis_m14_ui_test PRIVATE fsim::ui fsim::world fsim::ipc Catch2::Catch2WithMain)
+    fsim_set_warnings(fsim_vis_m14_ui_test)
+    fsim_relax_third_party_warnings(fsim_vis_m14_ui_test)
+    add_test(NAME vis_m14_ui COMMAND fsim_vis_m14_ui_test)
+    set_tests_properties(vis_m14_ui PROPERTIES LABELS "vis-m14;render;viewer" TIMEOUT 60)
     # Fullscreen screenshot readback must capture the frame just presented (needs a Vulkan window).
     add_executable(fsim_viewer_screenshot_test visualization/test_viewer_screenshot.cpp)
     target_link_libraries(fsim_viewer_screenshot_test PRIVATE fsim::render vsgXchange::vsgXchange)
@@ -1325,3 +1331,15 @@ add_dependencies(fsim_sim_m11_weapon_perf_test fsim_m03_native_runtime)
 fsim_set_warnings(fsim_sim_m11_weapon_perf_test)
 add_test(NAME sim_m11_weapon_perf COMMAND fsim_sim_m11_weapon_perf_test)
 set_tests_properties(sim_m11_weapon_perf PROPERTIES LABELS "sim-m11;native-engagement;performance" TIMEOUT 300 RUN_SERIAL TRUE)
+
+# VIS-M14: Tactical & EMSO 3-D Overlays, Fleet Propulsion Extension (B-57/B-59), and TacticalOverlaySegmentV1 transport.
+add_executable(fsim_tactical_overlays_test simulation/test_tactical_overlays.cpp)
+target_link_libraries(fsim_tactical_overlays_test PRIVATE fsim::session fsim::ms fsim::ipc Catch2::Catch2WithMain)
+target_compile_definitions(fsim_tactical_overlays_test PRIVATE
+    FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}"
+    FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores"
+    FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft")
+add_dependencies(fsim_tactical_overlays_test fsim_m03_native_runtime)
+fsim_set_warnings(fsim_tactical_overlays_test)
+add_test(NAME tactical_overlays COMMAND fsim_tactical_overlays_test)
+set_tests_properties(tactical_overlays PROPERTIES LABELS "vis-m14;tactical-overlays;emso;native-engagement" TIMEOUT 300 RUN_SERIAL TRUE)

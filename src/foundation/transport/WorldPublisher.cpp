@@ -74,6 +74,7 @@ WorldPublisher::WorldPublisher(const Options& options) : options_(options) {
     fusionSegment_.create(options_.name,options_.capacity,h->publisherPid,incarnation);
     debrisSegment_.create(options_.name,kMaxDebrisV1,options_.capacity,h->publisherPid,incarnation);
     combatVfxSegment_.create(options_.name,kMaxProjectilesV1,kMaxDecoysV1,kMaxCombatVfxEventsV1,h->publisherPid,incarnation);
+    tacticalSegment_.create(options_.name,h->publisherPid,incarnation);
     fusionRows_.resize(options_.capacity);
     header_ = h;
     writeSlot_ = 1;
@@ -193,6 +194,11 @@ void WorldPublisher::setCombatVfx(const CombatVfxFrameV1& frame) {
     combatVfxFrame_ = frame;
 }
 
+void WorldPublisher::setTacticalOverlay(const TacticalOverlayFrameV1& frame) {
+    if (!header_) return;
+    tacticalFrame_ = frame;
+}
+
 bool WorldPublisher::publish(double simTime, Span<const sim::VehicleState> states, Span<const sim::ControlInputs> inputs,
                              bool force, Span<const FlightStatus> status,
                              const std::vector<ms::WeaponControlSnapshotV1>& controls) noexcept {
@@ -216,6 +222,7 @@ bool WorldPublisher::publish(double simTime, Span<const sim::VehicleState> state
     fusionSegment_.publish(s->sequence,fusionRows_);
     debrisSegment_.publish(s->sequence,debrisFrame_);
     combatVfxSegment_.publish(s->sequence,combatVfxFrame_);
+    tacticalSegment_.publish(s->sequence,tacticalFrame_);
     s->simTime = simTime;
     s->wallNs = now;
     for (std::uint32_t i = 0; i < n; ++i) {

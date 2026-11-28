@@ -1,5 +1,6 @@
 #pragma once
 
+#include "contracts/world_stream/TacticalOverlayLayoutV1.h"
 #include "fsim/VehicleState.h"
 
 #include <vsg/all.h>
@@ -29,8 +30,8 @@ namespace fsim::world {
 /// order the two lie along each ray.
 class Exhaust {
 public:
-    /// Engines per vehicle slot it can draw.
-    static constexpr std::size_t kPerSlot = sim::VehicleState::kMaxEngines;
+    /// Engines per vehicle slot it can draw (B-57: supports up to 8 engines, e.g. B-52H 8x TF33).
+    static constexpr std::size_t kPerSlot = ipc::kTacticalMaxEnginesV1;
 
     Exhaust(std::size_t slots, vsg::ref_ptr<const vsg::Options> options);
 
@@ -58,27 +59,24 @@ public:
         /// A jet engine's ratings, its design's (the manifest's `engine` line): its thrust at full dry power and with
         /// reheat (N; 0: not said - the preset's reheat). Its reheat's temperature is drawn from the thrust it adds.
         double dryThrustN = 0.0, reheatThrustN = 0.0;
+        /// Optional per-engine full-dry turbine exit temperature (K; 0 = kTurbineExitK, B-57: e.g. F119 1280 K, M53 1180 K).
+        double turbineExitK = 0.0;
+        /// Placed turboshaft / turboprop / piston exhaust stack (B-59: warm heat-haze shimmer without jet burner glow).
+        bool exhaustStack = false;
     };
-    /// The total temperature (K) of an augmented engine's exhaust with its reheat lit, from its own ratings: lit, its
-    /// burner heats the same flow at the same pressure, so the thrust goes as the jet's speed - the square root of its
-    /// temperature - and T_reheat = T_dry (F_reheat / F_dry)^2 (less the fuel's own mass, kFuelMassShare of the
-    /// thrust). T_dry its mixed exhaust's at full dry power: the turbine's exit gas (kTurbineExitK) and its bypass air
-    /// (kBypassK) by its bypass ratio. Kept to what a burner at its full reheat reaches (kLeastReheatK .. kMostReheatK:
-    /// the least a rating is written for - an engine whose dry exhaust is hotter than the type's adds less thrust for
-    /// the same flame - and kerosene's stoichiometric flame less its cooling air; estimates). 0: the ratings do not
-    /// say (the preset's).
-    static double reheatTotalK(double bypassRatio, double dryThrustN, double reheatThrustN);
+    static double reheatTotalK(double bypassRatio, double dryThrustN, double reheatThrustN, double turbineExitK = kTurbineExitK);
     static constexpr double kTurbineExitK = 1050.0, kBypassK = 430.0; ///< at full dry power (estimates: typical of the type)
     static constexpr double kFuelMassShare = 0.04;                    ///< the reheat's fuel in the jet's mass (an estimate)
     static constexpr double kLeastReheatK = 1850.0, kMostReheatK = 2300.0;
 
     /// What engine `engine` of `state` shows this frame, for a nozzle this
     /// wide and high (half its width and height, m: a two-dimensional
-    /// nozzle's are not the same), of this kind. False when it shows nothing (hide the node).
+    /// nozzle's are not the same), of this kind. Optional `propExt` provides
+    /// native engines 4..7 (B-57) and rotorcraft RPM (B-59) without changing VehicleState.
     bool set(std::size_t slot, std::size_t k, double radiusY, double radiusZ, const sim::VehicleState& state, int engine,
-             const Kind& kind);
+             const Kind& kind, const ipc::TacticalPropulsionExtWireV1* propExt = nullptr);
     bool set(std::size_t slot, std::size_t k, double radiusY, double radiusZ, const sim::VehicleState& state, int engine) {
-        return set(slot, k, radiusY, radiusZ, state, engine, Kind{});
+        return set(slot, k, radiusY, radiusZ, state, engine, Kind{}, nullptr);
     }
 
     /// The clock the eddies move by (s; the simulation's, so a paused or

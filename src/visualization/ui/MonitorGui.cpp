@@ -30,16 +30,17 @@ struct Layout {
 
 Layout layout() {
     Layout l;
-    l.scale = ImGui::GetIO().FontGlobalScale;
-    l.margin = 12.0f * l.scale;
+    l.scale = std::max(ImGui::GetIO().FontGlobalScale, 0.5f);
+    l.margin = 10.0f * l.scale;
     l.display = ImGui::GetIO().DisplaySize;
     // The text is sized by the DPI scale, so that is what the panel has to fit;
     // the window fraction is only a ceiling for windows too narrow to give it.
-    l.panelWidth = std::min(300.0f * l.scale, std::max(260.0f, l.display.x * 0.50f));
-    l.listWidth = std::min(460.0f * l.scale, std::max(280.0f, l.display.x * 0.55f));
-    l.listHeight = std::min(240.0f * l.scale, std::max(110.0f, l.display.y * 0.30f));
+    // B-43: Keep width and vertical split well inside 1600x900 @ 150% DPI (1066x600 logical).
+    l.panelWidth = std::min(315.0f * l.scale, std::max(250.0f, l.display.x * 0.34f));
+    l.listWidth = std::min(460.0f * l.scale, std::max(270.0f, l.display.x * 0.48f));
+    l.listHeight = std::min(220.0f * l.scale, std::max(96.0f, l.display.y * 0.25f));
     l.listTop = std::max(l.margin, l.display.y - l.listHeight - l.margin);
-    l.monitorMaxHeight = l.listTop - 2.0f * l.margin;
+    l.monitorMaxHeight = std::max(140.0f, l.listTop - 2.0f * l.margin);
     return l;
 }
 
@@ -107,6 +108,8 @@ void MonitorGui::drawMonitor() const {
     const double frameMs = controls_->frameMs.load(std::memory_order_relaxed);
     const double sps = controls_->simThroughput.load(std::memory_order_relaxed);
     const double simTime = controls_->simTime.load(std::memory_order_relaxed);
+    const bool compact = (l.display.y / l.scale) <= 720.0f;
+    const ImGuiTreeNodeFlags openUnlessCompact = compact ? ImGuiTreeNodeFlags_None : ImGuiTreeNodeFlags_DefaultOpen;
 
     std::size_t live = 0;
     if (!vehicles_.empty()) {
@@ -114,28 +117,119 @@ void MonitorGui::drawMonitor() const {
     } else if (batch_) {
         live = batch_->states.size();
     }
+
+    // Compact summary header (always visible without clipping even at 1600x900 @ 150% DPI)
     if (source_.mirror) {
         if (!source_.attached) {
             ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.3f, 1.0f), "waiting for a training application...");
-            ImGui::TextDisabled("start any program that creates an fsim::World");
-            if (!source_.available.empty()) {
-                ImGui::Text("worlds in the registry:");
-                for (std::size_t i = 0; i < source_.available.size(); ++i) {
-                    ImGui::PushID(static_cast<int>(i));
-                    if (ImGui::SmallButton("attach")) controls_->attachWorld.store(static_cast<int>(i), std::memory_order_relaxed);
-                    ImGui::PopID();
-                    ImGui::SameLine();
-                    ImGui::Text("%s", source_.available[i].c_str());
-                }
-            }
         } else {
-            ImGui::Text("world '%s'  x %zu vehicle(s)", source_.world.c_str(), live);
+            ImGui::Text("world '%s'  x %zu", source_.world.c_str(), live);
+        }
+        ImGui::Text("%.0f fps (%.1f ms) | t=%.1fs | %.0f st/s", fps, frameMs, source_.simTime, source_.vehicleStepsPerSecond);
+    } else {
+        ImGui::Text("%s  x %zu  |  %.0f fps (%.1f ms)", aircraft_.c_str(), live, fps, frameMs);
+        ImGui::Text("t=%.1fs | %.0f st/s | 1x", simTime, sps);
+        bool paused = controls_->paused.load(std::memory_order_relaxed);
+        if (ImGui::Checkbox("pause [spc]", &paused)) controls_->paused.store(paused, std::memory_order_relaxed);
+        ImGui::SameLine();
+        if (ImGui::SmallButton("step [.]")) controls_->singleStep.store(true, std::memory_order_relaxed);
+        const double start = controls_->replayStart.load(std::memory_order_relaxed);
+        const double end = controls_->replayEnd.load(std::memory_order_relaxed);
+        if (end > start) {
+            float at = static_cast<float>(simTime);
+            ImGui::SetNextItemWidth(-1.0f);
+            if (ImGui::SliderFloat("##timeline", &at, static_cast<float>(start), static_cast<float>(end), "%.1f s"))
+                controls_->seekTo.store(static_cast<double>(at), std::memory_order_relaxed);
+        }
+    }
+
+    // 1. Camera & Director Suite (always open)
+    if (ImGui::CollapsingHeader("Camera & Director  [C / I]", ImGuiTreeNodeFlags_DefaultOpen)) {
+        int mode = std::clamp(controls_->cameraMode.load(std::memory_order_relaxed), 0, world::CameraController::kModeCount - 1);
+        const char* modes[] = {"chase", "orbit (north-up)", "overview", "free", "weapon (director)", "cockpit (HUD)"};
+        ImGui::SetNextItemWidth(-1.0f);
+        if (ImGui::Combo("##camera", &mode, modes, world::CameraController::kModeCount))
+            controls_->cameraMode.store(mode, std::memory_order_relaxed);
+        if (ImGui::SmallButton("-")) controls_->cameraZoom.store(1.25, std::memory_order_relaxed);
+        ImGui::SameLine();
+        if (ImGui::SmallButton("+")) controls_->cameraZoom.store(0.8, std::memory_order_relaxed);
+        ImGui::SameLine();
+        if (ImGui::SmallButton("reset [R]")) controls_->cameraReset.store(true, std::memory_order_relaxed);
+        ImGui::SameLine();
+        bool pip = controls_->pipEnabled.load(std::memory_order_relaxed);
+        if (ImGui::Checkbox("PiP [I]", &pip)) controls_->pipEnabled.store(pip, std::memory_order_relaxed);
+        if (!compact) {
+            ImGui::Text("eye %.4f %.4f | %.0f m", controls_->eyeLatDeg.load(std::memory_order_relaxed),
+                        controls_->eyeLonDeg.load(std::memory_order_relaxed),
+                        controls_->eyeDistanceM.load(std::memory_order_relaxed));
+        }
+    }
+
+    // 2. Tactical & EMSO 3-D Overlays (VIS-M14, 0.0 ms when OFF)
+    if (ImGui::CollapsingHeader("Tactical & EMSO Overlays  [O]", openUnlessCompact)) {
+        std::uint32_t mask = controls_->tacticalOverlayMask.load(std::memory_order_relaxed);
+        if (ImGui::SmallButton("All")) mask = kOverlayAll;
+        ImGui::SameLine();
+        if (ImGui::SmallButton("None")) mask = 0u;
+        ImGui::SameLine();
+        ImGui::TextDisabled("%s", mask ? "ON" : "OFF (0 ms)");
+
+        auto toggleBit = [&](const char* label, std::uint32_t bit) {
+            bool on = (mask & bit) != 0u;
+            if (ImGui::Checkbox(label, &on)) {
+                if (on) mask |= bit;
+                else mask &= ~bit;
+            }
+        };
+        if (ImGui::BeginTable("tact_layers", 2, ImGuiTableFlags_SizingStretchSame)) {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0); toggleBit("Radar / STT", kOverlayRadar);
+            ImGui::TableSetColumnIndex(1); toggleBit("EA / Burn-Thru", kOverlayJammer);
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0); toggleBit("ESM / CRLB", kOverlayEsm);
+            ImGui::TableSetColumnIndex(1); toggleBit("Link16 / IFF", kOverlayLinks);
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0); toggleBit("DLZ / LCOS", kOverlayWeapons);
+            ImGui::TableSetColumnIndex(1); toggleBit("SAR / Weather", kOverlaySwaths);
+            ImGui::EndTable();
+        }
+        controls_->tacticalOverlayMask.store(mask, std::memory_order_relaxed);
+    }
+
+    // 3. Selected Vehicle Telemetry
+    if (batch_ && !batch_->states.empty()) {
+        if (ImGui::CollapsingHeader("Selected Vehicle  [Tab]", openUnlessCompact)) {
+            const int sel = std::clamp(controls_->selectedVehicle.load(std::memory_order_relaxed), 0,
+                                       static_cast<int>(batch_->states.size()) - 1);
+            const auto& s = batch_->states[static_cast<std::size_t>(sel)];
+            const auto* meta = static_cast<std::size_t>(sel) < vehicles_.size() ? &vehicles_[static_cast<std::size_t>(sel)] : nullptr;
+            if (meta && meta->alive) ImGui::Text("%s%s", meta->name.c_str(), s.diverged ? "  DIVERGED" : "");
+            else ImGui::Text("vehicle %d%s", sel, s.diverged ? "  DIVERGED" : "");
+            ImGui::Text("alt %.0f m  agl %.0f m", s.altitudeMslM, s.altitudeAglM);
+            ImGui::Text("tas %.0f m/s (%.0f kt)  aoa %.1f", s.airspeedTrueMs,
+                        units::metresPerSecondToKnots(s.airspeedTrueMs), units::radiansToDegrees(s.alphaRad));
+            ImGui::Text("roll %.0f  pitch %.0f  hdg %.0f", units::radiansToDegrees(s.eulerRad[0]),
+                        units::radiansToDegrees(s.eulerRad[1]), units::radiansToDegrees(s.eulerRad[2]));
+        }
+    }
+
+    // 4. World Connection & Environment (collapsible to save vertical space on high-DPI displays)
+    if (source_.mirror && ImGui::CollapsingHeader("World & Weather", compact ? ImGuiTreeNodeFlags_None : ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (!source_.attached && !source_.available.empty()) {
+            ImGui::Text("worlds in the registry:");
+            for (std::size_t i = 0; i < source_.available.size(); ++i) {
+                ImGui::PushID(static_cast<int>(i));
+                if (ImGui::SmallButton("attach")) controls_->attachWorld.store(static_cast<int>(i), std::memory_order_relaxed);
+                ImGui::PopID();
+                ImGui::SameLine();
+                ImGui::Text("%s", source_.available[i].c_str());
+            }
+        } else if (source_.attached) {
             if (source_.available.size() > 1) {
-                // Several training applications are live: switch between them here.
                 int current = -1;
                 for (std::size_t i = 0; i < source_.available.size(); ++i)
                     if (source_.available[i] == source_.world) current = static_cast<int>(i);
-                ImGui::SetNextItemWidth(220.0f);
+                ImGui::SetNextItemWidth(-1.0f);
                 if (ImGui::BeginCombo("switch world", current >= 0 ? source_.available[static_cast<std::size_t>(current)].c_str() : source_.world.c_str())) {
                     for (std::size_t i = 0; i < source_.available.size(); ++i) {
                         const bool selected = static_cast<int>(i) == current;
@@ -148,71 +242,8 @@ void MonitorGui::drawMonitor() const {
             if (!source_.publisherAlive) ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.3f, 1.0f), "training application has exited");
             else if (source_.ageSeconds > 2.0) ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.3f, 1.0f), "not updating (%.0f s)", source_.ageSeconds);
             else ImGui::TextDisabled("live, last update %.0f ms ago", source_.ageSeconds * 1e3);
+            if (!source_.environment.empty()) ImGui::TextWrapped("%s", source_.environment.c_str());
         }
-        ImGui::Separator();
-        ImGui::Text("render    %.0f fps  %.1f ms", fps, frameMs);
-        ImGui::Text("trainer   %.0f steps/s", source_.vehicleStepsPerSecond);
-        ImGui::Text("sim time  %.1f s", source_.simTime);
-        if (!source_.environment.empty()) ImGui::TextWrapped("%s", source_.environment.c_str());
-        ImGui::Separator();
-        ImGui::TextDisabled("the training application sets the pace");
-    } else {
-        ImGui::Text("%s  x %zu", aircraft_.c_str(), live);
-        ImGui::Separator();
-        ImGui::Text("render    %.0f fps  %.1f ms", fps, frameMs);
-        ImGui::Text("sim       %.0f steps/s", sps);
-        ImGui::Text("sim time  %.1f s", simTime);
-
-        ImGui::Separator();
-        bool paused = controls_->paused.load(std::memory_order_relaxed);
-        if (ImGui::Checkbox("pause  [space]", &paused)) controls_->paused.store(paused, std::memory_order_relaxed);
-        ImGui::SameLine();
-        if (ImGui::Button("step  [.]")) controls_->singleStep.store(true, std::memory_order_relaxed);
-
-        ImGui::TextUnformatted("Real time 1x");
-
-        const double start = controls_->replayStart.load(std::memory_order_relaxed);
-        const double end = controls_->replayEnd.load(std::memory_order_relaxed);
-        if (end > start) {
-            // Replay timeline: dragging seeks; the loop keeps the slider in step otherwise.
-            float at = static_cast<float>(simTime);
-            ImGui::SetNextItemWidth(-1.0f);
-            if (ImGui::SliderFloat("##timeline", &at, static_cast<float>(start), static_cast<float>(end), "%.1f s"))
-                controls_->seekTo.store(static_cast<double>(at), std::memory_order_relaxed);
-            ImGui::TextDisabled("timeline: drag to seek  [home: start]  loops at the end");
-        }
-    }
-
-    ImGui::Separator();
-    int mode = controls_->cameraMode.load(std::memory_order_relaxed);
-    const char* modes[] = {"chase", "orbit (north-up)", "overview", "free"};
-    ImGui::SetNextItemWidth(-1.0f);
-    if (ImGui::Combo("##camera", &mode, modes, 4)) controls_->cameraMode.store(mode, std::memory_order_relaxed);
-    if (ImGui::Button("-")) controls_->cameraZoom.store(1.25, std::memory_order_relaxed);
-    ImGui::SameLine();
-    if (ImGui::Button("+")) controls_->cameraZoom.store(0.8, std::memory_order_relaxed);
-    ImGui::SameLine();
-    if (ImGui::Button("reset view")) controls_->cameraReset.store(true, std::memory_order_relaxed);
-    ImGui::Text("eye  %.4f %.4f  %.0f m", controls_->eyeLatDeg.load(std::memory_order_relaxed),
-                controls_->eyeLonDeg.load(std::memory_order_relaxed),
-                controls_->eyeDistanceM.load(std::memory_order_relaxed));
-
-    ImGui::Separator();
-    ImGui::TextUnformatted("All visual effects enabled");
-
-    if (batch_ && !batch_->states.empty()) {
-        const int sel = std::clamp(controls_->selectedVehicle.load(std::memory_order_relaxed), 0,
-                                   static_cast<int>(batch_->states.size()) - 1);
-        const auto& s = batch_->states[static_cast<std::size_t>(sel)];
-        ImGui::Separator();
-        const auto* meta = static_cast<std::size_t>(sel) < vehicles_.size() ? &vehicles_[static_cast<std::size_t>(sel)] : nullptr;
-        if (meta && meta->alive) ImGui::Text("%s  [tab]%s", meta->name.c_str(), s.diverged ? "  DIVERGED" : "");
-        else ImGui::Text("vehicle %d  [tab]%s", sel, s.diverged ? "  DIVERGED" : "");
-        ImGui::Text("alt %.0f m  agl %.0f m", s.altitudeMslM, s.altitudeAglM);
-        ImGui::Text("tas %.0f m/s (%.0f kt)  aoa %.1f", s.airspeedTrueMs,
-                    units::metresPerSecondToKnots(s.airspeedTrueMs), units::radiansToDegrees(s.alphaRad));
-        ImGui::Text("roll %.0f  pitch %.0f  hdg %.0f", units::radiansToDegrees(s.eulerRad[0]),
-                    units::radiansToDegrees(s.eulerRad[1]), units::radiansToDegrees(s.eulerRad[2]));
     }
     ImGui::End();
 }

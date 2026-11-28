@@ -5,6 +5,15 @@
 
 namespace fsim::ui {
 
+// VIS-M14 toggleable 3-D Tactical & EMSO overlay bitmask (0 = OFF, 0.0 ms cost).
+inline constexpr std::uint32_t kOverlayRadar   = 1u << 0; ///< Radar scan wedges, active beams, STT lock, RCS envelopes
+inline constexpr std::uint32_t kOverlayJammer  = 1u << 1; ///< EA jamming cones & live radar burn-through pockets
+inline constexpr std::uint32_t kOverlayEsm     = 1u << 2; ///< ESM/RWR DF rays & 3-D Gauss-Newton FIM CRLB ellipsoids
+inline constexpr std::uint32_t kOverlayLinks   = 1u << 3; ///< Link 16/DMS pulses, C2 consent, Mode 5 IFF, PNT GNSS drift
+inline constexpr std::uint32_t kOverlayWeapons = 1u << 4; ///< 5-D launchZoneV2 DLZ/WEZ, Gun LCOS funnel, Mk 82 CCIP pipper
+inline constexpr std::uint32_t kOverlaySwaths  = 1u << 5; ///< SAR spotlight footprints & Weather radar reflectivity swaths
+inline constexpr std::uint32_t kOverlayAll     = 0x3Fu;
+
 /// State shared between the ImGui layers, the key handler and the viewer loop
 /// (all on the render thread) and the sim runner (its own thread). Plain
 /// atomics: UI actions never take a lock the simulation could hold (design 6.3).
@@ -20,6 +29,10 @@ struct ViewerControls {
     std::atomic<int> cameraMode{0};      ///< world::CameraController::Mode
     std::atomic<double> cameraZoom{1.0}; ///< multiplicative request, consumed each frame
     std::atomic<bool> cameraReset{false};
+    // VIS-M14 Tactical/EMSO overlays & Picture-in-Picture (PiP) director controls.
+    std::atomic<std::uint32_t> tacticalOverlayMask{0u}; ///< bitmask of kOverlay* (default 0 = OFF)
+    std::atomic<bool> pipEnabled{false};                ///< toggleable Vulkan PiP inset (default OFF = 0.0 ms)
+    std::atomic<int> pipMode{0};                        ///< 0=Auto (weapon/target), 1=Weapon, 2=Tracked Target
     // Camera telemetry written by the loop for the GUI.
     std::atomic<double> eyeLatDeg{0.0}, eyeLonDeg{0.0}, eyeAltM{0.0}, eyeDistanceM{0.0};
     std::atomic<bool> quit{false};

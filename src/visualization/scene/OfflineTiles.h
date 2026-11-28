@@ -52,6 +52,14 @@ public:
     /// Whether the tile is really on disk (rather than something this reader would make).
     bool exists(Layer layer, unsigned z, unsigned x, unsigned y) const;
 
+    /// Whether any of the four child tiles of (parentZ, parentX, parentY) at level
+    /// (parentZ + 1) exists on disk in either imagery or elevation layers.
+    /// Used by ElevatedTile to prune leaf PagedLODs so VSG never pages missing subtiles.
+    bool hasAnyChild(unsigned parentZ, unsigned parentX, unsigned parentY) const;
+
+    /// Whether any of the four sibling tiles in the 2x2 block containing (z, x, y) exists on disk.
+    bool hasAnyInQuad(unsigned z, unsigned x, unsigned y) const;
+
 private:
     std::string imagery_, elevation_;
     ElevationEncoding encoding_;
