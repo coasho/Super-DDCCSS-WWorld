@@ -45,6 +45,12 @@ namespace session {
 class World;
 }
 
+/// Vehicle destruction physics & breakup mode (VIS-M11, additive V1).
+enum class DestructionModeV1 : std::uint8_t {
+    LegacyCompatible = 0,  ///< legacy JSBSim child-vehicle piece breakup (default for frozen compatibility)
+    LightweightDebris = 1, ///< VIS-M11 multi-tier JoltPhysics 6-DOF debris breakup & hull retirement
+};
+
 /// Thrown for load-time failures (unknown aircraft, bad type, duplicate name).
 class Error : public std::runtime_error {
 public:
@@ -702,6 +708,9 @@ public:
     /// Ask the viewers to follow vehicle `id`, as a tab to it would - once; the user's choice stands after it. False if
     /// it is not alive or the world is not published.
     bool focusViewer(std::uint32_t id) noexcept;
+    /// Select vehicle destruction physics & breakup mode (VIS-M11, additive V1).
+    void setDestructionModeV1(DestructionModeV1 mode) noexcept;
+    DestructionModeV1 destructionModeV1() const noexcept;
     std::uint64_t vehicleSteps() const noexcept;
     std::uint64_t worldSteps() const noexcept;
     void publishNow();

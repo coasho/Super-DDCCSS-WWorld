@@ -2,6 +2,7 @@
 
 #include "fsim/GroundProvider.h"
 
+#include <array>
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
@@ -115,15 +116,19 @@ private:
         std::size_t operator()(const Key& k) const noexcept { return (static_cast<std::size_t>(k.x) << 32) ^ k.y; }
     };
     using Tile = std::shared_ptr<const ElevationTile>;
-    /// Decoded tiles of the map set, by level and position, shared by every level read from it (an offline set's
-    /// missing levels are each made from an ancestor: one decode of the ancestor, not one a descendant), and the files
-    /// it does not have.
-    struct Sources {
+    /// Decoded tiles of the map set, by level and position, sharded across 64
+    /// independent LRU buckets to eliminate cross-worker lock contention while
+    /// keeping every active radar/clutter tile resident in memory.
+    struct SourceShard {
         std::mutex mutex;
         std::unordered_map<std::uint64_t, std::pair<Tile, std::list<std::uint64_t>::iterator>> decoded;
         std::list<std::uint64_t> lru;
         std::unordered_set<std::uint64_t> missing;
-        std::size_t capacity = 192; ///< (~260 KB each: the source tiles of a region's radio paths)
+        std::size_t capacity = 32; ///< 64 shards * 32 = 2048 tiles max
+    };
+    struct Sources {
+        static constexpr std::size_t kShards = 64;
+        std::array<SourceShard, kShards> shards;
     };
     Tile source(unsigned z, unsigned x, unsigned y) const;
 

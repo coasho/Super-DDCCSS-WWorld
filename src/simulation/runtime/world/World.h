@@ -60,6 +60,7 @@
 #include "simulation/flight/VehiclePool.h"
 
 #include <array>
+#include <condition_variable>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -72,6 +73,7 @@
 #include <string_view>
 #include <cstring>
 #include <mutex>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -1356,6 +1358,26 @@ private:
     Owned<control::OpZone> opZones_;     ///< the operational zones (4.43)
     Owned<control::OpLine> opLines_;     ///< the operational lines (4.44)
     Owned<control::OpVolume> opVolumes_; ///< the operational volumes (4.45)
+
+    // Asynchronous standby JSBSim weapon model preloader: eliminates ~350 ms main-thread
+    // XML parse stalls on missile release while remaining bit-exact via JsbsimModel::reset().
+    struct StandbyPreloadRequest {
+        std::string aircraft;
+        sim::AircraftSpec files;
+    };
+    struct StandbyPreloader {
+        std::mutex mutex;
+        std::condition_variable cv;
+        bool stop = false;
+        std::deque<StandbyPreloadRequest> queue;
+        std::unordered_map<std::string, std::vector<std::unique_ptr<sim::FlightModel>>> ready;
+        std::unordered_map<std::string, std::size_t> queuedOrLoading;
+        std::vector<std::thread> threads;
+    } standby_;
+    void requestStandbyModels(const std::string& aircraft, std::size_t desiredReady);
+    std::unique_ptr<sim::FlightModel> popStandbyModel(const std::string& aircraft);
+    std::size_t standbyReadyCount(const std::string& aircraft);
+    void stopStandbyPreloader() noexcept;
 };
 
 } // namespace fsim::session

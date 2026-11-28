@@ -328,6 +328,25 @@ FSIM_API int fsim_world_focus_viewer(fsim_world* world, uint32_t id) {
     return FSIM_OK;
 }
 
+FSIM_API int fsim_world_set_destruction_mode_v1(fsim_world* world, int32_t mode) {
+    FSIM_NOT_AGENT(world, FSIM_NOT_ALLOWED);
+    if (!world || (mode != FSIM_DESTRUCTION_LEGACY_COMPATIBLE && mode != FSIM_DESTRUCTION_LIGHTWEIGHT_DEBRIS))
+        return fail(FSIM_INVALID_ARGUMENT, "fsim_world_set_destruction_mode_v1: invalid world or mode");
+    world->world.setDestructionModeV1(mode == FSIM_DESTRUCTION_LIGHTWEIGHT_DEBRIS
+                                          ? fsim::session::World::DestructionModeV1::LightweightDebris
+                                          : fsim::session::World::DestructionModeV1::LegacyCompatible);
+    return FSIM_OK;
+}
+
+FSIM_API int fsim_world_destruction_mode_v1(const fsim_world* world, int32_t* out_mode) {
+    FSIM_NOT_AGENT(world, FSIM_NOT_ALLOWED);
+    if (!world || !out_mode) return fail(FSIM_INVALID_ARGUMENT, "fsim_world_destruction_mode_v1: bad arguments");
+    *out_mode = world->world.destructionModeV1() == fsim::session::World::DestructionModeV1::LightweightDebris
+                    ? FSIM_DESTRUCTION_LIGHTWEIGHT_DEBRIS
+                    : FSIM_DESTRUCTION_LEGACY_COMPATIBLE;
+    return FSIM_OK;
+}
+
 FSIM_API int fsim_world_create_vehicle(fsim_world* world, const fsim_vehicle_spec* spec, uint32_t* id) {
     FSIM_NOT_AGENT(world, FSIM_NOT_ALLOWED);
     fsim_vehicle_spec whole;

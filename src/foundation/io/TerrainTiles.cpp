@@ -11,6 +11,7 @@
 #include <stb_image.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <fstream>
 
@@ -137,12 +138,13 @@ float ancestorBlend(const ElevationTile& raw, std::uint32_t x0, double tx, std::
 TerrainTiles::Tile TerrainTiles::source(unsigned z, unsigned x, unsigned y) const {
     // (an ancestor serves up to 4^d tiles of this level: read and decoded once, not once each)
     const std::uint64_t key = (static_cast<std::uint64_t>(z) << 48) | (static_cast<std::uint64_t>(x) << 24) | y;
-    Sources& s = *sources_;
+    const std::size_t shardIdx = static_cast<std::size_t>((key ^ (key >> 11) ^ (key >> 24) ^ (key >> 48)) & (Sources::kShards - 1));
+    SourceShard& s = sources_->shards[shardIdx];
     {
         std::lock_guard<std::mutex> lock(s.mutex);
         if (s.missing.count(key)) return nullptr;
         if (auto it = s.decoded.find(key); it != s.decoded.end()) {
-            s.lru.splice(s.lru.begin(), s.lru, it->second.second);
+            if (it->second.second != s.lru.begin()) s.lru.splice(s.lru.begin(), s.lru, it->second.second);
             return it->second.first;
         }
     }
@@ -154,7 +156,7 @@ TerrainTiles::Tile TerrainTiles::source(unsigned z, unsigned x, unsigned y) cons
     }
     std::lock_guard<std::mutex> lock(s.mutex);
     if (!raw) {
-        if (s.missing.size() > 200000) s.missing.clear(); // (bounded: a long tour forgets what it looked for first)
+        if (s.missing.size() > 8192) s.missing.clear(); // (bounded per shard: >500k total missing keys)
         s.missing.insert(key);
         return nullptr;
     }
@@ -298,7 +300,7 @@ TerrainTiles::Tile TerrainTiles::tile(unsigned x, unsigned y) const {
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (auto it = cache_.find(key); it != cache_.end()) {
-            lru_.splice(lru_.begin(), lru_, it->second.second);
+            if (it->second.second != lru_.begin()) lru_.splice(lru_.begin(), lru_, it->second.second);
             return it->second.first;
         }
     }
@@ -355,14 +357,7 @@ double TerrainTiles::pointHeightAboveEllipsoidM(double latitudeRad, double longi
     mercatorTile(latitudeRad, longitudeRad, options_.zoom, tx, ty);
     const double tiles = static_cast<double>(1u << options_.zoom);
     const auto x = static_cast<unsigned>(std::floor(tx)), y = static_cast<unsigned>(std::clamp(std::floor(ty), 0.0, tiles - 1.0));
-    { // (the vehicles' cache holds this tile: read it, its place in their LRU left as it is)
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (auto it = cache_.find(Key{x, y}); it != cache_.end()) {
-            const Tile& t = it->second.first;
-            return t && t->valid() ? sample(*t, tx, ty, centres) : 0.0;
-        }
-    }
-    // this level's tile on disk: decoded as load() decodes it (an empty or broken file: load()'s own answer)
+    // Sharded source lookup (64 independent shards, 2048-tile LRU): avoids global cache_ lock contention!
     if (const Tile own = source(options_.zoom, x, y)) return own->valid() ? sample(*own, tx, ty, centres) : heightAboveEllipsoidM(latitudeRad, longitudeRad);
     // missing: the tile fromAncestor() would make here - the nearest ancestor on disk - read at the four texels the point
     // takes (none: no ground, sea level, as heightAboveEllipsoidM reads a tile it cannot load)
@@ -556,7 +551,7 @@ std::optional<double> TerrainTiles::cachedHeightAboveEllipsoidM(double latitudeR
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (auto it = cache_.find(key); it != cache_.end()) {
-            lru_.splice(lru_.begin(), lru_, it->second.second);
+            if (it->second.second != lru_.begin()) lru_.splice(lru_.begin(), lru_, it->second.second);
             t = it->second.first;
         }
     }

@@ -647,10 +647,13 @@ note = "The world: made, stepped, published, shown, closed; effects on every veh
 names = [
     "fsim::World::World", "fsim::World::~World", "fsim::World::createVehicle", "fsim::World::step",
     "fsim::World::publishNow", "fsim::World::published", "fsim::World::focusViewer", "fsim::World::addEffectToAll",
+    "fsim::World::setDestructionModeV1", "fsim::World::destructionModeV1",
     "fsim_world_object", "fsim_agent_create",
     "fsim_world_create", "fsim_world_create_vehicle", "fsim_world_remove_vehicle",
     "fsim_world_reset_vehicle", "fsim_world_step", "fsim_world_focus_viewer", "fsim_world_published", "fsim_world_recording",
+    "fsim_world_set_destruction_mode_v1", "fsim_world_destruction_mode_v1",
     "fsim.world.World.create_vehicle", "fsim.world.World.step", "fsim.world.World.focus_viewer",
+    "fsim.world.World.set_destruction_mode_v1", "fsim.world.World.destruction_mode_v1",
     "fsim.world.World.published", "fsim.world.World.recording", "fsim.world.World.close", "fsim.world.World.add_effect",
 ]
 

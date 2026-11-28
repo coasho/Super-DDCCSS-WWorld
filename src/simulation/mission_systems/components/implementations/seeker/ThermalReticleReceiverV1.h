@@ -1,6 +1,7 @@
 #pragma once
 #include "ThermalImageReceiverV1.h"
 #include "simulation/mission_systems/components/interfaces/ThermalReticleSeekerExecutionV1.h"
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <random>
@@ -8,14 +9,19 @@
 
 namespace fsim::ms::components {
 /// Scoped guard used by outer parallel pools (e.g. World VehiclePool) to avoid
-/// nested OS thread-pool oversubscription inside reticle inverse routines.
+/// nested OS thread-pool oversubscription inside reticle inverse routines while
+/// allowing dynamic spare-core sharing when fast sibling jobs finish first.
 struct ReticleNestedPoolGuardV1 {
     bool previous=false;
+    const std::atomic<unsigned>* previousActiveJobs=nullptr;
+    unsigned previousBudget=0u;
     explicit ReticleNestedPoolGuardV1(bool block=true) noexcept;
+    ReticleNestedPoolGuardV1(const std::atomic<unsigned>* activeJobs,unsigned workerBudget) noexcept;
     ~ReticleNestedPoolGuardV1() noexcept;
     ReticleNestedPoolGuardV1(const ReticleNestedPoolGuardV1&)=delete;
     ReticleNestedPoolGuardV1& operator=(const ReticleNestedPoolGuardV1&)=delete;
     static bool blocked() noexcept;
+    static unsigned maxWorkers(unsigned cap) noexcept;
 };
 /// One synchronous unit-field work report. No retained observer state.
 struct ThermalGroundWorkV2 {

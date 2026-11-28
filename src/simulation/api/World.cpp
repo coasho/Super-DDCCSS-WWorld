@@ -891,6 +891,16 @@ void World::addEffectToAll(std::function<std::unique_ptr<effects::Effect>()> fac
 const std::string& World::name() const noexcept { return impl_->name(); }
 bool World::published() const noexcept { return impl_->published(); }
 bool World::focusViewer(std::uint32_t id) noexcept { return impl_->focusViewer(id); }
+void World::setDestructionModeV1(DestructionModeV1 mode) noexcept {
+    impl_->setDestructionModeV1(mode == DestructionModeV1::LightweightDebris
+                                    ? session::World::DestructionModeV1::LightweightDebris
+                                    : session::World::DestructionModeV1::LegacyCompatible);
+}
+DestructionModeV1 World::destructionModeV1() const noexcept {
+    return impl_->destructionModeV1() == session::World::DestructionModeV1::LightweightDebris
+               ? DestructionModeV1::LightweightDebris
+               : DestructionModeV1::LegacyCompatible;
+}
 std::uint64_t World::vehicleSteps() const noexcept { return impl_->vehicleSteps(); }
 std::uint64_t World::worldSteps() const noexcept { return impl_->worldSteps(); }
 void World::publishNow() { impl_->publishNow(); }

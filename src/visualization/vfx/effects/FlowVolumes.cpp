@@ -141,7 +141,7 @@ void FlowVolumes::work(std::shared_ptr<void> started, FlowSolver::Settings setti
     const bool ok = solver.start(settings);
     static_cast<std::promise<bool>*>(started.get())->set_value(ok);
     if (!ok) return;
-    std::uint64_t simStep = 0;
+    std::uint64_t stepsSinceExport = 1;
     std::uint64_t lastPackedFrame = 0;
     std::unique_lock<std::mutex> lock(mutex_);
     for (;;) {
@@ -159,13 +159,16 @@ void FlowVolumes::work(std::shared_ptr<void> started, FlowSolver::Settings setti
         bool packed = false;
         if (wanted) {
             if (job.clear) {
-                simStep = 0;
+                stepsSinceExport = 1;
                 lastPackedFrame = 0;
             }
             // Decouple 60 Hz fluid simulation from 30 Hz NanoVDB export, PCIe readback, CPU packing, and 12 MB atlas
             // upload when running asynchronously; keep synchronous mode exact on every step (VIS-M12b).
-            const bool doExport = wait || job.clear || (last && ((simStep & 1u) == 0u));
-            ++simStep;
+            // Count steps since the previous export rather than parity so even-sized batches (e.g. 30 Hz = 2 steps)
+            // never phase-lock on odd steps and starve readback.
+            ++stepsSinceExport;
+            const bool doExport = wait || job.clear || (last && stepsSinceExport >= 2u);
+            if (doExport) stepsSinceExport = 0;
             const auto t0 = std::chrono::steady_clock::now();
             solver.step(job.dt, job.sources, job.clear, wait, job.ground.enabled ? &job.ground : nullptr, doExport);
             const std::uint64_t gotFrame = solver.fields().frame;

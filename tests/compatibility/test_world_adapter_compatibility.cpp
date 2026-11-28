@@ -1,4 +1,5 @@
 // A4: public World, Scenario and Environment contracts before adapter extraction.
+#include "fsim/World.h"
 #include "fsim/fsim_c.h"
 
 #include <cmath>
@@ -170,6 +171,28 @@ int run() {
     CHECK(std::isnan(fsim_world_magnetic_year(agent.value)));
     CHECK(std::strstr(fsim_last_error(), "fsim_world_magnetic_year") != nullptr);
     CHECK(fsim_world_terrain(agent.value, 0, nullptr, nullptr, nullptr) == 0);
+
+    int32_t dmode = -1;
+    CHECK(fsim_world_destruction_mode_v1(world.value, &dmode) == FSIM_OK && dmode == FSIM_DESTRUCTION_LEGACY_COMPATIBLE);
+    CHECK(fsim_world_set_destruction_mode_v1(world.value, FSIM_DESTRUCTION_LIGHTWEIGHT_DEBRIS) == FSIM_OK);
+    CHECK(fsim_world_destruction_mode_v1(world.value, &dmode) == FSIM_OK && dmode == FSIM_DESTRUCTION_LIGHTWEIGHT_DEBRIS);
+    CHECK(fsim_world_set_destruction_mode_v1(world.value, FSIM_DESTRUCTION_LEGACY_COMPATIBLE) == FSIM_OK);
+    CHECK(fsim_world_set_destruction_mode_v1(world.value, 99) == FSIM_INVALID_ARGUMENT);
+    CHECK(fsim_world_destruction_mode_v1(world.value, nullptr) == FSIM_INVALID_ARGUMENT);
+    CHECK(fsim_world_destruction_mode_v1(agent.value, &dmode) == FSIM_NOT_ALLOWED);
+    CHECK(fsim_world_set_destruction_mode_v1(agent.value, FSIM_DESTRUCTION_LIGHTWEIGHT_DEBRIS) == FSIM_NOT_ALLOWED);
+
+    fsim::WorldOptions cppOpts;
+    cppOpts.name = "world-adapter-cpp-dmode";
+    cppOpts.publish = false;
+    cppOpts.workers = 1;
+    cppOpts.terrain = false;
+    fsim::World cppWorld(cppOpts);
+    CHECK(cppWorld.destructionModeV1() == fsim::DestructionModeV1::LegacyCompatible);
+    cppWorld.setDestructionModeV1(fsim::DestructionModeV1::LightweightDebris);
+    CHECK(cppWorld.destructionModeV1() == fsim::DestructionModeV1::LightweightDebris);
+    cppWorld.setDestructionModeV1(fsim::DestructionModeV1::LegacyCompatible);
+    CHECK(cppWorld.destructionModeV1() == fsim::DestructionModeV1::LegacyCompatible);
     return 0;
 }
 

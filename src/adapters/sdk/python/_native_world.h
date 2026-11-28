@@ -291,6 +291,8 @@ PyObject* world_time(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_create_vehicle(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_remove_vehicle(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_focus_viewer(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_set_destruction_mode_v1(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_destruction_mode_v1(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_reset_vehicle(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_find_vehicle(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_vehicle_ids(PyObject* o, PyObject* const* args, Py_ssize_t n);

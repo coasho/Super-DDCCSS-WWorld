@@ -14,12 +14,26 @@
 #include <list>
 #include <mutex>
 #include <stdexcept>
-#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
+#if defined(__x86_64__) || defined(_M_X64) || defined(__AVX2__)
+#include <immintrin.h>
+#elif defined(__SSE__) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
 #include <xmmintrin.h>
 #endif
 
 namespace fsim::ms::components::conic_moments_v4 {
 namespace {
+#if (defined(__GNUC__) || defined(__clang__)) && defined(__x86_64__)
+#define FSIM_CONIC_HAS_AVX2 1
+inline bool conicHasAvx2Fma() noexcept {
+    static const bool supported=[]() noexcept {
+        return __builtin_cpu_supports("avx2")&&__builtin_cpu_supports("fma");
+    }();
+    return supported;
+}
+#else
+#define FSIM_CONIC_HAS_AVX2 0
+inline bool conicHasAvx2Fma() noexcept {return false;}
+#endif
 using L=long double;
 constexpr L infinity=std::numeric_limits<L>::infinity();
 constexpr L lepsilon=std::numeric_limits<L>::epsilon();
@@ -55,9 +69,55 @@ double upperPositiveD(double value) noexcept {
 }
 // The installed MinGW nextafterl retains x's sign when x is -0.
 // At zero the adjacent representable value is known exactly, regardless of
-// the zero sign. Nonzero arithmetic keeps the original native operation.
-L down(L x) {if(x==0)return -ltiny;return std::isfinite(x)?std::nextafter(x,-infinity):x;}
-L up(L x) {if(x==0)return ltiny;return std::isfinite(x)?std::nextafter(x,infinity):x;}
+// the zero sign. On x86-64 80-bit extended precision, strictly-normal interior
+// exponents (2..0x7FFD) step by +/-1 ULP directly in integer registers,
+// bit-identical to std::nextafterl; subnormals, zero and extremes fall back.
+inline L down(L x) noexcept {
+    if(x==0)return -ltiny;
+#if (defined(__x86_64__) || defined(__i386__)) && defined(__LDBL_MANT_DIG__) && (__LDBL_MANT_DIG__ == 64) && (__LDBL_MAX_EXP__ == 16384)
+    std::uint64_t sig=0;std::uint16_t signExp=0;
+    std::memcpy(&sig,&x,8);
+    std::memcpy(&signExp,reinterpret_cast<const char*>(&x)+8,2);
+    unsigned exp=signExp&0x7FFFu;
+    if(exp>=2u&&exp<=0x7FFDu) {
+        if((signExp&0x8000u)==0u) {
+            if(sig==0x8000000000000000ull){--exp;signExp=static_cast<std::uint16_t>(exp);sig=0xFFFFFFFFFFFFFFFFull;}
+            else --sig;
+        } else {
+            ++sig;
+            if(sig==0ull){sig=0x8000000000000000ull;++exp;signExp=static_cast<std::uint16_t>(0x8000u|exp);}
+        }
+        L out=x;
+        std::memcpy(&out,&sig,8);
+        std::memcpy(reinterpret_cast<char*>(&out)+8,&signExp,2);
+        return out;
+    }
+#endif
+    return std::isfinite(x)?std::nextafter(x,-infinity):x;
+}
+inline L up(L x) noexcept {
+    if(x==0)return ltiny;
+#if (defined(__x86_64__) || defined(__i386__)) && defined(__LDBL_MANT_DIG__) && (__LDBL_MANT_DIG__ == 64) && (__LDBL_MAX_EXP__ == 16384)
+    std::uint64_t sig=0;std::uint16_t signExp=0;
+    std::memcpy(&sig,&x,8);
+    std::memcpy(&signExp,reinterpret_cast<const char*>(&x)+8,2);
+    unsigned exp=signExp&0x7FFFu;
+    if(exp>=2u&&exp<=0x7FFDu) {
+        if((signExp&0x8000u)==0u) {
+            ++sig;
+            if(sig==0ull){sig=0x8000000000000000ull;++exp;signExp=static_cast<std::uint16_t>(exp);}
+        } else {
+            if(sig==0x8000000000000000ull){--exp;signExp=static_cast<std::uint16_t>(0x8000u|exp);sig=0xFFFFFFFFFFFFFFFFull;}
+            else --sig;
+        }
+        L out=x;
+        std::memcpy(&out,&sig,8);
+        std::memcpy(reinterpret_cast<char*>(&out)+8,&signExp,2);
+        return out;
+    }
+#endif
+    return std::isfinite(x)?std::nextafter(x,infinity):x;
+}
 struct I {
     L lo=0,hi=0;
     I()=default;explicit I(L x):lo(x),hi(x){}
@@ -364,9 +424,13 @@ Jet scaled(const Jet& a,I b,unsigned degree){Jet out{};for(unsigned n=0;n<=degre
 Jet reciprocal(const Jet& a,unsigned degree){Jet out{};out[0]=I(1)/a[0];for(unsigned n=1;n<=degree;++n){I sum;for(unsigned k=1;k<=n;++k)sum=sum+a[k]*out[n-k];out[n]=-sum/a[0];}return out;}
 Jet squareRoot(const Jet& a,unsigned degree){Jet out{};out[0]=sqrtI(a[0]);for(unsigned n=1;n<=degree;++n){I sum;for(unsigned k=1;k<n;++k)sum=sum+out[k]*out[n-k];out[n]=(a[n]-sum)/(I(2)*out[0]);}return out;}
 Jet tangentVariable(I x,unsigned degree){Jet out{};out[0]=tanI(x);for(unsigned n=0;n<degree;++n){I sum(n==0?1:0);for(unsigned k=0;k<=n;++k)sum=sum+out[k]*out[n-k];out[n+1]=sum/I(n+1);}return out;}
+Jet tangentVariableV5(I x,unsigned degree){Jet out{};out[0]=tanIV5(x);for(unsigned n=0;n<degree;++n){I sum(n==0?1:0);for(unsigned k=0;k<=n;++k)sum=sum+out[k]*out[n-k];out[n+1]=divPosV5(sum,static_cast<L>(n+1));}return out;}
 Jet arctangent(const Jet& y,unsigned degree){Jet out{};out[0]=atanI(y[0]);
     auto denominator=times(y,y,degree);denominator[0]=denominator[0]+I(1);const auto inverse=reciprocal(denominator,degree);
     for(unsigned n=1;n<=degree;++n){I sum;for(unsigned k=0;k<n;++k)sum=sum+I(k+1)*y[k+1]*inverse[n-1-k];out[n]=sum/I(n);}return out;}
+Jet arctangentV5(const Jet& y,unsigned degree){Jet out{};out[0]=atanIV5(y[0]);
+    auto denominator=times(y,y,degree);denominator[0]=denominator[0]+I(1);const auto inverse=reciprocal(denominator,degree);
+    for(unsigned n=1;n<=degree;++n){I sum;for(unsigned k=0;k<n;++k)sum=sum+I(k+1)*y[k+1]*inverse[n-1-k];out[n]=divPosV5(sum,static_cast<L>(n));}return out;}
 bool valid(const Jet& a,unsigned degree){for(unsigned n=0;n<=degree;++n)if(!a[n].valid())return false;return true;}
 
 struct Geometry {
@@ -378,8 +442,8 @@ struct Geometry {
         const I d=denominator(x,y),n=a+b*x+c*y,by=g02+g12*x+g22*y;
         return d.valid()&&d.lo>0&&(c*d-n*by).lo>0;
     }
-    Jet horizon(I angle,unsigned degree) const {
-        const Jet x=tangentVariable(angle,degree);const auto n=plus(constant(a),scaled(x,b,degree),degree);
+    Jet horizon(I angle,unsigned degree,bool fastTrig=false) const {
+        const Jet x=fastTrig?tangentVariableV5(angle,degree):tangentVariable(angle,degree);const auto n=plus(constant(a),scaled(x,b,degree),degree);
         Jet y{};
         if(h.lo==0&&h.hi==0)y=scaled(n,-I(1)/c,degree);
         else {
@@ -394,7 +458,7 @@ struct Geometry {
             const I numerator=n[0]+c*y[0];
             if((h.lo>0&&numerator.lo<=0)||(h.hi<0&&numerator.hi>=0))return constant(invalid());
         }
-        return arctangent(y,degree);
+        return fastTrig?arctangentV5(y,degree):arctangent(y,degree);
     }
     I horizon0V5(I angle) const {
         const I x=tanIV5(angle);
@@ -468,15 +532,15 @@ struct Ball {
     bool valid() const noexcept {return std::isfinite(value)&&std::isfinite(radius)&&radius>=0;}
 };
 Ball badBall() noexcept {return {0,std::numeric_limits<double>::infinity()};}
-double radiusUpper(double x) noexcept {
-    // Each caller expression has at most 16 positive basic binary64 operations.
-    // The factor covers this inflation's own rounded operations.
-    if(!(x>=0)||!std::isfinite(x))return std::numeric_limits<double>::infinity();
-    constexpr double factor=1.0+64.0*depsilon;
-    const double result=padSubnormalD(x,64)*factor;
-    return std::isfinite(result)?result:std::numeric_limits<double>::infinity();
+inline double radiusUpper(double x) noexcept {
+    // Strictly dominates nextUpPositiveD(padSubnormalD(x,64)*(1+64*depsilon))
+    // for all x>=0 with zero branches; NaN/+Inf propagate naturally and are
+    // rejected at valid()/isfinite() boundaries.
+    constexpr double factor=1.0+128.0*depsilon;
+    constexpr double minPad=256.0*dtiny;
+    return x*factor+minPad;
 }
-double centreError(double x) noexcept {return depsilon*std::abs(x)+dtiny;}
+inline double centreError(double x) noexcept {return depsilon*std::abs(x)+dtiny;}
 Ball ball(I x) noexcept {
     if(!x.valid())return badBall();
     const double centre=static_cast<double>(.5L*x.lo+.5L*x.hi);
@@ -488,15 +552,13 @@ I interval(Ball x) noexcept {
     return {down(static_cast<L>(x.value)-static_cast<L>(x.radius)),
             up(static_cast<L>(x.value)+static_cast<L>(x.radius))};
 }
-Ball operator-(Ball a) noexcept {return {-a.value,a.radius};}
-Ball operator+(Ball a,Ball b) noexcept {
-    if(!a.valid()||!b.valid())return badBall();
+inline Ball operator-(Ball a) noexcept {return {-a.value,a.radius};}
+inline Ball operator+(Ball a,Ball b) noexcept {
     const double centre=a.value+b.value;
     return {centre,radiusUpper(a.radius+b.radius+centreError(centre))};
 }
-Ball operator-(Ball a,Ball b) noexcept {return a+-b;}
-Ball operator*(Ball a,Ball b) noexcept {
-    if(!a.valid()||!b.valid())return badBall();
+inline Ball operator-(Ball a,Ball b) noexcept {return a+-b;}
+inline Ball operator*(Ball a,Ball b) noexcept {
     const double centre=a.value*b.value;
     return {centre,radiusUpper(std::abs(a.value)*b.radius+
         std::abs(b.value)*a.radius+a.radius*b.radius+centreError(centre))};
@@ -514,6 +576,68 @@ Ball operator/(Ball a,Ball b) noexcept {
         centreError(centre)*std::abs(b.value));
     return {centre,radiusUpper(numerator/denominator)};
 }
+struct alignas(32) DecodedCellV5 {
+    double centre=0;
+    double remHi=0;
+    alignas(32) double qLane[14][4]{};
+    alignas(32) double pLane[13][4]{};
+};
+const std::array<DecodedCellV5,48>& decodedCellsV5() noexcept {
+    static const std::array<DecodedCellV5,48> cells=[]() {
+        std::array<DecodedCellV5,48> out{};
+        for(unsigned idx=0;idx<48u;++idx) {
+            const auto& src=table::cells[idx];
+            auto& dst=out[idx];
+            dst.centre=(static_cast<double>(idx)+0.5)*0.25;
+            dst.remHi=fromBits(src.remainder.high);
+            for(std::size_t n=0;n<14;++n) {
+                const double c=fromBits(src.qFast[n].centre);
+                dst.qLane[n][0]=c;dst.qLane[n][1]=std::abs(c);dst.qLane[n][2]=fromBits(src.qFast[n].radius);dst.qLane[n][3]=0.0;
+            }
+            for(std::size_t n=0;n<13;++n) {
+                const double c=fromBits(src.pdfFast[n].centre);
+                dst.pLane[n][0]=c;dst.pLane[n][1]=std::abs(c);dst.pLane[n][2]=fromBits(src.pdfFast[n].radius);dst.pLane[n][3]=0.0;
+            }
+        }
+        return out;
+    }();
+    return cells;
+}
+#if FSIM_CONIC_HAS_AVX2
+__attribute__((target("avx2")))
+inline void evalNormalPairCellAvx2(const DecodedCellV5& c,double x,double argRadius,Ball& tailOut,Ball& pdfOut) noexcept {
+    const double centre=c.centre,delta=x-centre,absolute=std::abs(delta);
+    const __m256d dVec=_mm256_set_pd(0.0,absolute,absolute,delta);
+    const __m256d d2=_mm256_mul_pd(dVec,dVec);
+    __m256d qEven=_mm256_load_pd(c.qLane[12]);
+    __m256d qOdd=_mm256_load_pd(c.qLane[13]);
+    __m256d pEven=_mm256_load_pd(c.pLane[12]);
+    __m256d pOdd=_mm256_load_pd(c.pLane[11]);
+    qEven=_mm256_add_pd(_mm256_mul_pd(qEven,d2),_mm256_load_pd(c.qLane[10]));
+    qOdd=_mm256_add_pd(_mm256_mul_pd(qOdd,d2),_mm256_load_pd(c.qLane[11]));
+    pEven=_mm256_add_pd(_mm256_mul_pd(pEven,d2),_mm256_load_pd(c.pLane[10]));
+    for(int n=8;n>=0;n-=2) {
+        const std::size_t idx=static_cast<std::size_t>(n);
+        qEven=_mm256_add_pd(_mm256_mul_pd(qEven,d2),_mm256_load_pd(c.qLane[idx]));
+        qOdd=_mm256_add_pd(_mm256_mul_pd(qOdd,d2),_mm256_load_pd(c.qLane[idx+1u]));
+        pEven=_mm256_add_pd(_mm256_mul_pd(pEven,d2),_mm256_load_pd(c.pLane[idx]));
+        pOdd=_mm256_add_pd(_mm256_mul_pd(pOdd,d2),_mm256_load_pd(c.pLane[idx+1u]));
+    }
+    const __m256d qAcc=_mm256_add_pd(qEven,_mm256_mul_pd(qOdd,dVec));
+    const __m256d pAcc=_mm256_add_pd(pEven,_mm256_mul_pd(pOdd,dVec));
+    alignas(32) double qOut[4],pOut[4];
+    _mm256_store_pd(qOut,qAcc);
+    _mm256_store_pd(pOut,pAcc);
+    constexpr double qOps=2.0*14.0+4.0,qGamma=qOps*depsilon/(1.0-qOps*depsilon),qInv=(1.0/(1.0-qGamma))*(1.0+4.0*depsilon);
+    constexpr double pOps=2.0*13.0+4.0,pGamma=pOps*depsilon/(1.0-pOps*depsilon),pInv=(1.0/(1.0-pGamma))*(1.0+4.0*depsilon);
+    const double deltaError=depsilon*(x+centre)+dtiny;
+    const double argPlusDelta=argRadius+deltaError;
+    const double qErr=(qOut[2]+qOps*dtiny)*qInv+qGamma*((qOut[1]+qOps*dtiny)*qInv)+qOps*dtiny+0.4*argPlusDelta+c.remHi*absolute;
+    const double pErr=(pOut[2]+pOps*dtiny)*pInv+pGamma*((pOut[1]+pOps*dtiny)*pInv)+pOps*dtiny+0.25*argPlusDelta+c.remHi;
+    tailOut={qOut[0],upperPositiveD<8*14+32>(qErr)};
+    pdfOut={pOut[0],upperPositiveD<8*13+32>(pErr)};
+}
+#endif
 template<std::size_t N>
 Ball normalBallPolynomial(const std::array<table::CentreRadius,N>& data,double z,bool tail,
     double argumentError,Work* work,unsigned cell) noexcept {
@@ -524,9 +648,6 @@ Ball normalBallPolynomial(const std::array<table::CentreRadius,N>& data,double z
         value=value*delta+coefficient;absoluteSum=absoluteSum*absolute+std::abs(coefficient);
         radius=radius*absolute+fromBits(data[n-1].radius);
     }
-    // Same stored coefficients, remainder and operation bound as the retained
-    // interval polynomial. One central evaluation plus the global derivative
-    // bound encloses the complete argument ball; no endpoint reevaluation.
     constexpr double operations=2.0*static_cast<double>(N)+4.0;
     constexpr double gamma=operations*depsilon/(1.0-operations*depsilon);
     constexpr double invOneMinusGamma=(1.0/(1.0-gamma))*(1.0+4.0*depsilon);
@@ -547,8 +668,6 @@ Ball fastNormalAtMagnitude(Ball argument,bool tail,Work* work) noexcept {
         if(work)++work->normalTails;
         const double limitHi=fromBits(tail?table::q12.high:table::density12.high);
         Ball result(0.5*limitHi,nextUpPositiveD(0.5*limitHi));
-        // Entire supported tail: monotonicity supplies the existing table
-        // bound. A ball straddling 12 keeps the global derivative padding.
         if(x-argument.radius<=12.0+4.0*depsilon*x)
             result.radius=radiusUpper(result.radius+(tail?0.4:0.25)*argument.radius);
         return result;
@@ -572,52 +691,55 @@ void fastNormalPair(Ball argument,Ball& tailOut,Ball& pdfOut,Work* work) noexcep
         return;
     }
     const unsigned cell=std::min(47u,static_cast<unsigned>(x*4));
-    const double centre=(static_cast<double>(cell)+.5)/4,delta=x-centre,absolute=std::abs(delta);
-    const auto& c=table::cells[cell];
-    double qVal=fromBits(c.qFast.back().centre),qAbs=std::abs(qVal),qRad=fromBits(c.qFast.back().radius);
-    for(std::size_t n=c.qFast.size()-1;n>0;--n) {
-        const double coeff=fromBits(c.qFast[n-1].centre);
-        qVal=qVal*delta+coeff;qAbs=qAbs*absolute+std::abs(coeff);
-        qRad=qRad*absolute+fromBits(c.qFast[n-1].radius);
+    const auto& c=decodedCellsV5()[cell];
+    if(work)work->normalPolynomials+=2;
+#if FSIM_CONIC_HAS_AVX2
+    if(conicHasAvx2Fma()) {
+        evalNormalPairCellAvx2(c,x,argument.radius,tailOut,pdfOut);
+        return;
     }
-    double pVal=fromBits(c.pdfFast.back().centre),pAbs=std::abs(pVal),pRad=fromBits(c.pdfFast.back().radius);
-    for(std::size_t n=c.pdfFast.size()-1;n>0;--n) {
-        const double coeff=fromBits(c.pdfFast[n-1].centre);
-        pVal=pVal*delta+coeff;pAbs=pAbs*absolute+std::abs(coeff);
-        pRad=pRad*absolute+fromBits(c.pdfFast[n-1].radius);
+#endif
+    const double centre=c.centre,delta=x-centre,absolute=std::abs(delta);
+    double qVal=c.qLane[13][0],qAbs=c.qLane[13][1],qRad=c.qLane[13][2];
+    for(int n=12;n>=0;--n) {
+        const std::size_t idx=static_cast<std::size_t>(n);
+        qVal=qVal*delta+c.qLane[idx][0];
+        qAbs=qAbs*absolute+c.qLane[idx][1];
+        qRad=qRad*absolute+c.qLane[idx][2];
+    }
+    double pVal=c.pLane[12][0],pAbs=c.pLane[12][1],pRad=c.pLane[12][2];
+    for(int n=11;n>=0;--n) {
+        const std::size_t idx=static_cast<std::size_t>(n);
+        pVal=pVal*delta+c.pLane[idx][0];
+        pAbs=pAbs*absolute+c.pLane[idx][1];
+        pRad=pRad*absolute+c.pLane[idx][2];
     }
     constexpr double qOps=2.0*14.0+4.0,qGamma=qOps*depsilon/(1.0-qOps*depsilon),qInv=(1.0/(1.0-qGamma))*(1.0+4.0*depsilon);
     constexpr double pOps=2.0*13.0+4.0,pGamma=pOps*depsilon/(1.0-pOps*depsilon),pInv=(1.0/(1.0-pGamma))*(1.0+4.0*depsilon);
-    const double deltaError=depsilon*(std::abs(x)+centre)+dtiny;
+    const double deltaError=depsilon*(x+centre)+dtiny;
     const double argPlusDelta=argument.radius+deltaError;
-    const double remHi=fromBits(c.remainder.high);
-    const double qErr=(qRad+qOps*dtiny)*qInv+qGamma*((qAbs+qOps*dtiny)*qInv)+qOps*dtiny+0.4*argPlusDelta+remHi*absolute;
-    const double pErr=(pRad+pOps*dtiny)*pInv+pGamma*((pAbs+pOps*dtiny)*pInv)+pOps*dtiny+0.25*argPlusDelta+remHi;
-    if(work)work->normalPolynomials+=2;
+    const double qErr=(qRad+qOps*dtiny)*qInv+qGamma*((qAbs+qOps*dtiny)*qInv)+qOps*dtiny+0.4*argPlusDelta+c.remHi*absolute;
+    const double pErr=(pRad+pOps*dtiny)*pInv+pGamma*((pAbs+pOps*dtiny)*pInv)+pOps*dtiny+0.25*argPlusDelta+c.remHi;
     tailOut={qVal,upperPositiveD<8*14+32>(qErr)};
     pdfOut={pVal,upperPositiveD<8*13+32>(pErr)};
 }
-Ball mulInt(Ball a,unsigned k) noexcept {
+inline Ball mulInt(Ball a,unsigned k) noexcept {
     if(k==1)return a;
-    if(!a.valid())return badBall();
     const double kd=static_cast<double>(k);
     const double c=a.value*kd;
     return {c,radiusUpper(a.radius*kd+centreError(c))};
 }
-Ball divInt(Ball a,unsigned k) noexcept {
+inline Ball divInt(Ball a,unsigned k) noexcept {
     if(k==1)return a;
-    if(!a.valid()||k==0)return badBall();
     const double kd=static_cast<double>(k);
     const double c=a.value/kd;
     return {c,radiusUpper(a.radius/kd+centreError(c))};
 }
-Ball divPosExact(Ball a,double s) noexcept {
-    if(!a.valid()||!(s>0)||!std::isfinite(s))return badBall();
+inline Ball divPosExact(Ball a,double s) noexcept {
     const double c=a.value/s;
     return {c,radiusUpper(a.radius/s+centreError(c))};
 }
-Ball mulPosExact(Ball a,double s) noexcept {
-    if(!a.valid()||!(s>=0)||!std::isfinite(s))return badBall();
+inline Ball mulPosExact(Ball a,double s) noexcept {
     const double c=a.value*s;
     return {c,radiusUpper(a.radius*s+centreError(c))};
 }
@@ -681,6 +803,82 @@ bool fastMomentsMidUncachedV5(L lowL,L highL,double detectorLow,double detectorH
         outMid[0]=clampBallToMid(mulPosExact(e1-e0,sigmaD),0.0,spanLim);
         return std::isfinite(outMid[0].error);
     }
+    if(degree==3u) {
+        const Ball reference=ball(I(anchorL));
+        const double negSigma=-sigmaD;
+        const double s1v=negSigma,s1r=radiusUpper(centreError(s1v));
+        const Ball sp1{s1v,s1r};
+        const double s2v=s1v*negSigma,s2r=radiusUpper(s1r*sigmaD+centreError(s2v));
+        const Ball sp2{s2v,s2r};
+        const double s3v=s2v*negSigma,s3r=radiusUpper(s2r*sigmaD+centreError(s3v));
+        const Ball sp3{s3v,s3r};
+        Ball ans0(0.0),ans1(0.0),ans2(0.0),ans3(0.0);
+        for(unsigned edge=0;edge<2;++edge) {
+            const double pixelVal=edge?detectorHigh:detectorLow;
+            const Ball pixel(pixelVal);
+            Ball p00,p01,p02,p03,p10,p11,p12,p13;
+            bool hit=false;
+            if(edge==0&&edgeCache&&edgeCache->valid&&exactBounds&&edgeCache->degree>=3u&&
+               edgeCache->x0==bottom.value&&edgeCache->x1==top.value&&edgeCache->pixelBits==gaussianBitsV5(pixelVal)) {
+                p00=edgeCache->primitives[0][0];p01=edgeCache->primitives[0][1];
+                p02=edgeCache->primitives[0][2];p03=edgeCache->primitives[0][3];
+                p10=edgeCache->primitives[1][0];p11=edgeCache->primitives[1][1];
+                p12=edgeCache->primitives[1][2];p13=edgeCache->primitives[1][3];
+                hit=true;
+            }
+            if(!hit) {
+                const auto evalSide=[&](const Ball& bound,Ball& o0,Ball& o1,Ball& o2,Ball& o3) noexcept {
+                    const Ball z=divPosExact(pixel-bound,sigmaD);
+                    Ball tail,density;
+                    fastNormalPair(z,tail,density,work);
+                    const Ball cdf=z.value<0?tail:Ball(1.0)-tail;
+                    const Ball z2=z*z;
+                    const Ball z3=z2*z;
+                    const Ball z4=z3*z;
+                    const Ball n1=-density;
+                    const Ball n2=-z*density+cdf;
+                    const Ball n3=-z2*density+mulInt(n1,2u);
+                    const Ball n4=-z3*density+mulInt(n2,3u);
+                    o0=z*cdf-n1;
+                    o1=divInt(z2*cdf-n2,2u);
+                    o2=divInt(z3*cdf-n3,3u);
+                    o3=divInt(z4*cdf-n4,4u);
+                };
+                evalSide(bottom,p00,p01,p02,p03);
+                evalSide(top,p10,p11,p12,p13);
+                if(edge==1&&edgeCache&&exactBounds) {
+                    edgeCache->valid=true;edgeCache->x0=bottom.value;edgeCache->x1=top.value;
+                    edgeCache->pixelBits=gaussianBitsV5(pixelVal);edgeCache->degree=3u;
+                    edgeCache->primitives[0][0]=p00;edgeCache->primitives[0][1]=p01;
+                    edgeCache->primitives[0][2]=p02;edgeCache->primitives[0][3]=p03;
+                    edgeCache->primitives[1][0]=p10;edgeCache->primitives[1][1]=p11;
+                    edgeCache->primitives[1][2]=p12;edgeCache->primitives[1][3]=p13;
+                }
+            }
+            const Ball dx=pixel-reference;
+            const Ball off2=dx*dx;
+            const Ball off3=off2*dx;
+            const Ball d0=p00-p10;
+            const Ball d1=sp1*(p01-p11);
+            const Ball d2=sp2*(p02-p12);
+            const Ball d3=sp3*(p03-p13);
+            const Ball v0=mulPosExact(d0,sigmaD);
+            const Ball v1=mulPosExact(dx*d0+d1,sigmaD);
+            const Ball v2=mulPosExact(off2*d0+mulInt(dx*d1,2u)+d2,sigmaD);
+            const Ball v3=mulPosExact(off3*d0+mulInt(off2*d1,3u)+mulInt(dx*d2,3u)+d3,sigmaD);
+            if(edge) {
+                ans0=ans0+v0;ans1=ans1+v1;ans2=ans2+v2;ans3=ans3+v3;
+            } else {
+                ans0=-v0;ans1=-v1;ans2=-v2;ans3=-v3;
+            }
+        }
+        outMid[0]=clampBallToMid(ans0,0.0,spanLim);
+        outMid[1]={ans1.value,nextUpPositiveD(ans1.radius)};
+        outMid[2]=clampBallToMid(ans2,0.0,std::numeric_limits<double>::infinity());
+        outMid[3]={ans3.value,nextUpPositiveD(ans3.radius)};
+        return std::isfinite(outMid[0].error)&&ans1.valid()&&std::isfinite(outMid[1].error)&&
+            ans2.valid()&&std::isfinite(outMid[2].error)&&ans3.valid()&&std::isfinite(outMid[3].error);
+    }
     std::array<Ball,8> answer{};
     const Ball reference=ball(I(anchorL));
     const double negSigma=-sigmaD;
@@ -712,18 +910,31 @@ bool fastMomentsMidUncachedV5(L lowL,L highL,double detectorLow,double detectorH
                 edgeCache->primitives=primitives;
             }
         }
-        std::array<Ball,8> offset{},spread{};offset[0]=Ball(1.0);spread[0]=Ball(1.0);
+        std::array<Ball,8> offset{},spread{},diff{};offset[0]=Ball(1.0);spread[0]=Ball(1.0);
         const Ball dx=pixel-reference;
         for(unsigned n=1;n<=degree;++n){
             offset[n]=offset[n-1]*dx;
             const double sv=spread[n-1].value*negSigma;
             spread[n]={sv,radiusUpper(spread[n-1].radius*sigmaD+centreError(sv))};
         }
-        for(unsigned n=0;n<=degree;++n){
-            Ball value;
-            for(unsigned k=0;k<=n;++k)value=value+mulInt(offset[n-k]*spread[k]*(primitives[0][k]-primitives[1][k]),binomial(n,k));
-            value=mulPosExact(value,sigmaD);
-            answer[n]=edge?answer[n]+value:answer[n]-value;
+        for(unsigned k=0;k<=degree;++k)diff[k]=spread[k]*(primitives[0][k]-primitives[1][k]);
+        if(degree==3) {
+            const Ball v0=mulPosExact(diff[0],sigmaD);
+            const Ball v1=mulPosExact(offset[1]*diff[0]+diff[1],sigmaD);
+            const Ball v2=mulPosExact(offset[2]*diff[0]+mulInt(offset[1]*diff[1],2u)+diff[2],sigmaD);
+            const Ball v3=mulPosExact(offset[3]*diff[0]+mulInt(offset[2]*diff[1],3u)+mulInt(offset[1]*diff[2],3u)+diff[3],sigmaD);
+            if(edge) {
+                answer[0]=answer[0]+v0;answer[1]=answer[1]+v1;answer[2]=answer[2]+v2;answer[3]=answer[3]+v3;
+            } else {
+                answer[0]=-v0;answer[1]=-v1;answer[2]=-v2;answer[3]=-v3;
+            }
+        } else {
+            for(unsigned n=0;n<=degree;++n){
+                Ball value;
+                for(unsigned k=0;k<=n;++k)value=value+mulInt(offset[n-k]*diff[k],binomial(n,k));
+                value=mulPosExact(value,sigmaD);
+                answer[n]=edge?answer[n]+value:answer[n]-value;
+            }
         }
     }
     outMid[0]=clampBallToMid(answer[0],0.0,spanLim);
@@ -906,6 +1117,7 @@ struct Bank::Impl {
         L anchor=0;
         I xDomain,horizonRange;
         std::vector<std::array<Mid,8>> coefficients;
+        std::vector<double> c0v,c0e,c1v,c1e,c2v,c2e,c3v,c3e;
         std::vector<double> remainder4,remainder8;
         bool uncut0Valid=false,uncut3Valid=false,uncut7Valid=false;
         Mid uncutMass0{};
@@ -946,9 +1158,11 @@ struct Bank::Impl {
         if(column.mask==Column::Mask::Sky||column.mask==Column::Mask::Ground)return true;
         if(column.degree>=degree)return true;
         const unsigned jetDegree=degree==3?4u:8u;
+        constexpr bool fastV5=true;
         if(column.mask==Column::Mask::Unknown){
-            const I xx=tanI(column.xDomain);
-            const I low=geometry.level(xx,tanI(I(bottom))),high=geometry.level(xx,tanI(I(top)));
+            const I xx=fastV5?tanIV5(column.xDomain):tanI(column.xDomain);
+            const I low=geometry.level(xx,fastV5?tanPointV5(bottom):tanI(I(bottom)));
+            const I high=geometry.level(xx,fastV5?tanPointV5(top):tanI(I(top)));
             if(!low.valid()||!high.valid())return false;
             if(low.lo>=geometry.h.hi){column.mask=Column::Mask::Sky;return true;}
             if(high.hi<geometry.h.lo){
@@ -963,8 +1177,8 @@ struct Bank::Impl {
             if(!(low.hi<geometry.h.lo&&high.lo>geometry.h.hi))return false;
             column.mask=Column::Mask::Horizon;
         }
-        const auto point=geometry.horizon(I(column.anchor),jetDegree);
-        const auto range=geometry.horizon(column.xDomain,jetDegree);
+        const auto point=geometry.horizon(I(column.anchor),jetDegree,fastV5);
+        const auto range=geometry.horizon(column.xDomain,jetDegree,fastV5);
         if(!valid(point,jetDegree)||!valid(range,jetDegree)||range[0].lo<bottom||range[0].hi>top)return false;
         // The constant jet term is independent of degree. In the shared bank
         // degree seven adds coefficients 4..7 and remainder8. Readers of the
@@ -1028,8 +1242,25 @@ struct Bank::Impl {
         bool hasPrevEdge=false;double prevEdgeY=0;
         EdgeCache pPrev{},pCurr{},rPrev{},rCurr{};
         const unsigned coeffStart=column.degree==0?0u:column.degree+1u;
+        const L farMargin=12.0L*sigma.hi*(1.0L+64.0L*lepsilon);
+        const L skySkipY=range[0].hi+farMargin;
+        const L groundSkipY=range[0].lo-farMargin;
+        const double farErr=upperPositive<true>((I(signature.pixelPitchRad).hi*width.hi*encoded(table::q12).hi)/area.lo+ltiny);
         for(unsigned row=0;row<signature.height;++row){
             const double low=(row-.5*signature.height)*signature.pixelPitchRad,high=low+signature.pixelPitchRad;
+            if(static_cast<L>(low)>=skySkipY) {
+                for(unsigned k=coeffStart;k<=degree;++k)column.coefficients[row][k]={0.0,0.0};
+                errors[row]=farErr;
+                hasPrevEdge=false;
+                continue;
+            }
+            if(static_cast<L>(high)<=groundSkipY) {
+                if(coeffStart==0u)column.coefficients[row][0]=midpoint<true>(I(high)-I(low));
+                for(unsigned k=std::max(1u,coeffStart);k<=degree;++k)column.coefficients[row][k]={0.0,0.0};
+                errors[row]=farErr;
+                hasPrevEdge=false;
+                continue;
+            }
             if(!hasPrevEdge||low!=prevEdgeY) {
                 if(!computeEdge(point[0],low,true,pPrev)||!computeEdge(range[0],low,false,rPrev))return false;
             }
@@ -1057,7 +1288,7 @@ struct Bank::Impl {
                 I coeff=(k==0)?pDeriv[0]:I(0);
                 for(unsigned n=1;n<=k;++n)coeff=coeff+pointTerms[n][k]*pScaled[n];
                 if(!coeff.valid())return false;
-                column.coefficients[row][k]=midpoint(coeff);
+                column.coefficients[row][k]=midpoint<true>(coeff);
                 if(!std::isfinite(column.coefficients[row][k].error))return false;
             }
             I pLast(0),rLast(0);
@@ -1066,15 +1297,27 @@ struct Bank::Impl {
                 rLast=rLast+rangeTerms[n][jetDegree]*rScaled[n];
             }
             if(!pLast.valid()||!rLast.valid())return false;
-            errors[row]=upperPositive((I(magnitude(rLast))*width*mu/area).hi);
+            errors[row]=upperPositive<true>((I(magnitude(rLast))*width*mu/area).hi);
             pPrev=pCurr;
             rPrev=rCurr;
             prevEdgeY=high;
             hasPrevEdge=true;
         }
-        // Precompute exact uncut-column V5 moments and horizon contractions
+        // Precompute SoA degree-3 tables and exact uncut-column V5 contractions
         // once per column (safely published under sharedColumns::once).
         if(degree==3) {
+            const std::size_t h=signature.height;
+            column.c0v.resize(h);column.c0e.resize(h);
+            column.c1v.resize(h);column.c1e.resize(h);
+            column.c2v.resize(h);column.c2e.resize(h);
+            column.c3v.resize(h);column.c3e.resize(h);
+            for(std::size_t row=0;row<h;++row) {
+                const auto& cf=column.coefficients[row];
+                column.c0v[row]=cf[0].value;column.c0e[row]=cf[0].error;
+                column.c1v[row]=cf[1].value;column.c1e[row]=cf[1].error;
+                column.c2v[row]=cf[2].value;column.c2e[row]=cf[2].error;
+                column.c3v[row]=cf[3].value;column.c3e[row]=cf[3].error;
+            }
             std::array<Mid,8> m0{};
             if(fastMomentsMidUncachedV5(column.xDomain.lo,column.xDomain.hi,column.pixelLow,column.pixelHigh,
                 signature.psfSigmaRad,column.anchor,0,nullptr,m0,nullptr)) {
@@ -1159,6 +1402,102 @@ struct Bank::Impl {
         return true;
     }
 
+#if FSIM_CONIC_HAS_AVX2
+    __attribute__((target("avx2,fma")))
+    bool sumV5Batch3Avx2(unsigned col,unsigned row0,unsigned rowCount,
+        const std::array<Mid,8>& mass,const double* lowerV,const double* lowerE,
+        double* colField,double* colError) const noexcept {
+        const auto& column=columns[col];
+        const double* __restrict c0vP=column.c0v.data()+row0;
+        const double* __restrict c0eP=column.c0e.data()+row0;
+        const double* __restrict c1vP=column.c1v.data()+row0;
+        const double* __restrict c1eP=column.c1e.data()+row0;
+        const double* __restrict c2vP=column.c2v.data()+row0;
+        const double* __restrict c2eP=column.c2e.data()+row0;
+        const double* __restrict c3vP=column.c3v.data()+row0;
+        const double* __restrict c3eP=column.c3e.data()+row0;
+        const double* __restrict remP=column.remainder4.data()+row0;
+        const double* __restrict lvP=lowerV+row0;
+        const double* __restrict leP=lowerE+row0;
+        double* __restrict outFP=colField+row0;
+        double* __restrict outEP=colError+row0;
+
+        const __m256d signMask=_mm256_set1_pd(-0.0);
+        const __m256d vEps=_mm256_set1_pd(depsilon);
+        const __m256d vTiny=_mm256_set1_pd(dtiny);
+        const __m256d vC0Scale=_mm256_set1_pd(1.0+32.0*depsilon);
+        const __m256d m0v=_mm256_set1_pd(mass[0].value),m0e=_mm256_set1_pd(mass[0].error),am0=_mm256_set1_pd(std::abs(mass[0].value));
+        const __m256d m1v=_mm256_set1_pd(mass[1].value),m1e=_mm256_set1_pd(mass[1].error),am1=_mm256_set1_pd(std::abs(mass[1].value));
+        const __m256d m2v=_mm256_set1_pd(mass[2].value),m2e=_mm256_set1_pd(mass[2].error),am2=_mm256_set1_pd(std::abs(mass[2].value));
+        const __m256d m3v=_mm256_set1_pd(mass[3].value),m3e=_mm256_set1_pd(mass[3].error),am3=_mm256_set1_pd(std::abs(mass[3].value));
+        constexpr double ops=12.0;
+        constexpr double gammaVal=ops*depsilon/(1.0-ops*depsilon);
+        const __m256d vGamma=_mm256_set1_pd(gammaVal);
+        const __m256d vOpsTiny=_mm256_set1_pd(ops*dtiny);
+        const __m256d vNorm=_mm256_set1_pd(signature.pixelPitchRad*signature.pixelPitchRad);
+        const __m256d vInvArea=_mm256_set1_pd(invAreaHiD);
+        const __m256d vExtraTail=_mm256_set1_pd(extraTailD);
+        const __m256d vZero=_mm256_setzero_pd(),vOne=_mm256_set1_pd(1.0);
+        constexpr double bGamma=256.0*depsilon/(1.0-256.0*depsilon);
+        constexpr double bScale=(1.0/(1.0-bGamma))*(1.0+4.0*depsilon);
+        const __m256d vBScale=_mm256_set1_pd(bScale);
+        const __m256d vBPad=_mm256_set1_pd(512.0*dtiny);
+        const __m256d vBudget=_mm256_set1_pd(fieldBudget);
+        const __m256i vOneI=_mm256_set1_epi64x(1);
+
+        unsigned i=0;
+        for(;i+4u<=rowCount;i+=4u) {
+            const __m256d rawC0v=_mm256_loadu_pd(c0vP+i),rawC0e=_mm256_loadu_pd(c0eP+i);
+            const __m256d lv=_mm256_loadu_pd(lvP+i),le=_mm256_loadu_pd(leP+i);
+            const __m256d c0v=_mm256_sub_pd(rawC0v,lv);
+            const __m256d aRawC0=_mm256_andnot_pd(signMask,rawC0v);
+            const __m256d aLv=_mm256_andnot_pd(signMask,lv);
+            const __m256d c0e=_mm256_mul_pd(_mm256_add_pd(_mm256_add_pd(_mm256_add_pd(rawC0e,le),
+                _mm256_mul_pd(vEps,_mm256_add_pd(aRawC0,aLv))),vTiny),vC0Scale);
+            const __m256d c1v=_mm256_loadu_pd(c1vP+i),c1e=_mm256_loadu_pd(c1eP+i);
+            const __m256d c2v=_mm256_loadu_pd(c2vP+i),c2e=_mm256_loadu_pd(c2eP+i);
+            const __m256d c3v=_mm256_loadu_pd(c3vP+i),c3e=_mm256_loadu_pd(c3eP+i);
+
+            const __m256d p0=_mm256_mul_pd(c0v,m0v);
+            const __m256d p1=_mm256_mul_pd(c1v,m1v);
+            const __m256d p2=_mm256_mul_pd(c2v,m2v);
+            const __m256d p3=_mm256_mul_pd(c3v,m3v);
+            const __m256d num=_mm256_add_pd(_mm256_add_pd(_mm256_add_pd(p0,p1),p2),p3);
+
+            const __m256d absS=_mm256_add_pd(
+                _mm256_add_pd(_mm256_andnot_pd(signMask,p0),_mm256_andnot_pd(signMask,p1)),
+                _mm256_add_pd(_mm256_andnot_pd(signMask,p2),_mm256_andnot_pd(signMask,p3)));
+
+            __m256d err=_mm256_fmadd_pd(_mm256_andnot_pd(signMask,c0v),m0e,_mm256_fmadd_pd(am0,c0e,_mm256_mul_pd(c0e,m0e)));
+            err=_mm256_add_pd(err,_mm256_fmadd_pd(_mm256_andnot_pd(signMask,c1v),m1e,_mm256_fmadd_pd(am1,c1e,_mm256_mul_pd(c1e,m1e))));
+            err=_mm256_add_pd(err,_mm256_fmadd_pd(_mm256_andnot_pd(signMask,c2v),m2e,_mm256_fmadd_pd(am2,c2e,_mm256_mul_pd(c2e,m2e))));
+            err=_mm256_add_pd(err,_mm256_fmadd_pd(_mm256_andnot_pd(signMask,c3v),m3e,_mm256_fmadd_pd(am3,c3e,_mm256_mul_pd(c3e,m3e))));
+            err=_mm256_add_pd(_mm256_fmadd_pd(vGamma,absS,err),vOpsTiny);
+
+            const __m256d val=_mm256_div_pd(num,vNorm);
+            const __m256d aVal=_mm256_andnot_pd(signMask,val);
+            const __m256d rem=_mm256_loadu_pd(remP+i);
+            const __m256d totalErr=_mm256_add_pd(_mm256_add_pd(_mm256_fmadd_pd(err,vInvArea,_mm256_fmadd_pd(vEps,aVal,vTiny)),rem),vExtraTail);
+            const __m256d clamped=_mm256_min_pd(_mm256_max_pd(val,vZero),vOne);
+            const __m256d clampGap=_mm256_andnot_pd(signMask,_mm256_sub_pd(val,clamped));
+            const __m256d scaled=_mm256_fmadd_pd(_mm256_add_pd(totalErr,clampGap),vBScale,vBPad);
+            const __m256d bound=_mm256_castsi256_pd(_mm256_add_epi64(_mm256_castpd_si256(scaled),vOneI));
+            const __m256d okB=_mm256_cmp_pd(bound,vBudget,_CMP_LE_OQ);
+            const __m256d okV=_mm256_cmp_pd(val,val,_CMP_EQ_OQ);
+            if(_mm256_movemask_pd(_mm256_and_pd(okB,okV))!=0xF)return false;
+            _mm256_storeu_pd(outFP+i,clamped);
+            _mm256_storeu_pd(outEP+i,bound);
+        }
+        for(;i<rowCount;++i) {
+            const unsigned row=row0+i;
+            double v=0,e=0;
+            if(!sumV5(row,col,3u,mass,{lowerV[row],lowerE[row]},v,e))return false;
+            colField[row]=v;colError[row]=e;
+        }
+        return true;
+    }
+#endif
+
     bool sumV5(unsigned row,unsigned col,unsigned degree,
         const std::array<Mid,8>& mass,Mid lower,double& outField,double& outError) const noexcept {
         const auto& column=columns[col];
@@ -1201,7 +1540,7 @@ struct Bank::Impl {
         const std::array<I,4>& strips,unsigned stripCount,
         const unsigned* activeRows,unsigned activeRowCount,
         const Mid* lower,const Mid* height,
-        double* colField,double* colError,Work* work) const {
+        double* colField,double* colError,ColumnEdgeCacheV5* edgeCache,Work* work) const {
         struct Piece {I domain;bool ground=false;};
         std::array<Piece,5> pieces{};unsigned pieceCount=0;
         const auto append=[&](L a,L b) {
@@ -1225,7 +1564,7 @@ struct Bank::Impl {
         bool horizon=false;
         for(unsigned idx=0;idx<pieceCount;++idx)if(pieces[idx].ground) {
             std::array<Mid,8> mass{};
-            if(!fastMomentsMidV5(pieces[idx].domain.lo,pieces[idx].domain.hi,column.pixelLow,column.pixelHigh,signature.psfSigmaRad,column.anchor,0,nullptr,mass,work))
+            if(!fastMomentsMidV5(pieces[idx].domain.lo,pieces[idx].domain.hi,column.pixelLow,column.pixelHigh,signature.psfSigmaRad,column.anchor,0,edgeCache,mass,work))
                 return false;
             groundBall=groundBall+Ball(mass[0].value,mass[0].error);
         } else horizon=true;
@@ -1265,7 +1604,7 @@ struct Bank::Impl {
             std::array<Ball,8> accum{};
             if(horizon)for(unsigned idx=0;idx<pieceCount;++idx)if(!pieces[idx].ground) {
                 std::array<Mid,8> mass{};
-                if(!fastMomentsMidV5(pieces[idx].domain.lo,pieces[idx].domain.hi,column.pixelLow,column.pixelHigh,signature.psfSigmaRad,column.anchor,degree,nullptr,mass,work))
+                if(!fastMomentsMidV5(pieces[idx].domain.lo,pieces[idx].domain.hi,column.pixelLow,column.pixelHigh,signature.psfSigmaRad,column.anchor,degree,edgeCache,mass,work))
                     return false;
                 for(unsigned n=0;n<=degree;++n)accum[n]=accum[n]+Ball(mass[n].value,mass[n].error);
             }
@@ -1381,28 +1720,40 @@ struct Bank::Impl {
             const double omitted12Err=omitAt12?upperPositiveD<32>(tail12Hi+extraTailD):-1.0;
             if(omitAt12&&(!std::isfinite(omitted12Err)||omitted12Err>fieldBudget))return refuse(Refusal::ErrorBudget);
             const double regBottomD=static_cast<double>(regBottom),regTopD=static_cast<double>(regTop);
+            unsigned scanBegin=0,scanEnd=p.height;
+            if(omitAt12) {
+                const int bRow=static_cast<int>(std::floor((regBottomD-gap12)/pitchD+0.5*p.height))-1;
+                const int eRow=static_cast<int>(std::ceil((regTopD+gap12)/pitchD+0.5*p.height))+1;
+                scanBegin=static_cast<unsigned>(std::clamp(bRow,0,static_cast<int>(p.height)));
+                scanEnd=static_cast<unsigned>(std::clamp(eRow,0,static_cast<int>(p.height)));
+                for(unsigned row=0;row<scanBegin;++row)omitted[row]=omitted12Err;
+                for(unsigned row=scanEnd;row<p.height;++row)omitted[row]=omitted12Err;
+            }
+            const double gapCheckMin=7.5*sigmaD;
             bool hasPrev=false;double prevHigh=0;Ball prevBotPrim,prevTopPrim;
-            for(unsigned row=0;row<p.height;++row){
+            for(unsigned row=scanBegin;row<scanEnd;++row){
                 const double low=(row-.5*p.height)*pitchD,high=low+pitchD;
                 if(omitAt12&&(low-regTopD>=gap12||regBottomD-high>=gap12)) {
                     omitted[row]=omitted12Err;
                     hasPrev=false;
                     continue;
                 }
-                I gap;
-                if(regTop<low)gap=I(low)-I(regTop);
-                else if(regBottom>high)gap=I(regBottom)-I(high);
-                if(gap.lo>0) {
-                    const Ball dist=divPosExact(ball(I(gap.lo)),sigmaD);
-                    const Ball qTail=fastNormalAtMagnitude(dist,true,work);
-                    const double qHi=qTail.value+qTail.radius;
-                    const double tailHi=(regSpanHi*qHi/pitchD)*(1.0+32.0*depsilon);
-                    if(qTail.valid()&&std::isfinite(tailHi)&&tailHi<=5e-19) {
-                        const double error=upperPositiveD<32>(tailHi+extraTailD);
-                        if(!std::isfinite(error)||error>fieldBudget)return refuse(Refusal::ErrorBudget);
-                        omitted[row]=error;
-                        hasPrev=false;
-                        continue;
+                if(low-regTopD>gapCheckMin||regBottomD-high>gapCheckMin) {
+                    I gap;
+                    if(regTop<low)gap=I(low)-I(regTop);
+                    else if(regBottom>high)gap=I(regBottom)-I(high);
+                    if(gap.lo>0) {
+                        const Ball dist=divPosExact(ball(I(gap.lo)),sigmaD);
+                        const Ball qTail=fastNormalAtMagnitude(dist,true,work);
+                        const double qHi=qTail.value+qTail.radius;
+                        const double tailHi=(regSpanHi*qHi/pitchD)*(1.0+32.0*depsilon);
+                        if(qTail.valid()&&std::isfinite(tailHi)&&tailHi<=5e-19) {
+                            const double error=upperPositiveD<32>(tailHi+extraTailD);
+                            if(!std::isfinite(error)||error>fieldBudget)return refuse(Refusal::ErrorBudget);
+                            omitted[row]=error;
+                            hasPrev=false;
+                            continue;
+                        }
                     }
                 }
                 activeRows[activeRowCount++]=row;
@@ -1444,6 +1795,14 @@ struct Bank::Impl {
         }
         activeRowCountOut=activeRowCount;
         if(activeRowCount==0)return true;
+        const bool rowsContiguous=(activeRows[activeRowCount-1]-activeRows[0]+1u==activeRowCount);
+        const unsigned activeRow0=activeRows[0];
+        std::array<double,128> lowerV{},lowerE{};
+        for(unsigned r=0;r<activeRowCount;++r) {
+            const unsigned row=activeRows[r];
+            lowerV[row]=lower[row].value;lowerE[row]=lower[row].error;
+        }
+        const bool useAvx2Sum=conicHasAvx2Fma()&&rowsContiguous&&activeRowCount>=4u;
 
         bool edgesPrepared=false,edgesValid=false;
         I tanBottom,tanTop;
@@ -1519,7 +1878,7 @@ struct Bank::Impl {
                     }
                     if(!resolvedTopology) {
                         if(!clippedFastColumnV5(col,x0,x1,regBottom,regTop,tanBottom,tanTop,colStrips,colStripCount,
-                            activeRows.data(),activeRowCount,lower.data(),height.data(),colField.data(),colError.data(),work))
+                            activeRows.data(),activeRowCount,lower.data(),height.data(),colField.data(),colError.data(),&edgeCache,work))
                             return refuse(Refusal::Topology);
                         if(col<colBeginOut)colBeginOut=col;
                         if(col+1>colEndOut)colEndOut=col+1;
@@ -1595,11 +1954,19 @@ struct Bank::Impl {
                     std::array<Mid,8> stored{};
                     if(!fastMomentsMidV5(x0,x1,column.pixelLow,column.pixelHigh,p.psfSigmaRad,column.anchor,degree,&edgeCache,stored,work))
                         return false;
-                    for(unsigned r=0;r<activeRowCount;++r){
-                        const unsigned row=activeRows[r];
-                        double val=0,err=0;
-                        if(!sumV5(row,col,degree,stored,lower[row],val,err))return false;
-                        colField[row]=val;colError[row]=err;
+#if FSIM_CONIC_HAS_AVX2
+                    if(degree==3u&&useAvx2Sum&&!column.c0v.empty()) {
+                        if(!sumV5Batch3Avx2(col,activeRow0,activeRowCount,stored,lowerV.data(),lowerE.data(),colField.data(),colError.data()))
+                            return false;
+                    } else
+#endif
+                    {
+                        for(unsigned r=0;r<activeRowCount;++r){
+                            const unsigned row=activeRows[r];
+                            double val=0,err=0;
+                            if(!sumV5(row,col,degree,stored,lower[row],val,err))return false;
+                            colField[row]=val;colError[row]=err;
+                        }
                     }
                 }
                 if(col<colBeginOut)colBeginOut=col;
@@ -1616,6 +1983,331 @@ struct Bank::Impl {
             if(evaluateDegree(3)){if(work)++work->degree3Columns;continue;}
             if(!ensure(col,7,work)||!evaluateDegree(7))return refuse(Refusal::ErrorBudget);
             if(work)++work->degree7Columns;
+        }
+        return true;
+    }
+
+    bool prepareRegionV5Impl(const std::array<double,4>& region,RegionMomentsV5& out) const {
+        out.valid=false;out.empty=false;out.region=region;
+        if(!arithmeticAvailable())return false;
+        if(!std::all_of(region.begin(),region.end(),[](double x){return std::isfinite(x)&&std::abs(x)<=1.55;})||
+            !(region[1]>region[0])||!(region[3]>region[2]))return false;
+        const auto& p=signature;
+        out.width=p.width;out.height=p.height;
+        const L regLeft=std::max(left,static_cast<L>(region[0])),regRight=std::min(right,static_cast<L>(region[1]));
+        const L regBottom=std::max(bottom,static_cast<L>(region[2])),regTop=std::min(top,static_cast<L>(region[3]));
+        const double defaultError=upperPositiveD<32>(extraTailD);
+        out.maxOmittedError=defaultError;
+        out.activeRowCount=0;out.colBegin=p.width;out.colEnd=0;
+        if(!(regRight>regLeft&&regTop>regBottom)) {
+            out.empty=true;out.valid=true;return true;
+        }
+        out.lower.assign(p.height,{});out.heightArr.assign(p.height,{});
+        out.lowerV.assign(p.height,0.0);out.lowerE.assign(p.height,0.0);
+        out.activeRows.clear();out.activeRows.reserve(p.height);
+        const double sigmaD=p.psfSigmaRad,pitchD=p.pixelPitchRad;
+        const Ball bottomBall=ball(I(regBottom)),topBall=ball(I(regTop));
+        const double q12Hi=fromBits(table::q12.high);
+        const double gap12=12.0*sigmaD*(1.0+16.0*depsilon);
+        const double regSpanHi=nextUpPositiveD(static_cast<double>(up(regTop-regBottom)));
+        const double tail12Hi=(regSpanHi*q12Hi/pitchD)*(1.0+32.0*depsilon);
+        const bool omitAt12=std::isfinite(tail12Hi)&&tail12Hi<=5e-19;
+        const double omitted12Err=omitAt12?upperPositiveD<32>(tail12Hi+extraTailD):-1.0;
+        if(omitAt12&&(!std::isfinite(omitted12Err)||omitted12Err>fieldBudget))return false;
+        const double regBottomD=static_cast<double>(regBottom),regTopD=static_cast<double>(regTop);
+        unsigned scanBegin=0,scanEnd=p.height;
+        if(omitAt12) {
+            const int bRow=static_cast<int>(std::floor((regBottomD-gap12)/pitchD+0.5*p.height))-1;
+            const int eRow=static_cast<int>(std::ceil((regTopD+gap12)/pitchD+0.5*p.height))+1;
+            scanBegin=static_cast<unsigned>(std::clamp(bRow,0,static_cast<int>(p.height)));
+            scanEnd=static_cast<unsigned>(std::clamp(eRow,0,static_cast<int>(p.height)));
+            if(scanBegin>0||scanEnd<p.height) {
+                if(omitted12Err>out.maxOmittedError)out.maxOmittedError=omitted12Err;
+            }
+        }
+        const double gapCheckMin=7.5*sigmaD;
+        bool hasPrev=false;double prevHigh=0;Ball prevBotPrim,prevTopPrim;
+        for(unsigned row=scanBegin;row<scanEnd;++row) {
+            const double low=(row-.5*p.height)*pitchD,high=low+pitchD;
+            if(omitAt12&&(low-regTopD>=gap12||regBottomD-high>=gap12)) {
+                if(omitted12Err>out.maxOmittedError)out.maxOmittedError=omitted12Err;
+                hasPrev=false;continue;
+            }
+            if(low-regTopD>gapCheckMin||regBottomD-high>gapCheckMin) {
+                I gap;
+                if(regTop<low)gap=I(low)-I(regTop);
+                else if(regBottom>high)gap=I(regBottom)-I(high);
+                if(gap.lo>0) {
+                    const Ball dist=divPosExact(ball(I(gap.lo)),sigmaD);
+                    const Ball qTail=fastNormalAtMagnitude(dist,true,nullptr);
+                    const double qHi=qTail.value+qTail.radius;
+                    const double tailHi=(regSpanHi*qHi/pitchD)*(1.0+32.0*depsilon);
+                    if(qTail.valid()&&std::isfinite(tailHi)&&tailHi<=5e-19) {
+                        const double error=upperPositiveD<32>(tailHi+extraTailD);
+                        if(!std::isfinite(error)||error>fieldBudget)return false;
+                        if(error>out.maxOmittedError)out.maxOmittedError=error;
+                        hasPrev=false;continue;
+                    }
+                }
+            }
+            const bool contiguousPrev=hasPrev&&!out.activeRows.empty()&&row==out.activeRows.back()+1u&&low==prevHigh;
+            out.activeRows.push_back(row);
+            const Ball botA=contiguousPrev?prevBotPrim:fastGaussianPrimitive(divPosExact(bottomBall-Ball(low),sigmaD),nullptr);
+            const Ball botB=fastGaussianPrimitive(divPosExact(bottomBall-Ball(high),sigmaD),nullptr);
+            const Ball topA=contiguousPrev?prevTopPrim:fastGaussianPrimitive(divPosExact(topBall-Ball(low),sigmaD),nullptr);
+            const Ball topB=fastGaussianPrimitive(divPosExact(topBall-Ball(high),sigmaD),nullptr);
+            hasPrev=true;prevHigh=high;prevBotPrim=botB;prevTopPrim=topB;
+            const Ball aBall=mulPosExact(botA-botB,sigmaD);
+            const Ball bBall=mulPosExact(topA-topB,sigmaD);
+            const Mid lm=clampBallToMid(aBall,0.0,pitchD);
+            const Mid hm=clampBallToMid(bBall-aBall,0.0,pitchD);
+            if(!std::isfinite(lm.error)||!std::isfinite(hm.error))return false;
+            out.lower[row]={lm.value,lm.error};
+            out.heightArr[row]={hm.value,hm.error};
+            out.lowerV[row]=lm.value;out.lowerE[row]=lm.error;
+        }
+        out.activeRowCount=static_cast<unsigned>(out.activeRows.size());
+        if(out.activeRowCount==0) {
+            out.empty=true;out.valid=true;return true;
+        }
+        out.activeRow0=out.activeRows[0];
+        out.rowsContiguous=(out.activeRows[out.activeRowCount-1]-out.activeRow0+1u==out.activeRowCount);
+        for(unsigned col=0;col<p.width;++col) {
+            const auto& column=columns[col];
+            const L x0=std::max(regLeft,column.xDomain.lo),x1=std::min(regRight,column.xDomain.hi);
+            if(x1>x0) {
+                if(col<out.colBegin)out.colBegin=col;
+                out.colEnd=col+1u;
+            }
+        }
+        if(out.colEnd<=out.colBegin) {
+            out.empty=true;out.valid=true;return true;
+        }
+        const unsigned nCols=out.colEnd-out.colBegin;
+        out.mass0.resize(nCols);out.mass3.resize(nCols);
+        out.mass0Ok.assign(nCols,0u);out.mass3Ok.assign(nCols,0u);
+        ColumnEdgeCacheV5 edge0,edge3;
+        for(unsigned ci=0;ci<nCols;++ci) {
+            const unsigned col=out.colBegin+ci;
+            const auto& column=columns[col];
+            const L x0=std::max(regLeft,column.xDomain.lo),x1=std::min(regRight,column.xDomain.hi);
+            if(!(x1>x0))continue;
+            std::array<Mid,8> m0{},m3{};
+            if(fastMomentsMidUncachedV5(x0,x1,column.pixelLow,column.pixelHigh,sigmaD,column.anchor,0,&edge0,m0,nullptr)) {
+                out.mass0[ci]={m0[0].value,m0[0].error};
+                out.mass0Ok[ci]=1u;
+            }
+            if(fastMomentsMidUncachedV5(x0,x1,column.pixelLow,column.pixelHigh,sigmaD,column.anchor,3,&edge3,m3,nullptr)) {
+                for(unsigned n=0;n<4u;++n)out.mass3[ci][n]={m3[n].value,m3[n].error};
+                out.mass3Ok[ci]=1u;
+            }
+        }
+        out.valid=true;
+        return true;
+    }
+
+    bool evaluateFastPreparedCoreV5(const RegionMomentsV5& pre,
+        double* fieldOut,double& maxErrorOut,
+        unsigned* activeRowsOut,unsigned& activeRowCountOut,
+        unsigned& colBeginOut,unsigned& colEndOut) const {
+        if(!arithmeticAvailable())return false;
+        const auto& p=signature;
+        maxErrorOut=pre.maxOmittedError;
+        activeRowCountOut=0;colBeginOut=p.width;colEndOut=0;
+        if(pre.empty)return true;
+        const L regLeft=std::max(left,static_cast<L>(pre.region[0])),regRight=std::min(right,static_cast<L>(pre.region[1]));
+        const L regBottom=std::max(bottom,static_cast<L>(pre.region[2])),regTop=std::min(top,static_cast<L>(pre.region[3]));
+        const unsigned activeRowCount=pre.activeRowCount;
+        const unsigned* activeRows=pre.activeRows.data();
+        if(activeRowsOut) {
+            for(unsigned r=0;r<activeRowCount;++r)activeRowsOut[r]=activeRows[r];
+        }
+        activeRowCountOut=activeRowCount;
+        const bool useAvx2Sum=conicHasAvx2Fma()&&pre.rowsContiguous&&activeRowCount>=4u;
+        const unsigned activeRow0=pre.activeRow0;
+        const double* lowerV=pre.lowerV.data();
+        const double* lowerE=pre.lowerE.data();
+        const Mid* lowerPtr=reinterpret_cast<const Mid*>(pre.lower.data());
+        const Mid* heightPtr=reinterpret_cast<const Mid*>(pre.heightArr.data());
+        static_assert(sizeof(Mid)==sizeof(MidPairV5)&&offsetof(Mid,value)==offsetof(MidPairV5,value)&&offsetof(Mid,error)==offsetof(MidPairV5,error));
+
+        bool edgesPrepared=false,edgesValid=false;
+        I tanBottom,tanTop;
+        std::array<I,4> regionStrips{};unsigned regionStripCount=0;
+        const auto prepareEdges=[&]() {
+            if(edgesPrepared)return;
+            edgesPrepared=true;
+            tanBottom=tanPointV5(regBottom);tanTop=tanPointV5(regTop);
+            if(!tanBottom.valid()||!tanTop.valid())return;
+            std::array<I,4> roots{};unsigned rootCount=0;
+            if(!clippedRootsV5(tanBottom,regLeft,regRight,roots,rootCount)||
+               !clippedRootsV5(tanTop,regLeft,regRight,roots,rootCount))return;
+            for(unsigned i=1;i<rootCount;++i)for(unsigned j=i;j>0&&roots[j].lo<roots[j-1].lo;--j)std::swap(roots[j],roots[j-1]);
+            regionStripCount=0;
+            for(unsigned idx=0;idx<rootCount;++idx) {
+                if(regionStripCount>0&&roots[idx].lo<=regionStrips[regionStripCount-1].hi)
+                    regionStrips[regionStripCount-1].hi=std::max(regionStrips[regionStripCount-1].hi,roots[idx].hi);
+                else regionStrips[regionStripCount++]=roots[idx];
+            }
+            edgesValid=true;
+        };
+
+        const double normalizer=p.pixelPitchRad*p.pixelPitchRad;
+        std::array<double,128> colField{},colError{};
+        ColumnEdgeCacheV5 edgeCache;
+        for(unsigned col=pre.colBegin;col<pre.colEnd;++col) {
+            auto& column=columns[col];
+            const L x0=std::max(regLeft,column.xDomain.lo),x1=std::min(regRight,column.xDomain.hi);
+            if(!(x1>x0))continue;
+            if(!ensure(col,3,nullptr))return false;
+            auto mask=column.mask;
+            if(mask==Column::Mask::Horizon) {
+                const I range=column.horizonRange;
+                if(regTop<=range.lo)mask=Column::Mask::Ground;
+                else if(regBottom>=range.hi)mask=Column::Mask::Sky;
+                else if(!(regBottom<range.lo&&regTop>range.hi)) {
+                    prepareEdges();
+                    bool resolvedTopology=false;
+                    std::array<I,4> colStrips{};unsigned colStripCount=0;
+                    if(edgesValid) {
+                        for(unsigned idx=0;idx<regionStripCount;++idx) {
+                            if(regionStrips[idx].hi>x0&&regionStrips[idx].lo<x1)
+                                colStrips[colStripCount++]=intersect(regionStrips[idx],x0,x1);
+                        }
+                        if(colStripCount==0) {
+                            const I xm=tanPointV5(.5L*x0+.5L*x1);
+                            const I below=geometry.level(xm,tanBottom),above=geometry.level(xm,tanTop);
+                            if(below.valid()&&above.valid()) {
+                                if(above.hi<geometry.h.lo){mask=Column::Mask::Ground;resolvedTopology=true;}
+                                else if(below.lo>geometry.h.hi){mask=Column::Mask::Sky;resolvedTopology=true;}
+                                else if(below.hi<geometry.h.lo&&above.lo>geometry.h.hi){resolvedTopology=true;}
+                            }
+                        }
+                    }
+                    if(!resolvedTopology&&colStripCount==0) {
+                        const I local=geometry.horizon0V5(I(x0,x1));
+                        if(!local.valid())return false;
+                        if(regTop<=local.lo){mask=Column::Mask::Ground;resolvedTopology=true;}
+                        else if(regBottom>=local.hi){mask=Column::Mask::Sky;resolvedTopology=true;}
+                        else if(regBottom<local.lo&&regTop>local.hi){resolvedTopology=true;}
+                        else if(!edgesValid) {
+                            if(!tanBottom.valid()||!tanTop.valid())return false;
+                            std::array<I,4> roots{};unsigned rootCount=0;
+                            if(!clippedRootsV5(tanBottom,x0,x1,roots,rootCount)||
+                               !clippedRootsV5(tanTop,x0,x1,roots,rootCount))return false;
+                            for(unsigned i=1;i<rootCount;++i)for(unsigned j=i;j>0&&roots[j].lo<roots[j-1].lo;--j)std::swap(roots[j],roots[j-1]);
+                            for(unsigned idx=0;idx<rootCount;++idx) {
+                                if(colStripCount>0&&roots[idx].lo<=colStrips[colStripCount-1].hi)
+                                    colStrips[colStripCount-1].hi=std::max(colStrips[colStripCount-1].hi,roots[idx].hi);
+                                else colStrips[colStripCount++]=roots[idx];
+                            }
+                        }
+                    }
+                    if(!resolvedTopology) {
+                        if(!clippedFastColumnV5(col,x0,x1,regBottom,regTop,tanBottom,tanTop,colStrips,colStripCount,
+                            activeRows,activeRowCount,lowerPtr,heightPtr,colField.data(),colError.data(),&edgeCache,nullptr))
+                            return false;
+                        if(col<colBeginOut)colBeginOut=col;
+                        if(col+1>colEndOut)colEndOut=col+1;
+                        for(unsigned r=0;r<activeRowCount;++r) {
+                            const unsigned row=activeRows[r];
+                            fieldOut[static_cast<std::size_t>(row)*p.width+col]=colField[row];
+                            if(colError[row]>maxErrorOut)maxErrorOut=colError[row];
+                        }
+                        continue;
+                    }
+                }
+            }
+            if(mask==Column::Mask::Sky)continue;
+            const unsigned cIdx=col-pre.colBegin;
+            const bool uncutColumn=!activeGaussianCacheV5&&x0==column.xDomain.lo&&x1==column.xDomain.hi;
+            if(mask==Column::Mask::Ground) {
+                Mid horizontal{};
+                if(uncutColumn&&column.uncut0Valid) {
+                    horizontal=column.uncutMass0;
+                } else if(pre.mass0Ok[cIdx]) {
+                    horizontal={pre.mass0[cIdx].value,pre.mass0[cIdx].error};
+                } else {
+                    std::array<Mid,8> integral{};
+                    if(!fastMomentsMidV5(x0,x1,column.pixelLow,column.pixelHigh,p.psfSigmaRad,column.anchor,0,&edgeCache,integral,nullptr))
+                        return false;
+                    horizontal=integral[0];
+                }
+                if(col<colBeginOut)colBeginOut=col;
+                if(col+1>colEndOut)colEndOut=col+1;
+                const double hv=horizontal.value,he=horizontal.error,absHv=std::abs(hv);
+                for(unsigned r=0;r<activeRowCount;++r) {
+                    const unsigned row=activeRows[r];
+                    const double yv=heightPtr[row].value,ye=heightPtr[row].error;
+                    const double value=hv*yv/normalizer;
+                    const double err=(absHv*ye+std::abs(yv)*he+he*ye+
+                        4.0*depsilon*std::abs(hv*yv)+4.0*dtiny)*invAreaHiD+
+                        extraTailD+depsilon*std::abs(value);
+                    const double clamped=std::clamp(value,0.0,1.0);
+                    const double bound=upperPositiveD<64>(err+std::abs(value-clamped));
+                    if(!std::isfinite(value)||!std::isfinite(bound)||bound>fieldBudget)return false;
+                    fieldOut[static_cast<std::size_t>(row)*p.width+col]=clamped;
+                    if(bound>maxErrorOut)maxErrorOut=bound;
+                }
+                continue;
+            }
+            const auto evaluateDegree=[&](unsigned degree)->bool {
+                if(uncutColumn&&(degree==3?column.uncut3Valid:column.uncut7Valid)) {
+                    const auto& preVec=degree==3?column.uncutHoriz3:column.uncutHoriz7;
+                    const auto& remVec=degree==3?column.remainder4:column.remainder8;
+                    const Mid m0=degree==3?column.uncutMass3[0]:column.uncutMass7[0];
+                    const double m0v=m0.value,m0e=m0.error,absM0=std::abs(m0v);
+                    const double operations=2.0*static_cast<double>(degree+2)+4.0;
+                    const double gamma=operations*depsilon/(1.0-operations*depsilon);
+                    for(unsigned r=0;r<activeRowCount;++r) {
+                        const unsigned row=activeRows[r];
+                        const auto& preH=preVec[row];
+                        const double lv=lowerPtr[row].value,le=lowerPtr[row].error;
+                        const double subProd=lv*m0v;
+                        const double numerator=preH.value-subProd;
+                        const double absolute=preH.absSum+std::abs(subProd);
+                        const double error=preH.errSum+std::abs(lv)*m0e+absM0*le+le*m0e+gamma*absolute+operations*dtiny;
+                        const double value=numerator/normalizer;
+                        const double totalErr=error*invAreaHiD+depsilon*std::abs(value)+dtiny+remVec[row]+extraTailD;
+                        const double clamped=std::clamp(value,0.0,1.0);
+                        const double bound=degree==3?upperPositiveD<256>(totalErr+std::abs(value-clamped)):
+                            upperPositiveD<384>(totalErr+std::abs(value-clamped));
+                        if(!std::isfinite(value)||!std::isfinite(bound)||bound>fieldBudget)return false;
+                        colField[row]=clamped;colError[row]=bound;
+                    }
+                } else {
+                    std::array<Mid,8> stored{};
+                    if(degree==3u&&pre.mass3Ok[cIdx]) {
+                        for(unsigned n=0;n<4u;++n)stored[n]={pre.mass3[cIdx][n].value,pre.mass3[cIdx][n].error};
+                    } else if(!fastMomentsMidV5(x0,x1,column.pixelLow,column.pixelHigh,p.psfSigmaRad,column.anchor,degree,&edgeCache,stored,nullptr)) {
+                        return false;
+                    }
+#if FSIM_CONIC_HAS_AVX2
+                    if(degree==3u&&useAvx2Sum&&!column.c0v.empty()) {
+                        if(!sumV5Batch3Avx2(col,activeRow0,activeRowCount,stored,lowerV,lowerE,colField.data(),colError.data()))
+                            return false;
+                    } else
+#endif
+                    {
+                        for(unsigned r=0;r<activeRowCount;++r) {
+                            const unsigned row=activeRows[r];
+                            double val=0,err=0;
+                            if(!sumV5(row,col,degree,stored,lowerPtr[row],val,err))return false;
+                            colField[row]=val;colError[row]=err;
+                        }
+                    }
+                }
+                if(col<colBeginOut)colBeginOut=col;
+                if(col+1>colEndOut)colEndOut=col+1;
+                for(unsigned r=0;r<activeRowCount;++r) {
+                    const unsigned row=activeRows[r];
+                    fieldOut[static_cast<std::size_t>(row)*p.width+col]=colField[row];
+                    if(colError[row]>maxErrorOut)maxErrorOut=colError[row];
+                }
+                return true;
+            };
+            if(evaluateDegree(3))continue;
+            if(!ensure(col,7,nullptr)||!evaluateDegree(7))return false;
         }
         return true;
     }
@@ -1773,6 +2465,40 @@ bool Bank::evaluateFastIntoV5(const std::array<double,4>& region,FieldWorkspaceV
 bool Bank::ensureColumnV5(unsigned col) const {
     if(!implementation_||col>=implementation_->signature.width)return false;
     return implementation_->ensure(col,3,nullptr);
+}
+
+bool Bank::prepareRegionV5(const std::array<double,4>& region,RegionMomentsV5& out) const {
+    if(!implementation_)return false;
+    return implementation_->prepareRegionV5Impl(region,out);
+}
+
+bool Bank::evaluateFastPreparedIntoV5(const RegionMomentsV5& pre,FieldWorkspaceV5& workspace) const {
+    if(!implementation_)return false;
+    const auto& p=implementation_->signature;
+    if(!pre.valid||pre.width!=p.width||pre.height!=p.height||activeGaussianCacheV5) {
+        return evaluateFastIntoV5(pre.region,workspace,nullptr);
+    }
+    const auto cells=static_cast<std::size_t>(p.width)*p.height;
+    if(workspace.width!=p.width||workspace.height!=p.height||workspace.field.size()!=cells) {
+        workspace.field.assign(cells,0.0);
+        workspace.width=p.width;workspace.height=p.height;
+        workspace.activeRowCount=0;workspace.colBegin=0;workspace.colEnd=0;workspace.dirtyAll=false;
+    } else if(workspace.dirtyAll) {
+        std::fill(workspace.field.begin(),workspace.field.end(),0.0);
+        workspace.activeRowCount=0;workspace.colBegin=0;workspace.colEnd=0;workspace.dirtyAll=false;
+    } else if(workspace.activeRowCount>0&&workspace.colEnd>workspace.colBegin) {
+        for(unsigned r=0;r<workspace.activeRowCount;++r) {
+            double* rowPtr=workspace.field.data()+static_cast<std::size_t>(workspace.activeRows[r])*p.width;
+            for(unsigned col=workspace.colBegin;col<workspace.colEnd;++col)rowPtr[col]=0.0;
+        }
+        workspace.activeRowCount=0;workspace.colBegin=0;workspace.colEnd=0;
+    }
+    workspace.dirtyAll=true;
+    const bool ok=implementation_->evaluateFastPreparedCoreV5(pre,workspace.field.data(),
+        workspace.maxError,workspace.activeRows.data(),workspace.activeRowCount,
+        workspace.colBegin,workspace.colEnd);
+    if(ok)workspace.dirtyAll=false;
+    return ok;
 }
 
 std::optional<Result> Bank::evaluateFastMemoV5(const std::array<double,4>& region,GaussianMemoV5& memo,Work* work) const {

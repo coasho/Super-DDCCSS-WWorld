@@ -324,6 +324,13 @@ FSIM_API int fsim_world_recording(const fsim_world* world);
 /* ABI 1.47: ask the viewers to follow vehicle `id`, as a tab to it would - once; the user's choice stands after it.
  * FSIM_INVALID_ARGUMENT if it is not alive or the world is not published. */
 FSIM_API int fsim_world_focus_viewer(fsim_world* world, uint32_t id);
+/* VIS-M11 (additive V1): select vehicle destruction physics & breakup mode (Range/World owner only). */
+enum fsim_destruction_mode_v1 {
+    FSIM_DESTRUCTION_LEGACY_COMPATIBLE = 0,
+    FSIM_DESTRUCTION_LIGHTWEIGHT_DEBRIS = 1
+};
+FSIM_API int fsim_world_set_destruction_mode_v1(fsim_world* world, int32_t mode);
+FSIM_API int fsim_world_destruction_mode_v1(const fsim_world* world, int32_t* out_mode);
 
 FSIM_API int fsim_world_create_vehicle(fsim_world* world, const fsim_vehicle_spec* spec, uint32_t* id);
 FSIM_API int fsim_world_remove_vehicle(fsim_world* world, uint32_t id);

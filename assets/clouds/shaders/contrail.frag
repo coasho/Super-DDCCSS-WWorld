@@ -273,7 +273,9 @@ void main() {
       float det = max(sigma.x * sigma.y - sigma.z * sigma.z, 1e-8);
       mat2 S = mat2(sigma.y, -sigma.z, -sigma.z, sigma.x) / det;
       vec2 rel = p0 + u * s - q.centre;
-      float gaussian = exp(-0.5 * dot(rel, S * rel));
+      float r2Norm = dot(rel, S * rel);
+      if (r2Norm >= 10.24) continue;
+      float gaussian = exp(-0.5 * r2Norm) * smoothstep(10.24, 6.25, r2Norm);
       if (gaussian < 1e-3) continue;
       float thinnest = sqrt(min(q.sigma.x, q.sigma.y));
       float erosion = q.erosion * (1.0 - smoothstep(0.25, 1.0, sigmaPixel / max(thinnest, 1e-3)));

@@ -23,10 +23,91 @@
 #if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
 #include <xmmintrin.h>
 #endif
+#if (defined(__GNUC__) || defined(__clang__)) && defined(__x86_64__)
+#include <immintrin.h>
+#define FSIM_MOVING_INV_HAS_AVX2 1
+#else
+#define FSIM_MOVING_INV_HAS_AVX2 0
+#endif
 
 namespace fsim::ms::components::moving_radiator_v2 {
 namespace {
 using namespace measured;
+
+inline bool movingInvHasAvx2() noexcept {
+#if FSIM_MOVING_INV_HAS_AVX2
+    static const bool supported=__builtin_cpu_supports("avx2");
+    return supported;
+#else
+    return false;
+#endif
+}
+
+#if FSIM_MOVING_INV_HAS_AVX2
+__attribute__((target("avx2")))
+void accumulateSparseDiffAvx2(double& value,const double* __restrict fullPtr,const double* __restrict occPtr,
+    const std::uint16_t* __restrict pixPtr,const double* __restrict solPtr,const double* __restrict wgtPtr,
+    std::size_t beginIdx,std::size_t endIdx,double pixelArea,double invExposure) noexcept {
+    const __m256d vZero=_mm256_setzero_pd();
+    const __m256d vArea=_mm256_set1_pd(pixelArea);
+    const __m256d vInv=_mm256_set1_pd(invExposure);
+    std::size_t idx=beginIdx;
+    for(;idx+8u<=endIdx;idx+=8u) {
+        const unsigned p0=pixPtr[idx],p1=pixPtr[idx+1],p2=pixPtr[idx+2],p3=pixPtr[idx+3];
+        const unsigned p4=pixPtr[idx+4],p5=pixPtr[idx+5],p6=pixPtr[idx+6],p7=pixPtr[idx+7];
+        const __m256d fA=_mm256_sub_pd(
+            _mm256_set_pd(fullPtr[p3],fullPtr[p2],fullPtr[p1],fullPtr[p0]),
+            _mm256_set_pd(occPtr[p3],occPtr[p2],occPtr[p1],occPtr[p0]));
+        const __m256d fB=_mm256_sub_pd(
+            _mm256_set_pd(fullPtr[p7],fullPtr[p6],fullPtr[p5],fullPtr[p4]),
+            _mm256_set_pd(occPtr[p7],occPtr[p6],occPtr[p5],occPtr[p4]));
+        const int mA=_mm256_movemask_pd(_mm256_cmp_pd(fA,vZero,_CMP_NEQ_OQ));
+        const int mB=_mm256_movemask_pd(_mm256_cmp_pd(fB,vZero,_CMP_NEQ_OQ));
+        if((mA|mB)==0)continue;
+        if(mA!=0) {
+            const __m256d tA=_mm256_mul_pd(_mm256_div_pd(_mm256_mul_pd(_mm256_mul_pd(fA,_mm256_loadu_pd(solPtr+idx)),_mm256_loadu_pd(wgtPtr+idx)),vArea),vInv);
+            alignas(32) double outA[4];
+            _mm256_store_pd(outA,tA);
+            if(mA&1)value+=outA[0];
+            if(mA&2)value+=outA[1];
+            if(mA&4)value+=outA[2];
+            if(mA&8)value+=outA[3];
+        }
+        if(mB!=0) {
+            const __m256d tB=_mm256_mul_pd(_mm256_div_pd(_mm256_mul_pd(_mm256_mul_pd(fB,_mm256_loadu_pd(solPtr+idx+4)),_mm256_loadu_pd(wgtPtr+idx+4)),vArea),vInv);
+            alignas(32) double outB[4];
+            _mm256_store_pd(outB,tB);
+            if(mB&1)value+=outB[0];
+            if(mB&2)value+=outB[1];
+            if(mB&4)value+=outB[2];
+            if(mB&8)value+=outB[3];
+        }
+    }
+    for(;idx<endIdx;++idx) {
+        const auto pix=pixPtr[idx];
+        const double field=fullPtr[pix]-occPtr[pix];
+        if(field==0.0)continue;
+        value+=field*solPtr[idx]*wgtPtr[idx]/pixelArea*invExposure;
+    }
+}
+#endif
+
+inline void accumulateSparseDiffV5(double& value,const double* fullPtr,const double* occPtr,
+    const std::uint16_t* pixPtr,const double* solPtr,const double* wgtPtr,
+    std::size_t beginIdx,std::size_t endIdx,double pixelArea,double invExposure) noexcept {
+#if FSIM_MOVING_INV_HAS_AVX2
+    if(movingInvHasAvx2()) {
+        accumulateSparseDiffAvx2(value,fullPtr,occPtr,pixPtr,solPtr,wgtPtr,beginIdx,endIdx,pixelArea,invExposure);
+        return;
+    }
+#endif
+    for(std::size_t idx=beginIdx;idx<endIdx;++idx) {
+        const auto pix=pixPtr[idx];
+        const double field=fullPtr[pix]-occPtr[pix];
+        if(field==0.0)continue;
+        value+=field*solPtr[idx]*wgtPtr[idx]/pixelArea*invExposure;
+    }
+}
 
 struct LocalProfileV2 {
     using Clock=std::chrono::steady_clock;
@@ -270,48 +351,94 @@ bool boxStep(const std::array<std::vector<double>,7>& jacobian,const std::vector
         scaledLow[axis]=low[axis]*norms[axis];scaledHigh[axis]=high[axis]*norms[axis];
         if(!std::isfinite(scaledLow[axis])||!std::isfinite(scaledHigh[axis])||scaledLow[axis]>scaledHigh[axis])return false;
     }
+    // Single initial Householder QR reduces the (count + 7) x 7 least-squares
+    // system to an exact orthogonal 7 x 7 upper-triangular system R * x = cTop
+    // without squaring the condition number: ||A*x - b||^2 = ||R*x - cTop||^2 + const.
+    std::array<Shape,7> R{};
+    Shape cTop{};
+    {
+        auto workA=design;
+        auto workB=target;
+        std::vector<double> reflector(rows,0.);
+        for(unsigned col=0;col<7;++col) {
+            double colNorm=0;
+            for(std::size_t row=col;row<rows;++row)colNorm=std::hypot(colNorm,workA[row][col]);
+            if(!(colNorm>0)||!std::isfinite(colNorm))return false;
+            const double diagonal=-std::copysign(colNorm,workA[col][col]);
+            for(std::size_t row=col;row<rows;++row)reflector[row]=workA[row][col];
+            reflector[col]-=diagonal;
+            double norm2=0;for(std::size_t row=col;row<rows;++row)norm2+=reflector[row]*reflector[row];
+            if(!(norm2>0)||!std::isfinite(norm2))return false;
+            const double beta=2/norm2;
+            for(unsigned dst=col+1;dst<7;++dst) {
+                double d=0;for(std::size_t row=col;row<rows;++row)d+=reflector[row]*workA[row][dst];
+                for(std::size_t row=col;row<rows;++row)workA[row][dst]-=beta*reflector[row]*d;
+            }
+            double db=0;for(std::size_t row=col;row<rows;++row)db+=reflector[row]*workB[row];
+            for(std::size_t row=col;row<rows;++row)workB[row]-=beta*reflector[row]*db;
+            workA[col][col]=diagonal;
+            for(unsigned dst=col;dst<7;++dst)R[col][dst]=workA[col][dst];
+            cTop[col]=workB[col];
+        }
+    }
     double bestCost=std::numeric_limits<double>::infinity();Shape selected{};
     for(unsigned face=0;face<faceCount;++face) {
         if(profile&&profile->enabled)++profile->faces;
         unsigned encoded=face,freeCount=0;std::array<unsigned,7> free{};Shape step{};
-        auto rhs=target;
+        Shape rhs=cTop;
         for(unsigned axis=0;axis<7;++axis) {
             const auto state=encoded%3;encoded/=3;
             if(state==0)free[freeCount++]=axis;
             else {
                 step[axis]=state==1?scaledLow[axis]:scaledHigh[axis];
-                for(std::size_t row=0;row<rows;++row)rhs[row]-=design[row][axis]*step[axis];
+                for(unsigned row=0;row<=axis;++row)rhs[row]-=R[row][axis]*step[axis];
             }
         }
-        std::vector<Shape> matrix(rows);
-        for(std::size_t row=0;row<rows;++row)for(unsigned column=0;column<freeCount;++column)
-            matrix[row][column]=design[row][free[column]];
+        std::array<Shape,7> matrix{};
+        for(unsigned row=0;row<7;++row)for(unsigned column=0;column<freeCount;++column)
+            matrix[row][column]=R[row][free[column]];
         bool valid=true;
-        for(unsigned column=0;column<freeCount&&valid;++column) {
-            unsigned pivot=column;double largest=-1;
-            for(unsigned candidate=column;candidate<freeCount;++candidate) {
-                double length=0;for(std::size_t row=column;row<rows;++row)length=std::hypot(length,matrix[row][candidate]);
-                if(length>largest){largest=length;pivot=candidate;}
+        if(face>0) {
+            for(unsigned column=0;column<freeCount&&valid;++column) {
+                unsigned pivot=column;double largest=-1;
+                for(unsigned candidate=column;candidate<freeCount;++candidate) {
+                    double sum2=0.,maxAbs=0.;
+                    for(unsigned row=column;row<7;++row) {
+                        const double v=std::abs(matrix[row][candidate]);
+                        if(v>maxAbs)maxAbs=v;
+                        sum2+=v*v;
+                    }
+                    double length=0.;
+                    if(maxAbs>0.) {
+                        if(maxAbs>1e-150&&maxAbs<1e150)length=std::sqrt(sum2);
+                        else {
+                            double scaled=0.;
+                            for(unsigned row=column;row<7;++row){const double t=matrix[row][candidate]/maxAbs;scaled+=t*t;}
+                            length=maxAbs*std::sqrt(scaled);
+                        }
+                    }
+                    if(length>largest){largest=length;pivot=candidate;}
+                }
+                if(!(largest>0)||!std::isfinite(largest)){valid=false;break;}
+                if(pivot!=column) {
+                    std::swap(free[pivot],free[column]);
+                    for(unsigned row=0;row<7;++row)std::swap(matrix[row][pivot],matrix[row][column]);
+                }
+                const double diagonal=-std::copysign(largest,matrix[column][column]);
+                Shape reflector{};
+                for(unsigned row=column;row<7;++row)reflector[row]=matrix[row][column];
+                reflector[column]-=diagonal;
+                double norm2=0;for(unsigned row=column;row<7;++row)norm2+=reflector[row]*reflector[row];
+                if(!(norm2>0)||!std::isfinite(norm2)){valid=false;break;}
+                const double beta=2/norm2;
+                for(unsigned destination=column;destination<freeCount;++destination) {
+                    double d=0;for(unsigned row=column;row<7;++row)d+=reflector[row]*matrix[row][destination];
+                    for(unsigned row=column;row<7;++row)matrix[row][destination]-=beta*reflector[row]*d;
+                }
+                double d=0;for(unsigned row=column;row<7;++row)d+=reflector[row]*rhs[row];
+                for(unsigned row=column;row<7;++row)rhs[row]-=beta*reflector[row]*d;
+                matrix[column][column]=diagonal;
             }
-            if(!(largest>0)||!std::isfinite(largest)){valid=false;break;}
-            if(pivot!=column) {
-                std::swap(free[pivot],free[column]);
-                for(std::size_t row=0;row<rows;++row)std::swap(matrix[row][pivot],matrix[row][column]);
-            }
-            const double diagonal=-std::copysign(largest,matrix[column][column]);
-            std::vector<double> reflector(rows,0);
-            for(std::size_t row=column;row<rows;++row)reflector[row]=matrix[row][column];
-            reflector[column]-=diagonal;
-            double norm2=0;for(std::size_t row=column;row<rows;++row)norm2+=reflector[row]*reflector[row];
-            if(!(norm2>0)||!std::isfinite(norm2)){valid=false;break;}
-            const double beta=2/norm2;
-            for(unsigned destination=column;destination<freeCount;++destination) {
-                double dot=0;for(std::size_t row=column;row<rows;++row)dot+=reflector[row]*matrix[row][destination];
-                for(std::size_t row=column;row<rows;++row)matrix[row][destination]-=beta*reflector[row]*dot;
-            }
-            double dot=0;for(std::size_t row=column;row<rows;++row)dot+=reflector[row]*rhs[row];
-            for(std::size_t row=column;row<rows;++row)rhs[row]-=beta*reflector[row]*dot;
-            matrix[column][column]=diagonal;
         }
         if(!valid)continue;
         Shape solved{};
@@ -333,8 +460,8 @@ bool boxStep(const std::array<std::vector<double>,7>& jacobian,const std::vector
         // This exact quadratic fact avoids enumerating inactive faces.
         if(face==0){for(unsigned axis=0;axis<7;++axis)result[axis]=step[axis]/norms[axis];return true;}
         double cost=0;
-        for(std::size_t row=0;row<rows;++row) {
-            double error=-target[row];for(unsigned column=0;column<7;++column)error+=design[row][column]*step[column];
+        for(unsigned row=0;row<7;++row) {
+            double error=-cTop[row];for(unsigned column=row;column<7;++column)error+=R[row][column]*step[column];
             cost+=error*error;
         }
         if(std::isfinite(cost)&&cost<bestCost){bestCost=cost;selected=step;}
@@ -546,67 +673,148 @@ struct SourceWave {std::array<double,6> shape{};unsigned branch=0;std::vector<do
 enum class RegionalOperator {LegacyV2,ConicV4,ConicFastV5};
 
 // Private per-Inverse worker pool for pure-optics V5 phase batches.
-// Eliminates repeated OS thread creation/join across thousands of batches
-// while preserving caller-environment inheritance and exact per-phase order.
+// Per-worker cache-line-padded slots with hybrid short spin-then-park avoid
+// OS condition-variable wakeups across thousands of tight sub-millisecond
+// prepare()/regional() calls, never wake idle helpers, and strictly join all
+// worker threads before infer() returns.
 class PhasePoolV5 {
 public:
+    static constexpr unsigned maximumHelpers=15u;
     ~PhasePoolV5() {
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            stop_=true;
+        for(std::size_t i=0;i<threads_.size();++i) {
+            slots_[i].stop.store(true,std::memory_order_seq_cst);
+            {
+                std::lock_guard<std::mutex> lock(slots_[i].mutex);
+            }
+            slots_[i].wake.notify_one();
         }
-        wake_.notify_all();
         for(auto& thread:threads_)if(thread.joinable())thread.join();
+    }
+    bool syncEnvironment() noexcept {
+#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
+        const unsigned curCsr=_mm_getcsr();
+#else
+        const unsigned curCsr=0u;
+#endif
+#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
+        unsigned short curCw=0u;__asm__ __volatile__("fnstcw %0":"=m"(curCw));
+#else
+        const unsigned short curCw=0u;
+#endif
+        if(envValid_&&curCsr==csr_&&curCw==cw_)return true;
+        if(std::fegetenv(&env_)!=0)return false;
+        csr_=curCsr;
+        cw_=curCw;
+        envValid_=true;
+        ++envEpoch_;
+        return true;
     }
     template<typename Fn>
     void run(unsigned workers,Fn& fn) {
         if(workers<=1){fn(0);return;}
-        const unsigned helpers=workers-1;
+        const unsigned helpers=std::min<unsigned>(workers-1u,maximumHelpers);
         while(threads_.size()<helpers) {
-            const unsigned id=static_cast<unsigned>(threads_.size()+1);
-            try {threads_.emplace_back(&PhasePoolV5::loop,this,id);}
+            const unsigned idx=static_cast<unsigned>(threads_.size());
+            try {threads_.emplace_back(&PhasePoolV5::loop,this,idx);}
             catch(const std::system_error&){break;}
         }
         if(threads_.empty()){fn(0);return;}
+        const unsigned useHelpers=std::min<unsigned>(helpers,static_cast<unsigned>(threads_.size()));
         const auto invoke=[](const void* context,unsigned id) noexcept {(*static_cast<const Fn*>(context))(id);};
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            fn_=invoke;context_=&fn;
-            active_=static_cast<unsigned>(threads_.size());
-            ++generation_;
+        fn_=invoke;
+        context_=&fn;
+        std::array<std::uint64_t,maximumHelpers> targets{};
+        for(unsigned i=0;i<useHelpers;++i) {
+            auto& slot=slots_[i];
+            const std::uint64_t nextGen=slot.workGen.load(std::memory_order_relaxed)+1u;
+            targets[i]=nextGen;
+            slot.workGen.store(nextGen,std::memory_order_seq_cst);
+            if(slot.parked.load(std::memory_order_seq_cst)) {
+                {
+                    std::lock_guard<std::mutex> lock(slot.mutex);
+                }
+                slot.wake.notify_one();
+            }
         }
-        wake_.notify_all();
         fn(0);
-        std::unique_lock<std::mutex> lock(mutex_);
-        done_.wait(lock,[&]{return active_==0;});
+        for(unsigned i=0;i<useHelpers;++i) {
+            auto& slot=slots_[i];
+            const std::uint64_t target=targets[i];
+            unsigned spin=0;
+            while(slot.doneGen.load(std::memory_order_acquire)!=target) {
+                if(spin<4096u) {
+                    ++spin;
+#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
+                    _mm_pause();
+#endif
+                } else {
+                    std::this_thread::yield();
+                }
+            }
+        }
     }
 private:
-    void loop(unsigned id) noexcept {
-        std::size_t seen=0;
+    struct alignas(64) WorkerSlot {
+        std::mutex mutex;
+        std::condition_variable wake;
+        std::atomic<std::uint64_t> workGen{0};
+        std::atomic<std::uint64_t> doneGen{0};
+        std::atomic<bool> parked{false};
+        std::atomic<bool> stop{false};
+    };
+    void loop(unsigned idx) noexcept {
+        auto& slot=slots_[idx];
+        const unsigned id=idx+1u;
+        std::uint64_t seen=0;
+        std::uint64_t appliedEnvEpoch=0;
         for(;;) {
-            void (*fn)(const void*,unsigned)=nullptr;
-            const void* context=nullptr;
-            {
-                std::unique_lock<std::mutex> lock(mutex_);
-                wake_.wait(lock,[&]{return stop_||generation_!=seen;});
-                if(stop_)return;
-                seen=generation_;fn=fn_;context=context_;
+            std::uint64_t gen=slot.workGen.load(std::memory_order_acquire);
+            if(gen==seen&&!slot.stop.load(std::memory_order_acquire)) {
+                for(unsigned spin=0;spin<8192u;++spin) {
+#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
+                    _mm_pause();
+#endif
+                    gen=slot.workGen.load(std::memory_order_acquire);
+                    if(gen!=seen||slot.stop.load(std::memory_order_acquire))break;
+                }
+                if(gen==seen&&!slot.stop.load(std::memory_order_acquire)) {
+                    std::unique_lock<std::mutex> lock(slot.mutex);
+                    slot.parked.store(true,std::memory_order_seq_cst);
+                    slot.wake.wait(lock,[&]{
+                        return slot.stop.load(std::memory_order_seq_cst)||
+                            slot.workGen.load(std::memory_order_seq_cst)!=seen;
+                    });
+                    slot.parked.store(false,std::memory_order_relaxed);
+                    gen=slot.workGen.load(std::memory_order_acquire);
+                }
             }
-            if(fn)fn(context,id);
-            {
-                std::lock_guard<std::mutex> lock(mutex_);
-                if(--active_==0)done_.notify_one();
+            if(slot.stop.load(std::memory_order_acquire))return;
+            if(gen==seen)continue;
+            seen=gen;
+            if(envValid_&&appliedEnvEpoch!=envEpoch_) {
+                if(std::fesetenv(&env_)==0) {
+#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
+                    _mm_setcsr(csr_);
+#endif
+#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
+                    __asm__ __volatile__("fldcw %0"::"m"(cw_));
+#endif
+                    appliedEnvEpoch=envEpoch_;
+                }
             }
+            if(fn_)fn_(context_,id);
+            slot.doneGen.store(seen,std::memory_order_release);
         }
     }
-    std::mutex mutex_;
-    std::condition_variable wake_,done_;
+    std::array<WorkerSlot,maximumHelpers> slots_{};
     std::vector<std::thread> threads_;
     void (*fn_)(const void*,unsigned)=nullptr;
     const void* context_=nullptr;
-    std::size_t generation_=0;
-    unsigned active_=0;
-    bool stop_=false;
+    bool envValid_=false;
+    std::fenv_t env_{};
+    unsigned csr_=0u;
+    unsigned short cw_=0u;
+    std::uint64_t envEpoch_=0u;
 };
 
 class Inverse {
@@ -635,7 +843,24 @@ public:
     // Private pure-optics concurrency, independent of World stepping/RNG.
     static constexpr unsigned maximumPhaseWorkersV5=16;
     static constexpr std::size_t maximumPhaseBanksV5=16;
-    struct CachedPhaseBankV5 {double cutoff=0;std::shared_ptr<conic_moments_v4::Bank> bank;};
+    static constexpr std::size_t maximumModePhaseBanksV5=128;
+    std::size_t activeMaxPhaseBanksV5() const noexcept {return modeCache?maximumModePhaseBanksV5:maximumPhaseBanksV5;}
+    struct CachedPhaseBankV5 {
+        double cutoff=0;
+        std::shared_ptr<conic_moments_v4::Bank> bank;
+        std::uint64_t warmedLo=0,warmedHi=0;
+        bool columnWarmed(unsigned col) const noexcept {
+            if(col<64u)return (warmedLo&(1ull<<col))!=0ull;
+            if(col<128u)return (warmedHi&(1ull<<(col-64u)))!=0ull;
+            return false;
+        }
+        void markWarmedRange(unsigned colBegin,unsigned colEnd) noexcept {
+            for(unsigned col=colBegin;col<colEnd;++col) {
+                if(col<64u)warmedLo|=(1ull<<col);
+                else if(col<128u)warmedHi|=(1ull<<(col-64u));
+            }
+        }
+    };
     std::vector<CachedPhaseBankV5> phaseBankCacheV5;
     PhasePoolV5 phasePoolV5;
     std::array<conic_moments_v4::FieldWorkspaceV5,maximumPhaseWorkersV5> phaseWorkspacesV5;
@@ -652,13 +877,52 @@ public:
     std::optional<source_wave_sum_v5::OpticsV5> sourceWaveOpticsV5;
     struct Trajectory {
         std::array<double,6> shape{};unsigned branch=0;RayPath path;
-        std::vector<double> x,y,xProbability,yProbability;
+        std::vector<double> x,y;
+        std::vector<double> levelMin,levelMax;
+        std::vector<double> subexposureSource;
         double minimumLevel=infinity,maximumLevel=-infinity;
         std::vector<double> rawSource;
+        std::vector<double> projectedSource;
+        std::vector<conic_moments_v4::RegionMomentsV5> precomputedRegions;
     };
-    std::optional<Trajectory> trajectory;
-    static constexpr std::size_t maximumModeTrajectoriesV5=16;
+    struct TrajKeyV5 {
+        std::array<std::uint64_t,6> bits{};
+        unsigned branch=0;
+        bool operator==(const TrajKeyV5& o) const noexcept {return branch==o.branch&&bits==o.bits;}
+    };
+    struct TrajKeyHashV5 {
+        std::size_t operator()(const TrajKeyV5& k) const noexcept {
+            std::uint64_t h=k.branch*0x9e3779b97f4a7c15ull;
+            for(const auto b:k.bits) {
+                std::uint64_t x=b+0x9e3779b97f4a7c15ull;
+                x=(x^(x>>30))*0xbf58476d1ce4e5b9ull;
+                x=(x^(x>>27))*0x94d049bb133111ebull;
+                h^=x+(h<<6)+(h>>2);
+            }
+            return static_cast<std::size_t>(h);
+        }
+    };
+    static TrajKeyV5 makeTrajKeyV5(const std::array<double,6>& key,unsigned branch) noexcept {
+        TrajKeyV5 out;out.branch=branch;
+        for(unsigned i=0;i<6;++i)std::memcpy(&out.bits[i],&key[i],sizeof(std::uint64_t));
+        return out;
+    }
+    struct GroundSubCacheV5 {
+        double cutoff=0;
+        std::vector<double> subexposure;
+    };
+    std::vector<GroundSubCacheV5> groundSubCacheV5;
+    std::vector<double> rowFullWaveV5;
+    struct JacWorkerScratchV5 {
+        Trajectory traj;
+        std::vector<double> raw0,u,v;
+    };
+    std::array<JacWorkerScratchV5,maximumPhaseWorkersV5> jacScratchV5;
+    static constexpr std::size_t maximumTrajectoryCacheV5=16;
+    std::vector<std::unique_ptr<Trajectory>> trajectoryCache;
+    static constexpr std::size_t maximumModeTrajectoriesV5=1024;
     std::vector<std::unique_ptr<Trajectory>> modeTrajectories;
+    std::unordered_map<TrajKeyV5,Trajectory*,TrajKeyHashV5> modeTrajMap;
     std::optional<Shape> priorStart;
     double nullCost=infinity,nullCutoff=0,nullAmplitude=0;
     std::size_t maximumGrounds;
@@ -678,6 +942,17 @@ public:
             sourceWaveOpticsV5.emplace(optics.solidAngles,optics.timeWeights,p.width,p.height,count,p.exposureSamples,pixelArea);
             powerOfTwoExposureV5=p.exposureSamples>0&&(p.exposureSamples&(p.exposureSamples-1u))==0;
             invExposureV5=powerOfTwoExposureV5?(1.0/static_cast<double>(p.exposureSamples)):0.0;
+            rowFullWaveV5.assign(static_cast<std::size_t>(p.height)*count,0.0);
+            for(unsigned row=0;row<p.height;++row) {
+                double* dst=rowFullWaveV5.data()+static_cast<std::size_t>(row)*count;
+                const std::size_t rowBase=static_cast<std::size_t>(row)*p.width;
+                for(unsigned col=0;col<p.width;++col) {
+                    const std::size_t i=rowBase+col;
+                    const double s=optics.solidAngles[i]/pixelArea;
+                    const double* w=optics.weights.data()+i*count;
+                    for(unsigned j=0;j<count;++j)dst[j]+=s*w[j];
+                }
+            }
             if(pixels<=65535u&&
                std::all_of(optics.solidAngles.begin(),optics.solidAngles.end(),[](double v){return std::isfinite(v)&&v>=0;})&&
                std::all_of(optics.timeWeights.begin(),optics.timeWeights.end(),[](double v){return std::isfinite(v)&&v>=0;})) {
@@ -777,7 +1052,8 @@ public:
             }
         }
         auto field=ThermalReticleReceiverV1::unitGroundFieldV1(p,forward,up,cutoff);if(!field)return nullptr;
-        if(groundFieldCache.size()>=4)groundFieldCache.pop_back();
+        const std::size_t maxFields=modeCache?maximumModePhaseBanksV5:4u;
+        if(groundFieldCache.size()>=maxFields)groundFieldCache.pop_back();
         groundFieldCache.insert(groundFieldCache.begin(),GroundFieldEntry{cutoff,std::move(*field)});
         return &groundFieldCache[0].field;
     }
@@ -793,6 +1069,36 @@ public:
     std::vector<double> wave(const std::vector<double>& field) const {
         LocalTimerV2 timer(&profile,LocalProfileV2::GroundWave);
         std::vector<double> result(count,0);
+        if(!rowFullWaveV5.empty()&&field.size()==pixels) {
+            const double* fPtr=field.data();
+            const double* rwPtr=rowFullWaveV5.data();
+            for(unsigned row=0;row<p.height;++row) {
+                const std::size_t rowBase=static_cast<std::size_t>(row)*p.width;
+                const double* fRow=fPtr+rowBase;
+                const double f0=fRow[0];
+                bool allEqual=true;
+                for(unsigned col=1;col<p.width;++col)if(fRow[col]!=f0){allEqual=false;break;}
+                if(allEqual) {
+                    if(f0==0.0)continue;
+                    const double* rw=rwPtr+static_cast<std::size_t>(row)*count;
+                    if(f0==1.0) {
+                        for(unsigned j=0;j<count;++j)result[j]+=rw[j];
+                    } else {
+                        for(unsigned j=0;j<count;++j)result[j]+=f0*rw[j];
+                    }
+                    continue;
+                }
+                for(unsigned col=0;col<p.width;++col) {
+                    const double f=fRow[col];
+                    if(f==0.0)continue;
+                    const std::size_t i=rowBase+col;
+                    const double s=f*optics.solidAngles[i]/pixelArea;
+                    const double* w=optics.weights.data()+i*count;
+                    for(unsigned j=0;j<count;++j)result[j]+=s*w[j];
+                }
+            }
+            return filter(std::move(result),alpha);
+        }
         for(std::size_t i=0;i<field.size();++i) {
             const double f=field[i];
             if(f==0)continue;
@@ -881,33 +1187,93 @@ public:
     Trajectory* prepare(const Shape& q,unsigned branch) {
         LocalTimerV2 timer(&profile,LocalProfileV2::Prepare);
         const std::array<double,6> key{{q[0],q[1],q[2],q[3],q[4],q[5]}};
-        if(trajectory&&exactCoordinates(trajectory->shape,key)&&trajectory->branch==branch){if(profile.enabled)++profile.prepareHits;return &*trajectory;}
         if(modeCache) {
-            for(std::size_t idx=0;idx<modeTrajectories.size();++idx) {
-                if(exactCoordinates(modeTrajectories[idx]->shape,key)&&modeTrajectories[idx]->branch==branch) {
+            const auto tk=makeTrajKeyV5(key,branch);
+            if(const auto it=modeTrajMap.find(tk);it!=modeTrajMap.end()) {
+                if(profile.enabled)++profile.prepareHits;
+                return it->second;
+            }
+        } else {
+            for(std::size_t idx=0;idx<trajectoryCache.size();++idx) {
+                if(exactCoordinates(trajectoryCache[idx]->shape,key)&&trajectoryCache[idx]->branch==branch) {
                     if(idx>0) {
                         const auto offset=static_cast<std::ptrdiff_t>(idx);
-                        std::rotate(modeTrajectories.begin(),modeTrajectories.begin()+offset,modeTrajectories.begin()+offset+1);
+                        std::rotate(trajectoryCache.begin(),trajectoryCache.begin()+offset,trajectoryCache.begin()+offset+1);
                     }
                     if(profile.enabled)++profile.prepareHits;
-                    return modeTrajectories.front().get();
+                    return trajectoryCache.front().get();
                 }
             }
         }
+        auto& activeTrajCache=modeCache?modeTrajectories:trajectoryCache;
         const auto ray=path(q,branch);if(!ray)return nullptr;
         const SourceWave* cachedSource=nullptr;
         if(modeCache)for(const auto& entry:sources)if(exactCoordinates(entry.shape,key)&&entry.branch==branch){cachedSource=&entry;break;}
-        Trajectory item;item.shape=key;item.branch=branch;item.path=*ray;
+        const std::size_t limit=modeCache?maximumModeTrajectoriesV5:maximumTrajectoryCacheV5;
+        std::unique_ptr<Trajectory> recycled;
+        if(activeTrajCache.size()>=limit) {
+            if(modeCache)modeTrajMap.erase(makeTrajKeyV5(activeTrajCache.back()->shape,activeTrajCache.back()->branch));
+            recycled=std::move(activeTrajCache.back());
+            activeTrajCache.pop_back();
+        } else {
+            recycled=std::make_unique<Trajectory>();
+        }
+        Trajectory& item=*recycled;
+        item.precomputedRegions.clear();
+        item.shape=key;item.branch=branch;item.path=*ray;
+        item.minimumLevel=infinity;item.maximumLevel=-infinity;
         const auto samples=static_cast<std::size_t>(count)*p.exposureSamples;
         item.x.resize(samples);item.y.resize(samples);
-        if(!cachedSource){item.xProbability.assign(samples*p.width,0);item.yProbability.assign(samples*p.height,0);item.rawSource.assign(count,0);}
+        item.levelMin.resize(samples);item.levelMax.resize(samples);
+        item.subexposureSource.assign(samples,0.0);
+        if(!cachedSource)item.rawSource.assign(count,0);
         else item.rawSource=cachedSource->raw;
         const double sigma=p.psfSigmaRad;
-        const auto probability=[&](double lo,double hi,double centre,double extent) {
-            return extent==0?.5*(std::erfc((centre-hi)/(std::sqrt(2.)*sigma))-std::erfc((centre-lo)/(std::sqrt(2.)*sigma))):
-                ThermalImageReceiverV1::gaussianIntervalV1(centre-.5*extent,centre+.5*extent,lo,hi,sigma)/extent;
+        const bool nearestArith=certifiedArithmeticV2();
+        const bool useFastSourceSum=sourceWaveOpticsV5&&sourceWaveOpticsV5->eligibleOptics()&&nearestArith;
+        const auto gaussianPrimBitExact=[&](double z) noexcept -> double {
+            if(nearestArith) {
+                if(z>=9.5)return z;
+                if(z<=-38.5)return 0.0;
+            }
+            return z*.5*std::erfc(-z/std::sqrt(2.))+std::exp(-.5*z*z)/std::sqrt(2.*3.14159265358979323846);
         };
-        const auto processPhase=[&](unsigned j,double& localMin,double& localMax)->bool {
+        const auto fillAxisProb=[&](double* prob,int i0,int i1,unsigned dim,double centre,double extent,double rMin,double rMax) {
+            if(i0>i1)return;
+            if(extent==0.0) {
+                const double invSqrt2Sigma=1.0/(std::sqrt(2.)*sigma);
+                bool hasPrev=false;double prevHi=0.0,prevErfc=0.0;
+                for(int idx=i0;idx<=i1;++idx) {
+                    const unsigned u=static_cast<unsigned>(idx);
+                    const double lo=(u-.5*dim)*p.pixelPitchRad,hi=lo+p.pixelPitchRad;
+                    if(lo>rMax||hi<rMin){hasPrev=false;continue;}
+                    const double eLo=(hasPrev&&lo==prevHi)?prevErfc:std::erfc((centre-lo)*invSqrt2Sigma);
+                    const double eHi=std::erfc((centre-hi)*invSqrt2Sigma);
+                    hasPrev=true;prevHi=hi;prevErfc=eHi;
+                    prob[u]=.5*(eHi-eLo);
+                }
+            } else {
+                const double a=centre-.5*extent,b=centre+.5*extent;
+                const auto integratedCdf=[&](double edge) noexcept -> double {
+                    const double za=(edge-a)/sigma,zb=(edge-b)/sigma;
+                    if(nearestArith&&za>=9.5&&zb<=-9.5)return sigma*za;
+                    return sigma*(gaussianPrimBitExact(za)-gaussianPrimBitExact(zb));
+                };
+                bool hasPrev=false;double prevHi=0.0,prevInt=0.0;
+                for(int idx=i0;idx<=i1;++idx) {
+                    const unsigned u=static_cast<unsigned>(idx);
+                    const double lo=(u-.5*dim)*p.pixelPitchRad,hi=lo+p.pixelPitchRad;
+                    if(lo>rMax||hi<rMin){hasPrev=false;continue;}
+                    const double intLo=(hasPrev&&lo==prevHi)?prevInt:integratedCdf(lo);
+                    const double intHi=integratedCdf(hi);
+                    hasPrev=true;prevHi=hi;prevInt=intHi;
+                    prob[u]=std::clamp(intHi-intLo,0.,std::min(b-a,hi-lo))/extent;
+                }
+            }
+        };
+        const bool needSubSource=!cachedSource||!ray->stationary;
+        const auto processPhase=[&](unsigned j,double* xProb,double* yProb,double& localMin,double& localMax)->bool {
+            double rawAcc=0.0;
             for(unsigned k=0;k<p.exposureSamples;++k) {
                 const auto timeIndex=static_cast<std::size_t>(j)*p.exposureSamples+k;
                 const double time=measured.exposureStartTimeS+(j+.5)/(c.frequencyHz*count)+
@@ -916,84 +1282,106 @@ public:
                 const double x=std::atan2(direction.y,direction.x),y=std::atan2(direction.z,direction.x);
                 item.x[timeIndex]=x;item.y[timeIndex]=y;
                 const auto levels=levelBounds(x,y,q[4],q[5]);
+                item.levelMin[timeIndex]=levels[0];item.levelMax[timeIndex]=levels[1];
                 localMin=std::min(localMin,levels[0]);localMax=std::max(localMax,levels[1]);
-                if(cachedSource)continue;
-                for(unsigned col=0;col<p.width;++col) {
-                    const double lo=(col-.5*p.width)*p.pixelPitchRad,hi=lo+p.pixelPitchRad;
-                    if(lo>x+.5*q[4]+9*sigma||hi<x-.5*q[4]-9*sigma)continue;
-                    item.xProbability[timeIndex*p.width+col]=probability(lo,hi,x,q[4]);
-                }
-                for(unsigned row=0;row<p.height;++row) {
-                    const double lo=(row-.5*p.height)*p.pixelPitchRad,hi=lo+p.pixelPitchRad;
-                    if(lo>y+.5*q[5]+9*sigma||hi<y-.5*q[5]-9*sigma)continue;
-                    item.yProbability[timeIndex*p.height+row]=probability(lo,hi,y,q[5]);
-                }
-                const bool sparseV5=sourceWaveOpticsV5&&sourceWaveOpticsV5->addSample(
-                    item.rawSource[j],item.xProbability,item.yProbability,timeIndex);
+                if(!needSubSource)continue;
+                const double xMin=x-.5*q[4]-9*sigma,xMax=x+.5*q[4]+9*sigma;
+                const int col0=std::max(0,static_cast<int>(std::floor(xMin/p.pixelPitchRad+.5*p.width))-1);
+                const int col1=std::min(static_cast<int>(p.width)-1,static_cast<int>(std::ceil(xMax/p.pixelPitchRad+.5*p.width)));
+                fillAxisProb(xProb,col0,col1,p.width,x,q[4],xMin,xMax);
+                const double yMin=y-.5*q[5]-9*sigma,yMax=y+.5*q[5]+9*sigma;
+                const int row0=std::max(0,static_cast<int>(std::floor(yMin/p.pixelPitchRad+.5*p.height))-1);
+                const int row1=std::min(static_cast<int>(p.height)-1,static_cast<int>(std::ceil(yMax/p.pixelPitchRad+.5*p.height)));
+                fillAxisProb(yProb,row0,row1,p.height,y,q[5],yMin,yMax);
+                double subVal=0.0;
+                const bool sparseV5=col0<=col1&&row0<=row1&&sourceWaveOpticsV5&&
+                    sourceWaveOpticsV5->addSampleRange(
+                        rawAcc,xProb,yProb,
+                        static_cast<unsigned>(col0),static_cast<unsigned>(col1+1),
+                        static_cast<unsigned>(row0),static_cast<unsigned>(row1+1),
+                        timeIndex,&subVal,useFastSourceSum);
                 if(!sparseV5) {
-                    for(unsigned row=0;row<p.height;++row)for(unsigned col=0;col<p.width;++col) {
-                        const auto index=static_cast<std::size_t>(row)*p.width+col;
-                        const double value=item.yProbability[timeIndex*p.height+row]*item.xProbability[timeIndex*p.width+col]*optics.solidAngles[index]/pixelArea;
-                        item.rawSource[j]+=value*optics.timeWeights[timeIndex*pixels+index]/p.exposureSamples;
+                    for(int rowI=row0;rowI<=row1;++rowI) {
+                        const unsigned row=static_cast<unsigned>(rowI);
+                        const double yv=yProb[row];
+                        if(yv==0.0)continue;
+                        for(int colI=col0;colI<=col1;++colI) {
+                            const unsigned col=static_cast<unsigned>(colI);
+                            const double xv=xProb[col];
+                            if(xv==0.0)continue;
+                            const auto index=static_cast<std::size_t>(row)*p.width+col;
+                            const double tw=optics.timeWeights[timeIndex*pixels+index];
+                            if(tw==0.0)continue;
+                            const double value=yv*xv*optics.solidAngles[index]/pixelArea;
+                            const double term=value*tw/p.exposureSamples;
+                            rawAcc+=term;
+                            subVal+=term;
+                        }
                     }
                 }
+                item.subexposureSource[timeIndex]=subVal;
+                for(int colI=col0;colI<=col1;++colI)xProb[static_cast<unsigned>(colI)]=0.0;
+                for(int rowI=row0;rowI<=row1;++rowI)yProb[static_cast<unsigned>(rowI)]=0.0;
             }
+            if(!cachedSource)item.rawSource[j]=rawAcc;
             return true;
         };
-        const unsigned prepWorkers=regionalOperator==RegionalOperator::ConicFastV5&&!cachedSource&&!ray->stationary&&certifiedArithmeticV2()
-            ?std::min({maximumPhaseWorkersV5,std::thread::hardware_concurrency(),count}):1u;
-        if(prepWorkers>=2) {
-            std::fenv_t prepEnv{};
-            if(std::fegetenv(&prepEnv)==0) {
-#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
-                const unsigned prepCsr=_mm_getcsr();
-#endif
-#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
-                unsigned short prepCw=0;__asm__ __volatile__("fnstcw %0":"=m"(prepCw));
-#endif
-                std::array<double,maximumPhaseWorkersV5> wMin,wMax;
-                wMin.fill(infinity);wMax.fill(-infinity);
-                std::atomic<unsigned> nextJ{0};std::atomic<bool> failed{false};
-                const auto prepWork=[&](unsigned worker) noexcept {
-                    if(worker!=0) {
-                        if(std::fesetenv(&prepEnv)!=0){failed.store(true,std::memory_order_relaxed);return;}
-#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
-                        _mm_setcsr(prepCsr);
-#endif
-#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
-                        __asm__ __volatile__("fldcw %0"::"m"(prepCw));
-#endif
-                    }
-                    double lMin=infinity,lMax=-infinity;
-                    while(!failed.load(std::memory_order_relaxed)) {
-                        const unsigned j=nextJ.fetch_add(1,std::memory_order_relaxed);
-                        if(j>=count)break;
-                        if(!processPhase(j,lMin,lMax)){failed.store(true,std::memory_order_relaxed);break;}
-                    }
-                    wMin[worker]=lMin;wMax[worker]=lMax;
-                };
-                phasePoolV5.run(prepWorkers,prepWork);
-                if(failed.load(std::memory_order_relaxed))return nullptr;
-                for(unsigned w=0;w<prepWorkers;++w){item.minimumLevel=std::min(item.minimumLevel,wMin[w]);item.maximumLevel=std::max(item.maximumLevel,wMax[w]);}
+        const auto runWorkerPhases=[&](auto&& nextPhase,double& localMin,double& localMax,auto&& onFail) {
+            if(p.width<=128u&&p.height<=128u) {
+                std::array<double,128> xProb{},yProb{};
+                while(true) {
+                    const unsigned j=nextPhase();
+                    if(j>=count)break;
+                    if(!processPhase(j,xProb.data(),yProb.data(),localMin,localMax)){onFail();break;}
+                }
             } else {
-                for(unsigned j=0;j<count;++j)if(!processPhase(j,item.minimumLevel,item.maximumLevel))return nullptr;
+                std::vector<double> xProb(p.width,0.0),yProb(p.height,0.0);
+                while(true) {
+                    const unsigned j=nextPhase();
+                    if(j>=count)break;
+                    if(!processPhase(j,xProb.data(),yProb.data(),localMin,localMax)){onFail();break;}
+                }
             }
+        };
+        const unsigned prepWorkers=regionalOperator==RegionalOperator::ConicFastV5&&needSubSource&&!ray->stationary&&nearestArith
+            ?std::min(ReticleNestedPoolGuardV1::maxWorkers(maximumPhaseWorkersV5),count):1u;
+        if(prepWorkers>=2&&phasePoolV5.syncEnvironment()) {
+            std::array<double,maximumPhaseWorkersV5> wMin,wMax;
+            wMin.fill(infinity);wMax.fill(-infinity);
+            std::atomic<unsigned> nextJ{0};std::atomic<bool> failed{false};
+            const auto prepWork=[&](unsigned worker) noexcept {
+                double lMin=infinity,lMax=-infinity;
+                runWorkerPhases(
+                    [&]() -> unsigned {
+                        if(failed.load(std::memory_order_relaxed))return count;
+                        return nextJ.fetch_add(1,std::memory_order_relaxed);
+                    },
+                    lMin,lMax,
+                    [&]() {failed.store(true,std::memory_order_relaxed);});
+                wMin[worker]=lMin;wMax[worker]=lMax;
+            };
+            phasePoolV5.run(prepWorkers,prepWork);
+            if(failed.load(std::memory_order_relaxed))return nullptr;
+            for(unsigned w=0;w<prepWorkers;++w){item.minimumLevel=std::min(item.minimumLevel,wMin[w]);item.maximumLevel=std::max(item.maximumLevel,wMax[w]);}
         } else {
-            for(unsigned j=0;j<count;++j)if(!processPhase(j,item.minimumLevel,item.maximumLevel))return nullptr;
+            unsigned nextSerial=0;bool serialFailed=false;
+            runWorkerPhases([&](){return nextSerial++;},item.minimumLevel,item.maximumLevel,[&](){serialFailed=true;});
+            if(serialFailed)return nullptr;
         }
         if(!cachedSource)item.rawSource=filter(std::move(item.rawSource),alpha);
         if(ray->stationary)item.rawSource=optics.staticSourceRaw({{q[0],q[1],q[4],q[5]}});
-        // The128-entry source memo bounds payload only; further exact
-        // geometries are recomputed and remain in the hypothesis bank.
-        if(modeCache&&!cachedSource&&sources.size()<128)sources.push_back({key,branch,item.rawSource});
+        item.projectedSource=item.rawSource;
+        project(item.projectedSource,optics.nuisance);
+        // Bounded transient source/trajectory memo for cutoff scans in modeCache.
+        if(modeCache&&!cachedSource&&sources.size()<1024)sources.push_back({key,branch,item.rawSource});
+        Trajectory* ptr=recycled.get();
         if(modeCache) {
-            auto stored=std::make_unique<Trajectory>(std::move(item));
-            Trajectory* ptr=stored.get();
-            if(modeTrajectories.size()>=maximumModeTrajectoriesV5)modeTrajectories.pop_back();
-            modeTrajectories.insert(modeTrajectories.begin(),std::move(stored));
-            return ptr;
+            modeTrajectories.push_back(std::move(recycled));
+            modeTrajMap.emplace(makeTrajKeyV5(key,branch),ptr);
+        } else {
+            trajectoryCache.insert(trajectoryCache.begin(),std::move(recycled));
         }
-        trajectory=std::move(item);return &*trajectory;
+        return ptr;
     }
     std::optional<double> regionalPhase(const Shape& q,unsigned branch,unsigned j,
         const Trajectory& source,const std::vector<double>& full) {
@@ -1002,13 +1390,32 @@ public:
         }
         if(regionalKnown[j]){if(profile.enabled)++profile.phaseHits;return regionalPhases[j];}
         double value=0;
+        const bool fastSubV5=regionalOperator==RegionalOperator::ConicFastV5&&certifiedArithmeticV2();
+        const double* groundSubPtr=fastSubV5?groundSubexposuresV5(q[6],full).data():nullptr;
+        const double marginV5=9*p.psfSigmaRad,hxV5=.5*p.width*p.pixelPitchRad,hyV5=.5*p.height*p.pixelPitchRad;
+        const double fLeftV5=std::max(-1.55,-hxV5-marginV5),fRightV5=std::min(1.55,hxV5+marginV5);
+        const double fBottomV5=std::max(-1.55,-hyV5-marginV5),fTopV5=std::min(1.55,hyV5+marginV5);
+        const double areaScaleV5=(q[4]*q[5])/pixelArea;
+        const double* subSourcePtr=(fastSubV5&&source.subexposureSource.size()==static_cast<std::size_t>(count)*p.exposureSamples)
+            ?source.subexposureSource.data():nullptr;
         // This is the original native phase loop, shared by full likelihood
         // and certified partial-phase tests. A fallback reuses exact scalars.
         for(unsigned k=0;k<p.exposureSamples;++k) {
             const auto ti=static_cast<std::size_t>(j)*p.exposureSamples+k;
-            const auto levels=levelBounds(source.x[ti],source.y[ti],q[4],q[5]);
+            const double lv0=source.levelMin[ti],lv1=source.levelMax[ti];
+            if(groundSubPtr&&lv0>=q[6]) {
+                value+=groundSubPtr[ti];
+                continue;
+            }
+            if(groundSubPtr&&subSourcePtr&&lv1<q[6]&&
+               source.x[ti]-.5*q[4]>=fLeftV5&&source.x[ti]+.5*q[4]<=fRightV5&&
+               source.y[ti]-.5*q[5]>=fBottomV5&&source.y[ti]+.5*q[5]<=fTopV5) {
+                value+=groundSubPtr[ti]-areaScaleV5*subSourcePtr[ti];
+                continue;
+            }
+            const double* occultedPtr=nullptr;
             std::optional<std::vector<double>> occulted;
-            if(levels[0]<q[6]) {
+            if(lv0<q[6]) {
                 const std::array<double,4> region{{source.x[ti]-.5*q[4],source.x[ti]+.5*q[4],source.y[ti]-.5*q[5],source.y[ti]+.5*q[5]}};
                 LocalTimerV2 regionalTimer(&profile,LocalProfileV2::Regional);
                 if((regionalOperator==RegionalOperator::ConicV4||regionalOperator==RegionalOperator::ConicFastV5)) {
@@ -1016,9 +1423,6 @@ public:
                     // numerical operator. Its measured native differences are not
                     // a universal certificate for an arbitrary UCRT classifier.
                     if(profile.enabled)++profile.conicRequests;
-                    if(!conicCutoff||!exactScalar(*conicCutoff,q[6])) {
-                        conicBank.reset();conicCutoff=q[6];conicBankAttempted=false;
-                    }
                     // Keep the old V2 monotonic/sensitive-edge preflight. Failed
                     // V4 geometry/arithmetic/error still runs the complete old
                     // V2/native implementation below, with its original callback.
@@ -1049,38 +1453,73 @@ public:
                             !(touches&&region[2]<=lowEdge+p.pixelPitchRad&&region[3]>=highEdge-p.pixelPitchRad);
                     };
                     if(eligible()) {
-                        if(!conicBankAttempted) {
-                            conicBankAttempted=true;
-                            conic_moments_v4::Request request;request.width=p.width;request.height=p.height;
-                            request.pixelPitchRad=p.pixelPitchRad;request.psfSigmaRad=p.psfSigmaRad;
-                            request.pointing={{forward.x,forward.y,forward.z}};request.up={{up.x,up.y,up.z}};request.cutoff=q[6];
-                            LocalProfileV2::Clock::time_point started{};
-                            if(profile.enabled)started=LocalProfileV2::Clock::now();
-                            conicBank=conic_moments_v4::Bank::prepare(request);
-                            if(profile.enabled){++profile.conicBanks;profile.conicSetupUs+=std::chrono::duration<double,std::micro>(LocalProfileV2::Clock::now()-started).count();}
-                        }
-                        if(conicBank) {
-                            LocalProfileV2::Clock::time_point started{};
-                            if(profile.enabled)started=LocalProfileV2::Clock::now();
-                            if(regionalOperator==RegionalOperator::ConicFastV5) {
-                                const bool ok=conicBank->evaluateFastIntoV5(region,serialWorkspaceV5);
+                        if(regionalOperator==RegionalOperator::ConicFastV5) {
+                            std::shared_ptr<conic_moments_v4::Bank> activeBankV5;
+                            bool bankFound=false;
+                            for(std::size_t idx=0;idx<phaseBankCacheV5.size();++idx) {
+                                if(exactScalar(phaseBankCacheV5[idx].cutoff,q[6])) {
+                                    if(idx>0) {
+                                        const auto offset=static_cast<std::ptrdiff_t>(idx);
+                                        std::rotate(phaseBankCacheV5.begin(),phaseBankCacheV5.begin()+offset,phaseBankCacheV5.begin()+offset+1);
+                                    }
+                                    activeBankV5=phaseBankCacheV5.front().bank;
+                                    bankFound=true;
+                                    break;
+                                }
+                            }
+                            if(!bankFound) {
+                                conic_moments_v4::Request request;request.width=p.width;request.height=p.height;
+                                request.pixelPitchRad=p.pixelPitchRad;request.psfSigmaRad=p.psfSigmaRad;
+                                request.pointing={{forward.x,forward.y,forward.z}};request.up={{up.x,up.y,up.z}};request.cutoff=q[6];
+                                LocalProfileV2::Clock::time_point started{};
+                                if(profile.enabled)started=LocalProfileV2::Clock::now();
+                                activeBankV5=std::shared_ptr<conic_moments_v4::Bank>(conic_moments_v4::Bank::prepareSharedV5(request));
+                                if(phaseBankCacheV5.size()>=activeMaxPhaseBanksV5())phaseBankCacheV5.pop_back();
+                                phaseBankCacheV5.insert(phaseBankCacheV5.begin(),CachedPhaseBankV5{q[6],activeBankV5});
+                                if(profile.enabled){++profile.conicBanks;profile.conicSetupUs+=std::chrono::duration<double,std::micro>(LocalProfileV2::Clock::now()-started).count();}
+                            }
+                            if(activeBankV5) {
+                                LocalProfileV2::Clock::time_point started{};
+                                if(profile.enabled)started=LocalProfileV2::Clock::now();
+                                const bool hasPre=ti<source.precomputedRegions.size()&&source.precomputedRegions[ti].valid;
+                                const bool ok=hasPre
+                                    ?activeBankV5->evaluateFastPreparedIntoV5(source.precomputedRegions[ti],serialWorkspaceV5)
+                                    :activeBankV5->evaluateFastIntoV5(region,serialWorkspaceV5);
                                 if(profile.enabled)profile.conicRenderUs+=std::chrono::duration<double,std::micro>(LocalProfileV2::Clock::now()-started).count();
                                 if(ok&&serialWorkspaceV5.field.size()==pixels) {
                                     if(profile.enabled){++profile.conicFields;profile.conicMaximumError=std::max(profile.conicMaximumError,serialWorkspaceV5.maxError);}
-                                    occulted=serialWorkspaceV5.field;
+                                    occultedPtr=serialWorkspaceV5.field.data();
                                 }
-                            } else {
+                            }
+                        } else {
+                            if(!conicCutoff||!exactScalar(*conicCutoff,q[6])) {
+                                conicBank.reset();conicCutoff=q[6];conicBankAttempted=false;
+                            }
+                            if(!conicBankAttempted) {
+                                conicBankAttempted=true;
+                                conic_moments_v4::Request request;request.width=p.width;request.height=p.height;
+                                request.pixelPitchRad=p.pixelPitchRad;request.psfSigmaRad=p.psfSigmaRad;
+                                request.pointing={{forward.x,forward.y,forward.z}};request.up={{up.x,up.y,up.z}};request.cutoff=q[6];
+                                LocalProfileV2::Clock::time_point started{};
+                                if(profile.enabled)started=LocalProfileV2::Clock::now();
+                                conicBank=conic_moments_v4::Bank::prepare(request);
+                                if(profile.enabled){++profile.conicBanks;profile.conicSetupUs+=std::chrono::duration<double,std::micro>(LocalProfileV2::Clock::now()-started).count();}
+                            }
+                            if(conicBank) {
+                                LocalProfileV2::Clock::time_point started{};
+                                if(profile.enabled)started=LocalProfileV2::Clock::now();
                                 auto rendered=conicBank->evaluate(region);
                                 if(profile.enabled)profile.conicRenderUs+=std::chrono::duration<double,std::micro>(LocalProfileV2::Clock::now()-started).count();
                                 if(rendered&&rendered->field.size()==pixels&&rendered->absoluteError.size()==pixels) {
                                     if(profile.enabled){++profile.conicFields;profile.conicMaximumError=std::max(profile.conicMaximumError,*std::max_element(rendered->absoluteError.begin(),rendered->absoluteError.end()));}
                                     occulted=std::move(rendered->field);
+                                    occultedPtr=occulted->data();
                                 }
                             }
                         }
                     }
                 }
-                if(!occulted) {
+                if(!occultedPtr) {
                     if(profile.enabled&&(regionalOperator==RegionalOperator::ConicV4||regionalOperator==RegionalOperator::ConicFastV5))++profile.conicFallbacks;
                     if(profile.enabled) {
                         ThermalGroundWorkV2 work;bool accelerated=false;
@@ -1088,18 +1527,85 @@ public:
                         profile.addGround(work,accelerated);
                         if(occulted)profile.captureGround(work,accelerated,p,forward,up,q[6],region,*occulted,q,branch,j,k);
                     } else occulted=ThermalReticleReceiverV1::unitGroundFieldMemoV2(p,forward,up,q[6],region,[&](){return originalGround(q[6]);});
+                    if(occulted)occultedPtr=occulted->data();
                 }
-                if(!occulted){diagnostic.refusal=22;return std::nullopt;}
+                if(!occultedPtr){diagnostic.refusal=22;return std::nullopt;}
                 ++diagnostic.regionalFields;
                 if(profile.enabled&&diagnostic.regionalFields%1024==0)profile.checkpoint("regional.progress");
             }
-            for(std::size_t i=0;i<pixels;++i) {
-                const double field=full[i]-(occulted?(*occulted)[i]:0.);
-                value+=field*optics.solidAngles[i]*optics.timeWeights[ti*pixels+i]/pixelArea/p.exposureSamples;
+            const double* fullPtr=full.data();
+            if(regionalOperator==RegionalOperator::ConicFastV5&&sparseMaskReadyV5&&powerOfTwoExposureV5) {
+                const std::size_t beginIdx=sparseOffsetV5[ti],endIdx=sparseOffsetV5[ti+1];
+                const std::uint16_t* pixPtr=sparsePixelV5.data();
+                const double* solPtr=sparseSolidV5.data();
+                const double* wgtPtr=sparseWeightV5.data();
+                if(occultedPtr) {
+                    accumulateSparseDiffV5(value,fullPtr,occultedPtr,pixPtr,solPtr,wgtPtr,beginIdx,endIdx,pixelArea,invExposureV5);
+                } else {
+                    for(std::size_t idx=beginIdx;idx<endIdx;++idx) {
+                        const double field=fullPtr[pixPtr[idx]];
+                        if(field==0.0)continue;
+                        value+=field*solPtr[idx]*wgtPtr[idx]/pixelArea*invExposureV5;
+                    }
+                }
+            } else {
+                const double* weightsPtr=optics.timeWeights.data()+ti*pixels;
+                const double* solidPtr=optics.solidAngles.data();
+                if(occultedPtr) {
+                    for(std::size_t i=0;i<pixels;++i) {
+                        const double field=fullPtr[i]-occultedPtr[i];
+                        value+=field*solidPtr[i]*weightsPtr[i]/pixelArea/p.exposureSamples;
+                    }
+                } else {
+                    for(std::size_t i=0;i<pixels;++i) {
+                        value+=fullPtr[i]*solidPtr[i]*weightsPtr[i]/pixelArea/p.exposureSamples;
+                    }
+                }
             }
         }
         regionalKnown[j]=true;regionalPhases[j]=value;return value;
     }
+    const std::vector<double>& groundSubexposuresV5(double cutoff,const std::vector<double>& full) {
+        for(std::size_t idx=0;idx<groundSubCacheV5.size();++idx) {
+            if(exactScalar(groundSubCacheV5[idx].cutoff,cutoff)) {
+                if(idx>0) {
+                    const auto offset=static_cast<std::ptrdiff_t>(idx);
+                    std::rotate(groundSubCacheV5.begin(),groundSubCacheV5.begin()+offset,groundSubCacheV5.begin()+offset+1);
+                }
+                return groundSubCacheV5.front().subexposure;
+            }
+        }
+        const std::size_t subexposures=static_cast<std::size_t>(count)*p.exposureSamples;
+        std::vector<double> sub(subexposures,0.0);
+        const double* fullPtr=full.data();
+        if(sparseMaskReadyV5&&powerOfTwoExposureV5) {
+            const std::uint16_t* pixPtr=sparsePixelV5.data();
+            const double* solPtr=sparseSolidV5.data();
+            const double* wgtPtr=sparseWeightV5.data();
+            for(std::size_t ti=0;ti<subexposures;++ti) {
+                double acc=0.0;
+                const std::size_t beginIdx=sparseOffsetV5[ti],endIdx=sparseOffsetV5[ti+1];
+                for(std::size_t idx=beginIdx;idx<endIdx;++idx) {
+                    acc+=fullPtr[pixPtr[idx]]*solPtr[idx]*wgtPtr[idx]/pixelArea*invExposureV5;
+                }
+                sub[ti]=acc;
+            }
+        } else {
+            const double* solidPtr=optics.solidAngles.data();
+            for(std::size_t ti=0;ti<subexposures;++ti) {
+                double acc=0.0;
+                const double* weightsPtr=optics.timeWeights.data()+ti*pixels;
+                for(std::size_t i=0;i<pixels;++i) {
+                    acc+=fullPtr[i]*solidPtr[i]*weightsPtr[i]/pixelArea/p.exposureSamples;
+                }
+                sub[ti]=acc;
+            }
+        }
+        if(groundSubCacheV5.size()>=activeMaxPhaseBanksV5())groundSubCacheV5.pop_back();
+        groundSubCacheV5.insert(groundSubCacheV5.begin(),GroundSubCacheV5{cutoff,std::move(sub)});
+        return groundSubCacheV5.front().subexposure;
+    }
+
     std::optional<bool> parallelRegionalPhasesV5(const Shape& q,unsigned branch,
         const Trajectory& source,const std::vector<double>& full,
         const std::vector<unsigned>* subset=nullptr) {
@@ -1107,25 +1613,50 @@ public:
         if(!regionalShape||!exactCoordinates(*regionalShape,q)||regionalBranch!=branch) {
             regionalShape=q;regionalBranch=branch;regionalPhases.assign(count,0);regionalKnown.assign(count,false);
         }
+        const auto& groundSub=groundSubexposuresV5(q[6],full);
+        const double* groundSubPtr=groundSub.data();
+        const double margin=9*p.psfSigmaRad,hx=.5*p.width*p.pixelPitchRad,hy=.5*p.height*p.pixelPitchRad;
+        const double fLeft=std::max(-1.55,-hx-margin),fRight=std::min(1.55,hx+margin);
+        const double fBottom=std::max(-1.55,-hy-margin),fTop=std::min(1.55,hy+margin);
+        const double areaScale=(q[4]*q[5])/pixelArea;
+        const bool haveSubSource=source.subexposureSource.size()==static_cast<std::size_t>(count)*p.exposureSamples;
+        const double* subSourcePtr=haveSubSource?source.subexposureSource.data():nullptr;
         std::vector<unsigned> jobs;
+        const auto classifyPhase=[&](unsigned j) {
+            if(j>=count||regionalKnown[j])return;
+            bool needsConic=false;
+            double trivialSum=0.0;
+            for(unsigned k=0;k<p.exposureSamples;++k) {
+                const auto ti=static_cast<std::size_t>(j)*p.exposureSamples+k;
+                if(source.levelMin[ti]>=q[6]) {
+                    trivialSum+=groundSubPtr[ti];
+                } else if(subSourcePtr&&source.levelMax[ti]<q[6]&&
+                          source.x[ti]-.5*q[4]>=fLeft&&source.x[ti]+.5*q[4]<=fRight&&
+                          source.y[ti]-.5*q[5]>=fBottom&&source.y[ti]+.5*q[5]<=fTop) {
+                    trivialSum+=groundSubPtr[ti]-areaScale*subSourcePtr[ti];
+                } else {
+                    needsConic=true;
+                    break;
+                }
+            }
+            if(!needsConic) {
+                regionalPhases[j]=trivialSum;
+                regionalKnown[j]=true;
+            } else {
+                jobs.push_back(j);
+            }
+        };
         if(subset) {
             jobs.reserve(subset->size());
-            for(const unsigned j:*subset)if(j<count&&!regionalKnown[j])jobs.push_back(j);
+            for(const unsigned j:*subset)classifyPhase(j);
         } else {
             jobs.reserve(count);
-            for(unsigned j=0;j<count;++j)if(!regionalKnown[j])jobs.push_back(j);
+            for(unsigned j=0;j<count;++j)classifyPhase(j);
         }
         if(jobs.empty())return true;
-        const unsigned workers=ReticleNestedPoolGuardV1::blocked()?1u:
-            std::min({maximumPhaseWorkersV5,std::thread::hardware_concurrency(),static_cast<unsigned>(jobs.size())});
-        if(workers<2)return false;
-        std::fenv_t environment{};if(std::fegetenv(&environment)!=0)return false;
-#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
-        const unsigned csr=_mm_getcsr();
-#endif
-#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
-        unsigned short control=0;__asm__ __volatile__("fnstcw %0":"=m"(control));
-#endif
+        const unsigned maxW=ReticleNestedPoolGuardV1::maxWorkers(maximumPhaseWorkersV5);
+        if(maxW<2)return false;
+        if(!phasePoolV5.syncEnvironment())return false;
         struct Statistics {
             std::size_t phases=0,regions=0,requests=0,fields=0,fallbacks=0,accelerated=0,native=0;
             double maximumError=0,renderUs=0;
@@ -1138,48 +1669,46 @@ public:
         if(norm(nativeRight)<.5)nativeRight=unit(cross(nativeForward,std::abs(nativeForward.z)<.9?V{0,0,1}:V{0,1,0}));
         const auto nativeVertical=unit(cross(nativeRight,nativeForward));
         const double a=dot(nativeForward,nativeUp),b=dot(nativeRight,nativeUp),cc=dot(nativeVertical,nativeUp);
-        const double margin=9*p.psfSigmaRad,hx=.5*p.width*p.pixelPitchRad,hy=.5*p.height*p.pixelPitchRad;
         const auto eligible=[&](const std::array<double,4>& region) {
-            const double left=std::max(std::max(-1.55,-hx-margin),region[0]);
-            const double rightEdge=std::min(std::min(1.55,hx+margin),region[1]);
-            const double bottom=std::max(std::max(-1.55,-hy-margin),region[2]);
-            const double top=std::min(std::min(1.55,hy+margin),region[3]);
+            const double left=std::max(fLeft,region[0]);
+            const double rightEdge=std::min(fRight,region[1]);
+            const double bottom=std::max(fBottom,region[2]);
+            const double top=std::min(fTop,region[3]);
             if(!(rightEdge>left)||!(top>bottom))return true;
             const double maxTx=std::max(std::abs(std::tan(left)),std::abs(std::tan(rightEdge)));
             const double maxTy=std::max(std::abs(std::tan(bottom)),std::abs(std::tan(top)));
             const double maxN=std::nextafter(std::abs(a)+std::nextafter(std::abs(b)*maxTx,infinity),infinity);
             return std::nextafter(cc,-infinity)>std::nextafter(maxN*maxTy,infinity);
         };
-        std::shared_ptr<conic_moments_v4::Bank> activeBankV5;
-        bool bankFound=false;
+        CachedPhaseBankV5* bankEntry=nullptr;
         for(std::size_t idx=0;idx<phaseBankCacheV5.size();++idx) {
             if(exactScalar(phaseBankCacheV5[idx].cutoff,q[6])) {
                 if(idx>0) {
                     const auto offset=static_cast<std::ptrdiff_t>(idx);
                     std::rotate(phaseBankCacheV5.begin(),phaseBankCacheV5.begin()+offset,phaseBankCacheV5.begin()+offset+1);
                 }
-                activeBankV5=phaseBankCacheV5.front().bank;
-                bankFound=true;
+                bankEntry=&phaseBankCacheV5.front();
                 break;
             }
         }
-        if(!bankFound) {
+        if(!bankEntry) {
             conic_moments_v4::Request request;request.width=p.width;request.height=p.height;
             request.pixelPitchRad=p.pixelPitchRad;request.psfSigmaRad=p.psfSigmaRad;request.cutoff=q[6];
             request.pointing={{forward.x,forward.y,forward.z}};request.up={{up.x,up.y,up.z}};
             const auto began=profile.enabled?LocalProfileV2::Clock::now():LocalProfileV2::Clock::time_point{};
-            activeBankV5=std::shared_ptr<conic_moments_v4::Bank>(conic_moments_v4::Bank::prepareSharedV5(request));
-            if(phaseBankCacheV5.size()>=maximumPhaseBanksV5)phaseBankCacheV5.pop_back();
-            phaseBankCacheV5.insert(phaseBankCacheV5.begin(),CachedPhaseBankV5{q[6],activeBankV5});
+            auto newBank=std::shared_ptr<conic_moments_v4::Bank>(conic_moments_v4::Bank::prepareSharedV5(request));
+            if(phaseBankCacheV5.size()>=activeMaxPhaseBanksV5())phaseBankCacheV5.pop_back();
+            phaseBankCacheV5.insert(phaseBankCacheV5.begin(),CachedPhaseBankV5{q[6],std::move(newBank),0ull,0ull});
+            bankEntry=&phaseBankCacheV5.front();
             if(profile.enabled) {
                 ++profile.conicBanks;
                 profile.conicSetupUs+=std::chrono::duration<double,std::micro>(LocalProfileV2::Clock::now()-began).count();
             }
         }
-        const conic_moments_v4::Bank* phaseBankPtr=activeBankV5.get();
-        // Pre-warm touched degree-3 bank columns concurrently across all phase
-        // workers so threads never serialize in lockstep on column 0..N-1.
-        unsigned warmColBegin=p.width,warmColEnd=0;
+        const conic_moments_v4::Bank* phaseBankPtr=bankEntry->bank.get();
+        // Pre-warm cold degree-3 bank columns concurrently across workers even
+        // when jobs.size() == 1 so a new cutoff never warms 64-128 columns serially.
+        unsigned warmColBegin=p.width,warmColEnd=0,coldCols=0;
         if(phaseBankPtr) {
             double minX=infinity,maxX=-infinity;
             for(const unsigned j:jobs) {
@@ -1190,34 +1719,31 @@ public:
                 }
             }
             if(minX<=maxX) {
-                const double rLeft=std::max(std::max(-1.55,-hx-margin),minX-.5*q[4]);
-                const double rRight=std::min(std::min(1.55,hx+margin),maxX+.5*q[4]);
+                const double rLeft=std::max(fLeft,minX-.5*q[4]);
+                const double rRight=std::min(fRight,maxX+.5*q[4]);
                 for(unsigned col=0;col<p.width;++col) {
                     const double px0=(col-.5*p.width)*p.pixelPitchRad,px1=px0+p.pixelPitchRad;
                     const double cLeft=std::max(rLeft,std::max(-1.55,px0-margin));
                     const double cRight=std::min(rRight,std::min(1.55,px1+margin));
-                    if(cRight>cLeft){if(col<warmColBegin)warmColBegin=col;warmColEnd=col+1;}
+                    if(cRight>cLeft) {
+                        if(col<warmColBegin)warmColBegin=col;
+                        warmColEnd=col+1;
+                        if(!bankEntry->columnWarmed(col))++coldCols;
+                    }
                 }
             }
         }
+        const unsigned workers=std::min(maxW,std::max<unsigned>(static_cast<unsigned>(jobs.size()),coldCols));
+        if(workers<2&&jobs.size()<2)return false;
         std::atomic<unsigned> nextWarmCol{warmColBegin};
+        const bool needWarm=phaseBankPtr&&coldCols>0&&warmColBegin<warmColEnd;
         const auto work=[&](unsigned worker) noexcept {
             try {
-                if(worker!=0) {
-                    if(std::fesetenv(&environment)!=0)return;
-#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
-                    _mm_setcsr(csr);
-#endif
-#if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
-                    __asm__ __volatile__("fldcw %0"::"m"(control));
-#endif
-                    if(!certifiedArithmeticV2())return;
-                }
-                if(phaseBankPtr&&warmColBegin<warmColEnd) {
+                if(needWarm) {
                     while(true) {
                         const unsigned col=nextWarmCol.fetch_add(1,std::memory_order_relaxed);
                         if(col>=warmColEnd)break;
-                        phaseBankPtr->ensureColumnV5(col);
+                        if(!bankEntry->columnWarmed(col))phaseBankPtr->ensureColumnV5(col);
                     }
                 }
                 auto& stats=statistics[worker];
@@ -1228,15 +1754,27 @@ public:
                     const unsigned j=jobs[index];double value=0;
                     for(unsigned k=0;k<p.exposureSamples;++k) {
                         const auto ti=static_cast<std::size_t>(j)*p.exposureSamples+k;
-                        const auto levels=levelBounds(source.x[ti],source.y[ti],q[4],q[5]);
+                        if(source.levelMin[ti]>=q[6]) {
+                            value+=groundSubPtr[ti];
+                            continue;
+                        }
+                        if(subSourcePtr&&source.levelMax[ti]<q[6]&&
+                           source.x[ti]-.5*q[4]>=fLeft&&source.x[ti]+.5*q[4]<=fRight&&
+                           source.y[ti]-.5*q[5]>=fBottom&&source.y[ti]+.5*q[5]<=fTop) {
+                            value+=groundSubPtr[ti]-areaScale*subSourcePtr[ti];
+                            continue;
+                        }
                         const double* occultedPtr=nullptr;
                         std::optional<std::vector<double>> fallbackOcculted;
-                        if(levels[0]<q[6]) {
+                        {
                             ++stats.regions;++stats.requests;
                             const std::array<double,4> region{{source.x[ti]-.5*q[4],source.x[ti]+.5*q[4],source.y[ti]-.5*q[5],source.y[ti]+.5*q[5]}};
                             if(phaseBankPtr&&eligible(region)) {
                                 const auto began=profile.enabled?LocalProfileV2::Clock::now():LocalProfileV2::Clock::time_point{};
-                                const bool ok=phaseBankPtr->evaluateFastIntoV5(region,workspace);
+                                const bool hasPre=ti<source.precomputedRegions.size()&&source.precomputedRegions[ti].valid;
+                                const bool ok=hasPre
+                                    ?phaseBankPtr->evaluateFastPreparedIntoV5(source.precomputedRegions[ti],workspace)
+                                    :phaseBankPtr->evaluateFastIntoV5(region,workspace);
                                 if(profile.enabled)stats.renderUs+=std::chrono::duration<double,std::micro>(LocalProfileV2::Clock::now()-began).count();
                                 if(ok&&workspace.field.size()==pixels) {
                                     ++stats.fields;stats.maximumError=std::max(stats.maximumError,workspace.maxError);
@@ -1254,37 +1792,21 @@ public:
                         }
                         // Identical chronological subexposure and row-major
                         // accumulation inside this phase. Skipping exact-zero
-                        // mask weights and multiplying by exact binary powers
-                        // of two preserves FE_TONEAREST bits.
+                        // field/mask products and multiplying by exact binary
+                        // powers of two preserves FE_TONEAREST bits.
                         const double* fullPtr=full.data();
                         if(sparseMaskReadyV5&&powerOfTwoExposureV5) {
                             const std::size_t beginIdx=sparseOffsetV5[ti],endIdx=sparseOffsetV5[ti+1];
-                            const std::uint16_t* pixPtr=sparsePixelV5.data();
-                            const double* solPtr=sparseSolidV5.data();
-                            const double* wgtPtr=sparseWeightV5.data();
-                            if(occultedPtr) {
-                                for(std::size_t idx=beginIdx;idx<endIdx;++idx) {
-                                    const auto pix=pixPtr[idx];
-                                    const double field=fullPtr[pix]-occultedPtr[pix];
-                                    value+=field*solPtr[idx]*wgtPtr[idx]/pixelArea*invExposureV5;
-                                }
-                            } else {
-                                for(std::size_t idx=beginIdx;idx<endIdx;++idx) {
-                                    value+=fullPtr[pixPtr[idx]]*solPtr[idx]*wgtPtr[idx]/pixelArea*invExposureV5;
-                                }
-                            }
+                            accumulateSparseDiffV5(value,fullPtr,occultedPtr,
+                                sparsePixelV5.data(),sparseSolidV5.data(),sparseWeightV5.data(),
+                                beginIdx,endIdx,pixelArea,invExposureV5);
                         } else {
                             const double* weightsPtr=optics.timeWeights.data()+ti*pixels;
                             const double* solidPtr=optics.solidAngles.data();
-                            if(occultedPtr) {
-                                for(std::size_t i=0;i<pixels;++i) {
-                                    const double field=fullPtr[i]-occultedPtr[i];
-                                    value+=field*solidPtr[i]*weightsPtr[i]/pixelArea/p.exposureSamples;
-                                }
-                            } else {
-                                for(std::size_t i=0;i<pixels;++i) {
-                                    value+=fullPtr[i]*solidPtr[i]*weightsPtr[i]/pixelArea/p.exposureSamples;
-                                }
+                            for(std::size_t i=0;i<pixels;++i) {
+                                const double field=fullPtr[i]-occultedPtr[i];
+                                if(field==0.0)continue;
+                                value+=field*solidPtr[i]*weightsPtr[i]/pixelArea/p.exposureSamples;
                             }
                         }
                     }
@@ -1294,6 +1816,7 @@ public:
         };
         LocalTimerV2 timer(&profile,LocalProfileV2::Regional);
         phasePoolV5.run(workers,work);
+        if(needWarm)bankEntry->markWarmedRange(warmColBegin,warmColEnd);
         for(const auto& error:errors)if(error)std::rethrow_exception(error);
         std::size_t activeWorkers=0;
         for(const auto& stats:statistics) {
@@ -1347,13 +1870,13 @@ public:
         // A partial-cost refusal must not hide a native failure at an
         // unrendered phase. Validate every required region before pruning.
         for(std::size_t ti=0;ti<source->x.size();++ti) {
-            if(levelBounds(source->x[ti],source->y[ti],q[4],q[5])[0]>=q[6])continue;
+            if(source->levelMin[ti]>=q[6])continue;
             const std::array<double,4> region{{source->x[ti]-.5*q[4],source->x[ti]+.5*q[4],source->y[ti]-.5*q[5],source->y[ti]+.5*q[5]}};
             if(!std::all_of(region.begin(),region.end(),[](double value){return std::isfinite(value)&&std::abs(value)<=1.55;})||
                 !(region[1]>region[0])||!(region[3]>region[2]))return false;
         }
         prepareSubsetMaps();if(subsetMaps.empty())return false;
-        auto sourceProjected=source->rawSource;project(sourceProjected,optics.nuisance);
+        const auto& sourceProjected=source->projectedSource;
         const auto* full=groundField(q[6]);if(!full)return false;
         const double beta=1-alpha,tiny=std::numeric_limits<double>::denorm_min();
         const double lop=upperPositive(std::sqrt(1+static_cast<long double>(beta)*beta));
@@ -1402,6 +1925,32 @@ public:
             std::abs(q[0])<=halfX&&std::abs(q[2])<=halfX&&std::abs(q[1])<=halfY&&std::abs(q[3])<=halfY&&
             q[4]>=0&&q[4]<=2*halfX&&q[5]>=0&&q[5]<=2*halfY&&q[6]>=low&&q[6]<=high;
     }
+    struct BasisView {
+        const std::vector<double>* raw0=nullptr;
+        const std::vector<double>* raw1=nullptr;
+        const std::vector<double>* proj0=nullptr;
+        const std::vector<double>* proj1=nullptr;
+        bool sourceRelativeGround=false;
+    };
+    bool basisView(const Shape& q,unsigned branch,BasisView& out) {
+        if(lastBasis&&lastShape&&exactCoordinates(*lastShape,q)&&lastBranch==branch) {
+            out={&lastBasis->raw[0],&lastBasis->raw[1],&lastBasis->projected[0],&lastBasis->projected[1],lastBasis->sourceRelativeGround};
+            return true;
+        }
+        if(!valid(q))return false;
+        const auto* ground=calibration(q[6]);if(!ground)return false;
+        auto* source=prepare(q,branch);if(!source)return false;
+        if(!source->path.stationary&&(q[4]==0||q[5]==0||source->minimumLevel>=q[6]||source->maximumLevel<q[6])) {
+            ++diagnostic.basisEvaluations;
+            if(profile.enabled)++profile.calls[LocalProfileV2::BasisWork];
+            out={&ground->raw,&source->rawSource,&ground->wave,&source->projectedSource,
+                q[4]>0&&q[5]>0&&source->maximumLevel<q[6]};
+            return true;
+        }
+        if(!basis(q,branch))return false;
+        out={&lastBasis->raw[0],&lastBasis->raw[1],&lastBasis->projected[0],&lastBasis->projected[1],lastBasis->sourceRelativeGround};
+        return true;
+    }
     std::optional<Basis> basis(const Shape& q,unsigned branch) {
         LocalTimerV2 timer(&profile,LocalProfileV2::BasisWork);
         if(profile.enabled&&profile.calls[LocalProfileV2::BasisWork]%256==0) {
@@ -1417,19 +1966,20 @@ public:
         const auto* ground=calibration(q[6]);if(!ground)return std::nullopt;
         auto* source=prepare(q,branch);if(!source)return std::nullopt;
         ++diagnostic.basisEvaluations;Basis answer;answer.raw[1]=source->rawSource;
+        bool usedGroundRaw=false;
         if(source->path.stationary) {
             if(q[4]>0&&q[5]>0) {
                 const std::array<double,4> region{{q[0]-.5*q[4],q[0]+.5*q[4],q[1]-.5*q[5],q[1]+.5*q[5]}};
                 const auto occulted=ThermalReticleReceiverV1::unitGroundFieldMemoV2(p,forward,up,q[6],region,[&](){return originalGround(q[6]);});if(!occulted)return std::nullopt;
                 const auto* full=groundField(q[6]);if(!full)return std::nullopt;
                 auto field=*full;for(std::size_t i=0;i<pixels;++i)field[i]-=(*occulted)[i];answer.raw[0]=wave(field);
-            } else answer.raw[0]=ground->raw;
-        } else if(q[4]==0||q[5]==0||source->minimumLevel>=q[6])answer.raw[0]=ground->raw;
+            } else {answer.raw[0]=ground->raw;usedGroundRaw=true;}
+        } else if(q[4]==0||q[5]==0||source->minimumLevel>=q[6]){answer.raw[0]=ground->raw;usedGroundRaw=true;}
         else if(source->maximumLevel<q[6]) {
             // Exact change of linear coordinates: a wholly ground-backed
             // radiator has contrast relative to ground. No subtraction of
             // separately rounded phase vectors or missing occulted geometry.
-            answer.raw[0]=ground->raw;answer.sourceRelativeGround=true;
+            answer.raw[0]=ground->raw;answer.sourceRelativeGround=true;usedGroundRaw=true;
         } else {
             const auto* full=groundField(q[6]);if(!full)return std::nullopt;
             answer.raw[0].assign(count,0);
@@ -1441,19 +1991,24 @@ public:
                 }
             answer.raw[0]=filter(std::move(answer.raw[0]),alpha);
         }
-        answer.projected=answer.raw;for(auto& column:answer.projected)project(column,optics.nuisance);
+        if(usedGroundRaw)answer.projected[0]=ground->wave;
+        else {answer.projected[0]=answer.raw[0];project(answer.projected[0],optics.nuisance);}
+        answer.projected[1]=source->projectedSource;
         lastShape=q;lastBranch=branch;lastBasis=answer;return answer;
     }
+    double effectiveSource(const Shape& q,bool sourceRelativeGround,const Fit& fit) const {
+        return fit.source-(sourceRelativeGround?q[4]*q[5]/pixelArea*fit.background:0.);
+    }
     double effectiveSource(const Shape& q,const Basis& values,const Fit& fit) const {
-        return fit.source-(values.sourceRelativeGround?q[4]*q[5]/pixelArea*fit.background:0.);
+        return effectiveSource(q,values.sourceRelativeGround,fit);
     }
     std::optional<Fit> solve(const Shape& q,unsigned branch,std::vector<double>* reduced=nullptr) {
-        const auto values=basis(q,branch);if(!values)return std::nullopt;
-        const auto& u=values->projected[0];const auto& v=values->projected[1];
+        BasisView view;if(!basisView(q,branch,view))return std::nullopt;
+        const auto& u=*view.proj0;const auto& v=*view.proj1;
         const double uu2=inner(u,u),uv=inner(u,v),vv=inner(v,v),determinant=uu2*vv-uv*uv;
         if(!(uu2>0)||!(vv>0)||!(determinant>128*epsilon*uu2*vv))return std::nullopt;
         const double yu=inner(data,u),yv=inner(data,v),b=(yu*vv-yv*uv)/determinant,d=(yv*uu2-yu*uv)/determinant;
-        Fit fit;fit.cost=0;fit.background=b;fit.source=d+(values->sourceRelativeGround?q[4]*q[5]/pixelArea*b:0.);
+        Fit fit;fit.cost=0;fit.background=b;fit.source=d+(view.sourceRelativeGround?q[4]*q[5]/pixelArea*b:0.);
         if(reduced)reduced->resize(count);
         for(unsigned j=0;j<count;++j) {
             const double r=data[j]-b*u[j]-d*v[j];fit.cost+=r*r;
@@ -1463,11 +2018,22 @@ public:
         return fit;
     }
     bool physical(const Shape& q,unsigned branch,const Fit& fit,std::array<double,3>* output=nullptr) {
-        const auto values=basis(q,branch);if(!values)return false;
-        auto remaining=measured.measuredElectrons;const double d=effectiveSource(q,*values,fit);
-        for(unsigned j=0;j<count;++j)remaining[j]-=fit.background*values->raw[0][j]+d*values->raw[1][j]+dark[j];
+        BasisView view;if(!basisView(q,branch,view))return false;
+        const double d=effectiveSource(q,view.sourceRelativeGround,fit);
         if(!(uu>0)||!(tt>=0)||(tt>0&&!(det>128*epsilon*uu*tt)))return false;
-        const double sky=tt>0?(inner(remaining,uniform)*tt-inner(remaining,transient)*ut)/det:inner(remaining,uniform)/uu;
+        const double* measPtr=measured.measuredElectrons.data();
+        const double* r0Ptr=view.raw0->data();
+        const double* r1Ptr=view.raw1->data();
+        const double* darkPtr=dark.data();
+        const double* unifPtr=uniform.data();
+        const double* tranPtr=transient.data();
+        double dotUnif=0.0,dotTran=0.0;
+        for(unsigned j=0;j<count;++j) {
+            const double rem=measPtr[j]-(fit.background*r0Ptr[j]+d*r1Ptr[j]+darkPtr[j]);
+            dotUnif+=rem*unifPtr[j];
+            if(tt>0)dotTran+=rem*tranPtr[j];
+        }
+        const double sky=tt>0?(dotUnif*tt-dotTran*ut)/det:dotUnif/uu;
         const double area=q[4]*q[5]/pixelArea;
         const std::array<double,3> budget{{sky,sky+fit.background,area>0?sky+fit.source/area:fit.source}};
         if(output)*output=budget;
@@ -1525,6 +2091,272 @@ public:
         const auto exact=exactCoordinates(canonical,q)?std::optional<Fit>(fit):solve(canonical,branch);
         if(exact&&exact->cost<selected.fit.cost&&physical(canonical,branch,*exact))selected={canonical,branch,*exact};
     }
+    std::shared_ptr<conic_moments_v4::Bank> getOrCreatePhaseBankV5(double cutoff) {
+        for(std::size_t idx=0;idx<phaseBankCacheV5.size();++idx) {
+            if(exactScalar(phaseBankCacheV5[idx].cutoff,cutoff)) {
+                if(idx>0) {
+                    const auto offset=static_cast<std::ptrdiff_t>(idx);
+                    std::rotate(phaseBankCacheV5.begin(),phaseBankCacheV5.begin()+offset,phaseBankCacheV5.begin()+offset+1);
+                }
+                return phaseBankCacheV5.front().bank;
+            }
+        }
+        conic_moments_v4::Request request;request.width=p.width;request.height=p.height;
+        request.pixelPitchRad=p.pixelPitchRad;request.psfSigmaRad=p.psfSigmaRad;request.cutoff=cutoff;
+        request.pointing={{forward.x,forward.y,forward.z}};request.up={{up.x,up.y,up.z}};
+        const auto began=profile.enabled?LocalProfileV2::Clock::now():LocalProfileV2::Clock::time_point{};
+        auto newBank=std::shared_ptr<conic_moments_v4::Bank>(conic_moments_v4::Bank::prepareSharedV5(request));
+        if(phaseBankCacheV5.size()>=activeMaxPhaseBanksV5())phaseBankCacheV5.pop_back();
+        phaseBankCacheV5.insert(phaseBankCacheV5.begin(),CachedPhaseBankV5{cutoff,newBank,0ull,0ull});
+        if(profile.enabled) {
+            ++profile.conicBanks;
+            profile.conicSetupUs+=std::chrono::duration<double,std::micro>(LocalProfileV2::Clock::now()-began).count();
+        }
+        return newBank;
+    }
+
+    struct JacSlotStatsV5 {
+        std::size_t regions=0,requests=0,fields=0,fallbacks=0,accelerated=0,native=0;
+        double maximumError=0,renderUs=0,prepareUs=0;
+    };
+
+    bool evaluateJacobianSlotV5(const Shape& q,unsigned branch,const Trajectory* baseTraj,bool reuseFullTraj,
+        const Ground& ground,const std::vector<double>* fullPtrVec,const std::vector<double>* groundSubVec,
+        const conic_moments_v4::Bank* bankPtr,conic_moments_v4::FieldWorkspaceV5& workspace,
+        JacWorkerScratchV5& scratch,std::vector<double>& outReduced,bool& outRefused,bool& outNeedFallback,JacSlotStatsV5& stats) const {
+        const double sigma=p.psfSigmaRad;
+        const double margin=9*sigma,hx=.5*p.width*p.pixelPitchRad,hy=.5*p.height*p.pixelPitchRad;
+        const double fLeft=std::max(-1.55,-hx-margin),fRight=std::min(1.55,hx+margin);
+        const double fBottom=std::max(-1.55,-hy-margin),fTop=std::min(1.55,hy+margin);
+        const std::size_t samples=static_cast<std::size_t>(count)*p.exposureSamples;
+        const Trajectory* traj=reuseFullTraj?baseTraj:nullptr;
+        if(!traj) {
+            const auto tPrep0=profile.enabled?LocalProfileV2::Clock::now():LocalProfileV2::Clock::time_point{};
+            auto& localTraj=scratch.traj;
+            const bool sameRay=baseTraj&&
+                exactScalar(q[0],baseTraj->shape[0])&&exactScalar(q[1],baseTraj->shape[1])&&
+                exactScalar(q[2],baseTraj->shape[2])&&exactScalar(q[3],baseTraj->shape[3]);
+            if(sameRay) {
+                if(baseTraj->path.stationary){outNeedFallback=true;return false;}
+                localTraj.path=baseTraj->path;
+            } else {
+                const auto ray=path(q,branch);if(!ray)return false;
+                if(ray->stationary){outNeedFallback=true;return false;}
+                localTraj.path=*ray;
+            }
+            localTraj.minimumLevel=infinity;localTraj.maximumLevel=-infinity;
+            localTraj.x.resize(samples);localTraj.y.resize(samples);
+            localTraj.levelMin.resize(samples);localTraj.levelMax.resize(samples);
+            localTraj.subexposureSource.assign(samples,0.0);
+            localTraj.rawSource.assign(count,0.0);
+            const bool useFastSum=sourceWaveOpticsV5&&sourceWaveOpticsV5->eligibleOptics();
+            const auto gaussianPrimBitExact=[](double z) noexcept -> double {
+                if(z>=9.5)return z;
+                if(z<=-38.5)return 0.0;
+                return z*.5*std::erfc(-z/std::sqrt(2.))+std::exp(-.5*z*z)/std::sqrt(2.*3.14159265358979323846);
+            };
+            const auto fillAxisProb=[&](double* prob,int i0,int i1,unsigned dim,double centre,double extent,double rMin,double rMax) {
+                if(i0>i1)return;
+                if(extent==0.0) {
+                    const double invSqrt2Sigma=1.0/(std::sqrt(2.)*sigma);
+                    bool hasPrev=false;double prevHi=0.0,prevErfc=0.0;
+                    for(int idx=i0;idx<=i1;++idx) {
+                        const unsigned u=static_cast<unsigned>(idx);
+                        const double lo=(u-.5*dim)*p.pixelPitchRad,hi=lo+p.pixelPitchRad;
+                        if(lo>rMax||hi<rMin){hasPrev=false;continue;}
+                        const double eLo=(hasPrev&&lo==prevHi)?prevErfc:std::erfc((centre-lo)*invSqrt2Sigma);
+                        const double eHi=std::erfc((centre-hi)*invSqrt2Sigma);
+                        hasPrev=true;prevHi=hi;prevErfc=eHi;
+                        prob[u]=.5*(eHi-eLo);
+                    }
+                } else {
+                    const double a=centre-.5*extent,b=centre+.5*extent;
+                    const auto integratedCdf=[&](double edge) noexcept -> double {
+                        const double za=(edge-a)/sigma,zb=(edge-b)/sigma;
+                        if(za>=9.5&&zb<=-9.5)return sigma*za;
+                        return sigma*(gaussianPrimBitExact(za)-gaussianPrimBitExact(zb));
+                    };
+                    bool hasPrev=false;double prevHi=0.0,prevInt=0.0;
+                    for(int idx=i0;idx<=i1;++idx) {
+                        const unsigned u=static_cast<unsigned>(idx);
+                        const double lo=(u-.5*dim)*p.pixelPitchRad,hi=lo+p.pixelPitchRad;
+                        if(lo>rMax||hi<rMin){hasPrev=false;continue;}
+                        const double intLo=(hasPrev&&lo==prevHi)?prevInt:integratedCdf(lo);
+                        const double intHi=integratedCdf(hi);
+                        hasPrev=true;prevHi=hi;prevInt=intHi;
+                        prob[u]=std::clamp(intHi-intLo,0.,std::min(b-a,hi-lo))/extent;
+                    }
+                }
+            };
+            std::array<double,128> xProbArr{},yProbArr{};
+            std::vector<double> xProbVec,yProbVec;
+            double* xProb=xProbArr.data();double* yProb=yProbArr.data();
+            if(p.width>128u||p.height>128u){xProbVec.assign(p.width,0.0);yProbVec.assign(p.height,0.0);xProb=xProbVec.data();yProb=yProbVec.data();}
+            for(unsigned j=0;j<count;++j) {
+                double rawAcc=0.0;
+                for(unsigned k=0;k<p.exposureSamples;++k) {
+                    const auto ti=static_cast<std::size_t>(j)*p.exposureSamples+k;
+                    double x=0.0,y=0.0;
+                    if(sameRay) {
+                        x=baseTraj->x[ti];y=baseTraj->y[ti];
+                    } else {
+                        const double time=measured.exposureStartTimeS+(j+.5)/(c.frequencyHz*count)+
+                            p.integrationTimeS*((k+.5)/p.exposureSamples-.5)+.5*p.integrationTimeS/p.exposureSamples;
+                        const auto direction=photonAtState(localTraj.path,time-measured.timeS);if(!(direction.x>0))return false;
+                        x=std::atan2(direction.y,direction.x);y=std::atan2(direction.z,direction.x);
+                    }
+                    localTraj.x[ti]=x;localTraj.y[ti]=y;
+                    const auto levels=levelBounds(x,y,q[4],q[5]);
+                    localTraj.levelMin[ti]=levels[0];localTraj.levelMax[ti]=levels[1];
+                    localTraj.minimumLevel=std::min(localTraj.minimumLevel,levels[0]);
+                    localTraj.maximumLevel=std::max(localTraj.maximumLevel,levels[1]);
+                    const double xMin=x-.5*q[4]-9*sigma,xMax=x+.5*q[4]+9*sigma;
+                    const int col0=std::max(0,static_cast<int>(std::floor(xMin/p.pixelPitchRad+.5*p.width))-1);
+                    const int col1=std::min(static_cast<int>(p.width)-1,static_cast<int>(std::ceil(xMax/p.pixelPitchRad+.5*p.width)));
+                    fillAxisProb(xProb,col0,col1,p.width,x,q[4],xMin,xMax);
+                    const double yMin=y-.5*q[5]-9*sigma,yMax=y+.5*q[5]+9*sigma;
+                    const int row0=std::max(0,static_cast<int>(std::floor(yMin/p.pixelPitchRad+.5*p.height))-1);
+                    const int row1=std::min(static_cast<int>(p.height)-1,static_cast<int>(std::ceil(yMax/p.pixelPitchRad+.5*p.height)));
+                    fillAxisProb(yProb,row0,row1,p.height,y,q[5],yMin,yMax);
+                    double subVal=0.0;
+                    const bool sparseV5=col0<=col1&&row0<=row1&&sourceWaveOpticsV5&&
+                        sourceWaveOpticsV5->addSampleRange(
+                            rawAcc,xProb,yProb,
+                            static_cast<unsigned>(col0),static_cast<unsigned>(col1+1),
+                            static_cast<unsigned>(row0),static_cast<unsigned>(row1+1),
+                            ti,&subVal,useFastSum);
+                    if(!sparseV5) {
+                        for(int rowI=row0;rowI<=row1;++rowI) {
+                            const unsigned row=static_cast<unsigned>(rowI);
+                            const double yv=yProb[row];
+                            if(yv==0.0)continue;
+                            for(int colI=col0;colI<=col1;++colI) {
+                                const unsigned col=static_cast<unsigned>(colI);
+                                const double xv=xProb[col];
+                                if(xv==0.0)continue;
+                                const auto index=static_cast<std::size_t>(row)*p.width+col;
+                                const double tw=optics.timeWeights[ti*pixels+index];
+                                if(tw==0.0)continue;
+                                const double value=yv*xv*optics.solidAngles[index]/pixelArea;
+                                const double term=value*tw/p.exposureSamples;
+                                rawAcc+=term;subVal+=term;
+                            }
+                        }
+                    }
+                    localTraj.subexposureSource[ti]=subVal;
+                    for(int colI=col0;colI<=col1;++colI)xProb[static_cast<unsigned>(colI)]=0.0;
+                    for(int rowI=row0;rowI<=row1;++rowI)yProb[static_cast<unsigned>(rowI)]=0.0;
+                }
+                localTraj.rawSource[j]=rawAcc;
+            }
+            {
+                double previous=0.0;
+                for(auto& val:localTraj.rawSource){previous+=alpha*(val-previous);val=previous;}
+            }
+            if(profile.enabled)stats.prepareUs+=std::chrono::duration<double,std::micro>(LocalProfileV2::Clock::now()-tPrep0).count();
+            traj=&localTraj;
+        }
+        auto& u=scratch.u;
+        bool sourceRelativeGround=false;
+        if(q[4]==0||q[5]==0||traj->minimumLevel>=q[6]) {
+            u=ground.raw;
+        } else if(traj->maximumLevel<q[6]) {
+            u=ground.raw;
+            sourceRelativeGround=true;
+        } else {
+            if(!bankPtr||!fullPtrVec||!groundSubVec){outNeedFallback=true;return false;}
+            const auto& full=*fullPtrVec;
+            const auto& groundSub=*groundSubVec;
+            const auto nativeForward=unit(forward),nativeUp=unit(up);
+            auto nativeRight=unit(cross(nativeForward,nativeUp));
+            if(norm(nativeRight)<.5)nativeRight=unit(cross(nativeForward,std::abs(nativeForward.z)<.9?V{0,0,1}:V{0,1,0}));
+            const auto nativeVertical=unit(cross(nativeRight,nativeForward));
+            const double aa=dot(nativeForward,nativeUp),bb=dot(nativeRight,nativeUp),cc=dot(nativeVertical,nativeUp);
+            const auto eligible=[&](const std::array<double,4>& region) {
+                const double left=std::max(fLeft,region[0]),rightEdge=std::min(fRight,region[1]);
+                const double bottom=std::max(fBottom,region[2]),top=std::min(fTop,region[3]);
+                if(!(rightEdge>left)||!(top>bottom))return true;
+                const double maxTx=std::max(std::abs(std::tan(left)),std::abs(std::tan(rightEdge)));
+                const double maxTy=std::max(std::abs(std::tan(bottom)),std::abs(std::tan(top)));
+                const double maxN=std::nextafter(std::abs(aa)+std::nextafter(std::abs(bb)*maxTx,infinity),infinity);
+                return std::nextafter(cc,-infinity)>std::nextafter(maxN*maxTy,infinity);
+            };
+            const double areaScale=(q[4]*q[5])/pixelArea;
+            const double* groundSubPtr=groundSub.data();
+            const double* subSourcePtr=traj->subexposureSource.size()==samples?traj->subexposureSource.data():nullptr;
+            const double* fullPtr=full.data();
+            u.assign(count,0.0);
+            for(unsigned j=0;j<count;++j) {
+                double value=0.0;
+                for(unsigned k=0;k<p.exposureSamples;++k) {
+                    const auto ti=static_cast<std::size_t>(j)*p.exposureSamples+k;
+                    if(traj->levelMin[ti]>=q[6]){value+=groundSubPtr[ti];continue;}
+                    if(subSourcePtr&&traj->levelMax[ti]<q[6]&&
+                       traj->x[ti]-.5*q[4]>=fLeft&&traj->x[ti]+.5*q[4]<=fRight&&
+                       traj->y[ti]-.5*q[5]>=fBottom&&traj->y[ti]+.5*q[5]<=fTop) {
+                        value+=groundSubPtr[ti]-areaScale*subSourcePtr[ti];
+                        continue;
+                    }
+                    ++stats.regions;++stats.requests;
+                    const double* occultedPtr=nullptr;
+                    std::optional<std::vector<double>> fallbackOcculted;
+                    const std::array<double,4> region{{traj->x[ti]-.5*q[4],traj->x[ti]+.5*q[4],traj->y[ti]-.5*q[5],traj->y[ti]+.5*q[5]}};
+                    if(eligible(region)) {
+                        const auto began=profile.enabled?LocalProfileV2::Clock::now():LocalProfileV2::Clock::time_point{};
+                        const bool ok=bankPtr->evaluateFastIntoV5(region,workspace);
+                        if(profile.enabled)stats.renderUs+=std::chrono::duration<double,std::micro>(LocalProfileV2::Clock::now()-began).count();
+                        if(ok&&workspace.field.size()==pixels) {
+                            ++stats.fields;stats.maximumError=std::max(stats.maximumError,workspace.maxError);
+                            occultedPtr=workspace.field.data();
+                        }
+                    }
+                    if(!occultedPtr) {
+                        ++stats.fallbacks;
+                        bool accelerated=false;
+                        fallbackOcculted=ThermalReticleReceiverV1::unitGroundFieldMemoV2(p,forward,up,q[6],region,[&](){return &full;},&accelerated);
+                        if(accelerated)++stats.accelerated;else ++stats.native;
+                        if(fallbackOcculted)occultedPtr=fallbackOcculted->data();
+                    }
+                    if(!occultedPtr){outRefused=true;return false;}
+                    if(sparseMaskReadyV5&&powerOfTwoExposureV5) {
+                        const std::size_t beginIdx=sparseOffsetV5[ti],endIdx=sparseOffsetV5[ti+1];
+                        accumulateSparseDiffV5(value,fullPtr,occultedPtr,
+                            sparsePixelV5.data(),sparseSolidV5.data(),sparseWeightV5.data(),
+                            beginIdx,endIdx,pixelArea,invExposureV5);
+                    } else {
+                        const double* weightsPtr=optics.timeWeights.data()+ti*pixels;
+                        const double* solidPtr=optics.solidAngles.data();
+                        for(std::size_t i=0;i<pixels;++i) {
+                            const double field=fullPtr[i]-occultedPtr[i];
+                            if(field==0.0)continue;
+                            value+=field*solidPtr[i]*weightsPtr[i]/pixelArea/p.exposureSamples;
+                        }
+                    }
+                }
+                u[j]=value;
+            }
+            {
+                double previous=0.0;
+                for(auto& val:u){previous+=alpha*(val-previous);val=previous;}
+            }
+        }
+        auto& v=scratch.v;
+        v=traj->rawSource;
+        project(u,optics.nuisance);project(v,optics.nuisance);
+        const double uu2=inner(u,u),uv=inner(u,v),vv=inner(v,v),determinant=uu2*vv-uv*uv;
+        if(!(uu2>0)||!(vv>0)||!(determinant>128*epsilon*uu2*vv))return false;
+        const double yu=inner(data,u),yv=inner(data,v),b=(yu*vv-yv*uv)/determinant,d=(yv*uu2-yu*uv)/determinant;
+        const double sourceAmp=d+(sourceRelativeGround?q[4]*q[5]/pixelArea*b:0.);
+        double cost=0.0;
+        const double stdDev=std::sqrt(variance);
+        outReduced.resize(count);
+        for(unsigned j=0;j<count;++j) {
+            const double r=data[j]-b*u[j]-d*v[j];cost+=r*r;
+            outReduced[j]=r/stdDev;
+        }
+        return std::isfinite(cost)&&std::isfinite(b)&&std::isfinite(sourceAmp);
+    }
+
     void trust(Selected& selected,Shape initial,unsigned branch) {
         LocalTimerV2 timer(&profile,LocalProfileV2::Trust);profile.checkpoint("trust.begin",selected.fit.cost/variance);
         Shape current=squared(quantize(initial));std::vector<double> residual;
@@ -1536,14 +2368,208 @@ public:
         for(unsigned iteration=0;iteration<64;++iteration) {
             if(profile.enabled){++profile.iterations;if(iteration%8==0)profile.checkpoint("trust.progress",local->cost/variance);}
             std::array<std::vector<double>,7> jacobian;bool complete=true;
-            for(unsigned coordinate=0;coordinate<7;++coordinate) {
-                const double step=coordinate<4?p.pixelPitchRad/1024:coordinate<6?pixelArea/1024:cutStep/1024;
-                auto plus=current,minus=current;plus[coordinate]=std::min(upper[coordinate],current[coordinate]+step);
-                minus[coordinate]=std::max(lower[coordinate],current[coordinate]-step);
-                std::vector<double> a,b;
-                if(!(plus[coordinate]>minus[coordinate])||!solve(geometry(plus),branch,&a)||!solve(geometry(minus),branch,&b)) {complete=false;break;}
-                jacobian[coordinate].resize(count);
-                for(unsigned j=0;j<count;++j)jacobian[coordinate][j]=(a[j]-b[j])/(plus[coordinate]-minus[coordinate]);
+            bool ranParallelJac=false;
+            const unsigned jacMaxW=regionalOperator==RegionalOperator::ConicFastV5&&certifiedArithmeticV2()
+                ?ReticleNestedPoolGuardV1::maxWorkers(maximumPhaseWorkersV5):1u;
+            if(jacMaxW>=2u&&phasePoolV5.syncEnvironment()) {
+                std::array<Shape,14> slotShapes{};
+                std::array<double,7> coordSpan{};
+                bool canParallel=true;
+                for(unsigned coordinate=0;coordinate<7;++coordinate) {
+                    const double step=coordinate<4?p.pixelPitchRad/1024:coordinate<6?pixelArea/1024:cutStep/1024;
+                    auto plus=current,minus=current;
+                    plus[coordinate]=std::min(upper[coordinate],current[coordinate]+step);
+                    minus[coordinate]=std::max(lower[coordinate],current[coordinate]-step);
+                    coordSpan[coordinate]=plus[coordinate]-minus[coordinate];
+                    if(!(coordSpan[coordinate]>0)){canParallel=false;break;}
+                    const Shape gp=geometry(plus),gm=geometry(minus);
+                    if(!valid(gp)||!valid(gm)||(gp[0]==gp[2]&&gp[1]==gp[3])||(gm[0]==gm[2]&&gm[1]==gm[3])){canParallel=false;break;}
+                    if(coordinate<6&&(!path(gp,branch)||!path(gm,branch))){canParallel=false;break;}
+                    slotShapes[2*coordinate]=gp;
+                    slotShapes[2*coordinate+1]=gm;
+                }
+                if(canParallel) {
+                    const double cutCur=current[6],cutP6=slotShapes[12][6],cutM6=slotShapes[13][6];
+                    const Trajectory* curTraj=prepare(geometry(current),branch);
+                    const Ground* gCur=curTraj?calibration(cutCur):nullptr;
+                    const Ground* gP6=gCur?calibration(cutP6):nullptr;
+                    const Ground* gM6=gP6?calibration(cutM6):nullptr;
+                    if(!curTraj||!gCur||!gP6||!gM6) {
+                        complete=false;
+                        ranParallelJac=true;
+                    } else {
+                        const bool curNearHorizon=curTraj->minimumLevel<=cutCur+0.002&&curTraj->maximumLevel>=cutCur-0.002;
+                        const bool p6Crosses=curTraj->minimumLevel<cutP6&&curTraj->maximumLevel>=cutP6;
+                        const bool m6Crosses=curTraj->minimumLevel<cutM6&&curTraj->maximumLevel>=cutM6;
+                        bool fieldsOk=true;
+                        if(curNearHorizon)fieldsOk=fieldsOk&&(groundField(cutCur)!=nullptr);
+                        if(p6Crosses)fieldsOk=fieldsOk&&(groundField(cutP6)!=nullptr);
+                        if(m6Crosses)fieldsOk=fieldsOk&&(groundField(cutM6)!=nullptr);
+                        if(!fieldsOk) {
+                            complete=false;
+                            ranParallelJac=true;
+                        } else {
+                            const auto findFull=[&](double cut) -> const std::vector<double>* {
+                                for(const auto& e:groundFieldCache)if(exactScalar(e.cutoff,cut))return &e.field;
+                                return nullptr;
+                            };
+                            const std::vector<double>* fullCur=curNearHorizon?findFull(cutCur):nullptr;
+                            const std::vector<double>* fullP6=p6Crosses?findFull(cutP6):nullptr;
+                            const std::vector<double>* fullM6=m6Crosses?findFull(cutM6):nullptr;
+                            if(fullCur)(void)groundSubexposuresV5(cutCur,*fullCur);
+                            if(fullP6)(void)groundSubexposuresV5(cutP6,*fullP6);
+                            if(fullM6)(void)groundSubexposuresV5(cutM6,*fullM6);
+                            const auto findSub=[&](double cut) -> const std::vector<double>* {
+                                for(const auto& e:groundSubCacheV5)if(exactScalar(e.cutoff,cut))return &e.subexposure;
+                                return nullptr;
+                            };
+                            const std::vector<double>* subCur=fullCur?findSub(cutCur):nullptr;
+                            const std::vector<double>* subP6=fullP6?findSub(cutP6):nullptr;
+                            const std::vector<double>* subM6=fullM6?findSub(cutM6):nullptr;
+                            std::shared_ptr<conic_moments_v4::Bank> bCur=fullCur?getOrCreatePhaseBankV5(cutCur):nullptr;
+                            std::shared_ptr<conic_moments_v4::Bank> bP6=fullP6?getOrCreatePhaseBankV5(cutP6):nullptr;
+                            std::shared_ptr<conic_moments_v4::Bank> bM6=fullM6?getOrCreatePhaseBankV5(cutM6):nullptr;
+                            // Collect only the cold degree-3 columns touched by subexposures that
+                            // actually straddle each cutoff so we never warm unused sky/ground columns.
+                            struct WarmTask {const conic_moments_v4::Bank* bank;unsigned col;};
+                            std::vector<WarmTask> warmTasks;
+                            std::array<CachedPhaseBankV5*,3> warmEntries{};
+                            std::array<std::pair<unsigned,unsigned>,3> warmRanges{};
+                            unsigned warmEntryCount=0u;
+                            const auto collectWarm=[&](double cut,const std::shared_ptr<conic_moments_v4::Bank>& bk,double padX,double wBox) {
+                                if(!bk)return;
+                                double minX=infinity,maxX=-infinity;
+                                const double marginW=9*p.psfSigmaRad,hxW=.5*p.width*p.pixelPitchRad,hyW=.5*p.height*p.pixelPitchRad;
+                                const double fLW=std::max(-1.55,-hxW-marginW),fRW=std::min(1.55,hxW+marginW);
+                                const double fBW=std::max(-1.55,-hyW-marginW),fTW=std::min(1.55,hyW+marginW);
+                                const bool hasSub=!curTraj->subexposureSource.empty();
+                                for(std::size_t ti=0;ti<curTraj->x.size();++ti) {
+                                    if(curTraj->levelMin[ti]>=cut+padX)continue;
+                                    if(hasSub&&curTraj->levelMax[ti]<cut-padX&&
+                                       curTraj->x[ti]-.5*wBox>=fLW&&curTraj->x[ti]+.5*wBox<=fRW&&
+                                       curTraj->y[ti]-.5*curTraj->shape[5]>=fBW&&curTraj->y[ti]+.5*curTraj->shape[5]<=fTW)continue;
+                                    if(curTraj->x[ti]<minX)minX=curTraj->x[ti];
+                                    if(curTraj->x[ti]>maxX)maxX=curTraj->x[ti];
+                                }
+                                if(!(minX<=maxX))return;
+                                CachedPhaseBankV5* entry=nullptr;
+                                for(auto& item:phaseBankCacheV5)if(exactScalar(item.cutoff,cut)){entry=&item;break;}
+                                const double rLeft=std::max(fLW,minX-padX-.5*wBox),rRight=std::min(fRW,maxX+padX+.5*wBox);
+                                unsigned cBegin=p.width,cEnd=0;
+                                for(unsigned col=0;col<p.width;++col) {
+                                    const double px0=(col-.5*p.width)*p.pixelPitchRad,px1=px0+p.pixelPitchRad;
+                                    const double cL=std::max(rLeft,std::max(-1.55,px0-marginW));
+                                    const double cR=std::min(rRight,std::min(1.55,px1+marginW));
+                                    if(cR>cL) {
+                                        if(col<cBegin)cBegin=col;
+                                        cEnd=col+1;
+                                        if(!entry||!entry->columnWarmed(col))warmTasks.push_back({bk.get(),col});
+                                    }
+                                }
+                                if(entry&&cBegin<cEnd&&warmEntryCount<3u) {
+                                    warmEntries[warmEntryCount]=entry;
+                                    warmRanges[warmEntryCount]={cBegin,cEnd};
+                                    ++warmEntryCount;
+                                }
+                            };
+                            if(bCur)collectWarm(cutCur,bCur,2.0*p.pixelPitchRad/1024.0,curTraj->shape[4]+2.0*p.pixelPitchRad/1024.0);
+                            if(bP6)collectWarm(cutP6,bP6,0.0,curTraj->shape[4]);
+                            if(bM6)collectWarm(cutM6,bM6,0.0,curTraj->shape[4]);
+                            static constexpr std::array<unsigned,14> slotOrder{{12,13,0,1,2,3,4,5,6,7,8,9,10,11}};
+                            std::array<std::vector<double>,14> slotReduced{};
+                            std::array<bool,14> slotOk{};
+                            std::array<bool,14> slotRefused{};
+                            std::array<bool,14> slotFallback{};
+                            std::array<JacSlotStatsV5,14> slotStats{};
+                            std::array<std::exception_ptr,maximumPhaseWorkersV5> slotErrors{};
+                            std::atomic<std::size_t> nextWarm{0u};
+                            std::atomic<unsigned> nextSlot{0u};
+                            const unsigned jacWorkers=std::min(jacMaxW,14u);
+                            const auto runJac=[&](unsigned worker) noexcept {
+                                try {
+                                    while(true) {
+                                        const std::size_t wi=nextWarm.fetch_add(1u,std::memory_order_relaxed);
+                                        if(wi>=warmTasks.size())break;
+                                        warmTasks[wi].bank->ensureColumnV5(warmTasks[wi].col);
+                                    }
+                                    auto& ws=phaseWorkspacesV5[worker];
+                                    auto& scratch=jacScratchV5[worker];
+                                    while(true) {
+                                        const unsigned orderIdx=nextSlot.fetch_add(1u,std::memory_order_relaxed);
+                                        if(orderIdx>=14u)break;
+                                        const unsigned s=slotOrder[orderIdx];
+                                        const bool isP6=(s==12u),isM6=(s==13u);
+                                        const Ground& g=isP6?*gP6:(isM6?*gM6:*gCur);
+                                        const std::vector<double>* fl=isP6?fullP6:(isM6?fullM6:fullCur);
+                                        const std::vector<double>* gs=isP6?subP6:(isM6?subM6:subCur);
+                                        const conic_moments_v4::Bank* bk=isP6?bP6.get():(isM6?bM6.get():bCur.get());
+                                        slotOk[s]=evaluateJacobianSlotV5(slotShapes[s],branch,curTraj,isP6||isM6,g,fl,gs,bk,ws,scratch,
+                                            slotReduced[s],slotRefused[s],slotFallback[s],slotStats[s]);
+                                    }
+                                } catch(...) {
+                                    slotErrors[worker]=std::current_exception();
+                                }
+                            };
+                            const auto tJac0=profile.enabled?LocalProfileV2::Clock::now():LocalProfileV2::Clock::time_point{};
+                            phasePoolV5.run(jacWorkers,runJac);
+                            const double jacWallUs=profile.enabled?std::chrono::duration<double,std::micro>(LocalProfileV2::Clock::now()-tJac0).count():0.0;
+                            for(unsigned i=0;i<warmEntryCount;++i)warmEntries[i]->markWarmedRange(warmRanges[i].first,warmRanges[i].second);
+                            for(const auto& err:slotErrors)if(err)std::rethrow_exception(err);
+                            bool anyFallback=false,anyRefused=false,allOk=true;
+                            for(unsigned s=0;s<14u;++s) {
+                                if(slotFallback[s])anyFallback=true;
+                                if(slotRefused[s])anyRefused=true;
+                                if(!slotOk[s])allOk=false;
+                            }
+                            if(!anyFallback) {
+                                ranParallelJac=true;
+                                for(unsigned s=0;s<14u;++s) {
+                                    ++diagnostic.basisEvaluations;
+                                    diagnostic.regionalFields+=slotStats[s].regions;
+                                    if(profile.enabled) {
+                                        profile.conicRequests+=slotStats[s].requests;
+                                        profile.conicFields+=slotStats[s].fields;
+                                        profile.conicFallbacks+=slotStats[s].fallbacks;
+                                        profile.parallelFields+=slotStats[s].regions;
+                                        profile.conicRenderUs+=slotStats[s].renderUs;
+                                        profile.regionalAccelerated+=slotStats[s].accelerated;
+                                        profile.regionalNative+=slotStats[s].native;
+                                        profile.conicMaximumError=std::max(profile.conicMaximumError,slotStats[s].maximumError);
+                                    }
+                                }
+                                if(profile.enabled) {
+                                    profile.calls[LocalProfileV2::BasisWork]+=14u;
+                                    profile.micros[LocalProfileV2::BasisWork]+=jacWallUs;
+                                    profile.micros[LocalProfileV2::Regional]+=jacWallUs;
+                                    ++profile.parallelBatches;
+                                    profile.parallelWorkersPeak=std::max<std::size_t>(profile.parallelWorkersPeak,jacWorkers);
+                                }
+                                if(anyRefused){diagnostic.refusal=22;complete=false;}
+                                else if(!allOk){complete=false;}
+                                else {
+                                    for(unsigned coordinate=0;coordinate<7;++coordinate) {
+                                        jacobian[coordinate].resize(count);
+                                        const auto& a=slotReduced[2*coordinate];
+                                        const auto& b=slotReduced[2*coordinate+1];
+                                        const double span=coordSpan[coordinate];
+                                        for(unsigned j=0;j<count;++j)jacobian[coordinate][j]=(a[j]-b[j])/span;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if(!ranParallelJac) {
+                for(unsigned coordinate=0;coordinate<7;++coordinate) {
+                    const double step=coordinate<4?p.pixelPitchRad/1024:coordinate<6?pixelArea/1024:cutStep/1024;
+                    auto plus=current,minus=current;plus[coordinate]=std::min(upper[coordinate],current[coordinate]+step);
+                    minus[coordinate]=std::max(lower[coordinate],current[coordinate]-step);
+                    std::vector<double> a,b;
+                    if(!(plus[coordinate]>minus[coordinate])||!solve(geometry(plus),branch,&a)||!solve(geometry(minus),branch,&b)) {complete=false;break;}
+                    jacobian[coordinate].resize(count);
+                    for(unsigned j=0;j<count;++j)jacobian[coordinate][j]=(a[j]-b[j])/(plus[coordinate]-minus[coordinate]);
+                }
             }
             if(!complete)break;
             Shape lowerStep{},upperStep{};
@@ -1670,45 +2696,377 @@ public:
         return selected;
     }
     struct Information {double capture=0,first=0,last=0,readRate=0,firstState=0,lastState=0;};
+    bool evaluateInfoSlotV5(const Shape& shape,const Trajectory& traj,const Ground& ground,const Fit& fit,
+        const std::vector<double>* fullPtrVec,const std::vector<double>* groundSubVec,
+        const conic_moments_v4::Bank* bankPtr,conic_moments_v4::FieldWorkspaceV5& workspace,
+        JacWorkerScratchV5& scratch,std::vector<double>& outPred,bool& outRefused,bool& outNeedFallback,JacSlotStatsV5& stats) const {
+        if(traj.path.stationary){outNeedFallback=true;return false;}
+        const std::size_t samples=static_cast<std::size_t>(count)*p.exposureSamples;
+        const double sigma=p.psfSigmaRad;
+        const double margin=9*sigma,hx=.5*p.width*p.pixelPitchRad,hy=.5*p.height*p.pixelPitchRad;
+        const double fLeft=std::max(-1.55,-hx-margin),fRight=std::min(1.55,hx+margin);
+        const double fBottom=std::max(-1.55,-hy-margin),fTop=std::min(1.55,hy+margin);
+        const std::vector<double>* p0Vec=nullptr;
+        bool sourceRelativeGround=false;
+        if(shape[4]==0||shape[5]==0||traj.minimumLevel>=shape[6]) {
+            p0Vec=&ground.wave;
+        } else if(traj.maximumLevel<shape[6]) {
+            p0Vec=&ground.wave;
+            sourceRelativeGround=true;
+        } else {
+            if(!bankPtr||!fullPtrVec||!groundSubVec){outNeedFallback=true;return false;}
+            const auto& full=*fullPtrVec;
+            const auto& groundSub=*groundSubVec;
+            const auto nativeForward=unit(forward),nativeUp=unit(up);
+            auto nativeRight=unit(cross(nativeForward,nativeUp));
+            if(norm(nativeRight)<.5)nativeRight=unit(cross(nativeForward,std::abs(nativeForward.z)<.9?V{0,0,1}:V{0,1,0}));
+            const auto nativeVertical=unit(cross(nativeRight,nativeForward));
+            const double aa=dot(nativeForward,nativeUp),bb=dot(nativeRight,nativeUp),cc=dot(nativeVertical,nativeUp);
+            const auto eligible=[&](const std::array<double,4>& region) {
+                const double leftE=std::max(fLeft,region[0]),rightE=std::min(fRight,region[1]);
+                const double bottomE=std::max(fBottom,region[2]),topE=std::min(fTop,region[3]);
+                if(!(rightE>leftE)||!(topE>bottomE))return true;
+                const double maxTx=std::max(std::abs(std::tan(leftE)),std::abs(std::tan(rightE)));
+                const double maxTy=std::max(std::abs(std::tan(bottomE)),std::abs(std::tan(topE)));
+                const double maxN=std::nextafter(std::abs(aa)+std::nextafter(std::abs(bb)*maxTx,infinity),infinity);
+                return std::nextafter(cc,-infinity)>std::nextafter(maxN*maxTy,infinity);
+            };
+            const double areaScale=(shape[4]*shape[5])/pixelArea;
+            const double* groundSubPtr=groundSub.data();
+            const double* subSourcePtr=traj.subexposureSource.size()==samples?traj.subexposureSource.data():nullptr;
+            const double* fullPtr=full.data();
+            auto& u=scratch.u;
+            u.assign(count,0.0);
+            for(unsigned j=0;j<count;++j) {
+                double value=0.0;
+                for(unsigned k=0;k<p.exposureSamples;++k) {
+                    const auto ti=static_cast<std::size_t>(j)*p.exposureSamples+k;
+                    if(traj.levelMin[ti]>=shape[6]){value+=groundSubPtr[ti];continue;}
+                    if(subSourcePtr&&traj.levelMax[ti]<shape[6]&&
+                       traj.x[ti]-.5*shape[4]>=fLeft&&traj.x[ti]+.5*shape[4]<=fRight&&
+                       traj.y[ti]-.5*shape[5]>=fBottom&&traj.y[ti]+.5*shape[5]<=fTop) {
+                        value+=groundSubPtr[ti]-areaScale*subSourcePtr[ti];
+                        continue;
+                    }
+                    ++stats.regions;++stats.requests;
+                    const double* occultedPtr=nullptr;
+                    std::optional<std::vector<double>> fallbackOcculted;
+                    const std::array<double,4> region{{traj.x[ti]-.5*shape[4],traj.x[ti]+.5*shape[4],traj.y[ti]-.5*shape[5],traj.y[ti]+.5*shape[5]}};
+                    if(eligible(region)) {
+                        const auto began=profile.enabled?LocalProfileV2::Clock::now():LocalProfileV2::Clock::time_point{};
+                        const bool hasPre=ti<traj.precomputedRegions.size()&&traj.precomputedRegions[ti].valid;
+                        const bool ok=hasPre
+                            ?bankPtr->evaluateFastPreparedIntoV5(traj.precomputedRegions[ti],workspace)
+                            :bankPtr->evaluateFastIntoV5(region,workspace);
+                        if(profile.enabled)stats.renderUs+=std::chrono::duration<double,std::micro>(LocalProfileV2::Clock::now()-began).count();
+                        if(ok&&workspace.field.size()==pixels) {
+                            ++stats.fields;stats.maximumError=std::max(stats.maximumError,workspace.maxError);
+                            occultedPtr=workspace.field.data();
+                        }
+                    }
+                    if(!occultedPtr) {
+                        ++stats.fallbacks;
+                        bool accelerated=false;
+                        fallbackOcculted=ThermalReticleReceiverV1::unitGroundFieldMemoV2(p,forward,up,shape[6],region,[&](){return &full;},&accelerated);
+                        if(accelerated)++stats.accelerated;else ++stats.native;
+                        if(fallbackOcculted)occultedPtr=fallbackOcculted->data();
+                    }
+                    if(!occultedPtr){outRefused=true;return false;}
+                    if(sparseMaskReadyV5&&powerOfTwoExposureV5) {
+                        const std::size_t beginIdx=sparseOffsetV5[ti],endIdx=sparseOffsetV5[ti+1];
+                        accumulateSparseDiffV5(value,fullPtr,occultedPtr,
+                            sparsePixelV5.data(),sparseSolidV5.data(),sparseWeightV5.data(),
+                            beginIdx,endIdx,pixelArea,invExposureV5);
+                    } else {
+                        const double* weightsPtr=optics.timeWeights.data()+ti*pixels;
+                        const double* solidPtr=optics.solidAngles.data();
+                        for(std::size_t i=0;i<pixels;++i) {
+                            const double field=fullPtr[i]-occultedPtr[i];
+                            if(field==0.0)continue;
+                            value+=field*solidPtr[i]*weightsPtr[i]/pixelArea/p.exposureSamples;
+                        }
+                    }
+                }
+                u[j]=value;
+            }
+            {
+                double previous=0.0;
+                for(auto& val:u){previous+=alpha*(val-previous);val=previous;}
+            }
+            project(u,optics.nuisance);
+            p0Vec=&u;
+        }
+        const double d=effectiveSource(shape,sourceRelativeGround,fit);
+        outPred.resize(count);
+        const double* p0=p0Vec->data();
+        const double* p1=traj.projectedSource.data();
+        double* dst=outPred.data();
+        for(unsigned j=0;j<count;++j)dst[j]=fit.background*p0[j]+d*p1[j];
+        return true;
+    }
+
     std::optional<Information> information(const Shape& q,unsigned branch,const Fit& fit) {
         LocalTimerV2 timer(&profile,LocalProfileV2::Information);
-        const auto base=basis(q,branch);if(!base)return std::nullopt;
-        std::vector<std::vector<double>> amplitude;
-        for(auto column:base->projected) {
-            for(unsigned pass=0;pass<2;++pass)for(const auto& previous:amplitude) {
-                const double a=inner(column,previous);for(unsigned j=0;j<count;++j)column[j]-=a*previous[j];
+        BasisView baseView;if(!basisView(q,branch,baseView))return std::nullopt;
+        std::array<std::vector<double>,2> amplitude{{*baseView.proj0,*baseView.proj1}};
+        for(unsigned colIdx=0;colIdx<2;++colIdx) {
+            auto& column=amplitude[colIdx];
+            if(colIdx==1) {
+                for(unsigned pass=0;pass<2;++pass) {
+                    const double a=inner(column,amplitude[0]);
+                    for(unsigned j=0;j<count;++j)column[j]-=a*amplitude[0][j];
+                }
             }
             const double length=std::sqrt(inner(column,column));if(!(length>128*epsilon))return std::nullopt;
             for(auto& value:column)value/=length;
-            amplitude.push_back(std::move(column));
         }
         const Shape current=squared(q);
         std::array<std::vector<double>,7> jacobian;Shape norms{};
         std::array<std::array<V,7>,6> target{};
-        const auto prediction=[&](const Shape& shape)->std::optional<std::vector<double>> {
-            const auto values=basis(shape,branch);if(!values)return std::nullopt;
-            const double d=effectiveSource(shape,*values,fit);auto result=values->projected[0];
-            for(unsigned j=0;j<count;++j)result[j]=fit.background*result[j]+d*values->projected[1][j];
-            return result;
-        };
+        std::array<Shape,14> slotShapes{};
+        std::array<double,7> coordDivisor{};
         for(unsigned coordinate=0;coordinate<7;++coordinate) {
             const double step=coordinate<4?p.pixelPitchRad/1024:coordinate<6?pixelArea/1024:cutStep/1024;
             auto plus=current,minus=current;plus[coordinate]+=step;minus[coordinate]-=step;
             if(coordinate==4||coordinate==5)minus[coordinate]=std::max(0.,minus[coordinate]);
             if(coordinate==6){plus[6]=std::min(high,plus[6]);minus[6]=std::max(low,minus[6]);}
-            const auto gp=geometry(plus),gm=geometry(minus);
-            const auto a=prediction(gp),b=prediction(gm);if(!a||!b||!(plus[coordinate]>minus[coordinate]))return std::nullopt;
-            const double divisor=plus[coordinate]-minus[coordinate];jacobian[coordinate].resize(count);
-            for(unsigned j=0;j<count;++j)jacobian[coordinate][j]=((*a)[j]-(*b)[j])/divisor;
+            coordDivisor[coordinate]=plus[coordinate]-minus[coordinate];
+            slotShapes[2*coordinate]=geometry(plus);
+            slotShapes[2*coordinate+1]=geometry(minus);
+        }
+        bool ranParallelInfo=false;
+        std::array<std::vector<double>,14> slotPreds{};
+        std::array<const Trajectory*,14> slotTrajs{};
+        const unsigned infoMaxW=regionalOperator==RegionalOperator::ConicFastV5&&certifiedArithmeticV2()
+            ?ReticleNestedPoolGuardV1::maxWorkers(maximumPhaseWorkersV5):1u;
+        if(infoMaxW>=2u&&phasePoolV5.syncEnvironment()) {
+            bool allInputsOk=true;
+            for(unsigned coord=0;coord<7u;++coord) {
+                if(!(coordDivisor[coord]>0)||!valid(slotShapes[2*coord])||!valid(slotShapes[2*coord+1])) {
+                    allInputsOk=false;break;
+                }
+            }
+            if(allInputsOk) {
+                const double cutCur=q[6],cutP6=slotShapes[12][6],cutM6=slotShapes[13][6];
+                const Trajectory* baseTraj=prepare(q,branch);
+                const Ground* gCur=baseTraj?calibration(cutCur):nullptr;
+                const Ground* gP6=gCur?calibration(cutP6):nullptr;
+                const Ground* gM6=gP6?calibration(cutM6):nullptr;
+                if(baseTraj&&gCur&&gP6&&gM6) {
+                    bool trajsOk=true,anyRegional=false;
+                    for(unsigned s=0;s<12u;++s) {
+                        slotTrajs[s]=prepare(slotShapes[s],branch);
+                        if(!slotTrajs[s]||slotTrajs[s]->path.stationary){trajsOk=false;break;}
+                        if(slotShapes[s][4]>0&&slotShapes[s][5]>0&&
+                           slotTrajs[s]->minimumLevel<cutCur&&slotTrajs[s]->maximumLevel>=cutCur)anyRegional=true;
+                    }
+                    slotTrajs[12]=baseTraj;slotTrajs[13]=baseTraj;
+                    if(trajsOk&&baseTraj->path.stationary)trajsOk=false;
+                    const bool p6Crosses=trajsOk&&q[4]>0&&q[5]>0&&baseTraj->minimumLevel<cutP6&&baseTraj->maximumLevel>=cutP6;
+                    const bool m6Crosses=trajsOk&&q[4]>0&&q[5]>0&&baseTraj->minimumLevel<cutM6&&baseTraj->maximumLevel>=cutM6;
+                    if(p6Crosses||m6Crosses)anyRegional=true;
+                    if(trajsOk&&anyRegional) {
+                        const bool curCrosses=[&](){
+                            for(unsigned s=0;s<12u;++s)
+                                if(slotShapes[s][4]>0&&slotShapes[s][5]>0&&slotTrajs[s]->minimumLevel<cutCur&&slotTrajs[s]->maximumLevel>=cutCur)
+                                    return true;
+                            return false;
+                        }();
+                        bool fieldsOk=true;
+                        if(curCrosses)fieldsOk=fieldsOk&&(groundField(cutCur)!=nullptr);
+                        if(p6Crosses)fieldsOk=fieldsOk&&(groundField(cutP6)!=nullptr);
+                        if(m6Crosses)fieldsOk=fieldsOk&&(groundField(cutM6)!=nullptr);
+                        if(fieldsOk) {
+                            const auto findFull=[&](double cut) -> const std::vector<double>* {
+                                for(const auto& e:groundFieldCache)if(exactScalar(e.cutoff,cut))return &e.field;
+                                return nullptr;
+                            };
+                            const std::vector<double>* fullCur=curCrosses?findFull(cutCur):nullptr;
+                            const std::vector<double>* fullP6=p6Crosses?findFull(cutP6):nullptr;
+                            const std::vector<double>* fullM6=m6Crosses?findFull(cutM6):nullptr;
+                            if(fullCur)(void)groundSubexposuresV5(cutCur,*fullCur);
+                            if(fullP6)(void)groundSubexposuresV5(cutP6,*fullP6);
+                            if(fullM6)(void)groundSubexposuresV5(cutM6,*fullM6);
+                            const auto findSub=[&](double cut) -> const std::vector<double>* {
+                                for(const auto& e:groundSubCacheV5)if(exactScalar(e.cutoff,cut))return &e.subexposure;
+                                return nullptr;
+                            };
+                            const std::vector<double>* subCur=fullCur?findSub(cutCur):nullptr;
+                            const std::vector<double>* subP6=fullP6?findSub(cutP6):nullptr;
+                            const std::vector<double>* subM6=fullM6?findSub(cutM6):nullptr;
+                            std::shared_ptr<conic_moments_v4::Bank> bCur=fullCur?getOrCreatePhaseBankV5(cutCur):nullptr;
+                            std::shared_ptr<conic_moments_v4::Bank> bP6=fullP6?getOrCreatePhaseBankV5(cutP6):nullptr;
+                            std::shared_ptr<conic_moments_v4::Bank> bM6=fullM6?getOrCreatePhaseBankV5(cutM6):nullptr;
+                            struct WarmTask {const conic_moments_v4::Bank* bank;unsigned col;};
+                            std::vector<WarmTask> warmTasks;
+                            std::array<CachedPhaseBankV5*,3> warmEntries{};
+                            std::array<std::pair<unsigned,unsigned>,3> warmRanges{};
+                            unsigned warmEntryCount=0u;
+                            const auto collectWarmInfo=[&](double cut,const std::shared_ptr<conic_moments_v4::Bank>& bk,const Trajectory* tr,double padX,double wBox) {
+                                if(!bk||!tr)return;
+                                double minX=infinity,maxX=-infinity;
+                                const double marginW=9*p.psfSigmaRad,hxW=.5*p.width*p.pixelPitchRad,hyW=.5*p.height*p.pixelPitchRad;
+                                const double fLW=std::max(-1.55,-hxW-marginW),fRW=std::min(1.55,hxW+marginW);
+                                const double fBW=std::max(-1.55,-hyW-marginW),fTW=std::min(1.55,hyW+marginW);
+                                const bool hasSub=!tr->subexposureSource.empty();
+                                for(std::size_t ti=0;ti<tr->x.size();++ti) {
+                                    if(tr->levelMin[ti]>=cut+padX)continue;
+                                    if(hasSub&&tr->levelMax[ti]<cut-padX&&
+                                       tr->x[ti]-.5*wBox>=fLW&&tr->x[ti]+.5*wBox<=fRW&&
+                                       tr->y[ti]-.5*tr->shape[5]>=fBW&&tr->y[ti]+.5*tr->shape[5]<=fTW)continue;
+                                    if(tr->x[ti]<minX)minX=tr->x[ti];
+                                    if(tr->x[ti]>maxX)maxX=tr->x[ti];
+                                }
+                                if(!(minX<=maxX))return;
+                                CachedPhaseBankV5* entry=nullptr;
+                                for(auto& item:phaseBankCacheV5)if(exactScalar(item.cutoff,cut)){entry=&item;break;}
+                                const double rLeft=std::max(fLW,minX-padX-.5*wBox),rRight=std::min(fRW,maxX+padX+.5*wBox);
+                                unsigned cBegin=p.width,cEnd=0;
+                                for(unsigned col=0;col<p.width;++col) {
+                                    const double px0=(col-.5*p.width)*p.pixelPitchRad,px1=px0+p.pixelPitchRad;
+                                    const double cL=std::max(rLeft,std::max(-1.55,px0-marginW));
+                                    const double cR=std::min(rRight,std::min(1.55,px1+marginW));
+                                    if(cR>cL) {
+                                        if(col<cBegin)cBegin=col;
+                                        cEnd=col+1;
+                                        if(!entry||!entry->columnWarmed(col))warmTasks.push_back({bk.get(),col});
+                                    }
+                                }
+                                if(entry&&cBegin<cEnd&&warmEntryCount<3u) {
+                                    warmEntries[warmEntryCount]=entry;
+                                    warmRanges[warmEntryCount]={cBegin,cEnd};
+                                    ++warmEntryCount;
+                                }
+                            };
+                            if(bCur)collectWarmInfo(cutCur,bCur,baseTraj,2.0*p.pixelPitchRad/1024.0,q[4]+2.0*p.pixelPitchRad/1024.0);
+                            if(bP6)collectWarmInfo(cutP6,bP6,baseTraj,0.0,q[4]);
+                            if(bM6)collectWarmInfo(cutM6,bM6,baseTraj,0.0,q[4]);
+                            std::array<bool,14> slotOk{},slotRefused{},slotFallback{};
+                            std::array<JacSlotStatsV5,14> slotStats{};
+                            std::array<std::exception_ptr,maximumPhaseWorkersV5> slotErrors{};
+                            std::atomic<std::size_t> nextWarm{0u};
+                            std::atomic<unsigned> nextSlot{0u};
+                            const unsigned infoWorkers=std::min(infoMaxW,14u);
+                            const auto runInfo=[&](unsigned worker) noexcept {
+                                try {
+                                    while(true) {
+                                        const std::size_t wi=nextWarm.fetch_add(1u,std::memory_order_relaxed);
+                                        if(wi>=warmTasks.size())break;
+                                        warmTasks[wi].bank->ensureColumnV5(warmTasks[wi].col);
+                                    }
+                                    auto& ws=phaseWorkspacesV5[worker];
+                                    auto& scratch=jacScratchV5[worker];
+                                    while(true) {
+                                        const unsigned s=nextSlot.fetch_add(1u,std::memory_order_relaxed);
+                                        if(s>=14u)break;
+                                        const bool isP6=(s==12u),isM6=(s==13u);
+                                        const Ground& g=isP6?*gP6:(isM6?*gM6:*gCur);
+                                        const std::vector<double>* fl=isP6?fullP6:(isM6?fullM6:fullCur);
+                                        const std::vector<double>* gs=isP6?subP6:(isM6?subM6:subCur);
+                                        const conic_moments_v4::Bank* bk=isP6?bP6.get():(isM6?bM6.get():bCur.get());
+                                        slotOk[s]=evaluateInfoSlotV5(slotShapes[s],*slotTrajs[s],g,fit,fl,gs,bk,ws,scratch,
+                                            slotPreds[s],slotRefused[s],slotFallback[s],slotStats[s]);
+                                    }
+                                } catch(...) {
+                                    slotErrors[worker]=std::current_exception();
+                                }
+                            };
+                            const auto tInfo0=profile.enabled?LocalProfileV2::Clock::now():LocalProfileV2::Clock::time_point{};
+                            phasePoolV5.run(infoWorkers,runInfo);
+                            const double infoWallUs=profile.enabled?std::chrono::duration<double,std::micro>(LocalProfileV2::Clock::now()-tInfo0).count():0.0;
+                            for(unsigned i=0;i<warmEntryCount;++i)warmEntries[i]->markWarmedRange(warmRanges[i].first,warmRanges[i].second);
+                            for(const auto& err:slotErrors)if(err)std::rethrow_exception(err);
+                            bool anyFallback=false,anyRefused=false,allOk=true;
+                            for(unsigned s=0;s<14u;++s) {
+                                if(slotFallback[s])anyFallback=true;
+                                if(slotRefused[s])anyRefused=true;
+                                if(!slotOk[s])allOk=false;
+                            }
+                            if(!anyFallback) {
+                                ranParallelInfo=true;
+                                for(unsigned s=0;s<14u;++s) {
+                                    ++diagnostic.basisEvaluations;
+                                    diagnostic.regionalFields+=slotStats[s].regions;
+                                    if(profile.enabled) {
+                                        profile.conicRequests+=slotStats[s].requests;
+                                        profile.conicFields+=slotStats[s].fields;
+                                        profile.conicFallbacks+=slotStats[s].fallbacks;
+                                        profile.parallelFields+=slotStats[s].regions;
+                                        profile.conicRenderUs+=slotStats[s].renderUs;
+                                        profile.regionalAccelerated+=slotStats[s].accelerated;
+                                        profile.regionalNative+=slotStats[s].native;
+                                        profile.conicMaximumError=std::max(profile.conicMaximumError,slotStats[s].maximumError);
+                                    }
+                                }
+                                if(profile.enabled) {
+                                    profile.calls[LocalProfileV2::BasisWork]+=14u;
+                                    profile.micros[LocalProfileV2::BasisWork]+=infoWallUs;
+                                    profile.micros[LocalProfileV2::Regional]+=infoWallUs;
+                                    ++profile.parallelBatches;
+                                    profile.parallelWorkersPeak=std::max<std::size_t>(profile.parallelWorkersPeak,infoWorkers);
+                                }
+                                if(anyRefused){diagnostic.refusal=22;return std::nullopt;}
+                                if(!allOk)return std::nullopt;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        std::vector<double> predA(count),predB(count);
+        const auto fillPrediction=[&](const Shape& shape,std::vector<double>& out)->bool {
+            BasisView view;if(!basisView(shape,branch,view))return false;
+            const double d=effectiveSource(shape,view.sourceRelativeGround,fit);
+            const double* p0=view.proj0->data();
+            const double* p1=view.proj1->data();
+            double* dst=out.data();
+            for(unsigned j=0;j<count;++j)dst[j]=fit.background*p0[j]+d*p1[j];
+            return true;
+        };
+        for(unsigned coordinate=0;coordinate<7;++coordinate) {
+            const auto& gp=slotShapes[2*coordinate];
+            const auto& gm=slotShapes[2*coordinate+1];
+            const double divisor=coordDivisor[coordinate];
+            if(!(divisor>0))return std::nullopt;
+            const double* aPtr=nullptr;
+            const double* bPtr=nullptr;
+            if(ranParallelInfo) {
+                aPtr=slotPreds[2*coordinate].data();
+                bPtr=slotPreds[2*coordinate+1].data();
+            } else {
+                if(!fillPrediction(gp,predA)||!fillPrediction(gm,predB))return std::nullopt;
+                aPtr=predA.data();
+                bPtr=predB.data();
+            }
+            jacobian[coordinate].resize(count);
+            for(unsigned j=0;j<count;++j)jacobian[coordinate][j]=(aPtr[j]-bPtr[j])/divisor;
             for(unsigned pass=0;pass<2;++pass)for(const auto& column:amplitude) {
                 const double coefficient=inner(jacobian[coordinate],column);
                 for(unsigned j=0;j<count;++j)jacobian[coordinate][j]-=coefficient*column[j];
             }
-            for(const auto value:jacobian[coordinate])norms[coordinate]=std::hypot(norms[coordinate],value);
+            double sum2=0.,maxAbs=0.;
+            for(const auto value:jacobian[coordinate]) {
+                const double av=std::abs(value);
+                if(av>maxAbs)maxAbs=av;
+                sum2+=av*av;
+            }
+            if(maxAbs>0.) {
+                if(maxAbs>1e-150&&maxAbs<1e150)norms[coordinate]=std::sqrt(sum2);
+                else {
+                    double scaled=0.;
+                    for(const auto value:jacobian[coordinate]){const double t=value/maxAbs;scaled+=t*t;}
+                    norms[coordinate]=maxAbs*std::sqrt(scaled);
+                }
+            } else norms[coordinate]=0.;
             if(!std::isfinite(norms[coordinate]))return std::nullopt;
             if(norms[coordinate]==0)norms[coordinate]=1;
             if(coordinate<4) {
-                const auto rp=path(gp,branch),rm=path(gm,branch);if(!rp||!rm)return std::nullopt;
+                const Trajectory* tp=ranParallelInfo?slotTrajs[2*coordinate]:(modeCache?prepare(gp,branch):nullptr);
+                const Trajectory* tm=ranParallelInfo?slotTrajs[2*coordinate+1]:(modeCache?prepare(gm,branch):nullptr);
+                std::optional<RayPath> rpOpt,rmOpt;
+                const RayPath* rp=tp?&tp->path:((rpOpt=path(gp,branch))?&*rpOpt:nullptr);
+                const RayPath* rm=tm?&tm->path:((rmOpt=path(gm,branch))?&*rmOpt:nullptr);
+                if(!rp||!rm)return std::nullopt;
                 target[0][coordinate]=scale(subtract(directionAt(*rp,measured.measurementTimeS-measured.timeS),directionAt(*rm,measured.measurementTimeS-measured.timeS)),1/divisor);
                 target[1][coordinate]=scale(subtract(photonAtState(*rp,first-measured.timeS),photonAtState(*rm,first-measured.timeS)),1/divisor);
                 target[2][coordinate]=scale(subtract(photonAtState(*rp,last-measured.timeS),photonAtState(*rm,last-measured.timeS)),1/divisor);
@@ -1809,14 +3167,58 @@ public:
         diagnostic.captureDirectionRate=add(scale(forward,rate.x),add(scale(right,rate.y),scale(vertical,rate.z)));
         diagnostic.domainBoundary=route->domainBoundary;
         // Fixed trajectory source waveforms are independent of cutoff. Cache
-        // at most104mode/derivative geometries, not spatial fields.
-        modeCache=true;sources.clear();sources.reserve(128);modeTrajectories.clear();lastShape.reset();lastBasis.reset();
+        // bounded mode/derivative trajectories in O(1), never spatial fields.
+        modeCache=true;sources.clear();sources.reserve(1024);modeTrajectories.clear();modeTrajMap.clear();lastShape.reset();lastBasis.reset();
+        // Exact O(1) incremental evaluator of ThermalReticleReceiverV1::finiteMirrorEnvelopeV1
+        // so large mode banks avoid O(M^2) full-vector rescans while preserving 0-ULP parity.
+        struct IncrementalMirrorEnvelopeV5 {
+            const ThermalReticleConfigV1& cfg;
+            double hx=0,hy=0,lowX=0,highX=0,lowY=0,highY=0,envelope=0,selectedClearance=0;
+            V selectedRay{};
+            bool initialized=false,ok=false;
+            explicit IncrementalMirrorEnvelopeV5(const ThermalReticleConfigV1& config) noexcept
+                : cfg(config), hx(.5*config.detector.width*config.detector.pixelPitchRad),
+                  hy(.5*config.detector.height*config.detector.pixelPitchRad),
+                  lowX(-hx), highX(hx), lowY(-hy), highY(hy),
+                  ok(ThermalReticleReceiverV1::validConfig(config)) {}
+            double clearance(V direction) const noexcept {
+                double distance=std::atan(cfg.stopRadiusRad+cfg.scanRadiusRad)-
+                    std::atan2(std::hypot(direction.y,direction.z),direction.x);
+                for(const double sign:{-1.,1.}) {
+                    distance=std::min(distance,std::asin(std::clamp(std::sin(hx)*direction.x+sign*std::cos(hx)*direction.y,-1.,1.)));
+                    distance=std::min(distance,std::asin(std::clamp(std::sin(hy)*direction.x+sign*std::cos(hy)*direction.z,-1.,1.)));
+                }
+                return distance;
+            }
+            bool add(const std::array<double,5>& q) noexcept {
+                if(!ok)return false;
+                const auto& det=cfg.detector;
+                if(!std::all_of(q.begin(),q.end(),[](double value){return std::isfinite(value);})||q[4]<=0||
+                    q[2]<0||q[3]<0||q[2]>=hx||q[3]>=hy||
+                    q[0]-.5*q[2]<=-hx||q[0]+.5*q[2]>=hx||q[1]-.5*q[3]<=-hy||q[1]+.5*q[3]>=hy){ok=false;return false;}
+                const auto direction=unit(V{1,std::tan(q[0]),std::tan(q[1])});
+                const double clr=clearance(direction);
+                if(!initialized){selectedRay=direction;selectedClearance=clr;initialized=true;}
+                if(!(det.detectionSigma*std::sqrt(q[4])<clr)){ok=false;return false;}
+                lowX=std::max(lowX,q[0]-.5*q[2]);highX=std::min(highX,q[0]+.5*q[2]);
+                lowY=std::max(lowY,q[1]-.5*q[3]);highY=std::min(highY,q[1]+.5*q[3]);
+                if(lowX>highX||lowY>highY){ok=false;return false;}
+                const double displacement=std::nextafter(std::atan2(norm(cross(selectedRay,direction)),dot(selectedRay,direction)),infinity);
+                const double spread=std::nextafter(std::sqrt(q[4]),infinity);
+                const double total=std::nextafter(spread+displacement,infinity);
+                envelope=std::max(envelope,std::nextafter(total*total,infinity));
+                if(!std::isfinite(envelope)||!(det.detectionSigma*std::sqrt(envelope)<selectedClearance)){ok=false;return false;}
+                return true;
+            }
+        } mirrorEnv(c);
         std::vector<std::array<double,5>> modes;
         bool unresolved=searchUnresolved||std::any_of(diagnostic.rawBudget.begin(),diagnostic.rawBudget.end(),[](double x){return x<=0;});
         if(!unresolved) {
-            if(const auto own=mode(selected.shape,selected.branch,selected.fit))modes.push_back(*own);else unresolved=true;
+            if(const auto own=mode(selected.shape,selected.branch,selected.fit)) {
+                modes.push_back(*own);
+                if(!mirrorEnv.add(*own))unresolved=true;
+            } else unresolved=true;
         }
-        if(!unresolved&&!ThermalReticleReceiverV1::finiteMirrorEnvelopeV1(c,modes))unresolved=true;
         // Each independently optimized physical basin participates, including
         // basins that were initially worse than the global selected fit.
         for(const auto& local:localModes) {
@@ -1825,7 +3227,7 @@ public:
             if(local.fit.cost>selected.fit.cost+threshold2*variance)continue;
             if(const auto candidate=mode(local.shape,local.branch,local.fit)) {
                 modes.push_back(*candidate);
-                if(!ThermalReticleReceiverV1::finiteMirrorEnvelopeV1(c,modes))unresolved=true;
+                if(!mirrorEnv.add(*candidate))unresolved=true;
             } else unresolved=true;
         }
         // Canonical identity, including branch and all six geometry values,
@@ -1892,32 +3294,148 @@ public:
             measured.timeS,geometries.size(),cutoffs.size(),modes.size(),unresolved,
             ThermalReticleReceiverV1::finiteMirrorEnvelopeV1(c,modes).has_value());
         profile.checkpoint("modes.begin",selected.fit.cost/variance,unresolved);
-        // Iterate cutoffs outer, geometries inner so each cutoff's conic bank
-        // and full ground field are built at most once across all reflected
-        // geometries. modes.front() stays selected; finiteMirrorEnvelopeV1 is
-        // order-invariant across all additional modes.
-        for(const double cutoff:cutoffs) {
-            if(unresolved)break;
-            for(const auto& candidateGeometry:geometries) {
+        const auto visitModeCandidate=[&](const ModeGeometry& candidateGeometry,double cutoff) {
+            auto q=candidateGeometry.shape;
+            if(profile.enabled){++profile.modes;if(profile.modes%32==0)profile.checkpoint("modes.progress",selected.fit.cost/variance,unresolved);}
+            q[6]=cutoff;
+            if(candidateGeometry.branch==selected.branch&&exactCoordinates(q,selected.shape))return;
+            if(certifiedModeRefusal(q,candidateGeometry.branch,selected.fit.cost+threshold2*variance))return;
+            const auto alternative=solve(q,candidateGeometry.branch);
+            if(!alternative||alternative->cost>selected.fit.cost+threshold2*variance)return;
+            if(profile.enabled)++profile.admittedModes;
+            std::array<double,3> budget{};if(!physical(q,candidateGeometry.branch,*alternative,&budget))return;
+            if(std::any_of(budget.begin(),budget.end(),[](double x){return x<=0;})){unresolved=true;return;}
+            if(const auto candidate=mode(q,candidateGeometry.branch,*alternative)) {
+                modes.push_back(*candidate);
+                if(!mirrorEnv.add(*candidate))unresolved=true;
+            } else unresolved=true;
+            if(profile.enabled)std::fprintf(stderr,
+                "MOVING_MODE_ENVELOPE {\"read\":%.17g,\"visited\":%zu,\"admitted\":%zu,\"modes\":%zu,\"unresolved\":%d,\"finite\":%d}\n",
+                measured.timeS,profile.modes,profile.admittedModes,modes.size(),unresolved,
+                mirrorEnv.ok?1:0);
+        };
+        if(!unresolved&&!cutoffs.empty()&&!geometries.empty()) {
+            // Partition pure sky/ground cutoffs (zero conic work) from horizon-band
+            // cutoffs. Tile horizon-band cutoffs in chunks of <=32 so every bank
+            // stays cached across all geometries while precomputing each geometry's
+            // cutoff-independent Gaussian rectangle moments once per tile.
+            double gMinLevel=infinity,gMaxLevel=-infinity;
+            for(const auto& g:geometries) {
+                if(const auto* tr=prepare(g.shape,g.branch)) {
+                    gMinLevel=std::min(gMinLevel,tr->minimumLevel);
+                    gMaxLevel=std::max(gMaxLevel,tr->maximumLevel);
+                }
+            }
+            const double bandPad=16.0*std::max(cutStep,p.pixelPitchRad)/1024.0;
+            std::vector<double> plainCutoffs,horizonCutoffs;
+            plainCutoffs.reserve(cutoffs.size());
+            horizonCutoffs.reserve(cutoffs.size());
+            for(const double cutoff:cutoffs) {
+                if(gMinLevel<=gMaxLevel&&cutoff>=gMinLevel-bandPad&&cutoff<=gMaxLevel+bandPad)
+                    horizonCutoffs.push_back(cutoff);
+                else plainCutoffs.push_back(cutoff);
+            }
+            std::sort(horizonCutoffs.begin(),horizonCutoffs.end());
+            for(const double cutoff:plainCutoffs) {
                 if(unresolved)break;
-                auto q=candidateGeometry.shape;
-                if(profile.enabled){++profile.modes;if(profile.modes%32==0)profile.checkpoint("modes.progress",selected.fit.cost/variance,unresolved);}
-                q[6]=cutoff;
-                if(candidateGeometry.branch==selected.branch&&exactCoordinates(q,selected.shape))continue;
-                if(certifiedModeRefusal(q,candidateGeometry.branch,selected.fit.cost+threshold2*variance))continue;
-                const auto alternative=solve(q,candidateGeometry.branch);
-                if(!alternative||alternative->cost>selected.fit.cost+threshold2*variance)continue;
-                if(profile.enabled)++profile.admittedModes;
-                std::array<double,3> budget{};if(!physical(q,candidateGeometry.branch,*alternative,&budget))continue;
-                if(std::any_of(budget.begin(),budget.end(),[](double x){return x<=0;})){unresolved=true;break;}
-                if(const auto candidate=mode(q,candidateGeometry.branch,*alternative)) {
-                    modes.push_back(*candidate);
-                    if(!ThermalReticleReceiverV1::finiteMirrorEnvelopeV1(c,modes))unresolved=true;
-                } else unresolved=true;
-                if(profile.enabled)std::fprintf(stderr,
-                    "MOVING_MODE_ENVELOPE {\"read\":%.17g,\"visited\":%zu,\"admitted\":%zu,\"modes\":%zu,\"unresolved\":%d,\"finite\":%d}\n",
-                    measured.timeS,profile.modes,profile.admittedModes,modes.size(),unresolved,
-                    ThermalReticleReceiverV1::finiteMirrorEnvelopeV1(c,modes).has_value());
+                for(const auto& candidateGeometry:geometries) {
+                    if(unresolved)break;
+                    visitModeCandidate(candidateGeometry,cutoff);
+                }
+            }
+            const bool canPrecomputeRegions=regionalOperator==RegionalOperator::ConicFastV5&&certifiedArithmeticV2();
+            constexpr std::size_t kCutoffTileSize=40u;
+            for(std::size_t tileBegin=0;tileBegin<horizonCutoffs.size()&&!unresolved;tileBegin+=kCutoffTileSize) {
+                const std::size_t tileEnd=std::min(horizonCutoffs.size(),tileBegin+kCutoffTileSize);
+                double tileMin=infinity,tileMax=-infinity;
+                for(std::size_t ci=tileBegin;ci<tileEnd;++ci) {
+                    tileMin=std::min(tileMin,horizonCutoffs[ci]);
+                    tileMax=std::max(tileMax,horizonCutoffs[ci]);
+                }
+                const double cutPad=2.0*(cutStep/1024.0);
+                const std::shared_ptr<conic_moments_v4::Bank> prepBank=canPrecomputeRegions
+                    ?getOrCreatePhaseBankV5(horizonCutoffs[tileBegin]):nullptr;
+                for(const auto& candidateGeometry:geometries) {
+                    if(unresolved)break;
+                    std::vector<Trajectory*> geomTrajs;
+                    const auto addUniqueTraj=[&](Trajectory* tr) {
+                        if(!tr||tr->path.stationary)return;
+                        if(std::find(geomTrajs.begin(),geomTrajs.end(),tr)==geomTrajs.end())geomTrajs.push_back(tr);
+                    };
+                    if(prepBank&&candidateGeometry.shape[4]>0&&candidateGeometry.shape[5]>0) {
+                        geomTrajs.reserve(13u);
+                        addUniqueTraj(prepare(candidateGeometry.shape,candidateGeometry.branch));
+                        const Shape curSq=squared(candidateGeometry.shape);
+                        for(unsigned coord=0;coord<6u;++coord) {
+                            const double step=coord<4?p.pixelPitchRad/1024:pixelArea/1024;
+                            auto plus=curSq,minus=curSq;plus[coord]+=step;minus[coord]-=step;
+                            if(coord==4||coord==5)minus[coord]=std::max(0.,minus[coord]);
+                            const auto gp=geometry(plus),gm=geometry(minus);
+                            if(valid(gp))addUniqueTraj(prepare(gp,candidateGeometry.branch));
+                            if(valid(gm))addUniqueTraj(prepare(gm,candidateGeometry.branch));
+                        }
+                        struct PrepTask {Trajectory* traj;std::size_t ti;};
+                        std::vector<PrepTask> tasks;
+                        const double marginP=9*p.psfSigmaRad,hxP=.5*p.width*p.pixelPitchRad,hyP=.5*p.height*p.pixelPitchRad;
+                        const double fLP=std::max(-1.55,-hxP-marginP),fRP=std::min(1.55,hxP+marginP);
+                        const double fBP=std::max(-1.55,-hyP-marginP),fTP=std::min(1.55,hyP+marginP);
+                        // Precompute ONLY if at least 2 cutoffs in this tile actually cross
+                        // this geometry; otherwise single-use cutoffs avoid eager prep overhead.
+                        unsigned crossingCutsInTile=0u;
+                        for(std::size_t ci=tileBegin;ci<tileEnd;++ci) {
+                            const double cut=horizonCutoffs[ci];
+                            if(!geomTrajs.empty()&&geomTrajs[0]->minimumLevel<cut+cutPad&&geomTrajs[0]->maximumLevel>=cut-cutPad)
+                                ++crossingCutsInTile;
+                        }
+                        if(crossingCutsInTile>=2u) {
+                            for(Trajectory* tr:geomTrajs) {
+                                if(tr->minimumLevel>=tileMax+cutPad||tr->maximumLevel<tileMin-cutPad)continue;
+                                if(tr->precomputedRegions.size()!=tr->x.size())tr->precomputedRegions.resize(tr->x.size());
+                                const double halfW=.5*tr->shape[4],halfH=.5*tr->shape[5];
+                                for(std::size_t ti=0;ti<tr->x.size();++ti) {
+                                    if(tr->precomputedRegions[ti].valid)continue;
+                                    if(tr->levelMin[ti]>=tileMax+cutPad)continue;
+                                    if(tr->levelMax[ti]<tileMin-cutPad&&
+                                       tr->x[ti]-halfW>=fLP&&tr->x[ti]+halfW<=fRP&&
+                                       tr->y[ti]-halfH>=fBP&&tr->y[ti]+halfH<=fTP)continue;
+                                    tasks.push_back({tr,ti});
+                                }
+                            }
+                        }
+                        if(!tasks.empty()) {
+                            const unsigned maxW=ReticleNestedPoolGuardV1::maxWorkers(maximumPhaseWorkersV5);
+                            const unsigned workers=std::min<unsigned>(maxW,static_cast<unsigned>(tasks.size()));
+                            if(workers>=2u&&phasePoolV5.syncEnvironment()) {
+                                std::atomic<std::size_t> nextTask{0u};
+                                const auto runPrep=[&](unsigned) noexcept {
+                                    while(true) {
+                                        const std::size_t idx=nextTask.fetch_add(1u,std::memory_order_relaxed);
+                                        if(idx>=tasks.size())break;
+                                        auto& task=tasks[idx];
+                                        const auto* tr=task.traj;
+                                        const std::size_t ti=task.ti;
+                                        const std::array<double,4> reg{{tr->x[ti]-.5*tr->shape[4],tr->x[ti]+.5*tr->shape[4],tr->y[ti]-.5*tr->shape[5],tr->y[ti]+.5*tr->shape[5]}};
+                                        (void)prepBank->prepareRegionV5(reg,task.traj->precomputedRegions[ti]);
+                                    }
+                                };
+                                phasePoolV5.run(workers,runPrep);
+                            } else {
+                                for(auto& task:tasks) {
+                                    const auto* tr=task.traj;
+                                    const std::size_t ti=task.ti;
+                                    const std::array<double,4> reg{{tr->x[ti]-.5*tr->shape[4],tr->x[ti]+.5*tr->shape[4],tr->y[ti]-.5*tr->shape[5],tr->y[ti]+.5*tr->shape[5]}};
+                                    (void)prepBank->prepareRegionV5(reg,task.traj->precomputedRegions[ti]);
+                                }
+                            }
+                        }
+                    }
+                    for(std::size_t ci=tileBegin;ci<tileEnd&&!unresolved;++ci) {
+                        visitModeCandidate(candidateGeometry,horizonCutoffs[ci]);
+                    }
+                    for(Trajectory* tr:geomTrajs) {
+                        std::vector<conic_moments_v4::RegionMomentsV5>().swap(tr->precomputedRegions);
+                    }
+                }
             }
         }
         profile.checkpoint("modes.end",selected.fit.cost/variance,unresolved);

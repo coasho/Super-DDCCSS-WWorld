@@ -347,8 +347,13 @@ void World::prepareEngagements() {
     std::vector<std::vector<PendingEngagementEvent>> pendingEvents(liveWeapons.size());
     const bool useParallel = liveWeapons.size() > 1u && pool_->workers() > 1u;
     const bool allowDualParallel = pool_->workers() > liveWeapons.size();
+    std::atomic<unsigned> remainingWeapons{static_cast<unsigned>(liveWeapons.size())};
     const auto processWeapon = [&](std::size_t wi) {
-        ms::components::ReticleNestedPoolGuardV1 nestedGuard(useParallel);
+        struct JobDoneGuard {
+            std::atomic<unsigned>& counter;
+            ~JobDoneGuard() noexcept { counter.fetch_sub(1u, std::memory_order_relaxed); }
+        } doneGuard{remainingWeapons};
+        ms::components::ReticleNestedPoolGuardV1 nestedGuard(useParallel ? &remainingWeapons : nullptr, pool_->workers());
         ms::components::DualBandParallelGuardV1 dualGuard(allowDualParallel);
         Entry* e = liveWeapons[wi];
         auto& eventsOut = pendingEvents[wi];
@@ -1768,8 +1773,13 @@ void World::sampleOnRailSeekers() {
     }
     const bool useParallel=jobs.size()>1u&&pool_->workers()>1u;
     const bool allowDualParallel=pool_->workers()>jobs.size();
+    std::atomic<unsigned> remainingJobs{static_cast<unsigned>(jobs.size())};
     const auto runJob=[&](std::size_t ji) {
-        ms::components::ReticleNestedPoolGuardV1 nestedGuard(useParallel);
+        struct JobDoneGuard {
+            std::atomic<unsigned>& counter;
+            ~JobDoneGuard() noexcept { counter.fetch_sub(1u, std::memory_order_relaxed); }
+        } doneGuard{remainingJobs};
+        ms::components::ReticleNestedPoolGuardV1 nestedGuard(useParallel ? &remainingJobs : nullptr, pool_->workers());
         ms::components::DualBandParallelGuardV1 dualGuard(allowDualParallel);
         const auto& job=jobs[ji];
         evaluateOnRailSeekerV1(*job.launcher,job.store,*job.cached,activeDispensers,thermalSnapshots);

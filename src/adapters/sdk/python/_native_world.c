@@ -137,6 +137,25 @@ PyObject* world_focus_viewer(PyObject* o, PyObject* const* args, Py_ssize_t n) {
     Py_RETURN_NONE;
 }
 
+/* set_destruction_mode_v1(mode): select VIS-M11 destruction & breakup mode. */
+PyObject* world_set_destruction_mode_v1(PyObject* o, PyObject* const* args, Py_ssize_t n) {
+    WorldObject* self = (WorldObject*)o;
+    int mode = 0;
+    if (!check_args(n, 1, 1, "set_destruction_mode_v1") || !as_int(args[0], &mode) || !WORLD_IDLE(self)) return NULL;
+    if (fsim_world_set_destruction_mode_v1(self->world, (int32_t)mode) != FSIM_OK) return fail();
+    Py_RETURN_NONE;
+}
+
+/* destruction_mode_v1() -> int */
+PyObject* world_destruction_mode_v1(PyObject* o, PyObject* const* args, Py_ssize_t n) {
+    WorldObject* self = (WorldObject*)o;
+    int32_t mode = 0;
+    (void)args;
+    if (!check_args(n, 0, 0, "destruction_mode_v1")) return NULL;
+    if (fsim_world_destruction_mode_v1(self->world, &mode) != FSIM_OK) return fail();
+    return PyLong_FromLong((long)mode);
+}
+
 /* reset_vehicle(id, spec=None): spec's initial-state fields, or the vehicle's own. */
 PyObject* world_reset_vehicle(PyObject* o, PyObject* const* args, Py_ssize_t n) {
     WorldObject* self = (WorldObject*)o;

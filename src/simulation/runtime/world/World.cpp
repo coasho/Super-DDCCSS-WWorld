@@ -291,6 +291,7 @@ World::World(const WorldOptions& options)
 }
 
 World::~World() {
+    stopStandbyPreloader();
     combatVfxRecorder_.close();
     debrisRecorder_.close();
     if(weaponLinkAccess_){std::lock_guard<std::mutex> lock(weaponLinkAccess_->mutex);weaponLinkAccess_->world=nullptr;}
@@ -306,6 +307,102 @@ World::~World() {
                 LOG_WARN("session")<<"diagnostic capture remains unavailable: "<<error;
         }
     }
+}
+
+void World::requestStandbyModels(const std::string& aircraft, std::size_t desiredReady) {
+    if (!pool_ || pool_->workers() <= 1u || aircraft.empty() || desiredReady == 0u) return;
+    const std::size_t cap = options_.publish ? 10u : 4u;
+    desiredReady = std::min(desiredReady, cap);
+    std::size_t toQueue = 0;
+    {
+        std::lock_guard<std::mutex> lock(standby_.mutex);
+        if (standby_.stop) return;
+        const std::size_t have = standby_.ready[aircraft].size() + standby_.queuedOrLoading[aircraft];
+        if (have >= desiredReady) return;
+        toQueue = desiredReady - have;
+    }
+    const sim::AircraftSpec files{aircraft, jsbsimRoot_, io::AssetResolver{}.findAircraft(aircraft, jsbsimRoot_)};
+    bool needSpawn = false;
+    {
+        std::lock_guard<std::mutex> lock(standby_.mutex);
+        if (standby_.stop) return;
+        const std::size_t have = standby_.ready[aircraft].size() + standby_.queuedOrLoading[aircraft];
+        if (have >= desiredReady) return;
+        toQueue = desiredReady - have;
+        for (std::size_t i = 0; i < toQueue; ++i) standby_.queue.push_back({aircraft, files});
+        standby_.queuedOrLoading[aircraft] += toQueue;
+        needSpawn = standby_.threads.empty();
+        if (needSpawn) {
+            const unsigned nThreads = options_.publish ? 2u : 1u;
+            const double dt = options_.dt;
+            const auto ground = ground_;
+            standby_.threads.reserve(nThreads);
+            for (unsigned t = 0; t < nThreads; ++t) {
+                standby_.threads.emplace_back([this, dt, ground]() {
+                    sim::InitialConditions dummyIc{};
+                    dummyIc.latitudeDeg = 0.0;
+                    dummyIc.longitudeDeg = 0.0;
+                    dummyIc.altitudeMslM = 10000.0;
+                    dummyIc.airspeedTrueMs = 300.0;
+                    dummyIc.onGround = false;
+                    dummyIc.enginesRunning = false;
+                    for (;;) {
+                        StandbyPreloadRequest req;
+                        {
+                            std::unique_lock<std::mutex> lk(standby_.mutex);
+                            standby_.cv.wait(lk, [&] { return standby_.stop || !standby_.queue.empty(); });
+                            if (standby_.stop) return;
+                            req = std::move(standby_.queue.front());
+                            standby_.queue.pop_front();
+                        }
+                        auto jsb = std::make_unique<sim::JsbsimModel>(dt, ground);
+                        const bool ok = jsb->load(req.files, dummyIc);
+                        std::lock_guard<std::mutex> lk(standby_.mutex);
+                        auto& inFlight = standby_.queuedOrLoading[req.aircraft];
+                        if (inFlight > 0u) --inFlight;
+                        if (ok && !standby_.stop) standby_.ready[req.aircraft].push_back(std::move(jsb));
+                    }
+                });
+            }
+        }
+    }
+    standby_.cv.notify_all();
+}
+
+std::unique_ptr<sim::FlightModel> World::popStandbyModel(const std::string& aircraft) {
+    std::unique_ptr<sim::FlightModel> out;
+    {
+        std::lock_guard<std::mutex> lock(standby_.mutex);
+        auto it = standby_.ready.find(aircraft);
+        if (it != standby_.ready.end() && !it->second.empty()) {
+            out = std::move(it->second.back());
+            it->second.pop_back();
+        }
+    }
+    return out;
+}
+
+std::size_t World::standbyReadyCount(const std::string& aircraft) {
+    std::lock_guard<std::mutex> lock(standby_.mutex);
+    const auto it = standby_.ready.find(aircraft);
+    return it != standby_.ready.end() ? it->second.size() : 0u;
+}
+
+void World::stopStandbyPreloader() noexcept {
+    std::vector<std::thread> toJoin;
+    {
+        std::lock_guard<std::mutex> lock(standby_.mutex);
+        standby_.stop = true;
+        standby_.queue.clear();
+        toJoin.swap(standby_.threads);
+    }
+    standby_.cv.notify_all();
+    for (auto& t : toJoin) {
+        if (t.joinable()) t.join();
+    }
+    std::lock_guard<std::mutex> lock(standby_.mutex);
+    standby_.ready.clear();
+    standby_.queuedOrLoading.clear();
 }
 
 bool World::parseType(const std::string& type, std::string& family, std::string& aircraft) {
@@ -392,12 +489,22 @@ std::uint32_t World::createVehicleChecked(const VehicleSpec& spec,const std::fun
                 return 0;
             }
         } else {
-            auto jsb = std::make_unique<sim::JsbsimModel>(options_.dt, ground_);
-            if (!jsb->load(files, spec.initial)) {
-                LOG_ERROR("session") << "failed to load aircraft '" << aircraft << "'";
-                return 0;
+            if (spec.aircraftDir.empty()) {
+                if (auto warm = popStandbyModel(aircraft)) {
+                    if (warm->reset(spec.initial)) {
+                        model = std::move(warm);
+                        requestStandbyModels(aircraft, options_.publish ? 4u : 2u);
+                    }
+                }
             }
-            model = std::move(jsb);
+            if (!model) {
+                auto jsb = std::make_unique<sim::JsbsimModel>(options_.dt, ground_);
+                if (!jsb->load(files, spec.initial)) {
+                    LOG_ERROR("session") << "failed to load aircraft '" << aircraft << "'";
+                    return 0;
+                }
+                model = std::move(jsb);
+            }
         }
         if (validate && !validate(*model)) return 0;
         if (!profiles_.count(aircraft)) {
@@ -2439,7 +2546,15 @@ ms::Reason World::loadStore(std::uint32_t id, std::uint16_t payload, int station
     if (!e) return ms::Reason::UnknownVehicle;
     const ms::Reason r = e->ms.load(payload, station, store, count, weightRoomKg(*e));
     if(r==ms::Reason::None)for(const auto& installed:e->ms.stores())
-        if(installed.payload==payload&&installed.station==station)e->onRailSeekers.erase(installed.index);
+        if(installed.payload==payload&&installed.station==station) {
+            e->onRailSeekers.erase(installed.index);
+            if (options_.publish) {
+                if (const auto* card = e->ms.storeCard(installed.index); card && !card->model.empty()) {
+                    std::string fam, ac;
+                    if (parseType(card->model, fam, ac) && fam == "jsbsim") requestStandbyModels(ac, 8u);
+                }
+            }
+        }
     applyStoreMasses(); // (the flight model's masses at once: a load is between steps)
     return r;
 }
@@ -2448,7 +2563,17 @@ ms::Reason World::loadLoadout(std::uint32_t id, const std::string& loadout) {
     Entry* e = entry(id);
     if (!e) return ms::Reason::UnknownVehicle;
     const ms::Reason r = e->ms.loadLoadout(loadout, weightRoomKg(*e));
-    if(r==ms::Reason::None)e->onRailSeekers.clear();
+    if(r==ms::Reason::None) {
+        e->onRailSeekers.clear();
+        if (options_.publish) {
+            for (const auto& installed : e->ms.stores()) {
+                if (const auto* card = e->ms.storeCard(installed.index); card && !card->model.empty()) {
+                    std::string fam, ac;
+                    if (parseType(card->model, fam, ac) && fam == "jsbsim") requestStandbyModels(ac, 8u);
+                }
+            }
+        }
+    }
     applyStoreMasses();
     return r;
 }
@@ -2461,14 +2586,24 @@ ms::CommandResult World::submit(std::uint32_t id, const ms::StrikeCommand& comma
                 return ms::CommandResult{control::CommandStatus::Rejected, ms::Reason::NotAllowed, 0, options.commandId};
     Entry* e = entry(id);
     if (!e) return ms::CommandResult{control::CommandStatus::Rejected, ms::Reason::UnknownVehicle, 0, options.commandId};
-    if (command.target) {
-        std::vector<std::uint16_t> selected;
-        if (e->ms.previewStrike(command, selected) == ms::Reason::None)
-            for (const auto index : selected)
-                if (const auto reason = weaponLaunchEligibility(*e, index, command.target); reason != ms::Reason::None)
-                    return ms::CommandResult{control::CommandStatus::Rejected, reason, 0, options.commandId};
+    std::vector<std::uint16_t> selected;
+    const bool previewOk = e->ms.previewStrike(command, selected) == ms::Reason::None;
+    if (command.target && previewOk) {
+        for (const auto index : selected)
+            if (const auto reason = weaponLaunchEligibility(*e, index, command.target); reason != ms::Reason::None)
+                return ms::CommandResult{control::CommandStatus::Rejected, reason, 0, options.commandId};
     }
-    return e->ms.submit(command, options, simTime_);
+    const auto res = e->ms.submit(command, options, simTime_);
+    if (res.status == control::CommandStatus::Accepted && previewOk && pool_->workers() > 1u) {
+        for (const auto index : selected) {
+            if (const auto* card = e->ms.storeCard(index); card && !card->model.empty()) {
+                std::string fam, ac;
+                if (parseType(card->model, fam, ac) && fam == "jsbsim")
+                    requestStandbyModels(ac, options_.publish ? 6u : 2u);
+            }
+        }
+    }
+    return res;
 }
 
 bool World::resolveWeaponTarget(std::uint32_t launcher, std::uint32_t target, sim::VehicleState& out) const {
@@ -2617,6 +2752,10 @@ void World::flyReleases() {
     if (pool_->workers() > 1u) {
         std::unordered_map<std::string, std::size_t> freeCount;
         for (std::size_t s : freeSlots_) ++freeCount[slotAircraft_[s]];
+        {
+            std::lock_guard<std::mutex> lk(standby_.mutex);
+            for (const auto& [ac, vec] : standby_.ready) freeCount[ac] += vec.size();
+        }
         io::AssetResolver resolver;
         for (std::size_t bi = 0; bi < pending.size(); ++bi) {
             const auto& batch = pending[bi];

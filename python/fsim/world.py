@@ -144,6 +144,13 @@ class Axis(enum.IntFlag):
     PRIMARY = ROLL | PITCH | YAW | THRUST
 
 
+class DestructionModeV1(enum.IntEnum):
+    """Vehicle destruction physics & breakup mode (VIS-M11, additive V1)."""
+
+    LEGACY_COMPATIBLE = 0
+    LIGHTWEIGHT_DEBRIS = 1
+
+
 class VehicleDefault(enum.IntEnum):
     """What flies the primary axes nobody owns."""
 
@@ -3307,7 +3314,7 @@ class World:
     def __init__(self, name=None, *, dt=None, frame_skip=None, workers=None, pin_workers=None, seed=None,
                  capacity=None, publish=None, publish_interval_s=None, jsbsim_root=None, terrain=None,
                  terrain_url=None, terrain_zoom=None, record_path=None, record_interval_s=None, terrain_offline=None, store_drag=None,
-                 _handle=None):
+                 destruction_mode=None, _handle=None):
         if _handle is not None:
             self._h = _handle
         else:
@@ -3316,6 +3323,8 @@ class World:
                 capacity=capacity, publish=publish, publish_interval_s=publish_interval_s, jsbsim_root=jsbsim_root,
                 terrain=terrain, terrain_url=terrain_url, terrain_zoom=terrain_zoom, record_path=record_path,
                 record_interval_s=record_interval_s, terrain_offline=terrain_offline, store_drag=store_drag))
+            if destruction_mode is not None:
+                self.set_destruction_mode_v1(destruction_mode)
         self.name = name or "default"
         # Held weakly: a Vehicle holds its World, so a strong cache would make
         # a cycle, and a world - its threads, its flight models - would live on
@@ -3388,6 +3397,22 @@ class World:
         """Ask the viewers to follow a vehicle (a Vehicle or its id), as a tab to it would - once: the user's choice stands
         after it. Raises fsim.Error if it is not alive or the world is not published."""
         self._h.focus_viewer(vehicle.id if isinstance(vehicle, Vehicle) else int(vehicle))
+
+    def set_destruction_mode_v1(self, mode):
+        """Select VIS-M11 destruction & breakup mode (DestructionModeV1, int, or 'legacy_compatible'/'lightweight_debris')."""
+        if isinstance(mode, str):
+            key = mode.strip().upper()
+            if key not in DestructionModeV1.__members__:
+                raise ValueError(f"unknown destruction_mode {mode!r}")
+            value = int(DestructionModeV1[key])
+        else:
+            value = int(DestructionModeV1(mode))
+        self._h.set_destruction_mode_v1(value)
+
+    @property
+    def destruction_mode_v1(self):
+        """Current VIS-M11 destruction & breakup mode (fsim.DestructionModeV1)."""
+        return DestructionModeV1(self._h.destruction_mode_v1())
 
     # --- vehicles --------------------------------------------------------------------
     def create_vehicle(self, name=None, type="jsbsim:c172x", *, latitude_deg=None, longitude_deg=None,

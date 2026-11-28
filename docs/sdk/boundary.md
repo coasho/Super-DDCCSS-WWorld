@@ -18,7 +18,7 @@ Use the [SDK access terminology](agents.md#sdk-access-terminology) for service b
 | --- | ---: | ---: | ---: |
 | agent | 170 | 238 | 230 |
 | ma_core | 2 | 2 | 2 |
-| range | 217 | 104 | 290 |
+| range | 219 | 106 | 292 |
 | referee | 51 | 46 | 50 |
 | platform | 264 | 13 | 12 |
 | value | 87 | 164 | 113 |
@@ -205,9 +205,9 @@ Use the [SDK access terminology](agents.md#sdk-access-terminology) for service b
 - **The training adapter (section 18; M7 core): the trainer registers each slot's and service's system, resets and steps the batch around their lifecycle hooks, and reads what each role's actors saw and the per-role lifecycle signals**
   - Python: `fsim.training.TrainingAdapter.actor_stream`, `fsim.training.TrainingAdapter.clear_streams`, `fsim.training.TrainingAdapter.close`, `fsim.training.TrainingAdapter.lifecycle_stream`, `fsim.training.TrainingAdapter.register`, `fsim.training.TrainingAdapter.reset`, `fsim.training.TrainingAdapter.reset_slot`, `fsim.training.TrainingAdapter.step`
 - **The world: made, stepped, published, shown, closed; effects on every vehicle**
-  - C++: `fsim::World::World`, `fsim::World::addEffectToAll`, `fsim::World::createVehicle`, `fsim::World::focusViewer`, `fsim::World::publishNow`, `fsim::World::published`, `fsim::World::step`, `fsim::World::~World`, `fsim_world_object`
-  - C: `fsim_agent_create`, `fsim_world_create`, `fsim_world_create_vehicle`, `fsim_world_focus_viewer`, `fsim_world_published`, `fsim_world_recording`, `fsim_world_remove_vehicle`, `fsim_world_reset_vehicle`, `fsim_world_step`
-  - Python: `fsim.world.World.add_effect`, `fsim.world.World.close`, `fsim.world.World.create_vehicle`, `fsim.world.World.focus_viewer`, `fsim.world.World.published`, `fsim.world.World.recording`, `fsim.world.World.step`
+  - C++: `fsim::World::World`, `fsim::World::addEffectToAll`, `fsim::World::createVehicle`, `fsim::World::destructionModeV1`, `fsim::World::focusViewer`, `fsim::World::publishNow`, `fsim::World::published`, `fsim::World::setDestructionModeV1`, `fsim::World::step`, `fsim::World::~World`, `fsim_world_object`
+  - C: `fsim_agent_create`, `fsim_world_create`, `fsim_world_create_vehicle`, `fsim_world_destruction_mode_v1`, `fsim_world_focus_viewer`, `fsim_world_published`, `fsim_world_recording`, `fsim_world_remove_vehicle`, `fsim_world_reset_vehicle`, `fsim_world_set_destruction_mode_v1`, `fsim_world_step`
+  - Python: `fsim.world.World.add_effect`, `fsim.world.World.close`, `fsim.world.World.create_vehicle`, `fsim.world.World.destruction_mode_v1`, `fsim.world.World.focus_viewer`, `fsim.world.World.published`, `fsim.world.World.recording`, `fsim.world.World.set_destruction_mode_v1`, `fsim.world.World.step`
 - **World engagement commands and advisory queries; on-rail entity observations are unavailable on agent handles**
   - C++: `fsim::World::countermeasures`, `fsim::World::dispense`, `fsim::World::launchZone`, `fsim::World::launchZoneV2`, `fsim::World::launchZoneWezV1`, `fsim::World::seekerTarget`
   - C: `fsim_world_seeker_target`

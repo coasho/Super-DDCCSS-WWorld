@@ -1139,6 +1139,7 @@ std::vector<ipc::EngagementEvent> World::detonateAt(const Detonation& d, const C
     };
     const auto* sceneProvider=dynamic_cast<const ms::damage::WarheadSceneExecutionV2*>(adapter);
     const bool sharedScene=!adapter||sceneProvider;
+    const bool causal=causalRequested&&sharedScene&&weapon&&weapon->info.role==ms::Role::Weapon&&std::isfinite(d.stepFraction);
     std::vector<DamageSnapshot> capturedVictims;
     std::vector<ms::damage::SceneVictimV1> sceneVictims;
     std::vector<ms::damage::SceneLiquidOnlyVictimV2> liquidOnlyVictims;
@@ -1191,13 +1192,13 @@ std::vector<ipc::EngagementEvent> World::detonateAt(const Detonation& d, const C
         t.angularVelocityEcef=rotate(s,v3(s.angularRateBodyRadS));
         std::string materialError;
         if(unsectioned) {
-            if(!appendUnsectionedLiquidMaterialV2(*e,s,*matter,liquids,materialError)) {
+            if((!causal||liquidMaterialDiagnosticStateV1_)&&!appendUnsectionedLiquidMaterialV2(*e,s,*matter,liquids,materialError)) {
                 LOG_WARN("session") << "standalone liquid material refused for " << e->info.name << ": " << materialError;return out;
             }
             liquidOnlyVictims.push_back({e->info.id,e->info.generation,t,{}});
         } else {
             const auto attached=e->damage->attachedGeometry();
-            if(sharedScene&&!appendLiquidMaterialV1(*e,s,*matter,attached,liquids,materialError)) {
+            if(sharedScene&&(!causal||liquidMaterialDiagnosticStateV1_)&&!appendLiquidMaterialV1(*e,s,*matter,attached,liquids,materialError)) {
                 LOG_WARN("session") << "damage encounter liquid material refused for " << e->info.name << ": " << materialError;return out;
             }
             sceneVictims.push_back({e->info.id,attached,t,e->info.generation});
@@ -1206,7 +1207,6 @@ std::vector<ipc::EngagementEvent> World::detonateAt(const Detonation& d, const C
         if (miss < nearest) nearest = miss, out[burstAt].target = static_cast<std::uint32_t>(slot) + 1;
     }
     if(causalRequested&&!sharedScene) {LOG_WARN("session") << "selected warhead provider has no causal scene capability";return {};}
-    const bool causal=causalRequested&&sharedScene&&weapon&&weapon->info.role==ms::Role::Weapon&&std::isfinite(d.stepFraction);
     ms::damage::SceneAssessmentV1 assessment;
     if(sharedScene&&(!capturedVictims.empty()||causal)) {
         const auto ordinal=d.weapon?static_cast<std::uint64_t>(d.weapon):++scriptedDetonationSequence_;
@@ -1444,6 +1444,47 @@ void World::advanceDetonationEffects() {
         std::optional<ms::damage::MaterialContactHistoryV3> materialContactsV3;
     };
     std::vector<ContinuationUpdate> continuationUpdates(pending.size());
+    // Cache frozen liquid recipients per (vehicleId, sampleOffset) across
+    // overlapping detonations at the same native step boundary when no
+    // per-call diagnostic observer is active (0-ULP identical state).
+    struct FrozenLiquidCacheEntry {
+        bool valid=false;
+        bool hasRecipient=false;
+        ms::damage::SceneLiquidRecipientV1 recipient;
+        std::string error;
+    };
+    std::map<std::pair<std::uint32_t,double>,FrozenLiquidCacheEntry> frozenLiquidCache;
+    std::map<std::uint32_t,double> entryMaxRadiusCache;
+    const char* traceEnv=std::getenv("FSIM_ENGAGEMENT_TRACE");
+    const bool traceActive=traceEnv&&*traceEnv;
+    const auto entryMaxRadius=[&](const Entry& e,bool unsectioned)->double {
+        if(const auto it=entryMaxRadiusCache.find(e.info.id);it!=entryMaxRadiusCache.end())return it->second;
+        double rad=0.0;
+        if(!unsectioned&&e.damage) {
+            const auto geom=e.damage->attachedGeometry();
+            const auto& frame=geom.airframe();
+            for(const auto index:geom.panelIndices()) {
+                const auto& panel=frame.panels[index];
+                if(panel.surface)for(const auto corner:panel.corners)rad=std::max(rad,ms::damage::length(corner)+std::abs(panel.thicknessM));
+                else if(const auto* mesh=frame.contactGeometry?frame.contactGeometry->panel(index):nullptr)
+                    for(const auto vertex:mesh->vertices)rad=std::max(rad,ms::damage::length(vertex));
+                else rad=std::max(rad,ms::damage::length(panel.centre)+ms::damage::length(panel.half));
+            }
+            for(const auto index:geom.componentIndices()) {
+                const auto& comp=frame.components[index];
+                rad=std::max(rad,ms::damage::length(comp.centre)+ms::damage::length(comp.half));
+            }
+        }
+        if(e.liquidMaterials) {
+            for(const auto& cell:e.liquidMaterials->cells) {
+                const auto lo=cell.bodyBounds.low-e.liquidOriginShiftBodyM;
+                const auto hi=cell.bodyBounds.high-e.liquidOriginShiftBodyM;
+                rad=std::max(rad,ms::damage::length({std::max(std::abs(lo.x),std::abs(hi.x)),
+                    std::max(std::abs(lo.y),std::abs(hi.y)),std::max(std::abs(lo.z),std::abs(hi.z))}));
+            }
+        }
+        return entryMaxRadiusCache[e.info.id]=rad;
+    };
     for(std::size_t effectIndex=0;effectIndex<pending.size();++effectIndex) {
         auto& effect=pending[effectIndex];auto& update=continuationUpdates[effectIndex];
         if(effect.lastPublicationS==simTime_)continue;
@@ -1453,6 +1494,27 @@ void World::advanceDetonationEffects() {
         update.processed=true;
         if(!(duration>0))continue;
         const double endOffset=std::min(nativeDuration,offset+duration);
+        // Conservative swept AABB of the entire fragment cloud over [0, duration].
+        ms::damage::V3 cloudLow{std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity()};
+        ms::damage::V3 cloudHigh{-std::numeric_limits<double>::infinity(),-std::numeric_limits<double>::infinity(),-std::numeric_limits<double>::infinity()};
+        bool cloudBoundsValid=!effect.field.projectiles.empty();
+        if(cloudBoundsValid) {
+            const double gNorm=ms::damage::length(effect.environment.gravityEcef);
+            const double airNorm=ms::damage::length(effect.environment.airVelocity);
+            const double gravPad=0.5*gNorm*duration*duration+1.0;
+            const auto expandPoint=[&](ms::damage::V3 pt,ms::damage::V3 vel) {
+                const double relV=ms::damage::length(vel-effect.environment.airVelocity);
+                const double reach=(relV+airNorm+gNorm*duration)*duration+gravPad;
+                if(!std::isfinite(pt.x)||!std::isfinite(pt.y)||!std::isfinite(pt.z)||!std::isfinite(reach)){cloudBoundsValid=false;return;}
+                cloudLow.x=std::min(cloudLow.x,pt.x-reach);cloudLow.y=std::min(cloudLow.y,pt.y-reach);cloudLow.z=std::min(cloudLow.z,pt.z-reach);
+                cloudHigh.x=std::max(cloudHigh.x,pt.x+reach);cloudHigh.y=std::max(cloudHigh.y,pt.y+reach);cloudHigh.z=std::max(cloudHigh.z,pt.z+reach);
+            };
+            for(const auto& p:effect.field.projectiles) {
+                expandPoint(p.at,p.velocity);
+                if(p.segment)expandPoint(p.end,p.endVelocity);
+                if(!cloudBoundsValid)break;
+            }
+        }
         std::vector<Snapshot> snapshots;std::vector<ms::damage::SceneVictimV1> victims;
         std::vector<ms::damage::SceneLiquidOnlyVictimV2> liquidOnlyVictims;
         ms::damage::SceneLiquidInputsV1 liquids;
@@ -1467,6 +1529,8 @@ void World::advanceDetonationEffects() {
             const auto initial=engagementStateAt(*e,offset);
             ms::damage::SceneLiquidOnlyVictimV2 victim{e->info.id,e->info.generation,{},{}};
             std::array<double,3> firstCg{};bool admitted=true;
+            ms::damage::V3 vLow{std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity()};
+            ms::damage::V3 vHigh{-std::numeric_limits<double>::infinity(),-std::numeric_limits<double>::infinity(),-std::numeric_limits<double>::infinity()};
             for(double local=0;;local=std::min(duration,local+effect.environment.maxSubstepS)) {
                 const double sampleOffset=local==duration?endOffset:offset+local;
                 const auto state=engagementStateAt(*e,sampleOffset);
@@ -1478,14 +1542,79 @@ void World::advanceDetonationEffects() {
                     target.bodyToEcef[axis]={state.rotationBodyToEcef[axis],state.rotationBodyToEcef[axis+3],state.rotationBodyToEcef[axis+6]};
                 target.airPressurePa=matter->pressurePa;target.airTemperatureK=matter->temperatureK;target.airDensity=matter->densityKgM3;
                 target.angularVelocityEcef=rotate(state,v3(state.angularRateBodyRadS));
+                vLow.x=std::min(vLow.x,target.at.x);vLow.y=std::min(vLow.y,target.at.y);vLow.z=std::min(vLow.z,target.at.z);
+                vHigh.x=std::max(vHigh.x,target.at.x);vHigh.y=std::max(vHigh.y,target.at.y);vHigh.z=std::max(vHigh.z,target.at.z);
                 if(local==0){victim.target=target;firstCg={cg->x,cg->y,cg->z};}
                 victim.motion.push_back({local,target});if(local==duration)break;
             }
             if(admitted) {
                 const auto matter=engagementMatterAt(*e,offset);
                 std::string materialError;
-                const bool material=bool(matter)&&(unsectioned?appendUnsectionedLiquidMaterialV2(*e,initial,*matter,liquids,materialError):
-                    appendLiquidMaterialV1(*e,initial,*matter,e->damage->attachedGeometry(),liquids,materialError));
+                bool canReach=true;
+                if(cloudBoundsValid&&!effect.field.applyBlast&&!liquidMaterialDiagnosticStateV1_&&!traceActive&&!unsectioned) {
+                    const double rad=entryMaxRadius(*e,false)+1.0;
+                    if(std::isfinite(rad)&&(vHigh.x+rad<cloudLow.x||vLow.x-rad>cloudHigh.x||
+                       vHigh.y+rad<cloudLow.y||vLow.y-rad>cloudHigh.y||
+                       vHigh.z+rad<cloudLow.z||vLow.z-rad>cloudHigh.z)) {
+                        canReach=false;
+                    }
+                }
+                bool material=bool(matter);
+                if(material&&!canReach) {
+                    // Provably unreachable by all fragments in this step: validate
+                    // fuel tank bounds in O(tanks) without rebuilding/bisecting
+                    // tens of thousands of liquid voxel cells for distant aircraft.
+                    if(e->liquidMaterials) {
+                        const auto& data=*e->liquidMaterials;
+                        const auto geom=e->damage->attachedGeometry();
+                        if(data.tanks.empty()) {
+                            for(const auto index:geom.componentIndices())
+                                if(geom.airframe().components[index].kind=="fuel"){material=false;materialError="Liquid-inapplicable product still declares a fuel component";break;}
+                        } else {
+                            for(const auto index:geom.componentIndices()) {
+                                const auto& comp=geom.airframe().components[index];
+                                if(comp.kind!="fuel")continue;
+                                const int tankId=comp.tank;
+                                const auto found=std::find_if(data.tanks.begin(),data.tanks.end(),[&](const auto& row){return row.index==tankId;});
+                                if(found==data.tanks.end()||tankId<0||static_cast<std::size_t>(tankId)>=matter->tankFuelKg.size()||
+                                   !matter->tankFuelKg[static_cast<std::size_t>(tankId)].has_value()) {
+                                    material=false;materialError="Required captured native fuel contents are unavailable";break;
+                                }
+                                const double mass=*matter->tankFuelKg[static_cast<std::size_t>(tankId)];
+                                const double targetVol=mass/found->densityKgM3;
+                                const double capVol=found->capacityKg/found->densityKgM3;
+                                const double tol=liquids.controls.absoluteVolumeToleranceM3+liquids.controls.relativeTolerance*std::max(targetVol,capVol);
+                                if(!std::isfinite(mass)||mass<0||!std::isfinite(targetVol)||targetVol>capVol+tol) {
+                                    material=false;materialError="Native fuel exceeds its owned geometric capacity";break;
+                                }
+                            }
+                        }
+                    }
+                } else if(material) {
+                    const bool useCache=!liquidMaterialDiagnosticStateV1_;
+                    const auto cacheKey=std::make_pair(e->info.id,offset);
+                    if(useCache) {
+                        auto it=frozenLiquidCache.find(cacheKey);
+                        if(it==frozenLiquidCache.end()) {
+                            ms::damage::SceneLiquidInputsV1 single;
+                            single.controls=liquids.controls;
+                            FrozenLiquidCacheEntry ce;
+                            ce.valid=unsectioned?appendUnsectionedLiquidMaterialV2(*e,initial,*matter,single,ce.error):
+                                appendLiquidMaterialV1(*e,initial,*matter,e->damage->attachedGeometry(),single,ce.error);
+                            if(ce.valid&&!single.recipients.empty()) {
+                                ce.hasRecipient=true;
+                                ce.recipient=std::move(single.recipients.front());
+                            }
+                            it=frozenLiquidCache.emplace(cacheKey,std::move(ce)).first;
+                        }
+                        material=it->second.valid;
+                        materialError=it->second.error;
+                        if(material&&it->second.hasRecipient)liquids.recipients.push_back(it->second.recipient);
+                    } else {
+                        material=unsectioned?appendUnsectionedLiquidMaterialV2(*e,initial,*matter,liquids,materialError):
+                            appendLiquidMaterialV1(*e,initial,*matter,e->damage->attachedGeometry(),liquids,materialError);
+                    }
+                }
                 if(!material) {
                     LOG_WARN("session") << "causal fragment liquid material refused for " << e->info.name << ": " << materialError;
                     materialAdmitted=false;break;

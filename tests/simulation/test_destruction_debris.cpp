@@ -149,6 +149,31 @@ TEST_CASE("VIS-M11 wire contracts, ullage flammability, hydrodynamic-ram spray, 
     CHECK(water.splashKg > 0.0);
     CHECK(rock.slideDecelMs2 > soil.slideDecelMs2);
     CHECK(soil.slideDecelMs2 > water.slideDecelMs2);
+
+    // 6. Steep / high-vertical-energy land impact disintegrates hull vs shallow belly-slide
+    {
+        dmg::VehicleDestructionState steep48;
+        dmg::applyGroundOrWaterDestruction(steep48, strikeSurface(dmg::SurfaceKind::Soil, 78.0, 48.0), 1200.0, true);
+        CHECK(steep48.tier == dmg::DestructionTier::GroundWreck);
+        CHECK(steep48.hullRetired);
+        CHECK_FALSE(steep48.groundSliding);
+
+        dmg::VehicleDestructionState steepMid;
+        dmg::applyGroundOrWaterDestruction(steepMid, strikeSurface(dmg::SurfaceKind::Soil, 50.0, 50.0), 1200.0, true);
+        CHECK(steepMid.tier == dmg::DestructionTier::GroundWreck);
+        CHECK(steepMid.hullRetired);
+
+        dmg::VehicleDestructionState highNormal;
+        dmg::applyGroundOrWaterDestruction(highNormal, strikeSurface(dmg::SurfaceKind::Soil, 125.0, 28.0), 1200.0, true);
+        CHECK(highNormal.tier == dmg::DestructionTier::GroundWreck);
+        CHECK(highNormal.hullRetired);
+
+        dmg::VehicleDestructionState shallow;
+        dmg::applyGroundOrWaterDestruction(shallow, strikeSurface(dmg::SurfaceKind::Soil, 80.0, 12.0), 1200.0, true);
+        CHECK(shallow.tier == dmg::DestructionTier::GroundWreck);
+        CHECK_FALSE(shallow.hullRetired);
+        CHECK(shallow.groundSliding);
+    }
 }
 
 TEST_CASE("VIS-M11 LightweightDebris section separation spawns zero jsbsim:<piece> vehicles and conserves momentum",

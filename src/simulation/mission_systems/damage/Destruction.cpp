@@ -323,8 +323,11 @@ void applyGroundOrWaterDestruction(VehicleDestructionState& state, const StrikeO
     // violently shatters the airframe on entry into hydrodynamic wreckage & geyser plumes rather than skimming intact.
     const bool highSpeedWaterShatter =
         enableSlide && outcome.surface == SurfaceKind::Water && (outcome.normalMs >= 20.0 || outcome.speedMs >= 95.0);
-    // Extreme steep high-energy dive on land (> 45 deg and > 100 m/s normal) disintegrates hull on impact too.
-    const bool steepLandDisintegrate = enableSlide && outcome.angleRad >= 0.78539816339 && outcome.normalMs > 100.0;
+    // Steep or high-vertical-energy land impact (>= 45 deg at >= 32 m/s normal, or >= 55 m/s normal at any angle)
+    // disintegrates the airframe into tumbling JoltPhysics sections/shards & crater fireball rather than freezing intact.
+    const bool steepLandDisintegrate =
+        enableSlide && outcome.surface != SurfaceKind::Water &&
+        ((outcome.angleRad >= 0.78539816339 && outcome.normalMs >= 32.0) || outcome.normalMs >= 55.0);
     if (highSpeedWaterShatter || steepLandDisintegrate) {
         state.hullRetired = true;
         state.groundSliding = false;

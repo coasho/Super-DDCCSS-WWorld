@@ -262,17 +262,19 @@ PathResult computePath(const Terminal& a, const Terminal& b, const PathOptions& 
     const int n = std::clamp(static_cast<int>(std::ceil(d / spacing)) + 1, 3, 2001);
     spacing = d / (n - 1);
     const double rise = (b.heightM - a.heightM) / std::max(d, 1e-9), bulge = 1.0 / (2.0 * kEffectiveRadiusM);
-    std::vector<double> profile;
+    double stackProfile[2001];
+    bool hasProfile = false;
     double flatGroundH = 0.0;
     double s0 = 0.0, s1 = 0.0, groundA = a.heightM, groundB = b.heightM;
     if (o.ground && d > 0.0 && std::isfinite(o.ground->resolutionM())) {
-        profile.assign(static_cast<std::size_t>(n), 0.0);
-        o.ground->profile(a.latitudeRad, a.longitudeRad, b.latitudeRad, b.longitudeRad, n, spacing, profile.data());
+        hasProfile = true;
+        std::fill_n(stackProfile, n, 0.0);
+        o.ground->profile(a.latitudeRad, a.longitudeRad, b.latitudeRad, b.longitudeRad, n, spacing, stackProfile);
         // One pass: the sea's surface under the ground, the straight ray's clearance of the terrain in the 4/3 earth, and the
         // least-squares line's sums (smoothSurface's, in its order)
         double sy = 0.0, sxy = 0.0;
         for (int i = 0; i < n; ++i) {
-            double& h = profile[static_cast<std::size_t>(i)];
+            double& h = stackProfile[i];
             h = std::max(0.0, h);
             if (i > 0 && i < n - 1) {
                 const double di = spacing * i;
@@ -287,10 +289,10 @@ PathResult computePath(const Terminal& a, const Terminal& b, const PathOptions& 
         const double den = nn * sxx - sx * sx;
         const double slope = den > 0.0 ? (nn * sxy - sx * sy) / den : 0.0;
         const double intercept = (sy - slope * sx) / nn;
-        s0 = std::min(intercept, profile.front());
-        s1 = std::min(intercept + slope * (nn - 1.0), profile.back()); // (no terminal below the surface's ground)
-        groundA = a.heightM - profile.front();
-        groundB = b.heightM - profile.back();
+        s0 = std::min(intercept, stackProfile[0]);
+        s1 = std::min(intercept + slope * (nn - 1.0), stackProfile[n - 1]); // (no terminal below the surface's ground)
+        groundA = a.heightM - stackProfile[0];
+        groundB = b.heightM - stackProfile[n - 1];
     } else {
         // Constant-height flat ground (or sea level without a ground): ray(di) - flatH is strictly convex in di.
         // Exact discrete minimum over i in [1, n - 2] lies at an endpoint or adjacent to xStar = 0.5 * (d - rise / bulge).
@@ -319,11 +321,12 @@ PathResult computePath(const Terminal& a, const Terminal& b, const PathOptions& 
     const bool itmFits = o.model == PathModel::Itm && fMhz >= 20.0 && fMhz <= 20000.0 && d >= 1000.0 && d <= 2000e3 &&
                          groundA >= kItmMinM && groundA <= kItmMaxM && groundB >= kItmMinM && groundB <= kItmMaxM;
     if (itmFits) {
-        std::vector<double> pfl(static_cast<std::size_t>(n) + 2, flatGroundH);
+        double pfl[2003];
         pfl[0] = n - 1, pfl[1] = spacing;
-        if (!profile.empty()) std::copy(profile.begin(), profile.end(), pfl.begin() + 2);
+        if (hasProfile) std::copy(stackProfile, stackProfile + n, pfl + 2);
+        else std::fill(pfl + 2, pfl + 2 + n, flatGroundH);
         ntia::ItmResult itm;
-        r.code = ntia::itmP2p(groundA, groundB, pfl.data(), o.climate, o.surfaceRefractivity, fMhz, o.polarization, o.permittivity,
+        r.code = ntia::itmP2p(groundA, groundB, pfl, o.climate, o.surfaceRefractivity, fMhz, o.polarization, o.permittivity,
                               o.conductivity, 0x0 /* single message */, o.timePercent, 50.0, 50.0, itm);
         r.viaItm = true;
         r.mode = static_cast<PathMode>(std::clamp(itm.mode, 1, 3));
@@ -344,7 +347,7 @@ PathResult computePath(const Terminal& a, const Terminal& b, const PathOptions& 
             r.basicDb = r.freeSpaceDb + r.gasDb;
         }
         // The terrain's excess over the smooth earth: delta-Bullington (P.526-15 4.5.4)
-        if (profile.empty()) {
+        if (!hasProfile) {
             if (groundA == hte && groundB == hre) {
                 r.terrainDb = 0.0;
             } else {
@@ -353,7 +356,7 @@ PathResult computePath(const Terminal& a, const Terminal& b, const PathOptions& 
                 r.terrainDb = std::max(0.0, actual - smooth);
             }
         } else {
-            const double actual = bullingtonFastDb(profile.data(), n, spacing, a.heightM, b.heightM, lambda, kEffectiveRadiusM);
+            const double actual = bullingtonFastDb(stackProfile, n, spacing, a.heightM, b.heightM, lambda, kEffectiveRadiusM);
             const double smooth = bullingtonFlatDb(n, spacing, hte, hre, lambda, kEffectiveRadiusM);
             r.terrainDb = std::max(0.0, actual - smooth);
         }

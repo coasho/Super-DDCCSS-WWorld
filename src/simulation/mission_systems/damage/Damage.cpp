@@ -13,8 +13,11 @@
 #include <fstream>
 #include <limits>
 #include <map>
+#include <mutex>
 #include <set>
 #include <sstream>
+#include <thread>
+#include <unordered_map>
 
 namespace fsim::ms::damage {
 
@@ -904,70 +907,83 @@ FlightInterval fragmentFlight(V3 at,V3 velocity,double duration,double drag,V3 a
 // a hit between endpoints. No endpoint-only or bounding-sphere substitution.
 struct TimeCoordinate {double time,along;};
 struct ScenePlane {V3 normal;double bound;};
+struct ScenePlaneList {
+    std::array<ScenePlane,7> data{};
+    std::size_t count=0;
+    bool empty() const noexcept {return count==0;}
+    const ScenePlane& front() const noexcept {return data[0];}
+};
 bool finiteLineContact(V3 a,V3 velocity,V3 d,double k,double duration,
-                       const std::vector<ScenePlane>& planes,double& time,double& along,V3& normal,bool exit=false,
+                       const ScenePlane* planes,std::size_t planeCount,double& time,double& along,V3& normal,bool exit=false,
                        bool closedSkin=false,bool pairedEquality=false,detail::MaterialDomainV3* contactDomainV3=nullptr) {
-    std::vector<TimeCoordinate> polygon;
+    std::array<TimeCoordinate,32> polyA{},polyB{};
+    TimeCoordinate* poly=polyA.data();
+    TimeCoordinate* nextPoly=polyB.data();
+    std::size_t polyCount=0;
     bool reduced=false;
-    if(pairedEquality&&planes.size()<=6) {
+    if(pairedEquality&&planeCount<=6) {
         bool exactPair=false;
-        for(std::size_t i=0;i<planes.size()&&!exactPair;++i)for(std::size_t j=i+1;j<planes.size();++j) {
+        for(std::size_t i=0;i<planeCount&&!exactPair;++i)for(std::size_t j=i+1;j<planeCount;++j) {
             const auto& leftPlane=planes[i];const auto& rightPlane=planes[j];
             if(detail::oppositePlaneV1({leftPlane.normal.x,leftPlane.normal.y,leftPlane.normal.z},leftPlane.bound,
                                        {rightPlane.normal.x,rightPlane.normal.y,rightPlane.normal.z},rightPlane.bound)) {exactPair=true;break;}
         }
         if(exactPair) {
             std::array<detail::PlaneEqualityInputV1,6> coefficients{};
-            for(std::size_t i=0;i<planes.size();++i) {
+            for(std::size_t i=0;i<planeCount;++i) {
                 const auto& p=planes[i];
                 coefficients[i]={{p.normal.x,p.normal.y,p.normal.z},p.bound,
                     dot(p.normal,a)-p.bound,dot(p.normal,velocity),dot(p.normal,d)};
             }
-            const auto reduction=detail::reducePlaneEqualityV1(coefficients.data(),planes.size(),k,duration);
+            const auto reduction=detail::reducePlaneEqualityV1(coefficients.data(),planeCount,k,duration);
             if(reduction.status==detail::PlaneEqualityResultV1::Status::Empty)return false;
             if(reduction.status==detail::PlaneEqualityResultV1::Status::Reduced) {
                 for(std::size_t i=0;i<reduction.count;++i)
-                    polygon.push_back({reduction.vertices[i].time,reduction.vertices[i].along});
+                    poly[polyCount++]={reduction.vertices[i].time,reduction.vertices[i].along};
                 reduced=true;
             }
         }
     }
     if(!reduced) {
-        polygon={{0,0},{duration,0},{duration,1+k*duration},{0,1}};
-        for(const auto& plane:planes) {
-            if(polygon.empty())return false;
+        poly[0]={0,0};poly[1]={duration,0};poly[2]={duration,1+k*duration};poly[3]={0,1};
+        polyCount=4;
+        for(std::size_t pi=0;pi<planeCount;++pi) {
+            if(polyCount==0)return false;
+            const auto& plane=planes[pi];
             const double offset=dot(plane.normal,a)-plane.bound;
             const double rate=dot(plane.normal,velocity),slope=dot(plane.normal,d);
             const auto value=[&](TimeCoordinate p){return offset+rate*p.time+slope*p.along;};
-            std::vector<TimeCoordinate> next;
-            auto before=polygon.back();double vb=value(before);
-            for(const auto after:polygon) {
+            std::size_t nextCount=0;
+            auto before=poly[polyCount-1];double vb=value(before);
+            for(std::size_t vi=0;vi<polyCount;++vi) {
+                const auto after=poly[vi];
                 const double va=value(after);
                 if((vb<=0)!=(va<=0)) {
                     const double fraction=vb/(vb-va);
-                    next.push_back({before.time+fraction*(after.time-before.time),before.along+fraction*(after.along-before.along)});
+                    if(nextCount<32)nextPoly[nextCount++]={before.time+fraction*(after.time-before.time),before.along+fraction*(after.along-before.along)};
                 }
-                if(va<=0)next.push_back(after);
+                if(va<=0&&nextCount<32)nextPoly[nextCount++]=after;
                 before=after;vb=va;
             }
-            polygon=std::move(next);
+            std::swap(poly,nextPoly);
+            polyCount=nextCount;
         }
     }
-    if(polygon.empty())return false;
+    if(polyCount==0)return false;
     if(contactDomainV3) {
         std::array<detail::PlaneEqualityInputV1,6> coefficients{};
-        if(planes.size()<=coefficients.size()) {
-            for(std::size_t i=0;i<planes.size();++i) {
+        if(planeCount<=coefficients.size()) {
+            for(std::size_t i=0;i<planeCount;++i) {
                 const auto& p=planes[i];coefficients[i]={{p.normal.x,p.normal.y,p.normal.z},p.bound,
                     dot(p.normal,a)-p.bound,dot(p.normal,velocity),dot(p.normal,d)};
             }
-            std::vector<std::array<double,2>> native;native.reserve(polygon.size());
-            for(const auto vertex:polygon)native.push_back({vertex.time,vertex.along});
-            *contactDomainV3=detail::materialDomainV3(coefficients.data(),planes.size(),k,duration,native);
+            std::vector<std::array<double,2>> native;native.reserve(polyCount);
+            for(std::size_t i=0;i<polyCount;++i)native.push_back({poly[i].time,poly[i].along});
+            *contactDomainV3=detail::materialDomainV3(coefficients.data(),planeCount,k,duration,native);
         }
     }
     const auto ordering=[](auto left,auto right){return left.time<right.time || (left.time==right.time&&left.along<right.along);};
-    const auto first=exit?std::max_element(polygon.begin(),polygon.end(),ordering):std::min_element(polygon.begin(),polygon.end(),ordering);
+    const auto first=exit?std::max_element(poly,poly+polyCount,ordering):std::min_element(poly,poly+polyCount,ordering);
     time=first->time;along=first->along;normal={};double nearest=std::numeric_limits<double>::infinity();
     if(closedSkin&&!exit&&time==0) {
         // Feasible occupancy at birth is contact for a solid component, but
@@ -976,7 +992,8 @@ bool finiteLineContact(V3 a,V3 velocity,V3 d,double k,double duration,
         // Retain initial straddles and an inward-moving material endpoint on
         // a boundary; an outward boundary is handled only by the exit query.
         bool contained=true,inwardBoundary=false;
-        for(const auto& plane:planes) {
+        for(std::size_t pi=0;pi<planeCount;++pi) {
+            const auto& plane=planes[pi];
             const double start=dot(plane.normal,a)-plane.bound;
             const double end=dot(plane.normal,a+d)-plane.bound;
             if(start>0||end>0)contained=false;
@@ -987,32 +1004,46 @@ bool finiteLineContact(V3 a,V3 velocity,V3 d,double k,double duration,
     }
     if(exit&&time>=duration)return false; // An interval endpoint does not prove geometric exit.
     const V3 point=a+velocity*time+d*along;
-    for(const auto& plane:planes) {
+    for(std::size_t pi=0;pi<planeCount;++pi) {
+        const auto& plane=planes[pi];
         const double error=std::abs(dot(plane.normal,point)-plane.bound);
         if(error<nearest){nearest=error;normal=plane.normal;}
     }
     return std::isfinite(time)&&std::isfinite(along)&&time>=0&&time<=duration;
 }
-std::vector<ScenePlane> boxPlanes(V3 centre,V3 half) {
-    return {{{1,0,0},centre.x+half.x},{{-1,0,0},-centre.x+half.x},
-            {{0,1,0},centre.y+half.y},{{0,-1,0},-centre.y+half.y},
-            {{0,0,1},centre.z+half.z},{{0,0,-1},-centre.z+half.z}};
+inline bool finiteLineContact(V3 a,V3 velocity,V3 d,double k,double duration,
+                              const ScenePlaneList& planes,double& time,double& along,V3& normal,bool exit=false,
+                              bool closedSkin=false,bool pairedEquality=false,detail::MaterialDomainV3* contactDomainV3=nullptr) {
+    return finiteLineContact(a,velocity,d,k,duration,planes.data.data(),planes.count,time,along,normal,exit,closedSkin,pairedEquality,contactDomainV3);
 }
-std::vector<ScenePlane> facePlanes(const Airframe::Panel& panel) {
+ScenePlaneList boxPlanes(V3 centre,V3 half) {
+    ScenePlaneList list;
+    list.data[0]={{1,0,0},centre.x+half.x};
+    list.data[1]={{-1,0,0},-centre.x+half.x};
+    list.data[2]={{0,1,0},centre.y+half.y};
+    list.data[3]={{0,-1,0},-centre.y+half.y};
+    list.data[4]={{0,0,1},centre.z+half.z};
+    list.data[5]={{0,0,-1},-centre.z+half.z};
+    list.count=6;
+    return list;
+}
+ScenePlaneList facePlanes(const Airframe::Panel& panel) {
     const auto& corners=panel.corners;const V3 normal=normalized(cross(corners[2]-corners[0],corners[3]-corners[1]));
-    if(length(normal)==0)return {};
+    ScenePlaneList list;
+    if(length(normal)==0)return list;
     // A numerical face thickness, many orders below the authored skin. It
     // resolves roundoff in half-plane clipping and is not an explosive radius.
     constexpr double faceRoundoffM=1e-10;
-    std::vector<ScenePlane> planes={{normal,dot(normal,corners[0])+faceRoundoffM},
-                                   {normal*(-1),-dot(normal,corners[0])+faceRoundoffM}};
+    list.data[0]={normal,dot(normal,corners[0])+faceRoundoffM};
+    list.data[1]={normal*(-1),-dot(normal,corners[0])+faceRoundoffM};
+    list.count=2;
     const V3 middle=panel.middle();
     for(std::size_t i=0;i<4;++i) {
         V3 outward=normalized(cross(corners[(i+1)%4]-corners[i],normal));
         if(dot(outward,middle-corners[i])>0)outward=outward*(-1);
-        planes.push_back({outward,dot(outward,corners[i])});
+        list.data[list.count++]={outward,dot(outward,corners[i])};
     }
-    return planes;
+    return list;
 }
 Airframe::Panel surfaceFace(const Airframe::Panel& panel,int side) {
     auto face=panel;
@@ -1066,15 +1097,136 @@ std::vector<SceneSkinTriangle> authoredSkinTriangles(const ContactMesh& mesh) {
     }
     return result;
 }
-std::vector<ScenePlane> trianglePlanes(const SceneSkinTriangle& triangle) {
+std::array<ScenePlane,5> trianglePlanesArray(const SceneSkinTriangle& triangle) {
     const auto& a=triangle.vertices[0];const auto& n=triangle.normal;
-    std::vector<ScenePlane> planes={{n,dot(n,a)},{n*(-1),-dot(n,a)}};
+    std::array<ScenePlane,5> planes{{{n,dot(n,a)},{n*(-1),-dot(n,a)},{},{},{}}};
     for(std::size_t i=0;i<3;++i) {
         const auto& start=triangle.vertices[i];
         const V3 outward=cross(triangle.vertices[(i+1)%3]-start,n);
-        planes.push_back({outward,dot(outward,start)});
+        planes[2+i]={outward,dot(outward,start)};
     }
     return planes;
+}
+struct CachedSkinMesh {
+    struct BvhNode {
+        fluid::Aabb bounds;
+        std::size_t begin=0,end=0,left=0,right=0;
+    };
+    std::vector<SceneSkinTriangle> triangles;
+    std::vector<fluid::Aabb> bounds;
+    std::vector<std::array<ScenePlane,5>> planes;
+    std::vector<std::size_t> order;
+    std::vector<BvhNode> nodes;
+
+    static fluid::Aabb triAabb(const SceneSkinTriangle& t) noexcept {
+        const auto& v=t.vertices;
+        return {{std::min({v[0].x,v[1].x,v[2].x}),std::min({v[0].y,v[1].y,v[2].y}),std::min({v[0].z,v[1].z,v[2].z})},
+                {std::max({v[0].x,v[1].x,v[2].x}),std::max({v[0].y,v[1].y,v[2].y}),std::max({v[0].z,v[1].z,v[2].z})}};
+    }
+    std::size_t buildNode(std::size_t begin,std::size_t end) {
+        const std::size_t idx=nodes.size();
+        fluid::Aabb box=bounds[order[begin]];
+        for(std::size_t i=begin+1;i<end;++i) {
+            const auto& b=bounds[order[i]];
+            box.low.x=std::min(box.low.x,b.low.x);box.low.y=std::min(box.low.y,b.low.y);box.low.z=std::min(box.low.z,b.low.z);
+            box.high.x=std::max(box.high.x,b.high.x);box.high.y=std::max(box.high.y,b.high.y);box.high.z=std::max(box.high.z,b.high.z);
+        }
+        nodes.push_back({box,begin,end,0,0});
+        if(end-begin>8) {
+            const V3 span=box.high-box.low;
+            const unsigned axis=span.x>=span.y&&span.x>=span.z?0u:span.y>=span.z?1u:2u;
+            const auto coord=[&](std::size_t ti) noexcept {
+                const auto& b=bounds[ti];
+                return axis==0?(b.low.x+b.high.x):axis==1?(b.low.y+b.high.y):(b.low.z+b.high.z);
+            };
+            const std::size_t mid=begin+(end-begin)/2;
+            std::nth_element(order.begin()+static_cast<std::ptrdiff_t>(begin),
+                             order.begin()+static_cast<std::ptrdiff_t>(mid),
+                             order.begin()+static_cast<std::ptrdiff_t>(end),
+                             [&](std::size_t a,std::size_t b){const double ca=coord(a),cb=coord(b);return ca<cb||(ca==cb&&a<b);});
+            const std::size_t left=buildNode(begin,mid);
+            const std::size_t right=buildNode(mid,end);
+            nodes[idx].left=left;nodes[idx].right=right;
+        }
+        return idx;
+    }
+    void build(std::vector<SceneSkinTriangle>&& tris) {
+        triangles=std::move(tris);
+        const std::size_t n=triangles.size();
+        bounds.resize(n);
+        planes.resize(n);
+        order.resize(n);
+        for(std::size_t i=0;i<n;++i) {
+            bounds[i]=triAabb(triangles[i]);
+            planes[i]=trianglePlanesArray(triangles[i]);
+            order[i]=i;
+        }
+        if(n>0) {
+            nodes.reserve(n/2+2);
+            buildNode(0,n);
+        }
+    }
+    void query(const fluid::Aabb& q,std::vector<std::size_t>& out) const {
+        out.clear();
+        if(nodes.empty())return;
+        auto hitBox=[&](const fluid::Aabb& b) noexcept {
+            return q.low.x<=b.high.x&&b.low.x<=q.high.x&&
+                   q.low.y<=b.high.y&&b.low.y<=q.high.y&&
+                   q.low.z<=b.high.z&&b.low.z<=q.high.z;
+        };
+        std::size_t stack[64];
+        std::size_t top=0;
+        stack[top++]=0;
+        while(top>0) {
+            const auto& node=nodes[stack[--top]];
+            if(!hitBox(node.bounds))continue;
+            if(node.left==0&&node.right==0) {
+                for(std::size_t i=node.begin;i<node.end;++i) {
+                    const std::size_t ti=order[i];
+                    if(hitBox(bounds[ti]))out.push_back(ti);
+                }
+            } else {
+                if(top+2<=64) {
+                    stack[top++]=node.right;
+                    stack[top++]=node.left;
+                } else {
+                    for(std::size_t i=node.begin;i<node.end;++i) {
+                        const std::size_t ti=order[i];
+                        if(hitBox(bounds[ti]))out.push_back(ti);
+                    }
+                }
+            }
+        }
+    }
+};
+std::shared_ptr<const CachedSkinMesh> cachedAuthoredSkinMesh(
+    const std::shared_ptr<const ContactGeometryV1>& owner,const ContactMesh* mesh) {
+    struct Entry {
+        std::weak_ptr<const ContactGeometryV1> owner;
+        std::shared_ptr<const CachedSkinMesh> cached;
+    };
+    static std::mutex mu;
+    static std::unordered_map<const ContactMesh*,Entry> cache;
+    {
+        std::lock_guard<std::mutex> lock(mu);
+        if(const auto it=cache.find(mesh);it!=cache.end()) {
+            if(auto locked=it->second.owner.lock();locked&&locked==owner)return it->second.cached;
+        }
+    }
+    auto computed=std::make_shared<CachedSkinMesh>();
+    computed->build(authoredSkinTriangles(*mesh));
+    std::shared_ptr<const CachedSkinMesh> shared=std::move(computed);
+    {
+        std::lock_guard<std::mutex> lock(mu);
+        if(cache.size()>=1024) {
+            for(auto it=cache.begin();it!=cache.end();) {
+                if(it->second.owner.expired())it=cache.erase(it);
+                else ++it;
+            }
+        }
+        cache[mesh]=Entry{owner,shared};
+    }
+    return shared;
 }
 bool overlaps(fluid::Aabb a,fluid::Aabb b,bool strict=false) {
     if(strict)return a.low.x<b.high.x&&b.low.x<a.high.x&&a.low.y<b.high.y&&b.low.y<a.high.y&&a.low.z<b.high.z&&b.low.z<a.high.z;
@@ -1091,20 +1243,31 @@ struct LiquidFacePatch {
     double coordinate=0,u0=0,u1=0,v0=0,v1=0;
     bool positive=false;
 };
-std::vector<ScenePlane> capacityFacePlanes(const LiquidFacePatch& face) {
+ScenePlaneList capacityFacePlanes(const LiquidFacePatch& face) {
     const V3 normal=capacityNormal(face.axis),u=capacityNormal((face.axis+1)%3),v=capacityNormal((face.axis+2)%3);
-    return {{normal,face.coordinate},{normal*(-1),-face.coordinate},{u,face.u1},{u*(-1),-face.u0},{v,face.v1},{v*(-1),-face.v0}};
+    ScenePlaneList list;
+    list.data[0]={normal,face.coordinate};
+    list.data[1]={normal*(-1),-face.coordinate};
+    list.data[2]={u,face.u1};
+    list.data[3]={u*(-1),-face.u0};
+    list.data[4]={v,face.v1};
+    list.data[5]={v*(-1),-face.v0};
+    list.count=6;
+    return list;
 }
 struct LiquidTree {
     struct Node {fluid::Aabb bounds;std::size_t begin=0,end=0,left=0,right=0;};
     const SceneLiquidRecipientV1* source=nullptr;
-    std::vector<std::size_t> order;
-    std::vector<Node> nodes;
+    fluid::Aabb rootBounds{};
+    mutable std::vector<std::size_t> order;
+    mutable std::vector<Node> nodes;
+    mutable bool built=false;
     std::map<int,const LiquidTankStateV1*> tanks;
+    mutable std::unique_ptr<std::mutex> boundaryMutex=std::make_unique<std::mutex>();
     mutable std::map<std::size_t,std::vector<LiquidFacePatch>> boundaryCache;
     mutable std::size_t boundaryPatchCount=0;
     mutable bool boundaryValid=true;
-    std::size_t build(std::size_t begin,std::size_t end) {
+    std::size_t build(std::size_t begin,std::size_t end) const {
         const std::size_t index=nodes.size();nodes.push_back({source->cells[order[begin]].bodyBounds,begin,end,0,0});
         for(std::size_t i=begin+1;i<end;++i)nodes[index].bounds=unite(nodes[index].bounds,source->cells[order[i]].bodyBounds);
         if(end-begin>8) {
@@ -1118,7 +1281,17 @@ struct LiquidTree {
         }
         return index;
     }
+    void ensureBuilt() const {
+        if(built||order.empty())return;
+        nodes.reserve(order.size()/4+16);
+        build(0,order.size());
+        built=true;
+    }
     void query(fluid::Aabb bounds,std::vector<std::size_t>& out,std::size_t index=0) const {
+        if(index==0) {
+            if(order.empty()||!overlaps(bounds,rootBounds))return;
+            if(!built)ensureBuilt();
+        }
         if(nodes.empty()||!overlaps(bounds,nodes[index].bounds))return;
         const auto& node=nodes[index];
         if(node.left){query(bounds,out,node.left);query(bounds,out,node.right);}
@@ -1164,6 +1337,11 @@ struct LiquidTree {
         }
         boundaryPatchCount+=output.size();return output;
     }
+    const std::vector<LiquidFacePatch>* boundaryThreadSafe(std::size_t cellIndex) const {
+        std::lock_guard<std::mutex> lock(*boundaryMutex);
+        const auto& out=boundary(cellIndex);
+        return boundaryValid?&out:nullptr;
+    }
 };
 struct PreparedLiquids {
     SceneLiquidControlsV1 controls;
@@ -1196,34 +1374,90 @@ bool prepareLiquids(const SceneLiquidInputsV1& input,const std::vector<const Mat
                !tree.tanks.emplace(tank.nativeTank,&tank).second)return false;
         }
         const auto* geometry=(*found)->geometry;
-        if(geometry)for(const auto index:geometry->componentIndices())if(geometry->airframe().components[index].kind=="fuel")
-            if(!tree.tanks.count(geometry->airframe().components[index].tank))return false;
-        std::set<std::uint64_t> ids;std::map<int,double> volume,capacity;
+        std::vector<std::uint8_t> attachedMask;
+        if(geometry) {
+            attachedMask.assign(geometry->airframe().components.size(),0);
+            for(const auto index:geometry->componentIndices()) {
+                if(index<attachedMask.size())attachedMask[index]=1;
+                if(geometry->airframe().components[index].kind=="fuel")
+                    if(!tree.tanks.count(geometry->airframe().components[index].tank))return false;
+            }
+        }
+        struct TankPlanePrep {
+            const LiquidTankStateV1* tank=nullptr;
+            double size=0;
+            V3 unitN{};
+            double volume=0;
+            double capacity=0;
+            bool seen=false;
+        };
+        std::map<int,TankPlanePrep> tankPrep;
+        for(const auto& [id,tank]:tree.tanks) {
+            const double size=fluid::detail::norm(tank->freeSurfaceBody.normal);
+            if(!fluid::detail::finite(tank->freeSurfaceBody.normal)||!fluid::detail::finite(tank->freeSurfaceBody.offset)||
+               !fluid::detail::finite(size)||!(size>0))return false;
+            tankPrep[id]={tank,size,{tank->freeSurfaceBody.normal.x/size,tank->freeSurfaceBody.normal.y/size,tank->freeSurfaceBody.normal.z/size},0.0,0.0,false};
+        }
+        std::uint64_t prevId=0;
+        bool monotonicIds=true;
+        tree.order.reserve(supplied.cells.size());
+        int lastTankId=-1;
+        TankPlanePrep* lastTankPtr=nullptr;
         for(std::size_t i=0;i<supplied.cells.size();++i) {
             const auto& cell=supplied.cells[i];
-            if(!cell.stableCellId||!ids.insert(cell.stableCellId).second||!tree.tanks.count(cell.nativeTank)||
-               !fluid::detail::box(cell.bodyBounds))return false;
+            if(!cell.stableCellId)return false;
+            if(i>0&&cell.stableCellId<=prevId)monotonicIds=false;
+            prevId=cell.stableCellId;
+            TankPlanePrep* tp=nullptr;
+            if(cell.nativeTank==lastTankId&&lastTankPtr)tp=lastTankPtr;
+            else {
+                const auto it=tankPrep.find(cell.nativeTank);
+                if(it==tankPrep.end())return false;
+                tp=&it->second;lastTankId=cell.nativeTank;lastTankPtr=tp;
+            }
+            const auto box=fluid::detail::box(cell.bodyBounds);
+            if(!box)return false;
             if(geometry) {
-                if(!std::binary_search(geometry->componentIndices().begin(),geometry->componentIndices().end(),cell.componentIndex))return false;
+                if(cell.componentIndex>=attachedMask.size()||!attachedMask[cell.componentIndex])return false;
                 const auto& component=geometry->airframe().components[cell.componentIndex];
                 if(component.kind!="fuel"||component.tank!=cell.nativeTank||component.section!=cell.section)return false;
             } else if(cell.section!=-1||cell.componentIndex!=static_cast<std::size_t>(cell.nativeTank))return false;
-            const auto wet=fluid::immersedVolume(cell.bodyBounds,tree.tanks.at(cell.nativeTank)->freeSurfaceBody);
+            const long double cDotN=fluid::detail::scalar(tp->unitN,box->centre);
+            const double extent=std::abs(tp->unitN.x)*box->half.x+std::abs(tp->unitN.y)*box->half.y+std::abs(tp->unitN.z)*box->half.z;
+            if(!fluid::detail::finite(extent))return false;
+            const auto wet=fluid::detail::immersedVolumePrepared(*box,tp->unitN,tp->size,cDotN,extent,tp->tank->freeSurfaceBody.offset);
             if(!wet)return false;
-            volume[cell.nativeTank]+=*wet;capacity[cell.nativeTank]+=fluid::detail::box(cell.bodyBounds)->volume;
-            if(!std::isfinite(volume[cell.nativeTank])||!std::isfinite(capacity[cell.nativeTank]))return false;
+            tp->volume+=*wet;tp->capacity+=box->volume;tp->seen=true;
+            if(!std::isfinite(tp->volume)||!std::isfinite(tp->capacity))return false;
+            if(i==0)tree.rootBounds=cell.bodyBounds;
+            else tree.rootBounds=unite(tree.rootBounds,cell.bodyBounds);
             tree.order.push_back(i);
         }
-        if(!tree.order.empty())tree.build(0,tree.order.size());
-        for(std::size_t i=0;i<supplied.cells.size();++i) {
-            std::vector<std::size_t> neighbors;tree.query(supplied.cells[i].bodyBounds,neighbors);
-            for(const auto j:neighbors)if(j>i&&overlaps(supplied.cells[i].bodyBounds,supplied.cells[j].bodyBounds,true))return false;
+        if(!monotonicIds&&supplied.cells.size()>1) {
+            std::vector<std::uint64_t> ids;ids.reserve(supplied.cells.size());
+            for(const auto& cell:supplied.cells)ids.push_back(cell.stableCellId);
+            std::sort(ids.begin(),ids.end());
+            if(std::adjacent_find(ids.begin(),ids.end())!=ids.end())return false;
         }
-        for(const auto& [id,tank]:tree.tanks) {
-            const double actual=tank->actualContentsKg/tank->densityKgM3;
-            if(!std::isfinite(actual)||(actual>0&&!capacity.count(id)))return false;
-            const double tolerance=c.absoluteVolumeToleranceM3+c.relativeVolumeTolerance*capacity[id];
-            if(!std::isfinite(tolerance)||std::abs(volume[id]-actual)>tolerance)return false;
+        if(supplied.cells.size()>1) {
+            std::vector<std::size_t> xOrder=tree.order;
+            std::sort(xOrder.begin(),xOrder.end(),[&](std::size_t a,std::size_t b){
+                return supplied.cells[a].bodyBounds.low.x<supplied.cells[b].bodyBounds.low.x;
+            });
+            for(std::size_t i=0;i<xOrder.size();++i) {
+                const auto a=supplied.cells[xOrder[i]].bodyBounds;
+                for(std::size_t j=i+1;j<xOrder.size();++j) {
+                    const auto b=supplied.cells[xOrder[j]].bodyBounds;
+                    if(b.low.x>=a.high.x)break;
+                    if(overlaps(a,b,true))return false;
+                }
+            }
+        }
+        for(const auto& [id,tp]:tankPrep) {
+            const double actual=tp.tank->actualContentsKg/tp.tank->densityKgM3;
+            if(!std::isfinite(actual)||(actual>0&&!tp.seen))return false;
+            const double tolerance=c.absoluteVolumeToleranceM3+c.relativeVolumeTolerance*tp.capacity;
+            if(!std::isfinite(tolerance)||std::abs(tp.volume-actual)>tolerance)return false;
         }
         output.recipients[vi]=std::move(tree);
     }
@@ -1606,16 +1840,25 @@ LiquidAdvance advanceLiquid(const FragmentFieldV1::Projectile& p,double duration
     out.valid=finiteScene(out.motion.position0)&&finiteScene(out.motion.position1)&&finiteScene(out.motion.velocity0)&&finiteScene(out.motion.velocity1);return out;
 }
 double liquidHorizon(const FragmentFieldV1::Projectile& p,double duration,const SceneEnvironmentV1& environment,
-    const PreparedLiquids& liquids,const std::vector<Target>& targets,bool& potential) {
+    const PreparedLiquids& liquids,const std::vector<Target>& targets,const std::vector<double>& victimRadii,
+    const std::vector<std::size_t>& activeLiquidVictims,std::vector<std::size_t>& candidates,
+    FlightInterval& free0Out,FlightInterval& free1Out,bool& potential) {
     const double original=duration;potential=false;
     const double airDrag=environment.airDensity*p.cd*p.areaM2/(2*p.massKg);
     const auto free0=fragmentFlight(p.at,p.velocity,original,airDrag,environment.airVelocity,environment.gravityEcef);
     const auto free1=p.segment?fragmentFlight(p.end,p.endVelocity,original,airDrag,environment.airVelocity,environment.gravityEcef):free0;
-    for(std::size_t vi=0;vi<liquids.recipients.size();++vi)if(liquids.recipients[vi]) {
+    free0Out=free0;free1Out=free1;
+    const double segReach=p.segment?std::max(length(p.end-p.at),length(free1.at-free0.at)):0.0;
+    for(const std::size_t vi:activeLiquidVictims) {
         const auto& tree=*liquids.recipients[vi];const auto& target=targets[vi];
-        const V3 a=toBody(target,p.at-target.at),v=toBody(target,(free0.at-p.at)*(1/original)-target.velocity),
-                 b=p.segment?toBody(target,p.end-target.at):a,w=p.segment?toBody(target,(free1.at-p.end)*(1/original)-target.velocity):v;
-        std::vector<std::size_t> candidates;tree.query(unite(unite({a,a},{a+v*original,a+v*original}),unite({b,b},{b+w*original,b+w*original})),candidates);
+        const V3 a=toBody(target,p.at-target.at),v=toBody(target,(free0.at-p.at)*(1/original)-target.velocity);
+        const double v2=dot(v,v);
+        const double ct=v2>0?std::clamp(-dot(a,v)/v2,0.0,original):0.0;
+        if(length(a+v*ct)>victimRadii[vi]*1.0001+segReach+1e-6)continue;
+        const V3 b=p.segment?toBody(target,p.end-target.at):a,w=p.segment?toBody(target,(free1.at-p.end)*(1/original)-target.velocity):v;
+        candidates.clear();
+        tree.query(unite(unite({a,a},{a+v*original,a+v*original}),unite({b,b},{b+w*original,b+w*original})),candidates);
+        if(candidates.empty())continue;
         if(!p.segment) {
             const auto owned=liquidOwnedIntervals(tree,candidates,a,a+v*original,v,v);
             if(!owned)return 0;
@@ -1629,7 +1872,7 @@ double liquidHorizon(const FragmentFieldV1::Projectile& p,double duration,const 
         for(const auto ci:candidates) {
             const auto& cell=tree.source->cells[ci];const auto& tank=*tree.tanks.at(cell.nativeTank);if(tank.actualContentsKg==0)continue;
             auto planes=boxPlanes((cell.bodyBounds.low+cell.bodyBounds.high)*.5,(cell.bodyBounds.high-cell.bodyBounds.low)*.5);
-            planes.push_back({tank.freeSurfaceBody.normal,tank.freeSurfaceBody.offset});
+            planes.data[planes.count++]={tank.freeSurfaceBody.normal,tank.freeSurfaceBody.offset};
             const V3 d=b-a,change=w-v;const double k=dot(d,change)/dot(d,d);double time=0,along=0;V3 normal;
             if(finiteLineContact(a,v,d,k,original,planes,time,along,normal)) {
                 potential=true;
@@ -1816,494 +2059,756 @@ static SceneAssessmentV1 assessSceneImpl(const FragmentFieldV1& field,const std:
             victimRadii[vi]=std::max(victimRadii[vi],length({std::max(std::abs(b.low.x),std::abs(b.high.x)),
                 std::max(std::abs(b.low.y),std::abs(b.high.y)),std::max(std::abs(b.low.z),std::abs(b.high.z))}));
         }
-    std::map<const ContactMesh*,std::vector<SceneSkinTriangle>> skinMeshes;
-    for(const auto* victim:victims) {
-        if(!victim->geometry)continue;
-        const auto& frame=victim->geometry->airframe();
-        if(frame.contactGeometry)for(const auto index:victim->geometry->panelIndices())
-            if(!frame.panels[index].surface)if(const auto* mesh=frame.contactGeometry->panel(index))
-                skinMeshes.try_emplace(mesh,authoredSkinTriangles(*mesh));
-    }
     if(contactHistoryV3&&contactHistoryV3->particles.size()!=field.projectiles.size())return {};
     std::vector<MaterialContactHistoryV3::Particle> nextContactParticlesV3;
     double mass=0;
+    const double totalFlightT=environment.maxFlightTimeS;
+    const double gNorm=length(environment.gravityEcef);
+    const double airNorm=length(environment.airVelocity);
+    const double gravPad=0.5*gNorm*totalFlightT*totalFlightT+1.0;
+    V3 cloudLow{std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity()};
+    V3 cloudHigh{-std::numeric_limits<double>::infinity(),-std::numeric_limits<double>::infinity(),-std::numeric_limits<double>::infinity()};
+    bool cloudBoundsValid=!field.projectiles.empty();
     for(const auto& p:field.projectiles) {
         if(!finiteScene(p.at)||!finiteScene(p.velocity)||!std::isfinite(length(p.velocity))||!(p.massKg>0)||!std::isfinite(p.massKg)||
            !(p.areaM2>0)||!std::isfinite(p.areaM2)||!(p.cd>0)||!std::isfinite(p.cd)||
            (p.segment&&(!finiteScene(p.end)||!finiteScene(p.endVelocity)||!(length(p.end-p.at)>0)||
              !std::isfinite(p.expansionPerS)||p.expansionPerS<0||!std::isfinite(p.breakupAgeS)||p.breakupAgeS<0)))return {};
         mass+=p.massKg;
+        if(cloudBoundsValid) {
+            const auto expand=[&](V3 pt,V3 vel) {
+                const double reach=(length(vel-environment.airVelocity)+airNorm+gNorm*totalFlightT)*totalFlightT+gravPad;
+                if(!std::isfinite(reach)){cloudBoundsValid=false;return;}
+                cloudLow.x=std::min(cloudLow.x,pt.x-reach);cloudLow.y=std::min(cloudLow.y,pt.y-reach);cloudLow.z=std::min(cloudLow.z,pt.z-reach);
+                cloudHigh.x=std::max(cloudHigh.x,pt.x+reach);cloudHigh.y=std::max(cloudHigh.y,pt.y+reach);cloudHigh.z=std::max(cloudHigh.z,pt.z+reach);
+            };
+            expand(p.at,p.velocity);
+            if(p.segment)expand(p.end,p.endVelocity);
+        }
     }
     if(!std::isfinite(mass)||std::abs(mass-field.caseKg)>1e-9*std::max(1.0,field.caseKg))return {};
-    struct Crossing {double duration=0;std::size_t victim=0,index=0;int side=0;bool skin=false;V3 normal,point;int liquidTank=-1;
-        std::size_t materialNodeV3=std::numeric_limits<std::size_t>::max();bool paidContinuationV3=false;};
-    for(std::size_t particleIndexV3=0;particleIndexV3<field.projectiles.size();++particleIndexV3) {
-        auto p=field.projectiles[particleIndexV3];
-        auto activeMaterialV3=contactHistoryV3?contactHistoryV3->particles[particleIndexV3].active:std::vector<MaterialFacetKeyV3>{};
-        const std::set<std::array<std::uint64_t,5>> originalVisitedV3(p.crossedFaces.begin(),p.crossedFaces.end());
-        double age=0;bool absorbed=false,anyStrike=false;
-        const auto canonicalMaterialBoundaryV3=[&](MaterialFacetKeyV3& key) {
-            const auto owner=std::find_if(victims.begin(),victims.end(),[&](const auto* victim) {
-                return victim->identity==key.victim&&victim->generation==key.generation;
-            });
-            if(owner==victims.end())return false;
-            Target boundary;double nextBoundary=environment.maxFlightTimeS;
-            if(!sceneTargetAt(**owner,age,nextBoundary,boundary))return false;
-            // Re-evaluate the represented captured anchor at the new absolute
-            // local age. Incremental regrouping can differ by one ULP and
-            // invalidate a genuinely fresh contact at the identical epoch.
-            // Retain the facet's held axes: no rotation sweep is supplied.
-            key.boundaryTarget.at=boundary.at;
-            return true;
-        };
-        const double materialLength=p.materialLengthM>0?p.materialLengthM:p.segment&&p.expansionPerS>0?
-            length(p.end-p.at)*(1+p.expansionPerS*p.breakupAgeS):0;
-        p.materialLengthM=materialLength;
-        std::vector<bool> struck(victims.size(),false);
-        std::set<std::array<std::uint64_t,5>> visited(p.crossedFaces.begin(),p.crossedFaces.end());
-        for(std::size_t vi=0;vi<victims.size();++vi)
-            struck[vi]=std::find(p.struckVictims.begin(),p.struckVictims.end(),
-                std::array<std::uint64_t,2>{victims[vi]->identity,victims[vi]->generation})!=p.struckVictims.end();
-        unsigned iterations=0;
-        while(age<environment.maxFlightTimeS&&!absorbed) {
-            if(++iterations>200000||(liquidInput&&iterations>liquids.controls.maxSteps))return {};
-            double duration=std::min(environment.maxSubstepS,environment.maxFlightTimeS-age);
-            // Vacuum point/affine expansion is exact over the whole captured
-            // interval. No repeated empty microsteps are needed in that case.
-            if(environment.airDensity==0&&(length(environment.gravityEcef)==0||victims.empty())&&
-               (!p.segment||length(cross(p.end-p.at,p.endVelocity-p.velocity))<1e-12))
-                duration=environment.maxFlightTimeS-age;
-            std::vector<Target> sampledTargets(victims.size());double nextBoundary=environment.maxFlightTimeS;
-            for(std::size_t vi=0;vi<victims.size();++vi)
-                if(!sceneTargetAt(*victims[vi],age,nextBoundary,sampledTargets[vi]))return {};
-            duration=std::min(duration,nextBoundary-age);
-            bool liquidFlight=false;
-            if(liquidInput) {
-                duration=liquidHorizon(p,duration,environment,liquids,sampledTargets,liquidFlight);
-                if(!(duration>0))return {};
-                // Round an event's absolute local-flight age upward, not only
-                // its small duration. A positive sub-ULP duration otherwise
-                // leaves age unchanged forever. This is one clock quantum,
-                // bounded by the existing captured sample/window endpoint;
-                // no material coordinate or integration budget is changed.
-                double eventAge=age+duration;
-                if(eventAge-age<duration)eventAge=std::nextafter(eventAge,std::numeric_limits<double>::infinity());
-                duration=std::min(eventAge-age,std::min(nextBoundary,environment.maxFlightTimeS)-age);
-            }
-            if(p.segment&&p.expansionPerS>0) {
-                if(length(p.end-p.at)>=materialLength*(1-1e-12)) {
-                    p.velocity=p.endVelocity=(p.velocity+p.endVelocity)*.5;p.expansionPerS=0;
-                    ++result.rodBreakups;
-                    if(!result.firstRodBreakAgeS||field.ageS+age<*result.firstRodBreakAgeS)result.firstRodBreakAgeS=field.ageS+age;
-                }
-            }
-            if(!(duration>0))return {};
-            const double drag=environment.airDensity*p.cd*p.areaM2/(2*p.massKg);
-            auto next=fragmentFlight(p.at,p.velocity,duration,drag,environment.airVelocity,environment.gravityEcef);
-            auto nextEnd=p.segment?fragmentFlight(p.end,p.endVelocity,duration,drag,environment.airVelocity,environment.gravityEcef):next;
-            if(liquidFlight) {
-                const auto predicted=advanceLiquid(p,duration,environment,liquids,sampledTargets);if(!predicted.valid)return {};
-                next={predicted.motion.position0,predicted.motion.velocity0};nextEnd=p.segment?
-                    FlightInterval{predicted.motion.position1,predicted.motion.velocity1}:next;
-            }
-            if(!finiteScene(next.at)||!finiteScene(next.velocity)||!finiteScene(nextEnd.at)||!finiteScene(nextEnd.velocity))return {};
-            if(p.segment&&p.expansionPerS>0&&length(nextEnd.at-next.at)>materialLength) {
-                double lower=0,upper=duration;
-                for(unsigned iteration=0;iteration<56;++iteration) {
-                    const double middle=(lower+upper)/2;
-                    auto a=fragmentFlight(p.at,p.velocity,middle,drag,environment.airVelocity,environment.gravityEcef);
-                    auto b=fragmentFlight(p.end,p.endVelocity,middle,drag,environment.airVelocity,environment.gravityEcef);
-                    if(liquidFlight) {
-                        const auto step=advanceLiquid(p,middle,environment,liquids,sampledTargets);if(!step.valid)return {};
-                        a={step.motion.position0,step.motion.velocity0};b={step.motion.position1,step.motion.velocity1};
-                    }
-                    if(length(b.at-a.at)<materialLength)lower=middle;else upper=middle;
-                }
-                duration=upper;
-                next=fragmentFlight(p.at,p.velocity,duration,drag,environment.airVelocity,environment.gravityEcef);
-                nextEnd=fragmentFlight(p.end,p.endVelocity,duration,drag,environment.airVelocity,environment.gravityEcef);
-                if(liquidFlight) {
-                    const auto step=advanceLiquid(p,duration,environment,liquids,sampledTargets);if(!step.valid)return {};
-                    next={step.motion.position0,step.motion.velocity0};nextEnd={step.motion.position1,step.motion.velocity1};
-                }
-            }
-            const V3 chord=(next.at-p.at)*(1/duration),endChord=(nextEnd.at-p.end)*(1/duration);
-            std::optional<Crossing> first;
-            std::vector<Crossing> candidatesV3;
-            std::vector<detail::MaterialFacetQueryV3> materialNodesV3;
-            bool invalidFlight=false;
-            const auto consider=[&](std::size_t victim,std::size_t index,bool skin,int side,double time,V3 normal,V3 point,int liquidTank=-1,std::size_t materialNodeV3=std::numeric_limits<std::size_t>::max()) {
-                const bool materialRodV3=materialNodeV3!=std::numeric_limits<std::size_t>::max()&&materialNodesV3[materialNodeV3].domain.valid;
-                const auto& excludedV3=materialRodV3?originalVisitedV3:visited;
-                if(!std::isfinite(time)||time<0||time>duration||((!materialRodV3||!persistentHistoryV3)&&excludedV3.count({victims[victim]->identity,victims[victim]->generation,
-                    liquidTank>=0?2u:skin?0u:1u,liquidTank>=0?static_cast<std::uint64_t>(liquidTank):index,static_cast<std::uint64_t>(side)})))return;
-                if(liquidFlight&&!p.segment&&time>0&&time<duration) {
-                    const auto& target=sampledTargets[victim];const V3 relativeChord=toBody(target,chord-target.velocity);
-                    if(dot(relativeChord,relativeChord)>0) {
-                        double lo=0,hi=duration;
-                        for(unsigned iteration=0;iteration<48;++iteration) {
-                            const double middle=(lo+hi)/2;const auto trial=advanceLiquid(p,middle,environment,liquids,sampledTargets);
-                            if(!trial.valid){invalidFlight=true;return;}
-                            const V3 body=toBody(target,trial.motion.position0-target.at-target.velocity*middle);
-                            // Compare at the actual crossing plane. Subtracting
-                            // two large distances from the old start can erase
-                            // a finite remaining outside gap near a boundary.
-                            if(dot(relativeChord,body-point)<0)lo=middle;else hi=middle;
-                        }
-                        time=hi; // The upper bracket has actually reached the face.
-                    }
-                }
-                Crossing crossing{time,victim,index,side,skin,normal,point,liquidTank,materialNodeV3,false};
-                candidatesV3.push_back(crossing); // Original stable source order; selection follows metadata collection.
+    std::vector<std::size_t> activeVictims;
+    std::vector<std::size_t> activeLiquidVictims;
+    activeVictims.reserve(victims.size());
+    activeLiquidVictims.reserve(victims.size());
+    for(std::size_t vi=0;vi<victims.size();++vi) {
+        bool reachable=!cloudBoundsValid;
+        if(!reachable) {
+            const auto& v=*victims[vi];
+            V3 vLow{std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity(),std::numeric_limits<double>::infinity()};
+            V3 vHigh{-std::numeric_limits<double>::infinity(),-std::numeric_limits<double>::infinity(),-std::numeric_limits<double>::infinity()};
+            const auto addPt=[&](V3 pt) {
+                vLow.x=std::min(vLow.x,pt.x);vLow.y=std::min(vLow.y,pt.y);vLow.z=std::min(vLow.z,pt.z);
+                vHigh.x=std::max(vHigh.x,pt.x);vHigh.y=std::max(vHigh.y,pt.y);vHigh.z=std::max(vHigh.z,pt.z);
             };
-            for(std::size_t vi=0;vi<victims.size();++vi) {
-                const auto& victim=*victims[vi];const auto& target=sampledTargets[vi];
-                const V3 origin=target.at;
-                const V3 source=toBody(target,p.at-origin),velocity=toBody(target,chord-target.velocity);
-                const double velocitySquared=dot(velocity,velocity);
-                const double closestTime=velocitySquared>0?std::clamp(-dot(source,velocity)/velocitySquared,0.0,duration):0;
-                const double segmentReach=p.segment?std::max(length(p.end-p.at),length(nextEnd.at-next.at)):0;
-                if(length(source+velocity*closestTime)>victimRadii[vi]+segmentReach)continue;
-                const double speed=length(velocity);if(!(speed>0)&&!p.segment)continue;
-                const V3 direction=speed>0?velocity*(1/speed):V3{};
-                if(victim.geometry) {
-                const auto& frame=victim.geometry->airframe();
-                const auto hit=[&](std::size_t index,bool skin) {
-                    const auto* mesh=skin&&!frame.panels[index].surface&&frame.contactGeometry?
-                        frame.contactGeometry->panel(index):nullptr;
-                    if(mesh) {
-                        const V3 d=p.segment?toBody(target,p.end-p.at):V3{};
-                        const V3 change=p.segment?toBody(target,endChord-chord):V3{};
-                        const double k=p.segment?dot(d,change)/dot(d,d):0;
-                        const V3 centre=(mesh->low+mesh->high)*.5,half=(mesh->high-mesh->low)*.5;
-                        double broad=0,leave=0,along=0;V3 ignored;
-                        if(p.segment) {
-                            if(!finiteLineContact(source,velocity,d,k,duration,boxPlanes(centre,half),broad,along,ignored,false,false,true))return;
-                        } else if(!slab(source,direction,centre,half,broad,leave,ignored,ignored)||
-                                  std::max(broad,0.0)>speed*duration)return;
-                        for(const auto& triangle:skinMeshes.at(mesh)) {
-                            double time=0;along=0;
-                            if(p.segment) {
-                                detail::MaterialDomainV3 domain;
-                                if(finiteLineContact(source,velocity,d,k,duration,trianglePlanes(triangle),time,along,ignored,false,false,true,&domain)) {
-                                    const auto node=materialNodesV3.size();
-                                    const double plateM=frame.skinThicknessM(frame.panels[index].section);
-                                    materialNodesV3.push_back({{victim.identity,victim.generation,index,triangle.originalTriangleV3,frame.contactGeometry,plateM,target,false},triangle.vertices,
-                                        plateM,domain,source,velocity,d,k,duration});
-                                    consider(vi,index,true,triangle.face,time,triangle.normal,source+velocity*time+d*along,-1,node);
+            if(v.motion.empty()) {
+                addPt(v.target.at);
+                addPt(v.target.at+v.target.velocity*totalFlightT);
+            } else {
+                for(const auto& s:v.motion)addPt(s.target.at);
+            }
+            const double pad=victimRadii[vi]+1.0;
+            reachable=!(vHigh.x+pad<cloudLow.x||vLow.x-pad>cloudHigh.x||
+                        vHigh.y+pad<cloudLow.y||vLow.y-pad>cloudHigh.y||
+                        vHigh.z+pad<cloudLow.z||vLow.z-pad>cloudHigh.z);
+        }
+        if(reachable) {
+            activeVictims.push_back(vi);
+            if(liquidInput&&liquids.recipients[vi])activeLiquidVictims.push_back(vi);
+        }
+    }
+    std::vector<std::shared_ptr<const CachedSkinMesh>> skinMeshOwners;
+    std::unordered_map<const ContactMesh*,const CachedSkinMesh*> skinMeshes;
+    for(const std::size_t vi:activeVictims) {
+        const auto* victim=victims[vi];
+        if(!victim->geometry)continue;
+        const auto& frame=victim->geometry->airframe();
+        if(frame.contactGeometry)for(const auto index:victim->geometry->panelIndices())
+            if(!frame.panels[index].surface)if(const auto* mesh=frame.contactGeometry->panel(index)) {
+                if(skinMeshes.find(mesh)==skinMeshes.end()) {
+                    auto cached=cachedAuthoredSkinMesh(frame.contactGeometry,mesh);
+                    skinMeshes.emplace(mesh,cached.get());
+                    skinMeshOwners.push_back(std::move(cached));
+                }
+            }
+    }
+    if(liquidInput)for(const std::size_t vi:activeLiquidVictims)liquids.recipients[vi]->ensureBuilt();
+    struct GridSample {
+        double age=0;
+        double nextBoundary=0;
+        std::vector<Target> targets;
+    };
+    struct Crossing {double duration=0;std::size_t victim=0,index=0;int side=0;bool skin=false;V3 normal,point;int liquidTank=-1;
+        std::size_t materialNodeV3=std::numeric_limits<std::size_t>::max();bool paidContinuationV3=false;bool needsLiquidBisect=false;};
+    struct ParticleVictimDelta {
+        std::size_t victim=0;
+        int fragmentsStriking=0;
+        V3 impulseBody{},angularImpulseBody{};
+        std::vector<Impact::PanelHits> panels;
+        std::vector<Impact::ComponentHits> components;
+    };
+    struct ParticleOnlyWorkDelta {
+        std::size_t victim=0;
+        int tank=0;
+        double energyJ=0;
+        unsigned contacts=0;
+    };
+    struct ParticleOut {
+        bool valid=false,absorbed=false,anyStrike=false;
+        unsigned rodBreakups=0;
+        std::optional<double> firstRodBreakAgeS,firstStrikeAgeS;
+        double absorbedMassKg=0,remainingMassKg=0;
+        V3 gravityImpulseEcef{},airMomentumEcef{},transferredMomentumEcef{},retainedMomentumEcef{},remainingMomentumEcef{};
+        std::vector<ParticleVictimDelta> victimDeltas;
+        std::vector<ParticleOnlyWorkDelta> onlyWorkDeltas;
+        FragmentFieldV1::Projectile contProj;
+        std::vector<MaterialFacetKeyV3> activeMat;
+    };
+    const bool zeroAir=environment.airDensity==0;
+    const bool zeroGravOrNoVictims=(gNorm==0||victims.empty());
+    const std::size_t nProj=field.projectiles.size();
+    std::vector<ParticleOut> particleOuts(nProj);
+    std::atomic<bool> anyInvalid{false};
+    auto runWorker=[&](std::atomic<std::size_t>& nextIdx,std::size_t chunk) {
+        std::vector<GridSample> targetGrid;
+        targetGrid.reserve(64);
+        std::vector<Target> sampledTargets(victims.size());
+        std::vector<std::uint8_t> struck(victims.size(),0);
+        std::vector<std::size_t> liquidCandidates;
+        std::vector<std::size_t> triCandidates;
+        triCandidates.reserve(64);
+        std::set<std::array<std::uint64_t,5>> originalVisitedV3;
+        std::set<std::array<std::uint64_t,5>> visited;
+        std::vector<Crossing> candidatesV3;
+        std::vector<detail::MaterialFacetQueryV3> materialNodesV3;
+        std::vector<std::size_t> bisectOrder;
+        for(;;) {
+            if(anyInvalid.load(std::memory_order_relaxed))break;
+            const std::size_t beginIdx=nextIdx.fetch_add(chunk,std::memory_order_relaxed);
+            if(beginIdx>=nProj)break;
+            const std::size_t endIdx=std::min(nProj,beginIdx+chunk);
+            for(std::size_t particleIndexV3=beginIdx;particleIndexV3<endIdx;++particleIndexV3) {
+                if(anyInvalid.load(std::memory_order_relaxed))break;
+                auto& pout=particleOuts[particleIndexV3];
+                auto p=field.projectiles[particleIndexV3];
+                auto activeMaterialV3=contactHistoryV3?contactHistoryV3->particles[particleIndexV3].active:std::vector<MaterialFacetKeyV3>{};
+                if(!originalVisitedV3.empty())originalVisitedV3.clear();
+                if(!visited.empty())visited.clear();
+                if(!p.crossedFaces.empty()) {
+                    originalVisitedV3.insert(p.crossedFaces.begin(),p.crossedFaces.end());
+                    visited=originalVisitedV3;
+                }
+                double age=0;bool absorbed=false,anyStrike=false,ok=true;
+                auto victimDelta=[&](std::size_t vi)->ParticleVictimDelta& {
+                    for(auto& d:pout.victimDeltas)if(d.victim==vi)return d;
+                    pout.victimDeltas.push_back({vi,0,{},{},{},{}});
+                    return pout.victimDeltas.back();
+                };
+                const auto canonicalMaterialBoundaryV3=[&](MaterialFacetKeyV3& key) {
+                    const auto owner=std::find_if(victims.begin(),victims.end(),[&](const auto* victim) {
+                        return victim->identity==key.victim&&victim->generation==key.generation;
+                    });
+                    if(owner==victims.end())return false;
+                    Target boundary;double nextBoundary=environment.maxFlightTimeS;
+                    if(!sceneTargetAt(**owner,age,nextBoundary,boundary))return false;
+                    key.boundaryTarget.at=boundary.at;
+                    return true;
+                };
+                const double materialLength=p.materialLengthM>0?p.materialLengthM:p.segment&&p.expansionPerS>0?
+                    length(p.end-p.at)*(1+p.expansionPerS*p.breakupAgeS):0;
+                p.materialLengthM=materialLength;
+                std::fill(struck.begin(),struck.end(),std::uint8_t{0});
+                if(!p.struckVictims.empty()) {
+                    for(std::size_t vi=0;vi<victims.size();++vi)
+                        struck[vi]=std::find(p.struckVictims.begin(),p.struckVictims.end(),
+                            std::array<std::uint64_t,2>{victims[vi]->identity,victims[vi]->generation})!=p.struckVictims.end()?1:0;
+                }
+                unsigned iterations=0;
+                std::size_t gridCursor=0;
+                while(age<environment.maxFlightTimeS&&!absorbed) {
+                    if(++iterations>200000||(liquidInput&&iterations>liquids.controls.maxSteps)){ok=false;break;}
+                    double duration=std::min(environment.maxSubstepS,environment.maxFlightTimeS-age);
+                    if(zeroAir&&zeroGravOrNoVictims&&
+                       (!p.segment||length(cross(p.end-p.at,p.endVelocity-p.velocity))<1e-12))
+                        duration=environment.maxFlightTimeS-age;
+                    double nextBoundary=environment.maxFlightTimeS;
+                    const std::vector<Target>* curTargets=&sampledTargets;
+                    if(gridCursor<targetGrid.size()&&age==targetGrid[gridCursor].age) {
+                        nextBoundary=targetGrid[gridCursor].nextBoundary;
+                        curTargets=&targetGrid[gridCursor].targets;
+                        ++gridCursor;
+                    } else {
+                        for(std::size_t vi=0;vi<victims.size();++vi)
+                            if(!sceneTargetAt(*victims[vi],age,nextBoundary,sampledTargets[vi])){ok=false;break;}
+                        if(!ok)break;
+                        if(gridCursor==targetGrid.size()&&targetGrid.size()<256) {
+                            targetGrid.push_back({age,nextBoundary,sampledTargets});
+                            curTargets=&targetGrid.back().targets;
+                            ++gridCursor;
+                        }
+                    }
+                    const auto& curSampledTargets=*curTargets;
+                    duration=std::min(duration,nextBoundary-age);
+                    bool liquidFlight=false;
+                    FlightInterval free0{},free1{};
+                    bool hasFreeFlight=false;
+                    const double preLiquidDuration=duration;
+                    if(liquidInput) {
+                        if(!activeLiquidVictims.empty()) {
+                            duration=liquidHorizon(p,duration,environment,liquids,curSampledTargets,victimRadii,activeLiquidVictims,liquidCandidates,free0,free1,liquidFlight);
+                            if(!(duration>0)){ok=false;break;}
+                            hasFreeFlight=!liquidFlight;
+                        } else {
+                            if(!(duration>0)){ok=false;break;}
+                        }
+                        double eventAge=age+duration;
+                        if(eventAge-age<duration)eventAge=std::nextafter(eventAge,std::numeric_limits<double>::infinity());
+                        duration=std::min(eventAge-age,std::min(nextBoundary,environment.maxFlightTimeS)-age);
+                    }
+                    if(p.segment&&p.expansionPerS>0) {
+                        if(length(p.end-p.at)>=materialLength*(1-1e-12)) {
+                            p.velocity=p.endVelocity=(p.velocity+p.endVelocity)*.5;p.expansionPerS=0;
+                            ++pout.rodBreakups;
+                            if(!pout.firstRodBreakAgeS||field.ageS+age<*pout.firstRodBreakAgeS)pout.firstRodBreakAgeS=field.ageS+age;
+                        }
+                    }
+                    if(!(duration>0)){ok=false;break;}
+                    const double drag=environment.airDensity*p.cd*p.areaM2/(2*p.massKg);
+                    auto next=(hasFreeFlight&&duration==preLiquidDuration)?free0:
+                        fragmentFlight(p.at,p.velocity,duration,drag,environment.airVelocity,environment.gravityEcef);
+                    auto nextEnd=(hasFreeFlight&&duration==preLiquidDuration)?free1:
+                        (p.segment?fragmentFlight(p.end,p.endVelocity,duration,drag,environment.airVelocity,environment.gravityEcef):next);
+                    LiquidAdvance predictedLiquid;
+                    if(liquidFlight) {
+                        predictedLiquid=advanceLiquid(p,duration,environment,liquids,curSampledTargets);
+                        if(!predictedLiquid.valid){ok=false;break;}
+                        next={predictedLiquid.motion.position0,predictedLiquid.motion.velocity0};nextEnd=p.segment?
+                            FlightInterval{predictedLiquid.motion.position1,predictedLiquid.motion.velocity1}:next;
+                    }
+                    if(!finiteScene(next.at)||!finiteScene(next.velocity)||!finiteScene(nextEnd.at)||!finiteScene(nextEnd.velocity)){ok=false;break;}
+                    if(p.segment&&p.expansionPerS>0&&length(nextEnd.at-next.at)>materialLength) {
+                        double lower=0,upper=duration;
+                        for(unsigned iteration=0;iteration<56;++iteration) {
+                            const double middle=(lower+upper)/2;
+                            auto a=fragmentFlight(p.at,p.velocity,middle,drag,environment.airVelocity,environment.gravityEcef);
+                            auto b=fragmentFlight(p.end,p.endVelocity,middle,drag,environment.airVelocity,environment.gravityEcef);
+                            if(liquidFlight) {
+                                const auto step=advanceLiquid(p,middle,environment,liquids,curSampledTargets);
+                                if(!step.valid){ok=false;break;}
+                                a={step.motion.position0,step.motion.velocity0};b={step.motion.position1,step.motion.velocity1};
+                            }
+                            if(length(b.at-a.at)<materialLength)lower=middle;else upper=middle;
+                        }
+                        if(!ok)break;
+                        duration=upper;
+                        next=fragmentFlight(p.at,p.velocity,duration,drag,environment.airVelocity,environment.gravityEcef);
+                        nextEnd=fragmentFlight(p.end,p.endVelocity,duration,drag,environment.airVelocity,environment.gravityEcef);
+                        if(liquidFlight) {
+                            predictedLiquid=advanceLiquid(p,duration,environment,liquids,curSampledTargets);
+                            if(!predictedLiquid.valid){ok=false;break;}
+                            next={predictedLiquid.motion.position0,predictedLiquid.motion.velocity0};
+                            nextEnd={predictedLiquid.motion.position1,predictedLiquid.motion.velocity1};
+                        }
+                    }
+                    const V3 chord=(next.at-p.at)*(1/duration),endChord=(nextEnd.at-p.end)*(1/duration);
+                    std::optional<Crossing> first;
+                    candidatesV3.clear();
+                    materialNodesV3.clear();
+                    bool invalidFlight=false;
+                    const auto consider=[&](std::size_t victim,std::size_t index,bool skin,int side,double time,V3 normal,V3 point,int liquidTank=-1,std::size_t materialNodeV3=std::numeric_limits<std::size_t>::max()) {
+                        const bool materialRodV3=materialNodeV3!=std::numeric_limits<std::size_t>::max()&&materialNodesV3[materialNodeV3].domain.valid;
+                        const auto& excludedV3=materialRodV3?originalVisitedV3:visited;
+                        if(!std::isfinite(time)||time<0||time>duration||((!materialRodV3||!persistentHistoryV3)&&!excludedV3.empty()&&excludedV3.count({victims[victim]->identity,victims[victim]->generation,
+                            liquidTank>=0?2u:skin?0u:1u,liquidTank>=0?static_cast<std::uint64_t>(liquidTank):index,static_cast<std::uint64_t>(side)})))return;
+                        const bool needBisect=(liquidFlight&&!p.segment&&time>0&&time<duration);
+                        Crossing crossing{time,victim,index,side,skin,normal,point,liquidTank,materialNodeV3,false,needBisect};
+                        candidatesV3.push_back(crossing); // Original stable source order; selection follows metadata collection.
+                    };
+                    for(const std::size_t vi:activeVictims) {
+                        const auto& victim=*victims[vi];const auto& target=curSampledTargets[vi];
+                        const V3 origin=target.at;
+                        const V3 source=toBody(target,p.at-origin),velocity=toBody(target,chord-target.velocity);
+                        const double velocitySquared=dot(velocity,velocity);
+                        const double closestTime=velocitySquared>0?std::clamp(-dot(source,velocity)/velocitySquared,0.0,duration):0;
+                        const double segmentReach=p.segment?std::max(length(p.end-p.at),length(nextEnd.at-next.at)):0;
+                        if(length(source+velocity*closestTime)>victimRadii[vi]+segmentReach)continue;
+                        const double speed=length(velocity);if(!(speed>0)&&!p.segment)continue;
+                        const V3 direction=speed>0?velocity*(1/speed):V3{};
+                        if(victim.geometry) {
+                        const auto& frame=victim.geometry->airframe();
+                        const auto hit=[&](std::size_t index,bool skin) {
+                            const auto* mesh=skin&&!frame.panels[index].surface&&frame.contactGeometry?
+                                frame.contactGeometry->panel(index):nullptr;
+                            if(mesh) {
+                                const V3 d=p.segment?toBody(target,p.end-p.at):V3{};
+                                const V3 change=p.segment?toBody(target,endChord-chord):V3{};
+                                const double k=p.segment?dot(d,change)/dot(d,d):0;
+                                const V3 centre=(mesh->low+mesh->high)*.5,half=(mesh->high-mesh->low)*.5;
+                                double broad=0,leave=0,along=0;V3 ignored;
+                                if(p.segment) {
+                                    if(!finiteLineContact(source,velocity,d,k,duration,boxPlanes(centre,half),broad,along,ignored,false,false,true))return;
+                                } else if(!slab(source,direction,centre,half,broad,leave,ignored,ignored)||
+                                          std::max(broad,0.0)>speed*duration)return;
+                                const auto* skinMesh=skinMeshes.at(mesh);
+                                const V3 c0=source;
+                                const V3 c2=source+velocity*duration;
+                                fluid::Aabb qBox=unite({c0,c0},{c2,c2});
+                                bool qValid=finiteScene(c0)&&finiteScene(c2);
+                                if(p.segment) {
+                                    const V3 c1=source+d;
+                                    const V3 c3=c2+d*(1.0+k*duration);
+                                    qValid=qValid&&finiteScene(c1)&&finiteScene(c3);
+                                    qBox=unite(qBox,unite({c1,c1},{c3,c3}));
+                                }
+                                if(qValid) {
+                                    const double scale=std::max({1.0,std::abs(qBox.low.x),std::abs(qBox.high.x),
+                                        std::abs(qBox.low.y),std::abs(qBox.high.y),std::abs(qBox.low.z),std::abs(qBox.high.z)});
+                                    const double pad=1e-6*scale;
+                                    qBox.low.x-=pad;qBox.low.y-=pad;qBox.low.z-=pad;
+                                    qBox.high.x+=pad;qBox.high.y+=pad;qBox.high.z+=pad;
+                                    skinMesh->query(qBox,triCandidates);
+                                    if(triCandidates.size()>1)std::sort(triCandidates.begin(),triCandidates.end());
+                                } else {
+                                    triCandidates.resize(skinMesh->triangles.size());
+                                    for(std::size_t ti=0;ti<triCandidates.size();++ti)triCandidates[ti]=ti;
+                                }
+                                for(const std::size_t ti:triCandidates) {
+                                    const auto& triangle=skinMesh->triangles[ti];
+                                    double time=0;along=0;
+                                    if(p.segment) {
+                                        detail::MaterialDomainV3 domain;
+                                        const auto& tp=skinMesh->planes[ti];
+                                        if(finiteLineContact(source,velocity,d,k,duration,tp.data(),tp.size(),time,along,ignored,false,false,true,&domain)) {
+                                            const auto node=materialNodesV3.size();
+                                            const double plateM=frame.skinThicknessM(frame.panels[index].section);
+                                            materialNodesV3.push_back({{victim.identity,victim.generation,index,triangle.originalTriangleV3,frame.contactGeometry,plateM,target,false},triangle.vertices,
+                                                plateM,domain,source,velocity,d,k,duration});
+                                            consider(vi,index,true,triangle.face,time,triangle.normal,source+velocity*time+d*along,-1,node);
+                                        }
+                                    } else {
+                                        const auto& v=triangle.vertices;
+                                        if(quad(source,direction,{v[0],v[1],v[2],v[2]},time,ignored))
+                                            consider(vi,index,true,triangle.face,time/speed,triangle.normal,source+direction*time);
+                                    }
+                                }
+                            } else if(p.segment) {
+                                const V3 d=toBody(target,p.end-p.at);
+                                const V3 change=toBody(target,endChord-chord);
+                                const double k=dot(d,change)/dot(d,d);
+                                const bool surface=skin&&frame.panels[index].surface;
+                                const int faces=surface&&frame.panels[index].thicknessM>0?2:1;
+                                for(int side=0;side<faces;++side) {
+                                    const auto planes=surface?facePlanes(surfaceFace(frame.panels[index],side)):
+                                        skin?boxPlanes(frame.panels[index].centre,frame.panels[index].half):
+                                             boxPlanes(frame.components[index].centre,frame.components[index].half);
+                                    double time=0,along=0;V3 normal;
+                                    if(!planes.empty()&&finiteLineContact(source,velocity,d,k,duration,planes,time,along,normal,false,skin&&!surface))
+                                        consider(vi,index,skin,side,time,surface?planes.front().normal:normal,source+velocity*time+d*along);
+                                    if(skin&&!surface&&finiteLineContact(source,velocity,d,k,duration,planes,time,along,normal,true))
+                                        consider(vi,index,true,1,time,normal,source+velocity*time+d*along);
+                                }
+                            } else if(skin) {
+                                const auto& panel=frame.panels[index];double enter=0,leave=0;V3 normal,exitNormal;
+                                if(panel.surface) {
+                                    for(int side=0;side<(panel.thicknessM>0?2:1);++side)
+                                        if(quad(source,direction,surfaceFace(panel,side).corners,enter,normal))
+                                            consider(vi,index,true,side,enter/speed,normal,source+direction*enter);
+                                } else if(slab(source,direction,panel.centre,panel.half,enter,leave,normal,exitNormal)) {
+                                    if(enter>=0)consider(vi,index,true,0,enter/speed,normal,source+direction*enter);
+                                    if(leave>=0)consider(vi,index,true,1,leave/speed,exitNormal,source+direction*leave);
                                 }
                             } else {
-                                const auto& v=triangle.vertices;
-                                // A repeated last corner lets the established
-                                // convex face query test a triangle's three edges.
-                                if(quad(source,direction,{v[0],v[1],v[2],v[2]},time,ignored))
-                                    consider(vi,index,true,triangle.face,time/speed,triangle.normal,source+direction*time);
+                                double enter=0,leave=0;V3 normal,exitNormal;const auto& component=frame.components[index];
+                                if(slab(source,direction,component.centre,component.half,enter,leave,normal,exitNormal)&&leave>=0) {
+                                    enter=std::max(enter,0.0);consider(vi,index,false,0,enter/speed,normal,source+direction*enter);
+                                }
+                            }
+                        };
+                        for(const auto index:victim.geometry->panelIndices())hit(index,true);
+                        for(const auto index:victim.geometry->componentIndices()) {
+                            if(liquidInput&&liquids.recipients[vi]&&frame.components[index].kind=="fuel")continue;
+                            hit(index,false);
+                        }
+                        }
+                        if(liquidInput&&liquids.recipients[vi]) {
+                            const auto& tree=*liquids.recipients[vi];
+                            const V3 endSource=p.segment?toBody(target,p.end-origin):source;
+                            const V3 endVelocity=p.segment?toBody(target,endChord-target.velocity):velocity;
+                            liquidCandidates.clear();
+                            tree.query(unite(unite({source,source},{source+velocity*duration,source+velocity*duration}),
+                                unite({endSource,endSource},{endSource+endVelocity*duration,endSource+endVelocity*duration})),liquidCandidates);
+                            std::sort(liquidCandidates.begin(),liquidCandidates.end(),[&](auto a,auto b){return tree.source->cells[a].stableCellId<tree.source->cells[b].stableCellId;});
+                            for(const auto ci:liquidCandidates) {
+                                const auto& cell=tree.source->cells[ci];
+                                if(visited.count({victim.identity,victim.generation,2u,static_cast<std::uint64_t>(cell.nativeTank),0u}))continue;
+                                const auto* boundaryPtr=tree.boundaryThreadSafe(ci);if(!boundaryPtr){invalidFlight=true;break;}
+                                for(const auto& face:*boundaryPtr) {
+                                    double time=0,along=0;V3 ignored;
+                                    const V3 normal=capacityNormal(face.axis,face.positive?1:-1);
+                                    if(p.segment) {
+                                        const V3 d=endSource-source,change=endVelocity-velocity;const double k=dot(d,change)/dot(d,d);
+                                        if(finiteLineContact(source,velocity,d,k,duration,capacityFacePlanes(face),time,along,ignored))
+                                            consider(vi,cell.componentIndex,false,0,time,normal,source+velocity*time+d*along,cell.nativeTank);
+                                    } else {
+                                        const double rate=capacityAxis(velocity,face.axis);if(rate==0)continue;
+                                        time=(face.coordinate-capacityAxis(source,face.axis))/rate;
+                                        if(time<0||time>duration)continue;
+                                        V3 point=source+velocity*time;
+                                        if(face.axis==0)point.x=face.coordinate;else if(face.axis==1)point.y=face.coordinate;else point.z=face.coordinate;
+                                        const unsigned u=(face.axis+1)%3,v=(face.axis+2)%3;
+                                        if(capacityAxis(point,u)>=face.u0&&capacityAxis(point,u)<=face.u1&&capacityAxis(point,v)>=face.v0&&capacityAxis(point,v)<=face.v1)
+                                            consider(vi,cell.componentIndex,false,0,time,normal,point,cell.nativeTank);
+                                    }
+                                }
                             }
                         }
-                    } else if(p.segment) {
-                        const V3 d=toBody(target,p.end-p.at);
-                        const V3 change=toBody(target,endChord-chord);
-                        const double k=dot(d,change)/dot(d,d);
-                        const bool surface=skin&&frame.panels[index].surface;
-                        const int faces=surface&&frame.panels[index].thicknessM>0?2:1;
-                        for(int side=0;side<faces;++side) {
-                            const auto planes=surface?facePlanes(surfaceFace(frame.panels[index],side)):
-                                skin?boxPlanes(frame.panels[index].centre,frame.panels[index].half):
-                                     boxPlanes(frame.components[index].centre,frame.components[index].half);
-                            double time=0,along=0;V3 normal;
-                            // In-plane clip edges bound a finite surface's
-                            // footprint; penetration uses its material normal.
-                            if(!planes.empty()&&finiteLineContact(source,velocity,d,k,duration,planes,time,along,normal,false,skin&&!surface))
-                                consider(vi,index,skin,side,time,surface?planes.front().normal:normal,source+velocity*time+d*along);
-                            if(skin&&!surface&&finiteLineContact(source,velocity,d,k,duration,planes,time,along,normal,true))
-                                consider(vi,index,true,1,time,normal,source+velocity*time+d*along);
+                    }
+                    // Deferred liquid crossing bisection for point fragments: bisect earliest chord
+                    // crossings first and skip provably later candidates in O(1) dot product.
+                    if(!invalidFlight&&liquidFlight&&!p.segment&&!candidatesV3.empty()) {
+                        bisectOrder.clear();
+                        double bestT=duration;
+                        for(std::size_t ci=0;ci<candidatesV3.size();++ci) {
+                            if(candidatesV3[ci].needsLiquidBisect)bisectOrder.push_back(ci);
+                            else if(candidatesV3[ci].duration<bestT)bestT=candidatesV3[ci].duration;
                         }
-                    } else if(skin) {
-                        const auto& panel=frame.panels[index];double enter=0,leave=0;V3 normal,exitNormal;
-                        if(panel.surface) {
-                            for(int side=0;side<(panel.thicknessM>0?2:1);++side)
-                                if(quad(source,direction,surfaceFace(panel,side).corners,enter,normal))
-                                    consider(vi,index,true,side,enter/speed,normal,source+direction*enter);
-                        } else if(slab(source,direction,panel.centre,panel.half,enter,leave,normal,exitNormal)) {
-                            if(enter>=0)consider(vi,index,true,0,enter/speed,normal,source+direction*enter);
-                            if(leave>=0)consider(vi,index,true,1,leave/speed,exitNormal,source+direction*leave);
-                        }
-                    } else {
-                        double enter=0,leave=0;V3 normal,exitNormal;const auto& component=frame.components[index];
-                        if(slab(source,direction,component.centre,component.half,enter,leave,normal,exitNormal)&&leave>=0) {
-                            enter=std::max(enter,0.0);consider(vi,index,false,0,enter/speed,normal,source+direction*enter);
+                        if(!bisectOrder.empty()) {
+                            std::sort(bisectOrder.begin(),bisectOrder.end(),[&](std::size_t a,std::size_t b){
+                                return candidatesV3[a].duration<candidatesV3[b].duration||(candidatesV3[a].duration==candidatesV3[b].duration&&a<b);
+                            });
+                            bool hasBestTrial=false;
+                            double bestTrialT=duration;
+                            LiquidAdvance bestTrial;
+                            for(const std::size_t ci:bisectOrder) {
+                                auto& cand=candidatesV3[ci];
+                                const auto& target=curSampledTargets[cand.victim];
+                                const V3 relativeChord=toBody(target,chord-target.velocity);
+                                if(!(dot(relativeChord,relativeChord)>0))continue;
+                                if(bestT==0.0){cand.duration=duration+1.0;continue;}
+                                if(hasBestTrial&&bestT<duration&&
+                                   dot(toBody(target,p.velocity-target.velocity),relativeChord)>0&&
+                                   dot(toBody(target,bestTrial.motion.velocity0-target.velocity),relativeChord)>0) {
+                                    const V3 bodyAtBest=toBody(target,bestTrial.motion.position0-target.at-target.velocity*bestTrialT);
+                                    if(dot(relativeChord,bodyAtBest-cand.point)<0){cand.duration=duration+1.0;continue;}
+                                }
+                                double lo=0,hi=duration;
+                                for(unsigned iteration=0;iteration<48;++iteration) {
+                                    const double middle=(lo+hi)/2;
+                                    const auto trial=advanceLiquid(p,middle,environment,liquids,curSampledTargets);
+                                    if(!trial.valid){invalidFlight=true;break;}
+                                    const V3 body=toBody(target,trial.motion.position0-target.at-target.velocity*middle);
+                                    if(dot(relativeChord,body-cand.point)<0)lo=middle;else hi=middle;
+                                }
+                                if(invalidFlight)break;
+                                cand.duration=hi;
+                                if(hi<bestT) {
+                                    bestT=hi;
+                                    bestTrial=advanceLiquid(p,bestT,environment,liquids,curSampledTargets);
+                                    if(!bestTrial.valid){invalidFlight=true;break;}
+                                    bestTrialT=bestT;
+                                    hasBestTrial=true;
+                                }
+                            }
                         }
                     }
-                };
-                for(const auto index:victim.geometry->panelIndices())hit(index,true);
-                for(const auto index:victim.geometry->componentIndices()) {
-                    if(liquidInput&&liquids.recipients[vi]&&frame.components[index].kind=="fuel")continue;
-                    hit(index,false);
-                }
-                }
-                if(liquidInput&&liquids.recipients[vi]) {
-                    const auto& tree=*liquids.recipients[vi];
-                    const V3 endSource=p.segment?toBody(target,p.end-origin):source;
-                    const V3 endVelocity=p.segment?toBody(target,endChord-target.velocity):velocity;
-                    std::vector<std::size_t> candidates;
-                    tree.query(unite(unite({source,source},{source+velocity*duration,source+velocity*duration}),
-                        unite({endSource,endSource},{endSource+endVelocity*duration,endSource+endVelocity*duration})),candidates);
-                    std::sort(candidates.begin(),candidates.end(),[&](auto a,auto b){return tree.source->cells[a].stableCellId<tree.source->cells[b].stableCellId;});
-                    for(const auto ci:candidates) {
-                        const auto& cell=tree.source->cells[ci];
-                        if(visited.count({victim.identity,victim.generation,2u,static_cast<std::uint64_t>(cell.nativeTank),0u}))continue;
-                        const auto& boundary=tree.boundary(ci);if(!tree.boundaryValid){invalidFlight=true;break;}
-                        for(const auto& face:boundary) {
-                            double time=0,along=0;V3 ignored;
-                            const V3 normal=capacityNormal(face.axis,face.positive?1:-1);
-                            if(p.segment) {
-                                const V3 d=endSource-source,change=endVelocity-velocity;const double k=dot(d,change)/dot(d,d);
-                                if(finiteLineContact(source,velocity,d,k,duration,capacityFacePlanes(face),time,along,ignored))
-                                    consider(vi,cell.componentIndex,false,0,time,normal,source+velocity*time+d*along,cell.nativeTank);
+                    activeMaterialV3.erase(std::remove_if(activeMaterialV3.begin(),activeMaterialV3.end(),[&](const auto& key) {
+                        const auto found=std::find_if(materialNodesV3.begin(),materialNodesV3.end(),[&](const auto& node){return node.key==key;});
+                        if(found==materialNodesV3.end()||!found->domain.valid)return true;
+                        for(std::size_t axis=0;axis<3;++axis)
+                            if(!detail::materialPointEqualV3(key.boundaryTarget.bodyToEcef[axis],found->key.boundaryTarget.bodyToEcef[axis]))return true;
+                        return
+                            (found->domain.entry.time>0&&!(key.freshBoundary&&detail::materialPoseEqualV3(key.boundaryTarget,found->key.boundaryTarget)));
+                    }),activeMaterialV3.end());
+                    for(auto candidate:candidatesV3) {
+                        if(candidate.duration>duration)continue;
+                        if(candidate.materialNodeV3!=std::numeric_limits<std::size_t>::max()) {
+                            const auto& node=materialNodesV3[candidate.materialNodeV3];
+                            if(std::find(activeMaterialV3.begin(),activeMaterialV3.end(),node.key)!=activeMaterialV3.end())continue;
+                            for(const auto& oldNode:materialNodesV3) {
+                                const auto active=std::find(activeMaterialV3.begin(),activeMaterialV3.end(),oldNode.key);
+                                if(active!=activeMaterialV3.end()&&active->paid&&detail::sameMaterialBranchV3(oldNode,node)) {
+                                    candidate.paidContinuationV3=true;break;
+                                }
+                            }
+                        }
+                        if(!first||candidate.duration<first->duration)first=candidate;
+                    }
+                    if(invalidFlight){ok=false;break;}
+                    const double elapsed=first?first->duration:duration;
+                    const V3 oldVelocity=p.segment?(p.velocity+p.endVelocity)*.5:p.velocity;
+                    auto actual=fragmentFlight(p.at,p.velocity,elapsed,drag,environment.airVelocity,environment.gravityEcef);
+                    auto actualEnd=p.segment?fragmentFlight(p.end,p.endVelocity,elapsed,drag,environment.airVelocity,environment.gravityEcef):actual;
+                    LiquidAdvance fluidStep;
+                    if(liquidFlight) {
+                        if(!first) {
+                            fluidStep=std::move(predictedLiquid);
+                        } else {
+                            fluidStep=advanceLiquid(p,elapsed,environment,liquids,curSampledTargets);
+                            if(!fluidStep.valid){ok=false;break;}
+                        }
+                        actual={fluidStep.motion.position0,fluidStep.motion.velocity0};actualEnd=p.segment?
+                            FlightInterval{fluidStep.motion.position1,fluidStep.motion.velocity1}:actual;
+                    }
+                    if(liquidFlight){p.at=actual.at;if(p.segment)p.end=actualEnd.at;}
+                    else {p.at+=chord*elapsed;if(p.segment)p.end+=endChord*elapsed;}
+                    p.velocity=actual.velocity;if(p.segment)p.endVelocity=actualEnd.velocity;
+                    const V3 incoming=p.segment?(p.velocity+p.endVelocity)*.5:p.velocity;
+                    const V3 gravityImpulse=environment.gravityEcef*(p.massKg*elapsed);
+                    pout.gravityImpulseEcef+=gravityImpulse;
+                    if(liquidFlight) {
+                        pout.airMomentumEcef+=fluidStep.airImpulse;
+                        for(const auto& [key,load]:fluidStep.loads) {
+                            if(!finiteScene(load.impulse)||!finiteScene(load.angular)||!std::isfinite(load.energy)||load.energy<0){ok=false;break;}
+                            auto& vd=victimDelta(key.first);
+                            if(victims[key.first]->geometry) {
+                                auto found=std::find_if(vd.components.begin(),vd.components.end(),[&](const auto& hit){return hit.component==static_cast<int>(key.second);});
+                                if(found==vd.components.end()){Impact::ComponentHits hit;hit.component=static_cast<int>(key.second);vd.components.push_back(hit);found=std::prev(vd.components.end());}
+                                found->energyJ+=load.energy;
                             } else {
-                                const double rate=capacityAxis(velocity,face.axis);if(rate==0)continue;
-                                time=(face.coordinate-capacityAxis(source,face.axis))/rate;
-                                if(time<0||time>duration)continue;
-                                V3 point=source+velocity*time;
-                                if(face.axis==0)point.x=face.coordinate;else if(face.axis==1)point.y=face.coordinate;else point.z=face.coordinate;
-                                const unsigned u=(face.axis+1)%3,v=(face.axis+2)%3;
-                                if(capacityAxis(point,u)>=face.u0&&capacityAxis(point,u)<=face.u1&&capacityAxis(point,v)>=face.v0&&capacityAxis(point,v)<=face.v1)
-                                    consider(vi,cell.componentIndex,false,0,time,normal,point,cell.nativeTank);
+                                pout.onlyWorkDeltas.push_back({key.first,static_cast<int>(key.second),load.energy,0});
+                            }
+                            pout.transferredMomentumEcef+=load.impulse;
+                            vd.impulseBody+=toBody(victims[key.first]->target,load.impulse);
+                            vd.angularImpulseBody+=toBody(victims[key.first]->target,load.angular);
+                            if(load.energy>0||length(load.impulse)>0||length(load.angular)>0) {
+                                const double firstTime=field.ageS+age+fluidStep.firstInteractionS.value_or(0);
+                                if(!pout.firstStrikeAgeS||firstTime<*pout.firstStrikeAgeS)pout.firstStrikeAgeS=firstTime;
+                                if(!struck[key.first]){++vd.fragmentsStriking;struck[key.first]=1;p.struckVictims.push_back({victims[key.first]->identity,victims[key.first]->generation});}
+                                anyStrike=true;
                             }
                         }
+                        if(!ok)break;
+                    } else pout.airMomentumEcef+=(oldVelocity-incoming)*p.massKg+gravityImpulse;
+                    age+=elapsed;
+                    activeMaterialV3.erase(std::remove_if(activeMaterialV3.begin(),activeMaterialV3.end(),[&](const auto& key) {
+                        const auto found=std::find_if(materialNodesV3.begin(),materialNodesV3.end(),[&](const auto& node){return node.key==key;});
+                        return found==materialNodesV3.end()||!found->domain.valid||found->domain.leave.time<elapsed;
+                    }),activeMaterialV3.end());
+                    for(auto& key:activeMaterialV3) {
+                        const auto node=std::find_if(materialNodesV3.begin(),materialNodesV3.end(),[&](const auto& item){return item.key==key;});
+                        key.boundaryTarget=node->key.boundaryTarget;
+                        if(!canonicalMaterialBoundaryV3(key)){ok=false;break;}
+                        key.freshBoundary=elapsed==0&&key.freshBoundary;
                     }
-                }
-            }
-            activeMaterialV3.erase(std::remove_if(activeMaterialV3.begin(),activeMaterialV3.end(),[&](const auto& key) {
-                const auto found=std::find_if(materialNodesV3.begin(),materialNodesV3.end(),[&](const auto& node){return node.key==key;});
-                if(found==materialNodesV3.end()||!found->domain.valid)return true;
-                for(std::size_t axis=0;axis<3;++axis)
-                    if(!detail::materialPointEqualV3(key.boundaryTarget.bodyToEcef[axis],found->key.boundaryTarget.bodyToEcef[axis]))return true;
-                return
-                    (found->domain.entry.time>0&&!(key.freshBoundary&&detail::materialPoseEqualV3(key.boundaryTarget,found->key.boundaryTarget)));
-            }),activeMaterialV3.end());
-            for(auto candidate:candidatesV3) {
-                if(candidate.materialNodeV3!=std::numeric_limits<std::size_t>::max()) {
-                    const auto& node=materialNodesV3[candidate.materialNodeV3];
-                    if(std::find(activeMaterialV3.begin(),activeMaterialV3.end(),node.key)!=activeMaterialV3.end())continue;
-                    for(const auto& oldNode:materialNodesV3) {
-                        const auto active=std::find(activeMaterialV3.begin(),activeMaterialV3.end(),oldNode.key);
-                        if(active!=activeMaterialV3.end()&&active->paid&&detail::sameMaterialBranchV3(oldNode,node)) {
-                            candidate.paidContinuationV3=true;break;
+                    if(!ok)break;
+                    if(!first)continue;
+                    const auto& crossing=*first;const auto& victim=*victims[crossing.victim];const auto& target=curSampledTargets[crossing.victim];
+                    auto& vd=victimDelta(crossing.victim);
+                    visited.insert({victim.identity,victim.generation,crossing.liquidTank>=0?2u:crossing.skin?0u:1u,
+                        crossing.liquidTank>=0?static_cast<std::uint64_t>(crossing.liquidTank):crossing.index,static_cast<std::uint64_t>(crossing.side)});
+                    if(crossing.paidContinuationV3) {
+                        auto key=materialNodesV3[crossing.materialNodeV3].key;
+                        if(!canonicalMaterialBoundaryV3(key)){ok=false;break;}
+                        key.freshBoundary=true;
+                        activeMaterialV3.push_back(std::move(key));
+                        continue; // Existing paid lumped contact branch; no second THOR/impulse/hit/RNG.
+                    }
+                    const V3 centre=p.segment?(p.at+p.end)*.5:p.at;
+                    const V3 targetOrigin=target.at+target.velocity*elapsed;
+                    const V3 materialVelocity=target.velocity+cross(target.angularVelocityEcef,centre-targetOrigin);
+                    const V3 relative=incoming-materialVelocity;const double speed=length(relative);
+                    if(crossing.liquidTank>=0) {
+                        if(!pout.firstStrikeAgeS||field.ageS+age<*pout.firstStrikeAgeS)pout.firstStrikeAgeS=field.ageS+age;
+                        if(victim.geometry) {
+                        auto found=std::find_if(vd.components.begin(),vd.components.end(),[&](const auto& hit){return hit.component==static_cast<int>(crossing.index);});
+                        if(found==vd.components.end()){Impact::ComponentHits hit;hit.component=static_cast<int>(crossing.index);vd.components.push_back(hit);found=std::prev(vd.components.end());}
+                        const double materialSpeed=p.segment?std::max(length(p.velocity-target.velocity-cross(target.angularVelocityEcef,p.at-targetOrigin)),
+                            length(p.endVelocity-target.velocity-cross(target.angularVelocityEcef,p.end-targetOrigin))):speed;
+                        ++found->hits;found->areaM2+=p.areaM2;found->fastestMs=std::max(found->fastestMs,materialSpeed);
+                        } else pout.onlyWorkDeltas.push_back({crossing.victim,crossing.liquidTank,0,1});
+                        if(!struck[crossing.victim]){++vd.fragmentsStriking;struck[crossing.victim]=1;p.struckVictims.push_back({victim.identity,victim.generation});}
+                        anyStrike=true;continue;
+                    }
+                    if(!(speed>0)) {
+                        if(crossing.materialNodeV3!=std::numeric_limits<std::size_t>::max()) {
+                            auto key=materialNodesV3[crossing.materialNodeV3].key;
+                            if(!canonicalMaterialBoundaryV3(key)){ok=false;break;}
+                            key.freshBoundary=true;key.paid=false;activeMaterialV3.push_back(std::move(key));
+                        }
+                        continue;
+                    }
+                    if(crossing.materialNodeV3!=std::numeric_limits<std::size_t>::max()) {
+                        auto key=materialNodesV3[crossing.materialNodeV3].key;
+                        if(!canonicalMaterialBoundaryV3(key)){ok=false;break;}
+                        key.freshBoundary=true;
+                        activeMaterialV3.push_back(std::move(key));
+                    }
+                    if(!pout.firstStrikeAgeS||field.ageS+age<*pout.firstStrikeAgeS)pout.firstStrikeAgeS=field.ageS+age;
+                    const V3 direction=relative*(1/speed);double after=0;
+                    double observedThorThicknessV1=std::numeric_limits<double>::quiet_NaN();
+                    double observedObliquityV1=std::numeric_limits<double>::quiet_NaN();
+                    if(crossing.skin) {
+                        const auto& panel=victim.geometry->airframe().panels[crossing.index];
+                        const double obliquity=std::acos(std::min(1.0,std::abs(dot(toBody(target,direction),crossing.normal))));
+                        after=thorResidual((observedThorThicknessV1=victim.geometry->airframe().skinThicknessM(panel.section)),p.areaM2,p.massKg,speed,obliquity);
+                        if(fragmentContactTraceEnabledV1())observedObliquityV1=obliquity;
+                        auto found=std::find_if(vd.panels.begin(),vd.panels.end(),[&](auto& hit){return hit.panel==static_cast<int>(crossing.index);});
+                        if(found==vd.panels.end()){Impact::PanelHits hit;hit.panel=static_cast<int>(crossing.index);vd.panels.push_back(hit);found=std::prev(vd.panels.end());}
+                        ++found->hits;if(after>0){++found->perforations;found->holeAreaM2+=p.areaM2;}
+                        found->momentumNs+=toBody(victim.target,direction)*(p.massKg*(speed-after));
+                    } else {
+                        auto found=std::find_if(vd.components.begin(),vd.components.end(),[&](auto& hit){return hit.component==static_cast<int>(crossing.index);});
+                        if(found==vd.components.end()){Impact::ComponentHits hit;hit.component=static_cast<int>(crossing.index);vd.components.push_back(hit);found=std::prev(vd.components.end());}
+                        const V3 endRelative=p.segment?p.endVelocity-p.velocity-cross(target.angularVelocityEcef,p.end-p.at):V3{};
+                        ++found->hits;found->energyJ+=.5*p.massKg*speed*speed+p.massKg*dot(endRelative,endRelative)/24;
+                        found->fastestMs=std::max(found->fastestMs,speed);found->areaM2+=p.areaM2;
+                    }
+                    if(fragmentContactTraceEnabledV1()) {
+                        static std::atomic<unsigned> emitted{0};
+                        unsigned ticket=emitted.load(std::memory_order_relaxed);
+                        while(ticket<256&&!emitted.compare_exchange_strong(ticket,ticket+1,
+                            std::memory_order_relaxed,std::memory_order_relaxed)) {}
+                        if(ticket<256)try {
+                            const auto number=[](double value)->core::Json {
+                                return std::isfinite(value)?core::Json(value):core::Json(nullptr);
+                            };
+                            const auto vector=[&](V3 value)->core::Json {
+                                return core::Json::Array{number(value.x),number(value.y),number(value.z)};
+                            };
+                            core::Json axes=core::Json::Array{};
+                            for(const auto axis:target.bodyToEcef)axes.push(vector(axis));
+                            const auto& frame=victim.geometry->airframe();
+                            const char* shape=!crossing.skin?"component_slab":frame.panels[crossing.index].surface?
+                                "finite_surface_quad":frame.contactGeometry&&frame.contactGeometry->panel(crossing.index)?
+                                "closed_skin_mesh":"closed_skin_box";
+                            core::Json key=core::Json::Array{std::to_string(victim.identity),std::to_string(victim.generation),
+                                "0",std::to_string(crossing.index),std::to_string(crossing.side)};
+                            if(!crossing.skin)key=core::Json::Array{std::to_string(victim.identity),std::to_string(victim.generation),
+                                "1",std::to_string(crossing.index),std::to_string(crossing.side)};
+                            core::Json record=core::Json::Object{
+                                {"schema","fsim.fragment-contact-observation.v1"},
+                                {"index",static_cast<int>(ticket+1)},{"process_limit",256},{"process_limit_reached",ticket+1==256},
+                                {"source_ordinal",std::to_string(p.sourceOrdinalV1)},
+                                {"source_weapon_identity_available",false},{"source_weapon_identity",nullptr},
+                                {"victim_identity",std::to_string(victim.identity)},{"victim_generation",std::to_string(victim.generation)},
+                                {"field_age_before_s",number(field.ageS)},{"local_contact_age_s",number(age)},
+                                {"contact_age_s",number(field.ageS+age)},{"interval_duration_s",number(duration)},
+                                {"processed_elapsed_s",number(elapsed)},{"visited_key",std::move(key)},
+                                {"skin",crossing.skin},{"geometry_class",shape},{"material_index",std::to_string(crossing.index)},
+                                {"stable_merged_face_or_side",crossing.side},{"original_triangle_ordinal_available",false},
+                                {"positions_frame",localCoordinates?"scene_local_ecef_axes":"ecef"},
+                                {"scene_translation_ecef_m",vector(diagnosticTranslationV1?*diagnosticTranslationV1:V3{})},
+                                {"field_burst_position_m",vector(field.burst.at)},
+                                {"field_burst_axis_ecef",vector(field.burst.axis)},{"field_burst_velocity_ecef_ms",vector(field.burst.velocity)},
+                                {"crossing_point_body_m",vector(crossing.point)},{"material_normal_body",vector(crossing.normal)},
+                                {"rod_start_m",vector(p.at)},{"rod_end_m",vector(p.end)},
+                                {"velocity_ecef_ms",vector(p.velocity)},{"end_velocity_ecef_ms",vector(p.endVelocity)},
+                                {"chord_ecef_ms",vector(chord)},{"end_chord_ecef_ms",vector(endChord)},
+                                {"target_interval_origin_m",vector(target.at)},{"target_contact_origin_m",vector(targetOrigin)},
+                                {"target_velocity_ecef_ms",vector(target.velocity)},{"target_body_axes_ecef",std::move(axes)},
+                                {"target_angular_velocity_ecef_rad_s",vector(target.angularVelocityEcef)},
+                                {"material_velocity_ecef_ms",vector(materialVelocity)},
+                                {"incoming_com_velocity_ecef_ms",vector(incoming)},{"relative_com_velocity_ecef_ms",vector(relative)},
+                                {"mass_kg",number(p.massKg)},{"presented_area_m2",number(p.areaM2)},
+                                {"material_length_m",number(p.materialLengthM)},{"expansion_per_s",number(p.expansionPerS)},
+                                {"breakup_age_s",number(p.breakupAgeS)},{"relative_com_speed_ms",number(speed)},
+                                {"thor_availability",crossing.skin?"available":"not_applicable"},
+                                {"thor_thickness_m",number(observedThorThicknessV1)},
+                                {"obliquity_rad",number(observedObliquityV1)},{"residual_speed_ms",number(after)},
+                                {"semantics","actual processed contact before response; side is stable merged mesh face or primitive side, not an original triangle index"}};
+                            const std::string text="FRAGMENT_CONTACT_TRACE_V1 "+record.dump()+"\n";
+                            if(text.size()<=32768)std::fwrite(text.data(),1,text.size(),stderr);
+                            else std::fputs("FRAGMENT_CONTACT_TRACE_V1_REFUSED row_budget\n",stderr);
+                            std::fflush(stderr);
+                        } catch(...) {
+                            std::fputs("FRAGMENT_CONTACT_TRACE_V1_REFUSED serialization\n",stderr);
                         }
                     }
-                }
-                if(!first||candidate.duration<first->duration)first=candidate;
-            }
-            if(invalidFlight)return {};
-            const double elapsed=first?first->duration:duration;
-            const V3 oldVelocity=p.segment?(p.velocity+p.endVelocity)*.5:p.velocity;
-            auto actual=fragmentFlight(p.at,p.velocity,elapsed,drag,environment.airVelocity,environment.gravityEcef);
-            auto actualEnd=p.segment?fragmentFlight(p.end,p.endVelocity,elapsed,drag,environment.airVelocity,environment.gravityEcef):actual;
-            LiquidAdvance fluidStep;
-            if(liquidFlight) {
-                fluidStep=advanceLiquid(p,elapsed,environment,liquids,sampledTargets);if(!fluidStep.valid)return {};
-                actual={fluidStep.motion.position0,fluidStep.motion.velocity0};actualEnd=p.segment?
-                    FlightInterval{fluidStep.motion.position1,fluidStep.motion.velocity1}:actual;
-            }
-            // Captured affine geometry and exact bounded drag velocities share
-            // the same interval endpoints; reducing maxSubstepS converges the
-            // path without changing source or target criteria.
-            if(liquidFlight){p.at=actual.at;if(p.segment)p.end=actualEnd.at;}
-            else {p.at+=chord*elapsed;if(p.segment)p.end+=endChord*elapsed;}
-            p.velocity=actual.velocity;if(p.segment)p.endVelocity=actualEnd.velocity;
-            const V3 incoming=p.segment?(p.velocity+p.endVelocity)*.5:p.velocity;
-            const V3 gravityImpulse=environment.gravityEcef*(p.massKg*elapsed);
-            result.gravityImpulseEcef+=gravityImpulse;
-            if(liquidFlight) {
-                result.airMomentumEcef+=fluidStep.airImpulse;
-                for(const auto& [key,load]:fluidStep.loads) {
-                    if(!finiteScene(load.impulse)||!finiteScene(load.angular)||!std::isfinite(load.energy)||load.energy<0)return {};
-                    auto& impact=result.victims[key.first].impact;
-                    if(victims[key.first]->geometry) {
-                        auto found=std::find_if(impact.components.begin(),impact.components.end(),[&](const auto& hit){return hit.component==static_cast<int>(key.second);});
-                        if(found==impact.components.end()){Impact::ComponentHits hit;hit.component=static_cast<int>(key.second);impact.components.push_back(hit);found=std::prev(impact.components.end());}
-                        found->energyJ+=load.energy;
-                    } else recordOnly(key.first,static_cast<int>(key.second),load.energy,0);
-                    result.transferredMomentumEcef+=load.impulse;
-                    impact.impulseBody+=toBody(victims[key.first]->target,load.impulse);
-                    impact.angularImpulseBody+=toBody(victims[key.first]->target,load.angular);
-                    if(load.energy>0||length(load.impulse)>0||length(load.angular)>0) {
-                        const double firstTime=field.ageS+age+fluidStep.firstInteractionS.value_or(0);
-                        if(!result.firstStrikeAgeS||firstTime<*result.firstStrikeAgeS)result.firstStrikeAgeS=firstTime;
-                        if(!struck[key.first]){++impact.fragmentsStriking;struck[key.first]=true;p.struckVictims.push_back({victims[key.first]->identity,victims[key.first]->generation});}
-                        anyStrike=true;
+                    const V3 impulse=direction*(p.massKg*(speed-after));
+                    pout.transferredMomentumEcef+=impulse;const V3 bodyImpulse=toBody(victim.target,impulse);
+                    const V3 materialAxis=p.segment?p.end-p.at:V3{};
+                    const V3 retainedSpin=after<=0?cross(target.angularVelocityEcef,materialAxis):V3{};
+                    const V3 intrinsic=p.segment?cross(materialAxis,p.endVelocity-p.velocity-retainedSpin)*(p.massKg/12):V3{};
+                    const V3 angular=cross(centre-targetOrigin,impulse)+intrinsic;
+                    vd.impulseBody+=bodyImpulse;vd.angularImpulseBody+=toBody(victim.target,angular);
+                    if(!struck[crossing.victim]) {
+                        ++vd.fragmentsStriking;struck[crossing.victim]=1;
+                        p.struckVictims.push_back({victim.identity,victim.generation});
+                    }
+                    anyStrike=true;
+                    if(after<=0){absorbed=true;pout.absorbedMassKg+=p.massKg;pout.retainedMomentumEcef+=materialVelocity*p.massKg;}
+                    else {
+                        p.velocity=materialVelocity+direction*after;
+                        if(p.segment){p.endVelocity=p.velocity;p.expansionPerS=0;p.breakupAgeS=0;}
                     }
                 }
-            } else result.airMomentumEcef+=(oldVelocity-incoming)*p.massKg+gravityImpulse;
-            age+=elapsed;
-            activeMaterialV3.erase(std::remove_if(activeMaterialV3.begin(),activeMaterialV3.end(),[&](const auto& key) {
-                const auto found=std::find_if(materialNodesV3.begin(),materialNodesV3.end(),[&](const auto& node){return node.key==key;});
-                return found==materialNodesV3.end()||!found->domain.valid||found->domain.leave.time<elapsed;
-            }),activeMaterialV3.end());
-            for(auto& key:activeMaterialV3) {
-                const auto node=std::find_if(materialNodesV3.begin(),materialNodesV3.end(),[&](const auto& item){return item.key==key;});
-                key.boundaryTarget=node->key.boundaryTarget;
-                if(!canonicalMaterialBoundaryV3(key))return {};
-                key.freshBoundary=elapsed==0&&key.freshBoundary;
-            }
-            if(!first)continue;
-            const auto& crossing=*first;const auto& victim=*victims[crossing.victim];const auto& target=sampledTargets[crossing.victim];
-            auto& impact=result.victims[crossing.victim].impact;
-            visited.insert({victim.identity,victim.generation,crossing.liquidTank>=0?2u:crossing.skin?0u:1u,
-                crossing.liquidTank>=0?static_cast<std::uint64_t>(crossing.liquidTank):crossing.index,static_cast<std::uint64_t>(crossing.side)});
-            if(crossing.paidContinuationV3) {
-                auto key=materialNodesV3[crossing.materialNodeV3].key;
-                if(!canonicalMaterialBoundaryV3(key))return {};
-                key.freshBoundary=true;
-                activeMaterialV3.push_back(std::move(key));
-                continue; // Existing paid lumped contact branch; no second THOR/impulse/hit/RNG.
-            }
-            const V3 centre=p.segment?(p.at+p.end)*.5:p.at;
-            const V3 targetOrigin=target.at+target.velocity*elapsed;
-            const V3 materialVelocity=target.velocity+cross(target.angularVelocityEcef,centre-targetOrigin);
-            const V3 relative=incoming-materialVelocity;const double speed=length(relative);
-            if(crossing.liquidTank>=0) {
-                // Surface intersection concerns actual material, not just its
-                // COM. A rotating rod may cross the bladder with zero COM
-                // velocity while its endpoints retain finite material speed.
-                if(!result.firstStrikeAgeS||field.ageS+age<*result.firstStrikeAgeS)result.firstStrikeAgeS=field.ageS+age;
-                if(victim.geometry) {
-                auto found=std::find_if(impact.components.begin(),impact.components.end(),[&](const auto& hit){return hit.component==static_cast<int>(crossing.index);});
-                if(found==impact.components.end()){Impact::ComponentHits hit;hit.component=static_cast<int>(crossing.index);impact.components.push_back(hit);found=std::prev(impact.components.end());}
-                const double materialSpeed=p.segment?std::max(length(p.velocity-target.velocity-cross(target.angularVelocityEcef,p.at-targetOrigin)),
-                    length(p.endVelocity-target.velocity-cross(target.angularVelocityEcef,p.end-targetOrigin))):speed;
-                ++found->hits;found->areaM2+=p.areaM2;found->fastestMs=std::max(found->fastestMs,materialSpeed);
-                } else recordOnly(crossing.victim,crossing.liquidTank,0,1);
-                if(!struck[crossing.victim]){++impact.fragmentsStriking;struck[crossing.victim]=true;p.struckVictims.push_back({victim.identity,victim.generation});}
-                anyStrike=true;continue; // Negligible bladder wall: no stopping work.
-            }
-            if(!(speed>0)) {
-                if(crossing.materialNodeV3!=std::numeric_limits<std::size_t>::max()) {
-                    auto key=materialNodesV3[crossing.materialNodeV3].key;
-                    if(!canonicalMaterialBoundaryV3(key))return {};
-                    key.freshBoundary=true;key.paid=false;activeMaterialV3.push_back(std::move(key));
+                if(!ok){anyInvalid.store(true,std::memory_order_relaxed);break;}
+                pout.valid=true;
+                pout.absorbed=absorbed;
+                pout.anyStrike=anyStrike;
+                if(!absorbed) {
+                    pout.remainingMassKg=p.massKg;
+                    pout.remainingMomentumEcef=(p.segment?(p.velocity+p.endVelocity)*.5:p.velocity)*p.massKg;
+                    if(visited.empty())p.crossedFaces.clear();
+                    else p.crossedFaces.assign(visited.begin(),visited.end());
+                    pout.contProj=std::move(p);
+                    pout.activeMat=std::move(activeMaterialV3);
                 }
-                continue;
-            }
-            if(crossing.materialNodeV3!=std::numeric_limits<std::size_t>::max()) {
-                auto key=materialNodesV3[crossing.materialNodeV3].key;
-                if(!canonicalMaterialBoundaryV3(key))return {};
-                key.freshBoundary=true;
-                activeMaterialV3.push_back(std::move(key));
-            }
-            if(!result.firstStrikeAgeS||field.ageS+age<*result.firstStrikeAgeS)result.firstStrikeAgeS=field.ageS+age;
-            const V3 direction=relative*(1/speed);double after=0;
-            double observedThorThicknessV1=std::numeric_limits<double>::quiet_NaN();
-            double observedObliquityV1=std::numeric_limits<double>::quiet_NaN();
-            if(crossing.skin) {
-                const auto& panel=victim.geometry->airframe().panels[crossing.index];
-                const double obliquity=std::acos(std::min(1.0,std::abs(dot(toBody(target,direction),crossing.normal))));
-                after=thorResidual((observedThorThicknessV1=victim.geometry->airframe().skinThicknessM(panel.section)),p.areaM2,p.massKg,speed,obliquity);
-                if(fragmentContactTraceEnabledV1())observedObliquityV1=obliquity;
-                auto found=std::find_if(impact.panels.begin(),impact.panels.end(),[&](auto& hit){return hit.panel==static_cast<int>(crossing.index);});
-                if(found==impact.panels.end()){Impact::PanelHits hit;hit.panel=static_cast<int>(crossing.index);impact.panels.push_back(hit);found=std::prev(impact.panels.end());}
-                ++found->hits;if(after>0){++found->perforations;found->holeAreaM2+=p.areaM2;}
-                found->momentumNs+=toBody(victim.target,direction)*(p.massKg*(speed-after));
-            } else {
-                auto found=std::find_if(impact.components.begin(),impact.components.end(),[&](auto& hit){return hit.component==static_cast<int>(crossing.index);});
-                if(found==impact.components.end()){Impact::ComponentHits hit;hit.component=static_cast<int>(crossing.index);impact.components.push_back(hit);found=std::prev(impact.components.end());}
-                const V3 endRelative=p.segment?p.endVelocity-p.velocity-cross(target.angularVelocityEcef,p.end-p.at):V3{};
-                ++found->hits;found->energyJ+=.5*p.massKg*speed*speed+p.massKg*dot(endRelative,endRelative)/24;
-                found->fastestMs=std::max(found->fastestMs,speed);found->areaM2+=p.areaM2;
-            }
-            if(fragmentContactTraceEnabledV1()) {
-                // Saturating per-process bound: no wraparound, TLS, owner
-                // inference, RNG draws or solver calls enter this observer.
-                static std::atomic<unsigned> emitted{0};
-                unsigned ticket=emitted.load(std::memory_order_relaxed);
-                while(ticket<256&&!emitted.compare_exchange_strong(ticket,ticket+1,
-                    std::memory_order_relaxed,std::memory_order_relaxed)) {}
-                if(ticket<256)try {
-                    const auto number=[](double value)->core::Json {
-                        return std::isfinite(value)?core::Json(value):core::Json(nullptr);
-                    };
-                    const auto vector=[&](V3 value)->core::Json {
-                        return core::Json::Array{number(value.x),number(value.y),number(value.z)};
-                    };
-                    core::Json axes=core::Json::Array{};
-                    for(const auto axis:target.bodyToEcef)axes.push(vector(axis));
-                    const auto& frame=victim.geometry->airframe();
-                    const char* shape=!crossing.skin?"component_slab":frame.panels[crossing.index].surface?
-                        "finite_surface_quad":frame.contactGeometry&&frame.contactGeometry->panel(crossing.index)?
-                        "closed_skin_mesh":"closed_skin_box";
-                    core::Json key=core::Json::Array{std::to_string(victim.identity),std::to_string(victim.generation),
-                        "0",std::to_string(crossing.index),std::to_string(crossing.side)};
-                    if(!crossing.skin)key=core::Json::Array{std::to_string(victim.identity),std::to_string(victim.generation),
-                        "1",std::to_string(crossing.index),std::to_string(crossing.side)};
-                    core::Json record=core::Json::Object{
-                        {"schema","fsim.fragment-contact-observation.v1"},
-                        {"index",static_cast<int>(ticket+1)},{"process_limit",256},{"process_limit_reached",ticket+1==256},
-                        {"source_ordinal",std::to_string(p.sourceOrdinalV1)},
-                        {"source_weapon_identity_available",false},{"source_weapon_identity",nullptr},
-                        {"victim_identity",std::to_string(victim.identity)},{"victim_generation",std::to_string(victim.generation)},
-                        {"field_age_before_s",number(field.ageS)},{"local_contact_age_s",number(age)},
-                        {"contact_age_s",number(field.ageS+age)},{"interval_duration_s",number(duration)},
-                        {"processed_elapsed_s",number(elapsed)},{"visited_key",std::move(key)},
-                        {"skin",crossing.skin},{"geometry_class",shape},{"material_index",std::to_string(crossing.index)},
-                        {"stable_merged_face_or_side",crossing.side},{"original_triangle_ordinal_available",false},
-                        {"positions_frame",localCoordinates?"scene_local_ecef_axes":"ecef"},
-                        {"scene_translation_ecef_m",vector(diagnosticTranslationV1?*diagnosticTranslationV1:V3{})},
-                        {"field_burst_position_m",vector(field.burst.at)},
-                        {"field_burst_axis_ecef",vector(field.burst.axis)},{"field_burst_velocity_ecef_ms",vector(field.burst.velocity)},
-                        {"crossing_point_body_m",vector(crossing.point)},{"material_normal_body",vector(crossing.normal)},
-                        {"rod_start_m",vector(p.at)},{"rod_end_m",vector(p.end)},
-                        {"velocity_ecef_ms",vector(p.velocity)},{"end_velocity_ecef_ms",vector(p.endVelocity)},
-                        {"chord_ecef_ms",vector(chord)},{"end_chord_ecef_ms",vector(endChord)},
-                        {"target_interval_origin_m",vector(target.at)},{"target_contact_origin_m",vector(targetOrigin)},
-                        {"target_velocity_ecef_ms",vector(target.velocity)},{"target_body_axes_ecef",std::move(axes)},
-                        {"target_angular_velocity_ecef_rad_s",vector(target.angularVelocityEcef)},
-                        {"material_velocity_ecef_ms",vector(materialVelocity)},
-                        {"incoming_com_velocity_ecef_ms",vector(incoming)},{"relative_com_velocity_ecef_ms",vector(relative)},
-                        {"mass_kg",number(p.massKg)},{"presented_area_m2",number(p.areaM2)},
-                        {"material_length_m",number(p.materialLengthM)},{"expansion_per_s",number(p.expansionPerS)},
-                        {"breakup_age_s",number(p.breakupAgeS)},{"relative_com_speed_ms",number(speed)},
-                        {"thor_availability",crossing.skin?"available":"not_applicable"},
-                        {"thor_thickness_m",number(observedThorThicknessV1)},
-                        {"obliquity_rad",number(observedObliquityV1)},{"residual_speed_ms",number(after)},
-                        {"semantics","actual processed contact before response; side is stable merged mesh face or primitive side, not an original triangle index"}};
-                    const std::string text="FRAGMENT_CONTACT_TRACE_V1 "+record.dump()+"\n";
-                    if(text.size()<=32768)std::fwrite(text.data(),1,text.size(),stderr);
-                    else std::fputs("FRAGMENT_CONTACT_TRACE_V1_REFUSED row_budget\n",stderr);
-                    std::fflush(stderr);
-                } catch(...) {
-                    std::fputs("FRAGMENT_CONTACT_TRACE_V1_REFUSED serialization\n",stderr);
-                }
-            }
-            const V3 impulse=direction*(p.massKg*(speed-after));
-            result.transferredMomentumEcef+=impulse;const V3 bodyImpulse=toBody(victim.target,impulse);
-            const V3 materialAxis=p.segment?p.end-p.at:V3{};
-            const V3 retainedSpin=after<=0?cross(target.angularVelocityEcef,materialAxis):V3{};
-            const V3 intrinsic=p.segment?cross(materialAxis,p.endVelocity-p.velocity-retainedSpin)*(p.massKg/12):V3{};
-            // Spin is driven by the material lever at this actual crossing,
-            // not by the target's translation since the scene began. Reduce
-            // the moving-origin moment into the original reference body axes.
-            const V3 angular=cross(centre-targetOrigin,impulse)+intrinsic;
-            impact.impulseBody+=bodyImpulse;impact.angularImpulseBody+=toBody(victim.target,angular);
-            if(!struck[crossing.victim]) {
-                ++impact.fragmentsStriking;struck[crossing.victim]=true;
-                p.struckVictims.push_back({victim.identity,victim.generation});
-            }
-            anyStrike=true;
-            if(after<=0){absorbed=true;result.absorbedMassKg+=p.massKg;result.retainedMomentumEcef+=materialVelocity*p.massKg;}
-            else {
-                p.velocity=materialVelocity+direction*after;
-                // A hit locally breaks a connected element; surviving material
-                // flies as a constant-length finite rod, without elastic energy
-                // or a second copy of the original projectile.
-                if(p.segment){p.endVelocity=p.velocity;p.expansionPerS=0;p.breakupAgeS=0;}
             }
         }
-        if(anyStrike)++result.projectilesStriking;
-        if(!absorbed) {
-            result.remainingMassKg+=p.massKg;result.remainingMomentumEcef+=(p.segment?(p.velocity+p.endVelocity)*.5:p.velocity)*p.massKg;
-            p.crossedFaces.assign(visited.begin(),visited.end());result.continuation.projectiles.push_back(std::move(p));
-            nextContactParticlesV3.push_back({std::move(activeMaterialV3)});
+    };
+    std::atomic<std::size_t> nextParticle{0};
+    const unsigned hwThreads=std::thread::hardware_concurrency();
+    const std::size_t workerCount=(!fragmentContactTraceEnabledV1()&&nProj>=64&&hwThreads>1)?
+        std::min<std::size_t>({static_cast<std::size_t>(hwThreads),std::size_t{8},(nProj+15)/16}):std::size_t{1};
+    if(workerCount<=1) {
+        runWorker(nextParticle,nProj+1);
+    } else {
+        std::vector<std::thread> workers;
+        workers.reserve(workerCount-1);
+        for(std::size_t t=1;t<workerCount;++t)workers.emplace_back([&]{runWorker(nextParticle,16);});
+        runWorker(nextParticle,16);
+        for(auto& w:workers)w.join();
+    }
+    if(anyInvalid.load(std::memory_order_relaxed))return {};
+    // Exact 0..N-1 deterministic reduction (0-ULP identical to serial execution).
+    for(std::size_t i=0;i<nProj;++i) {
+        auto& pout=particleOuts[i];
+        if(!pout.valid)return {};
+        result.rodBreakups+=pout.rodBreakups;
+        if(pout.firstRodBreakAgeS&&(!result.firstRodBreakAgeS||*pout.firstRodBreakAgeS<*result.firstRodBreakAgeS))
+            result.firstRodBreakAgeS=*pout.firstRodBreakAgeS;
+        if(pout.firstStrikeAgeS&&(!result.firstStrikeAgeS||*pout.firstStrikeAgeS<*result.firstStrikeAgeS))
+            result.firstStrikeAgeS=*pout.firstStrikeAgeS;
+        result.gravityImpulseEcef+=pout.gravityImpulseEcef;
+        result.airMomentumEcef+=pout.airMomentumEcef;
+        result.transferredMomentumEcef+=pout.transferredMomentumEcef;
+        for(const auto& vd:pout.victimDeltas) {
+            auto& impact=result.victims[vd.victim].impact;
+            impact.fragmentsStriking+=vd.fragmentsStriking;
+            impact.impulseBody+=vd.impulseBody;
+            impact.angularImpulseBody+=vd.angularImpulseBody;
+            for(const auto& ph:vd.panels) {
+                auto found=std::find_if(impact.panels.begin(),impact.panels.end(),[&](const auto& hit){return hit.panel==ph.panel;});
+                if(found==impact.panels.end())impact.panels.push_back(ph);
+                else {
+                    found->hits+=ph.hits;
+                    found->perforations+=ph.perforations;
+                    found->holeAreaM2+=ph.holeAreaM2;
+                    found->momentumNs+=ph.momentumNs;
+                }
+            }
+            for(const auto& ch:vd.components) {
+                auto found=std::find_if(impact.components.begin(),impact.components.end(),[&](const auto& hit){return hit.component==ch.component;});
+                if(found==impact.components.end())impact.components.push_back(ch);
+                else {
+                    found->hits+=ch.hits;
+                    found->energyJ+=ch.energyJ;
+                    found->areaM2+=ch.areaM2;
+                    found->fastestMs=std::max(found->fastestMs,ch.fastestMs);
+                }
+            }
+        }
+        for(const auto& ow:pout.onlyWorkDeltas)recordOnly(ow.victim,ow.tank,ow.energyJ,ow.contacts);
+        if(pout.anyStrike)++result.projectilesStriking;
+        if(pout.absorbed) {
+            result.absorbedMassKg+=pout.absorbedMassKg;
+            result.retainedMomentumEcef+=pout.retainedMomentumEcef;
+        } else {
+            result.remainingMassKg+=pout.remainingMassKg;
+            result.remainingMomentumEcef+=pout.remainingMomentumEcef;
+            result.continuation.projectiles.push_back(std::move(pout.contProj));
+            nextContactParticlesV3.push_back({std::move(pout.activeMat)});
         }
     }
     // Preserve the established blast fit without resampling a fragment field.

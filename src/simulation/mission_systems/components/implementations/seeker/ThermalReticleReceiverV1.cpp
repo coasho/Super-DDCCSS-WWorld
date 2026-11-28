@@ -1,6 +1,7 @@
 #include "ThermalReticleReceiverV1.h"
 #include "MovingRadiatorInverseV2.h"
 #include "simulation/mission_systems/components/support/MeasuredSeekerV2.h"
+#include "simulation/mission_systems/components/support/MovingConicMomentsV4.h"
 #include <algorithm>
 #include <atomic>
 #include <cfenv>
@@ -280,6 +281,8 @@ inline double reticleResidualNorm2(const double* d, const double* w, double amp,
     return s;
 }
 thread_local bool gReticleNestedPoolBlocked=false;
+thread_local const std::atomic<unsigned>* gReticleActiveJobs=nullptr;
+thread_local unsigned gReticleWorkerBudget=0u;
 // Join-before-return worker launcher: avoids Windows DLL_PROCESS_DETACH loader-lock
 // deadlocks that occur when static/thread_local worker threads join during DLL unload.
 // Inside World's parallel VehiclePool workers, ReticleNestedPoolGuardV1 blocks nested
@@ -402,7 +405,21 @@ bool dampedBoxStep(const std::array<std::vector<double>,Dimension>& jacobian,con
             for(unsigned column=0;column<freeCount&&valid;++column) {
                 unsigned pivot=column;double largest=-1;
                 for(unsigned candidate=column;candidate<freeCount;++candidate) {
-                    double length=0;for(unsigned row=column;row<Dimension;++row)length=std::hypot(length,matrix[row][candidate]);
+                    double sum2=0.,maxAbs=0.;
+                    for(unsigned row=column;row<Dimension;++row) {
+                        const double v=std::abs(matrix[row][candidate]);
+                        if(v>maxAbs)maxAbs=v;
+                        sum2+=v*v;
+                    }
+                    double length=0.;
+                    if(maxAbs>0.) {
+                        if(maxAbs>1e-150&&maxAbs<1e150)length=std::sqrt(sum2);
+                        else {
+                            double scaled=0.;
+                            for(unsigned row=column;row<Dimension;++row){const double t=matrix[row][candidate]/maxAbs;scaled+=t*t;}
+                            length=maxAbs*std::sqrt(scaled);
+                        }
+                    }
                     if(length>largest){largest=length;pivot=candidate;}
                 }
                 if(!(largest>0)||!std::isfinite(largest)){valid=false;break;}
@@ -458,14 +475,36 @@ bool dampedBoxStep(const std::array<std::vector<double>,Dimension>& jacobian,con
 }
 }
 
-ReticleNestedPoolGuardV1::ReticleNestedPoolGuardV1(bool block) noexcept : previous(gReticleNestedPoolBlocked) {
+ReticleNestedPoolGuardV1::ReticleNestedPoolGuardV1(bool block) noexcept
+    : previous(gReticleNestedPoolBlocked), previousActiveJobs(gReticleActiveJobs), previousBudget(gReticleWorkerBudget) {
     gReticleNestedPoolBlocked=block;
+    gReticleActiveJobs=nullptr;
+    gReticleWorkerBudget=0u;
+}
+ReticleNestedPoolGuardV1::ReticleNestedPoolGuardV1(const std::atomic<unsigned>* activeJobs,unsigned workerBudget) noexcept
+    : previous(gReticleNestedPoolBlocked), previousActiveJobs(gReticleActiveJobs), previousBudget(gReticleWorkerBudget) {
+    gReticleNestedPoolBlocked=(activeJobs!=nullptr);
+    gReticleActiveJobs=activeJobs;
+    gReticleWorkerBudget=workerBudget;
 }
 ReticleNestedPoolGuardV1::~ReticleNestedPoolGuardV1() noexcept {
     gReticleNestedPoolBlocked=previous;
+    gReticleActiveJobs=previousActiveJobs;
+    gReticleWorkerBudget=previousBudget;
 }
 bool ReticleNestedPoolGuardV1::blocked() noexcept {
-    return gReticleNestedPoolBlocked;
+    return gReticleNestedPoolBlocked && gReticleActiveJobs==nullptr;
+}
+unsigned ReticleNestedPoolGuardV1::maxWorkers(unsigned cap) noexcept {
+    if(cap<=1u)return cap;
+    const unsigned hw=std::max(1u,std::thread::hardware_concurrency());
+    if(gReticleActiveJobs!=nullptr) {
+        const unsigned active=std::max(1u,gReticleActiveJobs->load(std::memory_order_relaxed));
+        const unsigned budget=std::max(hw,gReticleWorkerBudget);
+        return std::min(cap,std::max(1u,budget/active));
+    }
+    if(gReticleNestedPoolBlocked)return 1u;
+    return std::min(cap,hw);
 }
 
 double ThermalReticleReceiverV1::maskV1(const ThermalReticleConfigV1& c,double x,double y,double phase) noexcept {
@@ -1289,9 +1328,12 @@ struct UnitGroundPrepV1 {
         return g;
     }
 
-    std::optional<std::vector<double>> evaluateFullFrame(double cutoff) const {
+    std::optional<std::vector<double>> evaluateFullFrame(double cutoff,bool allowUnitFallback=true) const {
         if(!valid||!std::isfinite(cutoff)||std::abs(cutoff)>1)return std::nullopt;
-        if(!monoOk)return ThermalReticleReceiverV1::unitGroundFieldV1(p,forward,nativeUp,cutoff);
+        const auto fallback=[&]()->std::optional<std::vector<double>> {
+            return allowUnitFallback?ThermalReticleReceiverV1::unitGroundFieldV1(p,forward,nativeUp,cutoff):std::nullopt;
+        };
+        if(!monoOk)return fallback();
         const std::size_t pixels=static_cast<std::size_t>(p.width)*p.height;
         std::vector<double> answer(pixels,0.);
         const auto bounds=[&](const std::array<double,4>& x,const Row& row) noexcept {
@@ -1307,7 +1349,7 @@ struct UnitGroundPrepV1 {
         for(unsigned col=0;col<colLimit;++col) {
             const auto& ci=cols[col];
             if(!(ci.sx1>ci.sx0))continue;
-            if(!ci.uncut)return ThermalReticleReceiverV1::unitGroundFieldV1(p,forward,nativeUp,cutoff);
+            if(!ci.uncut)return fallback();
             unsigned activeCount=0,activeLo=p.height,activeHi=0;
             for(unsigned row=0;row<p.height;++row) {
                 rowActive[row]=false;
@@ -1415,17 +1457,17 @@ struct UnitGroundPrepV1 {
                         fine[row]=g3;
                         if(std::abs(g3-g2)>1e-9)converged=false;
                     }
-                    if(!converged)return ThermalReticleReceiverV1::unitGroundFieldV1(p,forward,nativeUp,cutoff);
+                    if(!converged)return fallback();
                 }
             }
             for(unsigned row=activeLo;row<=activeHi;++row) {
                 if(!rowActive[row])continue;
                 if(!std::isfinite(fine[row])||fine[row]<0||fine[row]>1+1e-9)
-                    return ThermalReticleReceiverV1::unitGroundFieldV1(p,forward,nativeUp,cutoff);
+                    return fallback();
                 const double v=std::clamp(fine[row],0.,1.);
                 if(flatHorizon) {
                     for(unsigned dst=0;dst<p.width;++dst) {
-                        if(!cols[dst].uncut)return ThermalReticleReceiverV1::unitGroundFieldV1(p,forward,nativeUp,cutoff);
+                        if(!cols[dst].uncut)return fallback();
                         answer[static_cast<std::size_t>(row)*p.width+dst]=v;
                     }
                 } else {
@@ -2482,7 +2524,8 @@ ThermalReticleResultV1 ThermalReticleReceiverV1::exposeWithMeasuredPriorV2(
         FastDeltaScratch mainScratch;
         if(!computePhasePhotons(0u,mainScratch,initialBg,&background,phasePhotons[0]))return refuse();
         if(c.samplesPerScan>1u) {
-            const unsigned hw=ReticleNestedPoolGuardV1::blocked()?1u:std::min(16u,std::max(1u,std::thread::hardware_concurrency()));
+            const unsigned hw=gReticleNestedPoolBlocked
+                ?1u:std::min(16u,std::max(1u,std::thread::hardware_concurrency()));
             std::fenv_t callerEnv{};
             if(!scene.patches.empty()&&hw>=2u&&std::fegetenv(&callerEnv)==0) {
 #if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
@@ -3333,6 +3376,32 @@ std::optional<std::vector<double>> ThermalReticleReceiverV1::unitGroundFieldProf
     if(region&&(!std::all_of(region->begin(),region->end(),[](double v){return std::isfinite(v)&&std::abs(v)<=1.55;})||
         !((*region)[1]>(*region)[0])||!((*region)[3]>(*region)[2])))return std::nullopt;
     if(work)work->fallbackReason=0;
+    if(!region&&!work) {
+        bool nearestRounding=std::fegetround()==FE_TONEAREST;
+#if defined(__SSE__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP>=1)
+        nearestRounding=nearestRounding&&(_mm_getcsr()&0x6000u)==0;
+#endif
+        if(nearestRounding) {
+            struct UnitPrepCacheV1 {
+                unsigned width=0,height=0;
+                std::array<std::uint64_t,8> keyBits{};
+                UnitGroundPrepV1 prep;
+                bool ready=false;
+            };
+            thread_local UnitPrepCacheV1 cache;
+            std::array<std::uint64_t,8> bits{};
+            const double vals[8]={p.pixelPitchRad,p.psfSigmaRad,pointing.x,pointing.y,pointing.z,up.x,up.y,up.z};
+            std::memcpy(bits.data(),vals,sizeof(vals));
+            if(!cache.ready||cache.width!=p.width||cache.height!=p.height||cache.keyBits!=bits) {
+                cache.prep=UnitGroundPrepV1::build(p,pointing,up);
+                cache.width=p.width;cache.height=p.height;cache.keyBits=bits;cache.ready=true;
+            }
+            if(auto fast=cache.prep.evaluateFullFrame(cutoff,false)) {
+                if(accelerated)*accelerated=true;
+                return fast;
+            }
+        }
+    }
     const auto forward=unit(pointing),nativeUp=unit(up);
     auto right=unit(cross(forward,nativeUp));
     if(norm(right)<.5)right=unit(cross(forward,std::abs(forward.z)<.9?V{0,0,1}:V{0,1,0}));
@@ -3970,6 +4039,60 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
         return {{std::nextafter(nlo/(nlo>=0?dhi:dlo)-err,-std::numeric_limits<double>::infinity()),
                  std::nextafter(nhi/(nhi>=0?dlo:dhi)+err,std::numeric_limits<double>::infinity())}};
     };
+    struct StaticConicBankEntry {double cutoff=0;std::shared_ptr<conic_moments_v4::Bank> bank;};
+    std::vector<StaticConicBankEntry> staticConicBanks;staticConicBanks.reserve(8);
+    conic_moments_v4::FieldWorkspaceV5 staticConicWs;
+    const bool conicArithOk=conic_moments_v4::arithmeticAvailable();
+    const auto conicEligible=[&](const std::array<double,4>& reg)->bool {
+        if(!conicArithOk)return false;
+        const double leftE=std::max(fieldLeft,reg[0]),rightE=std::min(fieldRight,reg[1]);
+        const double botE=std::max(fieldBottom,reg[2]),topE=std::min(fieldTop,reg[3]);
+        if(!(rightE>leftE)||!(topE>botE))return true;
+        const double maxTx=std::max(std::abs(std::tan(leftE)),std::abs(std::tan(rightE)));
+        const double maxTy=std::max(std::abs(std::tan(botE)),std::abs(std::tan(topE)));
+        const double maxN=std::nextafter(std::abs(horizA)+std::nextafter(std::abs(horizB)*maxTx,std::numeric_limits<double>::infinity()),
+            std::numeric_limits<double>::infinity());
+        return std::nextafter(horizC,-std::numeric_limits<double>::infinity())>
+            std::nextafter(maxN*maxTy,std::numeric_limits<double>::infinity());
+    };
+    const auto getStaticConicBank=[&](double cutoff)->std::shared_ptr<conic_moments_v4::Bank> {
+        if(!conicArithOk)return nullptr;
+        for(std::size_t idx=0;idx<staticConicBanks.size();++idx) {
+            if(cutoff==staticConicBanks[idx].cutoff&&std::signbit(cutoff)==std::signbit(staticConicBanks[idx].cutoff)) {
+                if(idx!=0)std::rotate(staticConicBanks.begin(),staticConicBanks.begin()+static_cast<std::ptrdiff_t>(idx),
+                    staticConicBanks.begin()+static_cast<std::ptrdiff_t>(idx+1));
+                return staticConicBanks.front().bank;
+            }
+        }
+        conic_moments_v4::Request req;req.width=p.width;req.height=p.height;
+        req.pixelPitchRad=p.pixelPitchRad;req.psfSigmaRad=p.psfSigmaRad;req.cutoff=cutoff;
+        req.pointing={{forward.x,forward.y,forward.z}};req.up={{verticalUp.x,verticalUp.y,verticalUp.z}};
+        auto bank=std::shared_ptr<conic_moments_v4::Bank>(conic_moments_v4::Bank::prepareSharedV5(req));
+        if(staticConicBanks.size()>=8)staticConicBanks.pop_back();
+        staticConicBanks.insert(staticConicBanks.begin(),StaticConicBankEntry{cutoff,bank});
+        return bank;
+    };
+    const auto conicSubtractOcculted=[&](const conic_moments_v4::FieldWorkspaceV5& ws,const std::vector<double>& baseRaw,std::vector<double>& outRaw) {
+        outRaw=baseRaw;
+        if(ws.activeRowCount==0||ws.colEnd<=ws.colBegin)return;
+        std::vector<double> occRaw(count,0.);
+        const double* fPtr=ws.field.data();
+        const double* wwPtr=pre.weightedWeights.data();
+        bool anyNonZero=false;
+        for(unsigned r=0;r<ws.activeRowCount;++r) {
+            const unsigned row=ws.activeRows[r];
+            const std::size_t rowBase=static_cast<std::size_t>(row)*p.width;
+            for(unsigned col=ws.colBegin;col<ws.colEnd;++col) {
+                const double f=fPtr[rowBase+col];
+                if(f==0.)continue;
+                anyNonZero=true;
+                reticleFmadd1(occRaw.data(),wwPtr+(rowBase+col)*count,f,count);
+            }
+        }
+        if(!anyNonZero)return;
+        occRaw=filtered(std::move(occRaw),alpha);
+        for(unsigned j=0;j<count;++j)outRaw[j]-=occRaw[j];
+    };
     std::optional<Parameters> lastOutsideShape;
     std::vector<double> lastOutsideRaw;
     bool lastOutsideRelativeGround=false;
@@ -4002,16 +4125,25 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
                         sourceRelativeGround=true;
                     } else {
                         const std::array<double,4> support{x0,x1,y0,y1};
-                        const auto occulted=unitGroundFieldMemoV2(p,forward,verticalUp,q[4],support,
-                            [&]()->const std::vector<double>*{return groundField(q[4]);});
-                        if(!occulted)return std::nullopt;
-                        if(std::all_of(occulted->begin(),occulted->end(),[](double value){return value==0;}))outside=ground->rawWave;
-                        else {
-                            // Linear waveform subtraction matches waveform(*full - *occulted, false)
-                            // while avoiding full-frame groundField recomputation and zero pixels.
-                            const auto occWave=waveform(*occulted,false);
-                            outside=ground->rawWave;
-                            for(unsigned j=0;j<count;++j)outside[j]-=occWave[j];
+                        bool usedConic=false;
+                        if(conicEligible(support)) {
+                            if(const auto bank=getStaticConicBank(q[4]);bank&&bank->evaluateFastIntoV5(support,staticConicWs)) {
+                                conicSubtractOcculted(staticConicWs,ground->rawWave,outside);
+                                usedConic=true;
+                            }
+                        }
+                        if(!usedConic) {
+                            const auto occulted=unitGroundFieldMemoV2(p,forward,verticalUp,q[4],support,
+                                [&]()->const std::vector<double>*{return groundField(q[4]);});
+                            if(!occulted)return std::nullopt;
+                            if(std::all_of(occulted->begin(),occulted->end(),[](double value){return value==0;}))outside=ground->rawWave;
+                            else {
+                                // Linear waveform subtraction matches waveform(*full - *occulted, false)
+                                // while avoiding full-frame groundField recomputation and zero pixels.
+                                const auto occWave=waveform(*occulted,false);
+                                outside=ground->rawWave;
+                                for(unsigned j=0;j<count;++j)outside[j]-=occWave[j];
+                            }
                         }
                     }
                 }
@@ -4142,7 +4274,8 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
             return true;
         };
         const auto solvePure=[&](const Parameters& q,const std::vector<double>& groundRawWave,
-            const std::vector<double>* fullGroundField,std::vector<double>& reduced)->bool {
+            const std::vector<double>* fullGroundField,const conic_moments_v4::Bank* bankPtr,
+            conic_moments_v4::FieldWorkspaceV5& ws,std::vector<double>& reduced)->bool {
             if(std::abs(q[0])>halfX||std::abs(q[1])>halfY||q[2]<0||q[3]<0||q[2]>2*halfX||q[3]>2*halfY||q[4]<low||q[4]>high)return false;
             std::vector<double> outside;
             bool sourceRelativeGround=false;
@@ -4158,14 +4291,21 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
                         outside=groundRawWave;sourceRelativeGround=true;
                     } else {
                         const std::array<double,4> support{x0,x1,y0,y1};
-                        const auto occulted=unitGroundFieldMemoV2(p,forward,verticalUp,q[4],support,
-                            [&]()->const std::vector<double>*{return fullGroundField;});
-                        if(!occulted)return false;
-                        if(std::all_of(occulted->begin(),occulted->end(),[](double value){return value==0;}))outside=groundRawWave;
-                        else {
-                            const auto occWave=waveform(*occulted,false);
-                            outside=groundRawWave;
-                            for(unsigned j=0;j<count;++j)outside[j]-=occWave[j];
+                        bool usedConic=false;
+                        if(bankPtr&&conicEligible(support)&&bankPtr->evaluateFastIntoV5(support,ws)) {
+                            conicSubtractOcculted(ws,groundRawWave,outside);
+                            usedConic=true;
+                        }
+                        if(!usedConic) {
+                            const auto occulted=unitGroundFieldMemoV2(p,forward,verticalUp,q[4],support,
+                                [&]()->const std::vector<double>*{return fullGroundField;});
+                            if(!occulted)return false;
+                            if(std::all_of(occulted->begin(),occulted->end(),[](double value){return value==0;}))outside=groundRawWave;
+                            else {
+                                const auto occWave=waveform(*occulted,false);
+                                outside=groundRawWave;
+                                for(unsigned j=0;j<count;++j)outside[j]-=occWave[j];
+                            }
                         }
                     }
                 }
@@ -4187,7 +4327,8 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
             const double dSky=d+(sourceRelativeGround?q[2]*q[3]/pixelArea*b:0.);
             return std::isfinite(cost)&&std::isfinite(b)&&std::isfinite(dSky);
         };
-        const unsigned maxJacobianWorkers=ReticleNestedPoolGuardV1::blocked()?1u:std::min(8u,std::max(1u,std::thread::hardware_concurrency()));
+        const unsigned maxJacobianWorkers=gReticleNestedPoolBlocked
+            ?1u:std::min(8u,std::max(1u,std::thread::hardware_concurrency()));
         const auto trust=[&](const Parameters& initial) {
             Parameters current=quantize(squared(initial));
             std::vector<double> residual;
@@ -4237,9 +4378,11 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
                     if(!gCur||!gfCur) {
                         derivatives=false;
                     } else {
+                        const auto bkCur=getStaticConicBank(current[4]);
                         std::array<std::vector<double>,8> res03;
                         std::array<bool,8> ok03{};
                         std::array<std::exception_ptr,8> err03{};
+                        std::array<conic_moments_v4::FieldWorkspaceV5,8> ws03{};
                         std::atomic<unsigned> nextTask{0};
                         const auto run03=[&](unsigned worker) noexcept {
                             try {
@@ -4249,7 +4392,7 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
                                     if(idx>=8u)break;
                                     const unsigned coord=idx>>1u;
                                     const Parameters q=geometry((idx&1u)?minusCoords[coord]:plusCoords[coord]);
-                                    ok03[idx]=solvePure(q,gCur->rawWave,gfCur,res03[idx]);
+                                    ok03[idx]=solvePure(q,gCur->rawWave,gfCur,bkCur.get(),ws03[worker],res03[idx]);
                                 }
                             } catch(...) {err03[worker]=std::current_exception();}
                         };
@@ -4273,20 +4416,23 @@ void ThermalReticleReceiverV1::fitHorizonWithMeasuredPriorV2(ThermalReticleResul
                                 derivatives=false;
                             } else {
                                 const std::vector<double> rawP=gP->rawWave,fieldP=*gfP;
+                                const auto bkP=getStaticConicBank(gp4[4]);
                                 const auto* gM=calibration(gm4[4]);
                                 const auto* gfM=gM?groundField(gm4[4]):nullptr;
                                 if(!gM||!gfM) {
                                     derivatives=false;
                                 } else {
                                     const std::vector<double> rawM=gM->rawWave,fieldM=*gfM;
+                                    const auto bkM=getStaticConicBank(gm4[4]);
                                     std::array<std::vector<double>,2> res4;
                                     std::array<bool,2> ok4{};
                                     std::array<std::exception_ptr,2> err4{};
+                                    std::array<conic_moments_v4::FieldWorkspaceV5,2> ws4{};
                                     const auto run4=[&](unsigned worker) noexcept {
                                         try {
                                             if(!restoreEnv(worker))return;
-                                            if(worker==0)ok4[0]=solvePure(gp4,rawP,&fieldP,res4[0]);
-                                            else ok4[1]=solvePure(gm4,rawM,&fieldM,res4[1]);
+                                            if(worker==0)ok4[0]=solvePure(gp4,rawP,&fieldP,bkP.get(),ws4[0],res4[0]);
+                                            else ok4[1]=solvePure(gm4,rawM,&fieldM,bkM.get(),ws4[1],res4[1]);
                                         } catch(...) {err4[worker]=std::current_exception();}
                                     };
                                     threadLocalReticlePool().run(2u,run4);

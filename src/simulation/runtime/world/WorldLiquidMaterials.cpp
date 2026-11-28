@@ -224,23 +224,42 @@ static std::optional<ms::damage::SceneLiquidRecipientV1> freezeLiquidImpl(
         need(identity&&generation&&finite(shift)&&finite(up)&&length(up)>0,"Invalid captured liquid recipient identity/frame");
         up=normalized(up);SceneLiquidRecipientV1 out;out.identity=identity;out.generation=generation;
         std::set<int> needed;
-        if(attached)for(const auto index:attached->componentIndices()) {
-            const auto& component=attached->airframe().components[index];
-            if(component.kind=="fuel")needed.insert(component.tank);
+        std::vector<std::uint8_t> attachedMask;
+        if(attached) {
+            attachedMask.assign(attached->airframe().components.size(),0);
+            for(const auto index:attached->componentIndices()) {
+                if(index<attachedMask.size())attachedMask[index]=1;
+                const auto& component=attached->airframe().components[index];
+                if(component.kind=="fuel")needed.insert(component.tank);
+            }
         } else for(const auto& tank:data.tanks) {
             need(tank.section==-1&&tank.sectionName=="airframe","Standalone liquid cannot infer structural ownership");
             needed.insert(tank.index);
         }
+        out.cells.reserve(data.cells.size());
+        std::map<int,std::vector<std::size_t>> tankCellIndices;
         for(const auto& source:data.cells) {
-            if(attached&&std::find(attached->componentIndices().begin(),attached->componentIndices().end(),source.componentIndex)==attached->componentIndices().end())continue;
+            if(attached&&(source.componentIndex>=attachedMask.size()||!attachedMask[source.componentIndex]))continue;
             auto cell=source;
             if(!attached) {
                 need(cell.section==-1&&needed.count(cell.nativeTank)==1,"Standalone liquid cell has an unknown native owner");
                 // A V2 liquid-only key names a native tank, never an Airframe component.
                 cell.componentIndex=static_cast<std::size_t>(cell.nativeTank);
             }
-            cell.bodyBounds.low=cell.bodyBounds.low-shift;cell.bodyBounds.high=cell.bodyBounds.high-shift;out.cells.push_back(cell);
+            cell.bodyBounds.low=cell.bodyBounds.low-shift;cell.bodyBounds.high=cell.bodyBounds.high-shift;
+            const std::size_t outIdx=out.cells.size();
+            out.cells.push_back(cell);
+            tankCellIndices[cell.nativeTank].push_back(outIdx);
         }
+        const double upSize=fluid::detail::norm(up);
+        need(std::isfinite(upSize)&&upSize>0,"Invalid captured liquid recipient identity/frame");
+        const V3 upUnit{up.x/upSize,up.y/upSize,up.z/upSize};
+        struct PreparedTankBox {
+            fluid::detail::Box box;
+            long double centreDotN;
+            double extent;
+        };
+        std::vector<PreparedTankBox> prepBoxes;
         for(const int tankId:needed) {
             const auto found=std::find_if(data.tanks.begin(),data.tanks.end(),[&](const auto& row){return row.index==tankId;});
             need(found!=data.tanks.end()&&tankId>=0&&static_cast<std::size_t>(tankId)<contents.size()&&contents[static_cast<std::size_t>(tankId)].has_value(),
@@ -251,22 +270,43 @@ static std::optional<ms::damage::SceneLiquidRecipientV1> freezeLiquidImpl(
             // It is a separate liquid assumption, not the source's air Cd or
             // a fitted FAA/OEM coefficient. See the liquid method document.
             tank.dragCoefficient=data.dragCoefficient;tank.freeSurfaceBody.normal=up;
-            std::vector<fluid::Aabb> boxes;long double capacity=0;double low=std::numeric_limits<double>::infinity(),high=-low;
-            for(const auto& cell:out.cells)if(cell.nativeTank==tankId) {
-                boxes.push_back(cell.bodyBounds);capacity+=volume(cell.bodyBounds);
-                low=std::min(low,lower(cell.bodyBounds,up));high=std::max(high,upper(cell.bodyBounds,up));
+            long double capacity=0;double low=std::numeric_limits<double>::infinity(),high=-low;
+            const auto cellsIt=tankCellIndices.find(tankId);
+            prepBoxes.clear();
+            if(cellsIt!=tankCellIndices.end()) {
+                prepBoxes.reserve(cellsIt->second.size());
+                for(const std::size_t ci:cellsIt->second) {
+                    const auto& bb=out.cells[ci].bodyBounds;
+                    capacity+=volume(bb);
+                    low=std::min(low,lower(bb,up));high=std::max(high,upper(bb,up));
+                    const auto b=fluid::detail::box(bb);
+                    need(b.has_value(),"Liquid free-surface volume evaluation failed");
+                    const long double cDotN=fluid::detail::scalar(upUnit,b->centre);
+                    const double ext=std::abs(upUnit.x)*b->half.x+std::abs(upUnit.y)*b->half.y+std::abs(upUnit.z)*b->half.z;
+                    need(std::isfinite(ext),"Liquid free-surface volume evaluation failed");
+                    prepBoxes.push_back({*b,cDotN,ext});
+                }
             }
             const double target=mass/tank.densityKgM3,total=static_cast<double>(capacity);
-            const double tolerance=controls.absoluteVolumeToleranceM3+controls.relativeVolumeTolerance*std::max(target,total);
+            const double tolerance=controls.absoluteVolumeToleranceM3+controls.relativeTolerance*std::max(target,total);
             need(std::isfinite(target)&&std::isfinite(tolerance)&&tolerance>=0&&target<=total+tolerance,"Native fuel exceeds its owned geometric capacity");
-            if(boxes.empty()){need(mass==0,"Live fuel has no local capacity after ownership filtering");tank.freeSurfaceBody.offset=0;}
+            if(prepBoxes.empty()){need(mass==0,"Live fuel has no local capacity after ownership filtering");tank.freeSurfaceBody.offset=0;}
             else if(target<=0)tank.freeSurfaceBody.offset=low;
             else if(target>=total)tank.freeSurfaceBody.offset=high;
             else {
                 bool solved=false;double level=low;
                 for(unsigned iteration=0;iteration<100;++iteration) {
                     level=low+(high-low)*.5;long double wet=0;
-                    for(const auto box:boxes) {const auto value=fluid::immersedVolume(box,{up,level});need(value.has_value(),"Liquid free-surface volume evaluation failed");wet+=*value;}
+                    const long double offsetDiv=static_cast<long double>(level)/upSize;
+                    for(const auto& pc:prepBoxes) {
+                        const double h=static_cast<double>(offsetDiv-pc.centreDotN);
+                        need(std::isfinite(h),"Liquid free-surface volume evaluation failed");
+                        if(h<=-pc.extent)continue;
+                        if(h>=pc.extent){wet+=pc.box.volume;continue;}
+                        const auto value=fluid::detail::volume(pc.box,upUnit,h,pc.extent);
+                        need(value.has_value(),"Liquid free-surface volume evaluation failed");
+                        wet+=*value;
+                    }
                     const double actual=static_cast<double>(wet);
                     if(std::abs(actual-target)<=tolerance){solved=true;break;}
                     if(actual<target)low=level;else high=level;

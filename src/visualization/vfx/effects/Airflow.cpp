@@ -207,6 +207,10 @@ void Airflow::age(Sample& s, const cocip::AirAt& air, double now) {
     if (s.smoke) {
         if (now - s.lastStep >= stepInterval(now - s.birth)) {
             cocip::disperse(s.plume, air, s.shear, now - s.lastStep);
+            if (s.fire) {
+                s.plume.width = std::min(s.plume.width, 18.0);
+                s.plume.depth = std::min(s.plume.depth, 18.0);
+            }
             if (s.ice.alive) cocip::step(s.ice, air, s.shear, now - s.lastStep, false);
             s.lastStep = now;
         }
@@ -238,6 +242,7 @@ Airflow::Drawn Airflow::drawn(const Sample& s, const cocip::AirAt& air, double n
             w.flameK = s.handOver > 0.0 ? 0.0 : flameAt(age, s.fireScale);
             // (a near field drawn elsewhere: the share of its soot it has lost by now - the two together the soot's)
             if (s.handOver > 0.0) w.plumeE *= -std::expm1(-s.handOver * std::max(age, 0.0));
+            w.plumeE *= 1.0 - smoothstep(14.0, 22.0, age);
         }
         return w;
     }
@@ -318,7 +323,7 @@ Airflow::Sample Airflow::layFire(double rateKgS, double airspeedMs, double altit
     s.shear = shear;
     s.lastStep = now;
     // its soot per metre of trail: what burns each second over the metres flown in it
-    s.smokePrimaryE = std::max(rateKgS, 0.0) * kFireSootYield * kSootAbsorption / std::max(airspeedMs, 1.0);
+    s.smokePrimaryE = std::max(rateKgS, 0.0) * kFireSootYield * kSootAbsorption / std::max(airspeedMs, 15.0);
     s.plume.altitude = altitude;
     s.fireScale = fireScale(rateKgS);
     s.plume.width = s.plume.depth = kFireWidth * s.fireScale;
@@ -626,8 +631,8 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
         src->headAltitude = altitude;
     }
 
-    // the fires: each a trail of its own from where its component is on the vehicle - while it burns and the vehicle
-    // is there
+    // the fires: each a trail of its own from where its component is on the vehicle - while it burns in flight
+    // (stationary / crashed / low-speed ground fires rise buoyantly in NVIDIA Flow rather than forming an airstream tube)
     for (std::size_t f = 0; f < fires_.size(); ++f) {
         const Fire& fire = fires_[f];
         const std::size_t i = fire.slot;
@@ -635,24 +640,27 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
         if (i < n && alive[i] && visuals.shape(i).valid)
             for (const auto& c : visuals.shape(i).components)
                 if (c.name == fire.component) { part = &c; break; }
-        const bool burning = part && fire.rateKgS > 0.0 && now >= fire.since;
+        const double airspeed = part ? finite(states[i].airspeedTrueMs) : 0.0;
+        const bool inFlight = part && !states[i].crashed;
+        const bool burning = inFlight && airspeed > 25.0 && fire.rateKgS > 0.0 && now >= fire.since;
         // Un-ignited fuel leaks (rateKgS <= 0, mistKgS > 0) ALWAYS emit pure white vaporizing kerosene mist (Grade 1)
         // even while NVIDIA Flow handles ignited fires; ignited fires emit separate mist only without Flow handover.
-        const bool misting = part && fire.mistKgS > 0.0 && now >= fire.since && (!burning || fireHandOver_ <= 0.0);
+        const bool misting = inFlight && airspeed > 20.0 && fire.mistKgS > 0.0 && now >= fire.since && (!burning || fireHandOver_ <= 0.0);
         if (Source* mist = source(kFireKey + 4096 + static_cast<int>(f), misting)) {
             mist->used = true;
             if (!misting) mist->forming = false;
             else {
                 const auto& st = states[i];
                 const vsg::dvec3 at = bodyToEcef(st) * part->at;
-                const double V = finite(st.airspeedTrueMs), altitude = finite(st.altitudeMslM);
-                if (!mist->forming || now - mist->lastCommit >= kInterval) {
+                const double V = airspeed, altitude = finite(st.altitudeMslM);
+                const double movedM = mist->samples.empty() ? 1e9 : vsg::length(at - mist->samples.back().at);
+                if (!mist->forming || (now - mist->lastCommit >= kInterval && movedM >= 1.5)) {
                     const cocip::Shear shear{kShear, kShear * 2.0 / 3.14159265358979323846};
                     Sample m = layFire(std::max(fire.rateKgS, fire.mistKgS), V, altitude, shear, air, at, now);
                     m.fire = false, m.mist = true, m.albedo = 1.0; // (white: droplets that scatter)
                     // Pure un-ignited fuel leaks (Grade 1) form a tight, streamlined vaporizing kerosene ribbon rather than
                     // an oversized cloud blob swallowing the fuselage.
-                    m.smokePrimaryE = fire.mistKgS * kMistExtinction * (!burning ? 1.55 : 1.0) / std::max(V, 1.0);
+                    m.smokePrimaryE = fire.mistKgS * kMistExtinction * (!burning ? 1.55 : 1.0) / std::max(V, 20.0) * smoothstep(20.0, 35.0, V);
                     const double mistWidthScale = !burning ? 0.36 : 1.0;
                     m.plume.width = m.plume.depth = kFireWidth * mistWidthScale * fireScale(std::max(fire.rateKgS + fire.mistKgS, 0.25));
                     m.flown = mist->samples.empty() ? 0.0 : mist->samples.back().flown + vsg::length(at - mist->samples.back().at);
@@ -675,8 +683,9 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
         }
         const auto& st = states[i];
         const vsg::dvec3 at = bodyToEcef(st) * part->at;
-        const double V = finite(st.airspeedTrueMs), altitude = finite(st.altitudeMslM);
-        if (!src->forming || now - src->lastCommit >= kInterval) {
+        const double V = airspeed, altitude = finite(st.altitudeMslM);
+        const double movedM = src->samples.empty() ? 1e9 : vsg::length(at - src->samples.back().at);
+        if (!src->forming || (now - src->lastCommit >= kInterval && movedM >= 1.5)) {
             if (src->samples.size() >= kSamples - 1) { // full: the oldest half thinned in-place, as a contrail's
                 const std::size_t half = src->samples.size() / 2;
                 std::size_t write = 0;
@@ -689,6 +698,7 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
             }
             const cocip::Shear shear{kShear, kShear * 2.0 / 3.14159265358979323846};
             Sample s = layFire(fire.rateKgS, V, altitude, shear, air, at, now);
+            s.smokePrimaryE *= smoothstep(25.0, 45.0, V);
             s.handOver = fireHandOver_;
             s.flown = src->samples.empty() ? 0.0 : src->samples.back().flown + vsg::length(at - src->samples.back().at);
             if (src->samples.empty()) src->phase = static_cast<double>(f % 7) * 0.9 + 0.4;
@@ -726,7 +736,8 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
             // past seeing, and its ice with it
             const bool faded = s.plume.alive && age > 2.0 * s.linkTime && age > s.vortexTime && s.plume.tau < kVisibleTau;
             const double iceTau = s.ice.alive ? s.ice.tau : 0.0;
-            const bool evaporated = s.mist && s.smokePrimaryE * std::exp(-age / kMistLifeS) / std::max(s.plume.width, 1e-3) < kVisibleTau;
+            const bool evaporated = (s.mist && s.smokePrimaryE * std::exp(-age / kMistLifeS) / std::max(s.plume.width, 1e-3) < kVisibleTau) ||
+                                    (s.fire && age > 22.0);
             const bool gone = evaporated ? true : s.smoke ? age > kSecondaryShows &&
                                             (s.smokePrimaryE + s.smokeSecondaryE) / std::max(s.plume.width, 1e-3) + iceTau < kVisibleTau
                                       : (!s.plume.alive || faded) && age > s.vortexTime + kCondense;

@@ -83,66 +83,86 @@ inline std::optional<double> volume(const Box& b,V3 n,double height,double exten
     if(height<=-extent)return 0.0;
     if(height>=extent)return b.volume;
     const double x=b.half.x,y=b.half.y,z=b.half.z;
-    std::vector<std::vector<V3>> faces{
-        {{-x,-y,-z},{-x,-y,z},{-x,y,z},{-x,y,-z}},
-        {{x,-y,-z},{x,y,-z},{x,y,z},{x,-y,z}},
-        {{-x,-y,-z},{x,-y,-z},{x,-y,z},{-x,-y,z}},
-        {{-x,y,-z},{-x,y,z},{x,y,z},{x,y,-z}},
-        {{-x,-y,-z},{-x,y,-z},{x,y,-z},{x,-y,-z}},
-        {{-x,-y,z},{x,-y,z},{x,y,z},{-x,y,z}}
+    struct Poly {
+        std::array<V3,12> pts{};
+        std::size_t n=0;
     };
-    std::vector<V3> cap;
-    for(auto& face:faces) {
-        std::vector<V3> clipped;
-        for(std::size_t i=0;i<face.size();++i) {
-            const V3 a=face[i],c=face[(i+1)%face.size()];
+    std::array<Poly,7> faces{};
+    std::size_t faceCount=6;
+    faces[0]={{{{-x,-y,-z},{-x,-y,z},{-x,y,z},{-x,y,-z}}},4};
+    faces[1]={{{{x,-y,-z},{x,y,-z},{x,y,z},{x,-y,z}}},4};
+    faces[2]={{{{-x,-y,-z},{x,-y,-z},{x,-y,z},{-x,-y,z}}},4};
+    faces[3]={{{{-x,y,-z},{-x,y,z},{x,y,z},{x,y,-z}}},4};
+    faces[4]={{{{-x,-y,-z},{-x,y,-z},{x,y,-z},{x,-y,-z}}},4};
+    faces[5]={{{{-x,-y,z},{x,-y,z},{x,y,z},{-x,y,z}}},4};
+    std::array<V3,12> cap{};
+    std::size_t capCount=0;
+    for(std::size_t f=0;f<6;++f) {
+        auto& face=faces[f];
+        Poly clipped{};
+        for(std::size_t i=0;i<face.n;++i) {
+            const V3 a=face.pts[i],c=face.pts[(i+1)%face.n];
             const long double da=scalar(n,a)-height,dc=scalar(n,c)-height;
             const bool inA=da<=0,inC=dc<=0;
-            if(inA)clipped.push_back(a);
+            if(inA)clipped.pts[clipped.n++]=a;
             if(inA!=inC) {
                 const double t=static_cast<double>(da/(da-dc));
                 const V3 cut=a*(1-t)+c*t;
                 if(!finite(cut))return {};
-                clipped.push_back(cut);cap.push_back(cut);
+                clipped.pts[clipped.n++]=cut;
+                cap[capCount++]=cut;
             }
         }
-        face=std::move(clipped);
+        face=clipped;
     }
     // Do not merge merely close points: a thin but finite box can have genuine
     // corners much closer than epsilon times its largest dimension. Repeated
     // shared-edge points are harmless to the polygon triangulation.
-    std::vector<V3> unique;
-    for(V3 p:cap) {
+    Poly unique{};
+    for(std::size_t i=0;i<capCount;++i) {
+        const V3 p=cap[i];
         bool duplicate=false;
-        for(V3 q:unique)if(p.x==q.x&&p.y==q.y&&p.z==q.z){duplicate=true;break;}
-        if(!duplicate)unique.push_back(p);
+        for(std::size_t j=0;j<unique.n;++j)
+            if(p.x==unique.pts[j].x&&p.y==unique.pts[j].y&&p.z==unique.pts[j].z){duplicate=true;break;}
+        if(!duplicate)unique.pts[unique.n++]=p;
     }
-    if(unique.size()>=3) {
-        V3 centre{};for(V3 p:unique)centre+=p*(1.0/static_cast<double>(unique.size()));
+    if(unique.n>=3) {
+        V3 centre{};for(std::size_t i=0;i<unique.n;++i)centre+=unique.pts[i]*(1.0/static_cast<double>(unique.n));
         const V3 axis=std::abs(n.x)<=std::abs(n.y)&&std::abs(n.x)<=std::abs(n.z)?V3{1,0,0}:
             (std::abs(n.y)<=std::abs(n.z)?V3{0,1,0}:V3{0,0,1});
         const V3 raw=cross(n,axis),u=raw*(1/norm(raw)),v=cross(n,u);
-        std::sort(unique.begin(),unique.end(),[&](V3 a,V3 c){
+        std::sort(unique.pts.begin(),unique.pts.begin()+static_cast<std::ptrdiff_t>(unique.n),[&](V3 a,V3 c){
             return std::atan2(dot(a-centre,v),dot(a-centre,u))<std::atan2(dot(c-centre,v),dot(c-centre,u));
         });
-        faces.push_back(std::move(unique));
+        faces[faceCount++]=unique;
     }
     V3 origin{};std::size_t count=0;
-    for(const auto& face:faces)for(V3 p:face){origin+=p;++count;}
+    for(std::size_t f=0;f<faceCount;++f)for(std::size_t i=0;i<faces[f].n;++i){origin+=faces[f].pts[i];++count;}
     if(count==0)return 0.0;
     origin=origin*(1.0/static_cast<double>(count));
     long double sum=0;
-    for(const auto& face:faces)for(std::size_t i=1;i+1<face.size();++i) {
-        const V3 a=face[0]-origin,c=face[i]-origin,d=face[i+1]-origin;
-        // Long-double products throughout the scalar triple product.
-        sum+=(static_cast<long double>(a.x)*(static_cast<long double>(c.y)*d.z-static_cast<long double>(c.z)*d.y)+
-              static_cast<long double>(a.y)*(static_cast<long double>(c.z)*d.x-static_cast<long double>(c.x)*d.z)+
-              static_cast<long double>(a.z)*(static_cast<long double>(c.x)*d.y-static_cast<long double>(c.y)*d.x))/6;
+    for(std::size_t f=0;f<faceCount;++f) {
+        const auto& face=faces[f];
+        for(std::size_t i=1;i+1<face.n;++i) {
+            const V3 a=face.pts[0]-origin,c=face.pts[i]-origin,d=face.pts[i+1]-origin;
+            // Long-double products throughout the scalar triple product.
+            sum+=(static_cast<long double>(a.x)*(static_cast<long double>(c.y)*d.z-static_cast<long double>(c.z)*d.y)+
+                  static_cast<long double>(a.y)*(static_cast<long double>(c.z)*d.x-static_cast<long double>(c.x)*d.z)+
+                  static_cast<long double>(a.z)*(static_cast<long double>(c.x)*d.y-static_cast<long double>(c.y)*d.x))/6;
+        }
     }
     const double result=static_cast<double>(sum);
     const double roundoff=256*std::numeric_limits<double>::epsilon()*b.volume;
     if(!finite(result)||result < -roundoff||result>b.volume+roundoff)return {};
     return std::clamp(result,0.0,b.volume);
+}
+inline std::optional<double> immersedVolumePrepared(const Box& b,V3 n,double size,long double centreDotN,double extent,double offset) {
+    if(!finite(offset))return {};
+    const double height=static_cast<double>(static_cast<long double>(offset)/size-centreDotN);
+    if(!finite(height))return {};
+    if(height<=-extent)return 0.0;
+    if(height>=extent)return b.volume;
+    return volume(b,n,height,extent);
 }
 inline bool mediumValid(Medium m) noexcept {
     return finite(m.velocity)&&finite(m.densityKgM3)&&m.densityKgM3>=0&&

@@ -155,6 +155,28 @@ class WorldBindingCompatibility(unittest.TestCase):
         self.assertIn("fsim_world_get_environment", str(raised.exception))
         self.assertTrue(math.isnan(agent.magnetic_year()))
         self.assertEqual(agent.terrain([], []), [])
+        self.assertEqual(self.world.destruction_mode_v1, fsim.DestructionModeV1.LEGACY_COMPATIBLE)
+        self.world.set_destruction_mode_v1("lightweight_debris")
+        self.assertEqual(self.world.destruction_mode_v1, fsim.DestructionModeV1.LIGHTWEIGHT_DEBRIS)
+        self.world.set_destruction_mode_v1(fsim.DestructionModeV1.LEGACY_COMPATIBLE)
+        self.assertEqual(self.world.destruction_mode_v1, fsim.DestructionModeV1.LEGACY_COMPATIBLE)
+        with self.assertRaises(ValueError):
+            self.world.set_destruction_mode_v1("invalid_mode")
+        with self.assertRaises(fsim.Error):
+            agent.destruction_mode_v1()
+        with self.assertRaises(fsim.Error):
+            agent.set_destruction_mode_v1(int(fsim.DestructionModeV1.LIGHTWEIGHT_DEBRIS))
+        lw = fsim.World(
+            "world-binding-lw",
+            publish=False,
+            workers=1,
+            terrain=False,
+            destruction_mode="lightweight_debris",
+        )
+        try:
+            self.assertEqual(lw.destruction_mode_v1, fsim.DestructionModeV1.LIGHTWEIGHT_DEBRIS)
+        finally:
+            lw.close()
 
     def test_environment_updates_and_magnetic_tuple_contract(self):
         self.world.set_environment(wind_speed_ms=7.0, cloud_cover=0.4)

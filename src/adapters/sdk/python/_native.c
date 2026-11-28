@@ -575,6 +575,8 @@ static PyMethodDef world_methods[] = {
     FAST("comm_attach_protocol", world_comm_attach_protocol, "comm_attach_protocol(node, protocol_id, params=None)"),
     FAST("comm_attach_udp_bridge", world_comm_attach_udp_bridge, "comm_attach_udp_bridge(node, local_port, host, port)"),
     FAST("apply_scenario", world_apply_scenario, "apply_scenario(scenario) -> ids as uint32 bytes"),
+    FAST("set_destruction_mode_v1", world_set_destruction_mode_v1, "set_destruction_mode_v1(mode): select VIS-M11 destruction & breakup mode"),
+    FAST("destruction_mode_v1", world_destruction_mode_v1, "destruction_mode_v1() -> int"),
     FAST("borrowed", world_borrowed_flag, "True for a VecEnv's world"),
     FAST("_capsule", world_capsule, "for fsim._vision"),
     {NULL, NULL, 0, NULL}};

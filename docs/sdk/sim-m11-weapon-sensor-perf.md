@@ -166,3 +166,58 @@ warnings (`-Werror`)**:
 - Zero persistent background thread pools destroyed under Windows DLL
   Loader-Lock (`DirectReticleLauncherV1`, `DualBandParallelGuardV1`, and
   `VehiclePool` parallel regions all strictly join before returning).
+
+---
+
+## 5. Post-Delivery Follow-Up: Detonation, Missile-Launch, Terrain-Cache & Visual Polish (2026-11-27, `main` base `8ec3b3de`)
+
+Live 4K fullscreen 4v4 full-loadout (`72` missiles, `terrain=True z12`,
+`LightweightDebris`) profiling exposed three simulation-side frame-freeze
+hotspots plus three VFX/destruction refinements, all resolved while keeping
+**0-ULP** reticle fidelity and **`w1 == w8` bit-identical determinism**:
+
+1. **Moving-Reticle & Conic-Moments Zero-ULP Acceleration (`ThermalReticleReceiverV1.{h,cpp}`, `MovingRadiatorInverseV2.cpp`, `MovingConicMomentsV4.{h,cpp}`, `SourceWaveSumV5.h`, `WorldEngagements.cpp`)**:
+   - Eliminated remaining inner-loop allocations and redundant conic/source wave
+     work (`thermal_reticle_receiver` 56/56 cases / 325,635 assertions dropped
+     further from `118.32 s` → **`75.86 s`** on `ucrt64-release`, **3.48× faster**
+     than pre-SIM-M11 `263.97 s`).
+2. **Post-Detonation Fragment/Liquid Assessment Freeze `5.31 s` → `88.3 ms` (`Damage.cpp`, `FluidTransitV1.h`, `WorldLiquidMaterials.cpp`, `WorldDamage.cpp`)**:
+   - Replaced linear $O(N_{\text{tri}})$ scans over 5.3 MB closed skin meshes
+     with cached flat BVH + precomputed 5-plane triangles (`CachedSkinMesh`),
+     eliminated heap allocations via stack `ScenePlaneList` and `TimeCoordinate[32]`,
+     reused `predictedLiquid` on uncrossed steps, added chord-sorted deferred
+     pruning for 48-iteration `advanceLiquid` crossing bisections, and
+     parallelized `assessSceneImpl` across up to 8 workers with strict `0..N-1`
+     serial deterministic reduction (`sim_m11_weapon_perf` `w1 == w8` PASS;
+     `liquid_native_binding` `79.68 s -> 32.28 s`, `destruction_debris`
+     `13.88 s -> 5.17 s`).
+3. **Zero-Freeze Asynchronous Missile Pre-Warm (`World.{h,cpp}`)**:
+   - Added `World::StandbyPreloader` (active only when `workers > 1`, joined
+     first in `~World()`) to pre-load `JsbsimModel` instances for carried stores
+     (`aim120c.xml`, `aim9x.xml`) on background threads and pop + bit-exact
+     `reset()` on launch, reducing per-missile launch stalls from
+     `350–453 ms` to **`< 1 ms`**.
+4. **64-Shard Terrain Tile LRU & Stack RF Path Profile (`TerrainTiles.{h,cpp}`, `Path.cpp`)**:
+   - Replaced single-mutex 192-tile LRU in `TerrainTiles` with 64 hash-sharded
+     LRU buckets (`2,048` total tiles) and replaced per-call `std::vector`
+     profile allocations in `Path.cpp::computePath()` with stack buffers.
+     8-fighter radar sweep (`terrain_z12`) dropped `7.46 -> 1.17 ms/step`
+     (**6.4×**); 8 concurrent `AIM-120C` (`terrain_z12`, 12w) rose `0.95× -> 1.24×`
+     RTF; full-loadout 4v4 headless RTF rose `0.87× -> 1.18×` (live 4K fullscreen
+     RTF `0.96×–1.03×`, `maxStep 231.7–267.4 ms` vs. `5,310 ms` before).
+5. **Additive Public `DestructionModeV1` API & Destruction/VFX Fixes (`include/fsim/{World.h,fsim_c.h}`, `src/simulation/api/World.cpp`, `src/adapters/sdk/{c/fsim_world_c.cpp,python/_native*.{c,h}}`, `python/fsim/{__init__.py,world.py}`, `docs/sdk/boundary.{toml,md}`, `Destruction.cpp`, `Airflow.cpp`, `contrail.frag`, `FlowVolumes.cpp`)**:
+   - Exposed additive `DestructionModeV1` (`LegacyCompatible` default /
+     `LightweightDebris`) across public C++, C99 (`fsim_world_set_destruction_mode_v1` /
+     `fsim_world_destruction_mode_v1`, `FSIM_NOT_ALLOWED` for `Agent`), and Python
+     (`fsim.DestructionModeV1`, `World(..., destruction_mode=...)`).
+   - Lowered steep land-impact disintegration threshold in `Destruction.cpp`
+     (`>= 45°` at `>= 32 m/s` normal or `>= 55 m/s` normal at any angle), fixed
+     30 Hz NanoVDB export phase-lock in `FlowVolumes.cpp`, gated `Airflow.cpp`
+     fire/mist wake trails to airborne non-crashed vehicles with bounded radius,
+     and added smooth radial zero-density falloff in `contrail.frag`.
+
+### Post-Delivery Dual-Preset Verification (2026-11-27)
+Zero `-Werror` warnings on both `ucrt64-release` and `ucrt64-headless`:
+- `ucrt64-release` CTest (**16/16 PASS**, `273.14 s`): `thermal_reticle_receiver` (`75.86 s`), `sim_m11_weapon_perf` (`23.78 s`), `sim_m09_encounters` (`34.53 s`), `liquid_vessels_native` (`61.69 s`), `liquid_native_binding` (`32.28 s`), `c_abi` (`28.06 s`), `destruction_debris` (`5.17 s`), `representative_weapon_native` (`4.02 s`), `representative_weapon_models` (`2.61 s`), `sdk_boundary` (`3.19 s`), `combat_vfx` (`0.99 s`), `weapon_thermal_image` (`0.33 s`), `weapon_radio_receiver` (`0.16 s`), `world_adapter_compatibility` (`0.06 s`), `mandatory_presentation` (`0.04 s`), `weapon_radio_temporal` (`0.03 s`); plus `fsim_render_tests "~[gpu]"` (**63/63 cases, 5,296/5,296 assertions**), `fsim_tests "[rf]"` (**11/11, 6,516**), `fsim_tests "[terrain]"` (**8/8, 675**), and Python `test_world_binding_compatibility.py` (**6/6**, `0.069 s`).
+- `ucrt64-headless` CTest (**14/14 PASS**, `197.24 s`): same non-viewer CTest matrix (`sim_m11_weapon_perf` `23.77 s`, `destruction_debris` `5.19 s`, `liquid_native_binding` `32.37 s`, `liquid_vessels_native` `61.88 s`, `sim_m09_encounters` `34.69 s`, `c_abi` `28.27 s`, `sdk_boundary` `2.48 s`, `world_adapter_compatibility` `0.05 s`, etc.); plus `fsim_tests "[rf]"` (**11/11, 6,516**), `fsim_tests "[terrain]"` (**8/8, 675**), and Python `test_world_binding_compatibility.py` (**6/6**, `0.070 s`).
+- `liquid_population_native.*` (`ucrt64-release`): **38/38** fixed-wing/UAV designs PASS (`uh1h`/`uh60` retain their documented pre-existing SIM-M03 rotorcraft tolerance failures).

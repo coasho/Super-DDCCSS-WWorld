@@ -31,6 +31,23 @@ struct FieldWorkspaceV5 {
     double maxError=0;
     bool dirtyAll=false;
 };
+struct MidPairV5 {double value=0,error=0;};
+/// Cutoff-independent vertical/horizontal Gaussian rectangle factors for
+/// 0-ULP bit-identical reuse across multiple horizon cutoffs on the same optics.
+struct RegionMomentsV5 {
+    std::array<double,4> region{};
+    double maxOmittedError=0;
+    unsigned width=0,height=0;
+    unsigned activeRowCount=0,activeRow0=0;
+    unsigned colBegin=0,colEnd=0;
+    bool rowsContiguous=false,empty=false,valid=false;
+    std::vector<unsigned> activeRows;
+    std::vector<MidPairV5> lower,heightArr;
+    std::vector<double> lowerV,lowerE;
+    std::vector<MidPairV5> mass0;
+    std::vector<std::array<MidPairV5,4>> mass3;
+    std::vector<unsigned char> mass0Ok,mass3Ok;
+};
 struct Bounds {double low=0,high=0;};
 struct GaussianMemoWorkV5 {std::size_t hits=0,misses=0,entries=0,chargedBytes=0;};
 class GaussianMemoV5 {
@@ -77,6 +94,10 @@ public:
     std::optional<Result> evaluateFastMemoV5(const std::array<double,4>& region,GaussianMemoV5&,Work* = nullptr) const;
     /// Zero-allocation V5 field evaluation into a caller-owned workspace.
     bool evaluateFastIntoV5(const std::array<double,4>& region,FieldWorkspaceV5& workspace,Work* = nullptr) const;
+    /// Precompute cutoff-independent Gaussian row and column moments for a region.
+    bool prepareRegionV5(const std::array<double,4>& region,RegionMomentsV5& out) const;
+    /// Zero-allocation V5 field evaluation reusing precomputed cutoff-independent moments.
+    bool evaluateFastPreparedIntoV5(const RegionMomentsV5& pre,FieldWorkspaceV5& workspace) const;
     /// Thread-safe degree-3 column pre-warming for shared V5 banks.
     bool ensureColumnV5(unsigned col) const;
 private:

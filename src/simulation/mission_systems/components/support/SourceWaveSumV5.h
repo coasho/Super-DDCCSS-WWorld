@@ -34,6 +34,8 @@ class OpticsV5 {
     const unsigned width,height,exposureSamples;
     const std::size_t pixels,samples;
     const double pixelArea;
+    bool powerOfTwoExposure=false;
+    double invExposure=0.0;
     bool domain=false;
 public:
     OpticsV5(const std::vector<double>& solid,const std::vector<double>& transmission,
@@ -45,9 +47,78 @@ public:
            solidAngles.size()!=pixels||timeWeights.size()!=pixels*samples)return;
         for(const auto value:solidAngles)if(!std::isfinite(value)||value<0||value>pixelArea)return;
         for(const auto value:timeWeights)if(!std::isfinite(value)||value<0||value>1)return;
+        powerOfTwoExposure=(exposureSamples&(exposureSamples-1u))==0u;
+        invExposure=powerOfTwoExposure?(1.0/static_cast<double>(exposureSamples)):0.0;
         domain=true;
     }
     bool eligibleOptics() const noexcept {return domain;}
+
+    // Stack-buffer overload avoiding per-trajectory 512 KB heap allocations
+    // while preserving the exact nonzero row-major arithmetic and checks.
+    // When subOut is non-null, writes the per-subexposure sum without changing
+    // the exact cross-subexposure accumulation order in accumulator.
+    bool addSampleRange(double& accumulator,const double* xProb,const double* yProb,
+        unsigned colBegin,unsigned colEnd,unsigned rowBegin,unsigned rowEnd,
+        std::size_t timeIndex,double* subOut=nullptr,bool arithmeticVerified=false) const noexcept {
+        if(!domain||(!arithmeticVerified&&!arithmeticV5())||timeIndex>=samples||!xProb||!yProb||
+           !std::isfinite(accumulator)||accumulator<0||(accumulator==0&&std::signbit(accumulator)))return false;
+        const unsigned cEnd=colEnd<width?colEnd:width;
+        const unsigned rEnd=rowEnd<height?rowEnd:height;
+        std::array<unsigned,128> columns{},rows{};std::size_t columnCount=0,rowCount=0;
+        for(unsigned col=colBegin;col<cEnd;++col) {
+            const double value=xProb[col];
+            if(!std::isfinite(value)||value<0||value>1)return false;
+            if(value!=0)columns[columnCount++]=col;
+        }
+        for(unsigned row=rowBegin;row<rEnd;++row) {
+            const double value=yProb[row];
+            if(!std::isfinite(value)||value<0||value>1)return false;
+            if(value!=0)rows[rowCount++]=row;
+        }
+        const double* twBase=timeWeights.data()+timeIndex*pixels;
+        double subAcc=0.0;
+        if(powerOfTwoExposure) {
+            const double invExp=invExposure;
+            for(std::size_t ri=0;ri<rowCount;++ri) {
+                const auto row=rows[ri];
+                const double yv=yProb[row];
+                const std::size_t rowOff=static_cast<std::size_t>(row)*width;
+                for(std::size_t ci=0;ci<columnCount;++ci) {
+                    const auto col=columns[ci];
+                    const auto index=rowOff+col;
+                    const double tw=twBase[index];
+                    if(tw==0.0)continue;
+                    const double value=yv*xProb[col]*solidAngles[index]/pixelArea;
+                    const double term=value*tw*invExp;
+                    accumulator+=term;
+                    if(subOut)subAcc+=term;
+                }
+            }
+        } else {
+            for(std::size_t ri=0;ri<rowCount;++ri) {
+                const auto row=rows[ri];
+                const double yv=yProb[row];
+                const std::size_t rowOff=static_cast<std::size_t>(row)*width;
+                for(std::size_t ci=0;ci<columnCount;++ci) {
+                    const auto col=columns[ci];
+                    const auto index=rowOff+col;
+                    const double tw=twBase[index];
+                    if(tw==0.0)continue;
+                    const double value=yv*xProb[col]*solidAngles[index]/pixelArea;
+                    const double term=value*tw/exposureSamples;
+                    accumulator+=term;
+                    if(subOut)subAcc+=term;
+                }
+            }
+        }
+        if(subOut)*subOut=subAcc;
+        return true;
+    }
+
+    bool addSampleSlice(double& accumulator,const double* xProb,const double* yProb,
+        std::size_t timeIndex,double* subOut=nullptr) const noexcept {
+        return addSampleRange(accumulator,xProb,yProb,0u,width,0u,height,timeIndex,subOut,false);
+    }
 
     // False leaves the caller's accumulator untouched and REQUIRES the exact
     // old dense loop. No refusal, threshold, tail cutoff, or replacement value.
@@ -55,32 +126,9 @@ public:
     bool addSample(double& accumulator,const std::vector<double>& xProbability,
         const std::vector<double>& yProbability,std::size_t timeIndex) const noexcept {
         if(!domain||!arithmeticV5()||timeIndex>=samples||
-           xProbability.size()!=samples*width||yProbability.size()!=samples*height||
-           !std::isfinite(accumulator)||accumulator<0||(accumulator==0&&std::signbit(accumulator)))return false;
-        std::array<unsigned,128> columns{},rows{};std::size_t columnCount=0,rowCount=0;
-        // Validate ALL probabilities before skipping ANY term. In particular,
-        // a zero in one axis must not conceal NaN/inf in the other axis.
-        for(unsigned col=0;col<width;++col) {
-            const double value=xProbability[timeIndex*width+col];
-            if(!std::isfinite(value)||value<0||value>1)return false;
-            if(value!=0)columns[columnCount++]=col;
-        }
-        for(unsigned row=0;row<height;++row) {
-            const double value=yProbability[timeIndex*height+row];
-            if(!std::isfinite(value)||value<0||value>1)return false;
-            if(value!=0)rows[rowCount++]=row;
-        }
-        // Ascending row/column lists retain the old row-major NONZERO order.
-        // All omitted old terms are exact signed zero. Under nearest, adding
-        // either zero is the identity from +0 and every finite positive sum.
-        // Keep BOTH native per-term expressions and their operation order.
-        for(std::size_t ri=0;ri<rowCount;++ri)for(std::size_t ci=0;ci<columnCount;++ci) {
-            const auto row=rows[ri],col=columns[ci];
-            const auto index=static_cast<std::size_t>(row)*width+col;
-            const double value=yProbability[timeIndex*height+row]*xProbability[timeIndex*width+col]*solidAngles[index]/pixelArea;
-            accumulator+=value*timeWeights[timeIndex*pixels+index]/exposureSamples;
-        }
-        return true;
+           xProbability.size()!=samples*width||yProbability.size()!=samples*height)return false;
+        return addSampleSlice(accumulator,xProbability.data()+timeIndex*width,
+            yProbability.data()+timeIndex*height,timeIndex);
     }
 };
 } // namespace fsim::ms::components::source_wave_sum_v5
