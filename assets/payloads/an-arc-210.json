@@ -3,7 +3,73 @@
   "designation": "AN/ARC-210 Warrior",
   "family": "comm_terminal",
   "summary": "software-programmable radio, voice and data beyond line of sight (the CONECT upgrade)",
-  "parameters": {},
+  "parameters": {
+    "frequency_min_hz": {
+      "value": 30000000.0,
+      "unit": "Hz",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Standard AN/ARC-210 VHF/UHF tuning floor (30 MHz, Collins Aerospace published family range)"
+    },
+    "frequency_max_hz": {
+      "value": 512000000.0,
+      "unit": "Hz",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Standard AN/ARC-210 VHF/UHF tuning ceiling (512 MHz)"
+    },
+    "tx_power_w": {
+      "value": 25.0,
+      "unit": "W",
+      "uncertainty": 5.0,
+      "basis": "assumed",
+      "note": "Nominal airborne VHF/UHF AM/FM/HAVE QUICK transceiver RF output (~15-25 W)"
+    },
+    "channel_bandwidth_hz": {
+      "value": 25000.0,
+      "unit": "Hz",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Standard 25 kHz VHF/UHF voice/data channel spacing"
+    },
+    "processing_gain_db": {
+      "value": 6.0,
+      "unit": "dB",
+      "uncertainty": 3.0,
+      "basis": "assumed",
+      "note": "Assumed HAVE QUICK / SINCGARS modest hop anti-jam processing margin (waveform dependent)"
+    },
+    "jam_threshold_j_to_n_db": {
+      "value": 25.0,
+      "unit": "dB",
+      "uncertainty": 5.0,
+      "basis": "assumed",
+      "note": "Assumed effective post-processing J/N voice/data link-denial threshold"
+    },
+    "antenna_gain_dbi": {
+      "value": 0.0,
+      "unit": "dBi",
+      "uncertainty": 2.0,
+      "basis": "assumed",
+      "note": "Nominal omnidirectional VHF/UHF blade antenna gain"
+    },
+    "iff_capable": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-b52h",
+      "note": "VHF/UHF voice/data radio without IFF interrogator"
+    },
+    "iff_mode5": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-b52h",
+      "note": "VHF/UHF voice/data radio without Mode 5 IFF"
+    }
+  },
   "sources": {
     "wp-b52h": {
       "title": "Boeing B-52 Stratofortress",

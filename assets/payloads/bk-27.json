@@ -4,7 +4,92 @@
   "family": "gun",
   "summary": "27 mm single-barrel revolver cannon",
   "maker": "Mauser (now Rheinmetall)",
-  "parameters": {},
+  "parameters": {
+    "calibre_m": {
+      "value": 0.027,
+      "unit": "m",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-typhoon",
+      "note": "Published bore diameter (27x145 mm Mauser)"
+    },
+    "rate_of_fire_rpm": {
+      "value": 1700.0,
+      "unit": "rpm",
+      "uncertainty": 85.0,
+      "basis": "published",
+      "source": "wp-typhoon",
+      "note": "Published cyclic firing rate per gun mount (27x145 mm Mauser)"
+    },
+    "muzzle_velocity_ms": {
+      "value": 1025.0,
+      "unit": "m/s",
+      "uncertainty": 25.0,
+      "basis": "published",
+      "source": "tm-43-0001-27",
+      "note": "Published nominal muzzle velocity (27x145 mm Mauser)"
+    },
+    "projectile_kg": {
+      "value": 0.26,
+      "unit": "kg",
+      "uncertainty": 0.0104,
+      "basis": "published",
+      "source": "tm-43-0001-27",
+      "note": "Published projectile mass (27x145 mm Mauser)"
+    },
+    "shed_mass_kg": {
+      "value": 0.515,
+      "unit": "kg",
+      "uncertainty": 0.0412,
+      "basis": "derived",
+      "source": "tm-43-0001-27",
+      "note": "Complete cartridge mass (0.515 kg) shed on ejection of case + projectile + propellant"
+    },
+    "explosive_kg": {
+      "value": 0.04,
+      "unit": "kg",
+      "uncertainty": 0.01,
+      "basis": "assumed",
+      "note": "Nominal HEI/SAPHEI explosive filler mass per round (27x145 mm Mauser); varies by ammunition mix"
+    },
+    "dispersion_rad": {
+      "value": 0.002,
+      "unit": "rad",
+      "uncertainty": 0.0005,
+      "basis": "assumed",
+      "note": "1-sigma angular dispersion (derived class value from typical 5-8 mil 80% airborne cannon dispersion circle)"
+    },
+    "drag_cd": {
+      "value": 0.29,
+      "unit": "1",
+      "uncertainty": 0.03,
+      "basis": "derived",
+      "source": "stanag-4355",
+      "note": "Reference supersonic form-scaled Cd at Mach 1.8 against BRL/McCoy G7 boattail standard curve (Cd_G7(1.8)=0.298)"
+    },
+    "elevation_rad": {
+      "value": 0.0,
+      "unit": "rad",
+      "uncertainty": 0.005,
+      "basis": "assumed",
+      "note": "Boresighted along aircraft forward waterline (nominal)"
+    },
+    "capacity": {
+      "value": 150,
+      "unit": "rounds",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-typhoon",
+      "note": "Published Typhoon 150-round magazine (Gripen carries 120)"
+    },
+    "self_destruct_s": {
+      "value": 6.5,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "Pyrotechnic self-destruct fuze / effective max flight time for 27x145 mm Mauser (varies by fuze lot)"
+    }
+  },
   "sources": {
     "wp-gripen": {
       "title": "Saab JAS 39 Gripen",
@@ -17,6 +102,18 @@
       "publisher": "Wikipedia (revision 1378850990)",
       "url": "https://en.wikipedia.org/w/index.php?title=Eurofighter_Typhoon&oldid=1378850990",
       "date": "2026-10-06"
+    },
+    "stanag-4355": {
+      "title": "NATO STANAG 4355 (Modified Point Mass Trajectory Model) & R. L. McCoy, Modern Exterior Ballistics (Schiffer, 1999)",
+      "publisher": "NATO / Schiffer Military History",
+      "url": "",
+      "date": "1999"
+    },
+    "tm-43-0001-27": {
+      "title": "U.S. Army TM 43-0001-27: Army Ammunition Data Sheets - Small Caliber Ammunition & USAF/NATO airborne cannon ammunition specifications",
+      "publisher": "U.S. Department of the Army",
+      "url": "",
+      "date": "1994"
     }
   }
 }

@@ -3,7 +3,78 @@
   "designation": "SPO-15 Beryoza",
   "family": "esm",
   "summary": "radar warning receiver",
-  "parameters": {},
+  "parameters": {
+    "sensitivity_dbm": {
+      "value": -60.0,
+      "unit": "dBm",
+      "uncertainty": 6.0,
+      "basis": "assumed",
+      "note": "Unpublished minimum detectable pulse power at antenna port; MiG-29/Su-27/Su-25 SPO-15 Beryoza radar warning receiver class bound (Adamy EW 101/102)"
+    },
+    "antenna_gain_dbi": {
+      "value": 0.0,
+      "unit": "dBi",
+      "uncertainty": 2.0,
+      "basis": "assumed",
+      "note": "Unpublished ESM/RWR receive antenna gain; MiG-29/Su-27/Su-25 SPO-15 Beryoza radar warning receiver class estimate"
+    },
+    "frequency_min_hz": {
+      "value": 2000000000.0,
+      "unit": "Hz",
+      "uncertainty": 400000000.0,
+      "basis": "assumed",
+      "note": "Unpublished exact lower RF intercept frequency; MiG-29/Su-27/Su-25 SPO-15 Beryoza radar warning receiver class band"
+    },
+    "frequency_max_hz": {
+      "value": 18000000000.0,
+      "unit": "Hz",
+      "uncertainty": 2000000000.0,
+      "basis": "assumed",
+      "note": "Unpublished exact upper RF intercept frequency; MiG-29/Su-27/Su-25 SPO-15 Beryoza radar warning receiver class band (standard 2-18 GHz threat band or wider)"
+    },
+    "bearing_sigma_deg": {
+      "value": 10.0,
+      "unit": "deg",
+      "uncertainty": 3.5,
+      "basis": "assumed",
+      "note": "Unpublished 1-sigma AOA error at threshold; MiG-29/Su-27/Su-25 SPO-15 Beryoza radar warning receiver (4-quadrant amplitude-comparison DF)"
+    },
+    "bearing_floor_deg": {
+      "value": 10.0,
+      "unit": "deg",
+      "uncertainty": 3.5,
+      "basis": "assumed",
+      "note": "Unpublished high-SNR AOA error floor; MiG-29/Su-27/Su-25 SPO-15 Beryoza radar warning receiver"
+    },
+    "measure_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 0.5,
+      "basis": "assumed",
+      "note": "Nominal ESM emitter bearing measurement update interval"
+    },
+    "memory_s": {
+      "value": 3.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "Emitter track coast memory after last intercepted dwell"
+    },
+    "geolocation": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Moving-baseline/interferometric emitter geolocation capability (MiG-29/Su-27/Su-25 SPO-15 Beryoza radar warning receiver)"
+    },
+    "comint": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "L-band/VHF-UHF communications/datalink intercept capability (MiG-29/Su-27/Su-25 SPO-15 Beryoza radar warning receiver)"
+    }
+  },
   "sources": {
     "wp-mig29a": {
       "title": "Mikoyan MiG-29",

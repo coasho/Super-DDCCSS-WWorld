@@ -180,40 +180,10 @@ double dragRetardationPerM(double calibreM, double projectileKg, double dragCd) 
 
 Spec specOf(const Card& card, std::uint16_t count) noexcept {
     const int n = std::max<int>(1, static_cast<int>(count));
-    const std::string_view id = card.id;
-    Spec s;
+    // Generic 20 mm single-mount engineering fallback only when a synthetic card omits parameters;
+    // all maintained gun cards carry calibrated single-mount parameters in assets/payloads/*.json.
+    Spec s{0.020, 3000.0, 950.0, 0.100, 0.160, 0.010, 0.0025, 0.30, 0.0, 200, 6.0};
 
-    if (id == "m61a1") {
-        s = {0.020, 6000.0, 1050.0, 0.101, 0.155, 0.011, 0.0020, 0.30, 0.0, 500, 5.5};
-    } else if (id == "m61a2") {
-        s = {0.020, 6000.0, 1050.0, 0.101, 0.155, 0.011, 0.0020, 0.30, 0.0, 480, 5.5};
-    } else if (id == "gau-22a") {
-        s = {0.025, 3300.0, 1040.0, 0.184, 0.285, 0.032, 0.0018, 0.29, 0.0, 182, 6.5};
-    } else if (id == "gau-8a") {
-        s = {0.030, 3900.0, 1010.0, 0.360, 0.495, 0.058, 0.0020, 0.28, -0.035, 1174, 9.5};
-    } else if (id == "bk-27") {
-        s = {0.027, 1700.0, 1025.0, 0.260, 0.515, 0.040, 0.0020, 0.29, 0.0, 150, 6.5};
-    } else if (id == "defa-554") {
-        s = {0.030, 1800.0, 815.0, 0.244, 0.420, 0.048, 0.0025, 0.32, 0.0, 125, 6.0};
-    } else if (id == "giat-30m791") {
-        s = {0.030, 2500.0, 1025.0, 0.275, 0.550, 0.050, 0.0020, 0.30, 0.0, 125, 6.5};
-    } else if (id == "gsh-23") {
-        s = {0.023, 3400.0, 715.0, 0.175, 0.325, 0.019, 0.0025, 0.33, 0.0, 200, 5.5};
-    } else if (id == "gsh-30-1") {
-        s = {0.030, 1500.0, 860.0, 0.390, 0.832, 0.048, 0.0022, 0.30, 0.0, 150, 7.5};
-    } else if (id == "gsh-30-2") {
-        s = {0.030, 3000.0, 870.0, 0.390, 0.832, 0.048, 0.0022, 0.30, 0.0, 250, 7.5};
-    } else if (id == "m60d") {
-        s = {0.00762, 550.0, 853.0, 0.0095, 0.025, 0.0, 0.0035, 0.34, 0.0, 500, 6.0};
-    } else {
-        s = {0.020, 3000.0, 950.0, 0.100, 0.160, 0.010, 0.0025, 0.30, 0.0, 200, 6.0};
-    }
-
-    // Scale rate of fire and capacity by installed gun mount count (e.g. 2x DEFA 554, 2x M60D).
-    s.rateOfFireRpm *= static_cast<double>(n);
-    s.capacity *= n;
-
-    // Allow explicit card parameter overrides if present on future/updated cards.
     s.calibreM = card.value("calibre_m", s.calibreM);
     s.rateOfFireRpm = card.value("rate_of_fire_rpm", s.rateOfFireRpm);
     s.muzzleMs = card.value("muzzle_velocity_ms", s.muzzleMs);
@@ -225,6 +195,10 @@ Spec specOf(const Card& card, std::uint16_t count) noexcept {
     s.elevationRad = card.value("elevation_rad", s.elevationRad);
     s.capacity = static_cast<int>(std::lround(card.value("capacity", static_cast<double>(s.capacity))));
     s.maxFlightTimeS = card.value("self_destruct_s", s.maxFlightTimeS);
+
+    // Scale per-mount cyclic rate and magazine capacity by installed gun mount count (e.g. 2x DEFA 554, 2x M60D).
+    s.rateOfFireRpm *= static_cast<double>(n);
+    s.capacity *= n;
     return s;
 }
 

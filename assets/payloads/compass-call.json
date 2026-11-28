@@ -3,7 +3,85 @@
   "designation": "Compass Call",
   "family": "electronic_attack",
   "summary": "communications and radar jamming system of the EC-130H",
-  "parameters": {},
+  "parameters": {
+    "power_w": {
+      "value": 2000.0,
+      "unit": "W",
+      "uncertainty": 700.0,
+      "basis": "assumed",
+      "note": "Unpublished RF transmit power per pod/system; standoff VHF/UHF/L/S/C-band communications & radar EW aircraft engineering-class estimate (Adamy EW 101/102)"
+    },
+    "peak_gain_dbi": {
+      "value": 12.0,
+      "unit": "dBi",
+      "uncertainty": 3.0,
+      "basis": "assumed",
+      "note": "Unpublished jammer transmit antenna peak gain; standoff VHF/UHF/L/S/C-band communications & radar EW aircraft class estimate"
+    },
+    "sidelobe_dbi": {
+      "value": -8.0,
+      "unit": "dBi",
+      "uncertainty": 3.0,
+      "basis": "assumed",
+      "note": "Unpublished out-of-beam transmit sidelobe level; standoff VHF/UHF/L/S/C-band communications & radar EW aircraft class estimate"
+    },
+    "frequency_min_hz": {
+      "value": 20000000.0,
+      "unit": "Hz",
+      "uncertainty": 10000000.0,
+      "basis": "assumed",
+      "note": "Unpublished exact lower RF jamming band edge; standoff VHF/UHF/L/S/C-band communications & radar EW aircraft class coverage"
+    },
+    "frequency_max_hz": {
+      "value": 6000000000.0,
+      "unit": "Hz",
+      "uncertainty": 2000000000.0,
+      "basis": "assumed",
+      "note": "Unpublished exact upper RF jamming band edge; standoff VHF/UHF/L/S/C-band communications & radar EW aircraft class coverage"
+    },
+    "beam_azimuth_half_deg": {
+      "value": 35.0,
+      "unit": "deg",
+      "uncertainty": 5.0,
+      "basis": "assumed",
+      "note": "Assumed default azimuth beam half-width for standoff VHF/UHF/L/S/C-band communications & radar EW aircraft"
+    },
+    "beam_elevation_half_deg": {
+      "value": 20.0,
+      "unit": "deg",
+      "uncertainty": 5.0,
+      "basis": "assumed",
+      "note": "Assumed default elevation beam half-width for standoff VHF/UHF/L/S/C-band communications & radar EW aircraft"
+    },
+    "spot_bandwidth_hz": {
+      "value": 20000000.0,
+      "unit": "Hz",
+      "uncertainty": 10000000.0,
+      "basis": "assumed",
+      "note": "Assumed default spot-jamming noise bandwidth for standoff VHF/UHF/L/S/C-band communications & radar EW aircraft"
+    },
+    "min_bandwidth_hz": {
+      "value": 1000000.0,
+      "unit": "Hz",
+      "uncertainty": 200000.0,
+      "basis": "assumed",
+      "note": "Minimum commandable RF noise/deception channel bandwidth"
+    },
+    "drfm_capable": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Coherent DRFM/deception modulation capability (modern/deception-capable; exact waveforms classified)"
+    },
+    "max_false_targets": {
+      "value": 6,
+      "unit": "1",
+      "uncertainty": 2.0,
+      "basis": "assumed",
+      "note": "Assumed simultaneous coherent false-target capacity per jamming channel (classified)"
+    }
+  },
   "sources": {
     "wp-ec130h": {
       "title": "Lockheed EC-130H Compass Call",

@@ -4,13 +4,110 @@
   "family": "gun",
   "summary": "30 mm single-barrel revolver cannon",
   "maker": "GIAT (now Nexter)",
-  "parameters": {},
+  "parameters": {
+    "calibre_m": {
+      "value": 0.03,
+      "unit": "m",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-rafale",
+      "note": "Published bore diameter (30x150 mm GIAT/Nexter)"
+    },
+    "rate_of_fire_rpm": {
+      "value": 2500.0,
+      "unit": "rpm",
+      "uncertainty": 125.0,
+      "basis": "published",
+      "source": "wp-rafale",
+      "note": "Published cyclic firing rate per gun mount (30x150 mm GIAT/Nexter)"
+    },
+    "muzzle_velocity_ms": {
+      "value": 1025.0,
+      "unit": "m/s",
+      "uncertainty": 25.0,
+      "basis": "published",
+      "source": "tm-43-0001-27",
+      "note": "Published nominal muzzle velocity (30x150 mm GIAT/Nexter)"
+    },
+    "projectile_kg": {
+      "value": 0.275,
+      "unit": "kg",
+      "uncertainty": 0.011,
+      "basis": "published",
+      "source": "tm-43-0001-27",
+      "note": "Published projectile mass (30x150 mm GIAT/Nexter)"
+    },
+    "shed_mass_kg": {
+      "value": 0.55,
+      "unit": "kg",
+      "uncertainty": 0.044,
+      "basis": "derived",
+      "source": "tm-43-0001-27",
+      "note": "Complete 30x150 mm round mass (~0.55 kg) shed per shot"
+    },
+    "explosive_kg": {
+      "value": 0.05,
+      "unit": "kg",
+      "uncertainty": 0.0125,
+      "basis": "assumed",
+      "note": "Nominal HEI/SAPHEI explosive filler mass per round (30x150 mm GIAT/Nexter); varies by ammunition mix"
+    },
+    "dispersion_rad": {
+      "value": 0.002,
+      "unit": "rad",
+      "uncertainty": 0.0005,
+      "basis": "assumed",
+      "note": "1-sigma angular dispersion (derived class value from typical 5-8 mil 80% airborne cannon dispersion circle)"
+    },
+    "drag_cd": {
+      "value": 0.3,
+      "unit": "1",
+      "uncertainty": 0.03,
+      "basis": "derived",
+      "source": "stanag-4355",
+      "note": "Reference supersonic form-scaled Cd at Mach 1.8 against BRL/McCoy G7 boattail standard curve (Cd_G7(1.8)=0.298)"
+    },
+    "elevation_rad": {
+      "value": 0.0,
+      "unit": "rad",
+      "uncertainty": 0.005,
+      "basis": "assumed",
+      "note": "Boresighted along aircraft forward waterline (nominal)"
+    },
+    "capacity": {
+      "value": 125,
+      "unit": "rounds",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-rafale",
+      "note": "Published Rafale internal 125-round magazine"
+    },
+    "self_destruct_s": {
+      "value": 6.5,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "Pyrotechnic self-destruct fuze / effective max flight time for 30x150 mm GIAT/Nexter (varies by fuze lot)"
+    }
+  },
   "sources": {
     "wp-rafale": {
       "title": "Dassault Rafale",
       "publisher": "Wikipedia (revision 1377238412)",
       "url": "https://en.wikipedia.org/w/index.php?title=Dassault_Rafale&oldid=1377238412",
       "date": "2026-09-28"
+    },
+    "stanag-4355": {
+      "title": "NATO STANAG 4355 (Modified Point Mass Trajectory Model) & R. L. McCoy, Modern Exterior Ballistics (Schiffer, 1999)",
+      "publisher": "NATO / Schiffer Military History",
+      "url": "",
+      "date": "1999"
+    },
+    "tm-43-0001-27": {
+      "title": "U.S. Army TM 43-0001-27: Army Ammunition Data Sheets - Small Caliber Ammunition & USAF/NATO airborne cannon ammunition specifications",
+      "publisher": "U.S. Department of the Army",
+      "url": "",
+      "date": "1994"
     }
   }
 }

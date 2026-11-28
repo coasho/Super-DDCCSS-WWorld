@@ -11,14 +11,9 @@ namespace {
 constexpr double kPi = geom::kPi;
 constexpr double kDeg = kPi / 180.0;
 
-// Engineering class defaults (basis: assumed) when a payload card omits
-// unpublished jammer transmitter parameters:
-// - Tactical escort/standoff pods (e.g. AN/ALQ-99, Compass Call): higher ERP,
-//   wider band, directional steerable beam.
-// - Self-protection jammers (e.g. AN/ALQ-135, AN/ALQ-165): moderate power,
-//   wide sector/quadrant coverage.
+// Generic RF self-protection jammer fallback used only when a synthetic card omits parameters;
+// all maintained electronic_attack cards declare their own parameters in assets/payloads/*.json.
 struct ClassDefaults {
-    bool isRf = true;
     double powerW = 400.0;
     double peakGainDbi = 10.0;
     double sidelobeDbi = -6.0;
@@ -31,46 +26,6 @@ struct ClassDefaults {
     bool drfmCapable = true;
     int maxFalseTargets = 6;
 };
-
-ClassDefaults defaultsFor(const Card& card) {
-    ClassDefaults d;
-    if (card.id == "an-aaq-24" || card.value("is_dircm", 0.0) > 0.5) {
-        // Directional Infrared Countermeasures (laser DIRCM) is optical/IR, not RF.
-        d.isRf = false;
-        return d;
-    }
-    if (card.id == "an-alq-99") {
-        d.powerW = 1500.0;
-        d.peakGainDbi = 14.0;
-        d.sidelobeDbi = -8.0;
-        d.bandMinHz = 0.064e9;
-        d.bandMaxHz = 18.0e9;
-        d.defaultAzHalfRad = 20.0 * kDeg;
-        d.defaultElHalfRad = 15.0 * kDeg;
-        d.spotBandwidthHz = 40.0e6;
-    } else if (card.id == "compass-call") {
-        d.powerW = 2000.0;
-        d.peakGainDbi = 12.0;
-        d.sidelobeDbi = -8.0;
-        d.bandMinHz = 0.02e9;
-        d.bandMaxHz = 6.0e9;
-        d.defaultAzHalfRad = 35.0 * kDeg;
-        d.defaultElHalfRad = 20.0 * kDeg;
-        d.spotBandwidthHz = 20.0e6;
-    } else if (card.id == "an-alq-172" || card.id == "an-alq-155" || card.id == "an-alt-16" ||
-               card.id == "an-alt-28" || card.id == "an-alt-32") {
-        d.powerW = 800.0;
-        d.peakGainDbi = 11.0;
-        d.bandMinHz = 0.5e9;
-        d.bandMaxHz = 18.0e9;
-    } else if (card.id == "l402-himalayas" || card.id == "an-alq-135" || card.id == "an-alq-165") {
-        d.powerW = 500.0;
-        d.peakGainDbi = 10.0;
-        d.bandMinHz = 2.0e9;
-        d.bandMaxHz = 18.0e9;
-    }
-    return d;
-}
 
 class Jammer final : public Model {
 public:
@@ -441,9 +396,8 @@ void evaluateDrfmGhosts(const Emission& em, double rangeM, double victimPowerW,
 }
 
 std::unique_ptr<Model> makeJammer(const Card& card, std::uint16_t count) {
-    const ClassDefaults def = defaultsFor(card);
-    if (!def.isRf) return nullptr;
-    return std::make_unique<Jammer>(card, def, count);
+    if (card.value("is_dircm", 0.0) > 0.5) return nullptr;
+    return std::make_unique<Jammer>(card, ClassDefaults{}, count);
 }
 
 } // namespace fsim::ms::ea

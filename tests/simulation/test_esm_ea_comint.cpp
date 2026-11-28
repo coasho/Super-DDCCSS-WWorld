@@ -15,6 +15,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
 #include <limits>
 #include <string>
 #include <vector>
@@ -94,17 +95,18 @@ TEST_CASE("SIM-M05 EA unit physics: spectral overlap, J0 density and card family
     CHECK(j0 == Catch::Approx(expected).epsilon(1e-12));
     CHECK(ea::receivedJammerDensityWHz(1000.0, 14.0, 30.0, 144.0, 40e6, 0.0) == 0.0);
 
-    // Optical/IR DIRCM must return null (never fabricated as RF noise jammer)
-    Card dircm;
-    dircm.id = "an-aaq-24";
-    dircm.family = Family::ElectronicAttack;
-    CHECK(ea::makeJammer(dircm, 1) == nullptr);
+    // Optical/IR DIRCM must return null from makeJammer (driven strictly by an-aaq-24.json parameters)
+    const std::filesystem::path payloadDir = std::filesystem::path(FSIM_TEST_AIRCRAFT_DIR).parent_path() / "assets" / "payloads";
+    std::vector<std::string> cardErrors;
+    const auto dircmCard = readCard(payloadDir / "an-aaq-24.json", cardErrors);
+    const auto alq99Card = readCard(payloadDir / "an-alq-99.json", cardErrors);
+    REQUIRE(cardErrors.empty());
+    REQUIRE(dircmCard != nullptr);
+    REQUIRE(alq99Card != nullptr);
+    CHECK(ea::makeJammer(*dircmCard, 1) == nullptr);
 
     // RF jammer card succeeds, handles preemptive finite duration and rejects out-of-band frequency
-    Card alq99;
-    alq99.id = "an-alq-99";
-    alq99.family = Family::ElectronicAttack;
-    auto jammer = ea::makeJammer(alq99, 3);
+    auto jammer = ea::makeJammer(*alq99Card, 3);
     REQUIRE(jammer != nullptr);
 
     PayloadTask badFreq;
@@ -818,12 +820,15 @@ TEST_CASE("Phase 1 EW: RadioReceiverV1 aperture-weighted jamming, passive monopu
 TEST_CASE("Phase 1 EW: AN/AAQ-24 DIRCM laser turret physics and E-7A countermeasures card", "[sim-m05][ea][dircm]") {
     using namespace fsim::ms;
 
-    // Preserve makeJammer(dircm) == nullptr while makeDircm / makeModel builds the optical laser model.
-    Card dircm;
-    dircm.id = "an-aaq-24";
-    dircm.family = Family::ElectronicAttack;
-    CHECK(ea::makeJammer(dircm, 1) == nullptr);
-    auto laserModel = makeModel(dircm, 2);
+    // Preserve makeJammer(dircm) == nullptr while makeDircm / makeModel builds the optical laser model
+    // strictly from an-aaq-24.json parameters (no C++ card.id lookup table).
+    std::vector<std::string> dircmErrs;
+    const auto dircmPath = std::filesystem::path(FSIM_TEST_AIRCRAFT_DIR).parent_path() / "assets" / "payloads" / "an-aaq-24.json";
+    const auto dircm = readCard(dircmPath, dircmErrs);
+    REQUIRE(dircmErrs.empty());
+    REQUIRE(dircm != nullptr);
+    CHECK(ea::makeJammer(*dircm, 1) == nullptr);
+    auto laserModel = makeModel(*dircm, 2);
     REQUIRE(laserModel != nullptr);
     // DIRCM rejects explicit RF frequency commands.
     PayloadTask rfJam;

@@ -4,7 +4,92 @@
   "family": "gun",
   "summary": "20 mm six-barrel rotary cannon",
   "maker": "General Dynamics (now General Dynamics OTS)",
-  "parameters": {},
+  "parameters": {
+    "calibre_m": {
+      "value": 0.02,
+      "unit": "m",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "usaf-f16",
+      "note": "Published bore diameter (20x102 mm M56A3/PGU-28)"
+    },
+    "rate_of_fire_rpm": {
+      "value": 6000.0,
+      "unit": "rpm",
+      "uncertainty": 300.0,
+      "basis": "published",
+      "source": "usaf-f16",
+      "note": "Published cyclic firing rate per gun mount (20x102 mm M56A3/PGU-28)"
+    },
+    "muzzle_velocity_ms": {
+      "value": 1050.0,
+      "unit": "m/s",
+      "uncertainty": 25.0,
+      "basis": "published",
+      "source": "tm-43-0001-27",
+      "note": "Published nominal muzzle velocity (20x102 mm M56A3/PGU-28)"
+    },
+    "projectile_kg": {
+      "value": 0.101,
+      "unit": "kg",
+      "uncertainty": 0.00404,
+      "basis": "published",
+      "source": "tm-43-0001-27",
+      "note": "Published projectile mass (20x102 mm M56A3/PGU-28)"
+    },
+    "shed_mass_kg": {
+      "value": 0.155,
+      "unit": "kg",
+      "uncertainty": 0.0124,
+      "basis": "derived",
+      "source": "tm-43-0001-27",
+      "note": "Linkless M61 retains brass cases on F-16/F-15/F/A-18; shed mass = projectile (0.101 kg) + propellant gas/residue (~0.054 kg)"
+    },
+    "explosive_kg": {
+      "value": 0.011,
+      "unit": "kg",
+      "uncertainty": 0.0027,
+      "basis": "assumed",
+      "note": "Nominal HEI/SAPHEI explosive filler mass per round (20x102 mm M56A3/PGU-28); varies by ammunition mix"
+    },
+    "dispersion_rad": {
+      "value": 0.002,
+      "unit": "rad",
+      "uncertainty": 0.0005,
+      "basis": "assumed",
+      "note": "1-sigma angular dispersion (derived class value from typical 5-8 mil 80% airborne cannon dispersion circle)"
+    },
+    "drag_cd": {
+      "value": 0.3,
+      "unit": "1",
+      "uncertainty": 0.03,
+      "basis": "derived",
+      "source": "stanag-4355",
+      "note": "Reference supersonic form-scaled Cd at Mach 1.8 against BRL/McCoy G7 boattail standard curve (Cd_G7(1.8)=0.298)"
+    },
+    "elevation_rad": {
+      "value": 0.0,
+      "unit": "rad",
+      "uncertainty": 0.005,
+      "basis": "assumed",
+      "note": "Boresighted along aircraft forward waterline (nominal)"
+    },
+    "capacity": {
+      "value": 500,
+      "unit": "rounds",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "usaf-f16",
+      "note": "Published F-16C nominal 500-round drum load"
+    },
+    "self_destruct_s": {
+      "value": 5.5,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "Pyrotechnic self-destruct fuze / effective max flight time for 20x102 mm M56A3/PGU-28 (varies by fuze lot)"
+    }
+  },
   "sources": {
     "usaf-f16": {
       "title": "F-16 Fighting Falcon fact sheet",
@@ -23,6 +108,18 @@
       "publisher": "Wikipedia (revision 1378488706)",
       "url": "https://en.wikipedia.org/w/index.php?title=McDonnell_Douglas_F%2FA-18_Hornet&oldid=1378488706",
       "date": "2026-10-04"
+    },
+    "stanag-4355": {
+      "title": "NATO STANAG 4355 (Modified Point Mass Trajectory Model) & R. L. McCoy, Modern Exterior Ballistics (Schiffer, 1999)",
+      "publisher": "NATO / Schiffer Military History",
+      "url": "",
+      "date": "1999"
+    },
+    "tm-43-0001-27": {
+      "title": "U.S. Army TM 43-0001-27: Army Ammunition Data Sheets - Small Caliber Ammunition & USAF/NATO airborne cannon ammunition specifications",
+      "publisher": "U.S. Department of the Army",
+      "url": "",
+      "date": "1994"
     }
   }
 }

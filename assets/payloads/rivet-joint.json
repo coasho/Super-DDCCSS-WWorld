@@ -3,7 +3,79 @@
   "designation": "Rivet Joint",
   "family": "esm",
   "summary": "airborne SIGINT suite (COMINT and ELINT) of the RC-135V/W",
-  "parameters": {},
+  "parameters": {
+    "sensitivity_dbm": {
+      "value": -85.0,
+      "unit": "dBm",
+      "uncertainty": 6.0,
+      "basis": "assumed",
+      "note": "Unpublished minimum detectable pulse power at antenna port; RC-135V/W dedicated airborne SIGINT/COMINT/ELINT suite class bound (Adamy EW 101/102)"
+    },
+    "antenna_gain_dbi": {
+      "value": 3.0,
+      "unit": "dBi",
+      "uncertainty": 2.0,
+      "basis": "assumed",
+      "note": "Unpublished ESM/RWR receive antenna gain; RC-135V/W dedicated airborne SIGINT/COMINT/ELINT suite class estimate"
+    },
+    "frequency_min_hz": {
+      "value": 30000000.0,
+      "unit": "Hz",
+      "uncertainty": 10000000.0,
+      "basis": "assumed",
+      "note": "Unpublished exact lower RF intercept frequency; RC-135V/W dedicated airborne SIGINT/COMINT/ELINT suite class band"
+    },
+    "frequency_max_hz": {
+      "value": 18000000000.0,
+      "unit": "Hz",
+      "uncertainty": 2000000000.0,
+      "basis": "assumed",
+      "note": "Unpublished exact upper RF intercept frequency; RC-135V/W dedicated airborne SIGINT/COMINT/ELINT suite class band (standard 2-18 GHz threat band or wider)"
+    },
+    "bearing_sigma_deg": {
+      "value": 1.5,
+      "unit": "deg",
+      "uncertainty": 0.52,
+      "basis": "assumed",
+      "note": "Unpublished 1-sigma AOA error at threshold; RC-135V/W dedicated airborne SIGINT/COMINT/ELINT suite (interferometric phase DF)"
+    },
+    "bearing_floor_deg": {
+      "value": 0.5,
+      "unit": "deg",
+      "uncertainty": 0.2,
+      "basis": "assumed",
+      "note": "Unpublished high-SNR AOA error floor; RC-135V/W dedicated airborne SIGINT/COMINT/ELINT suite"
+    },
+    "measure_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 0.5,
+      "basis": "assumed",
+      "note": "Nominal ESM emitter bearing measurement update interval"
+    },
+    "memory_s": {
+      "value": 3.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "Emitter track coast memory after last intercepted dwell"
+    },
+    "geolocation": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Moving-baseline/interferometric emitter geolocation capability (RC-135V/W dedicated airborne SIGINT/COMINT/ELINT suite)"
+    },
+    "comint": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-rc135w",
+      "note": "Card source explicitly lists COMINT intercept capability"
+    }
+  },
   "sources": {
     "wp-rc135w": {
       "title": "Boeing RC-135",

@@ -3,7 +3,65 @@
   "designation": "AN/ASN-109",
   "family": "pnt",
   "summary": "inertial guidance system",
-  "parameters": {},
+  "parameters": {
+    "gnss_capable": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-f15c",
+      "note": "Pure gimbaled inertial navigation system (no GNSS receiver)"
+    },
+    "drift_rate_m_s": {
+      "value": 0.412,
+      "unit": "m/s",
+      "uncertainty": 0.1,
+      "basis": "assumed",
+      "note": "Standard navigation-grade 0.8 nmi/h CEP INS drift (0.8 * 1852 / 3600 = 0.4116 m/s; Groves Table 5.1)"
+    },
+    "nominal_horizontal_m": {
+      "value": 20.0,
+      "unit": "m",
+      "uncertainty": 10.0,
+      "basis": "assumed",
+      "note": "Initial INS alignment horizontal position uncertainty"
+    },
+    "nominal_vertical_m": {
+      "value": 15.0,
+      "unit": "m",
+      "uncertainty": 5.0,
+      "basis": "assumed",
+      "note": "Baro-damped vertical channel initial uncertainty"
+    },
+    "gnss_carrier_dbw": {
+      "value": -160.0,
+      "unit": "dBW",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Unused for non-GNSS pure INS"
+    },
+    "noise_figure_db": {
+      "value": 3.0,
+      "unit": "dB",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "Unused for non-GNSS pure INS"
+    },
+    "anti_jam_db": {
+      "value": 0.0,
+      "unit": "dB",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Pure INS is immune to RF GNSS jamming"
+    },
+    "lock_threshold_dbhz": {
+      "value": 22.0,
+      "unit": "dB-Hz",
+      "uncertainty": 2.0,
+      "basis": "assumed",
+      "note": "Unused for non-GNSS pure INS"
+    }
+  },
   "sources": {
     "wp-f15c": {
       "title": "McDonnell Douglas F-15 Eagle",

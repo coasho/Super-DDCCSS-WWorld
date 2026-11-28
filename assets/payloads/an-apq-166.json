@@ -3,7 +3,85 @@
   "designation": "AN/APQ-166",
   "family": "ground_map_radar",
   "summary": "mechanically scanned attack radar: ground mapping and terrain avoidance (no A-GRA capability: its status only)",
-  "parameters": {},
+  "parameters": {
+    "frequency_hz": {
+      "value": 9400000000.0,
+      "unit": "Hz",
+      "uncertainty": 300000000.0,
+      "basis": "assumed",
+      "note": "X-band B-52H mechanically scanned attack/terrain-avoidance radar (exact frequency unpublished)"
+    },
+    "power_w": {
+      "value": 600.0,
+      "unit": "W",
+      "uncertainty": 200.0,
+      "basis": "assumed",
+      "note": "Unpublished average transmit power; strategic bomber real-beam ground-map class"
+    },
+    "peak_power_w": {
+      "value": 25000.0,
+      "unit": "W",
+      "uncertainty": 10000.0,
+      "basis": "assumed",
+      "note": "Unpublished pulsed peak transmit power"
+    },
+    "peak_gain_dbi": {
+      "value": 33.0,
+      "unit": "dBi",
+      "uncertainty": 3.0,
+      "basis": "assumed",
+      "note": "Unpublished bomber nose dish antenna peak gain"
+    },
+    "azimuth_limit_deg": {
+      "value": 45.0,
+      "unit": "deg",
+      "uncertainty": 10.0,
+      "basis": "assumed",
+      "note": "Assumed forward ground-map scan sector half-angle"
+    },
+    "beamwidth_deg": {
+      "value": 2.5,
+      "unit": "deg",
+      "uncertainty": 0.5,
+      "basis": "assumed",
+      "note": "Assumed X-band bomber nose dish 3-dB beamwidth"
+    },
+    "range_resolution_m": {
+      "value": 30.0,
+      "unit": "m",
+      "uncertainty": 15.0,
+      "basis": "assumed",
+      "note": "Assumed compressed real-beam ground-map range bin (~0.2 us)"
+    },
+    "noise_figure_db": {
+      "value": 5.0,
+      "unit": "dB",
+      "uncertainty": 1.5,
+      "basis": "assumed",
+      "note": "Typical legacy tube/solid-state X-band attack radar receiver noise figure"
+    },
+    "system_loss_db": {
+      "value": 6.0,
+      "unit": "dB",
+      "uncertainty": 2.0,
+      "basis": "assumed",
+      "note": "Radome, waveguide, scanning and processing losses (assumed)"
+    },
+    "dwell_s": {
+      "value": 0.02,
+      "unit": "s",
+      "uncertainty": 0.01,
+      "basis": "assumed",
+      "note": "Nominal real-beam ground-map azimuth dwell time"
+    },
+    "range_max_m": {
+      "value": 120000.0,
+      "unit": "m",
+      "uncertainty": 30000.0,
+      "basis": "assumed",
+      "note": "Assumed instrumented ground-mapping / terrain-avoidance range"
+    }
+  },
   "sources": {
     "wp-b52h": {
       "title": "Boeing B-52 Stratofortress",

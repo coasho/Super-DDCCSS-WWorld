@@ -14,70 +14,24 @@ constexpr double kPi = geom::kPi;
 constexpr double kLight = 299792458.0;
 constexpr double kIffBwHz = 3.0e6;
 
+// Generic Link-16 class fallback used only when a synthetic card omits parameters;
+// all maintained comm_terminal cards declare their own parameters in assets/payloads/*.json.
 struct CommClassDefaults {
     double bandMinHz = 969.0e6;
     double bandMaxHz = 1206.0e6;
     double txPowerW = 200.0;
     double channelBwHz = 3.0e6;
-    double processingGainDb = 17.0; // Link-16 51-channel FHSS processing gain (~17 dB)
+    double processingGainDb = 17.1; // Link-16 51-channel FHSS processing gain (10*log10(51))
     double jamThresholdJToNDb = 25.0;
     double rxGainDbi = 0.0;
     bool iffCapable = false;
     bool iffMode5 = false;
 };
 
-CommClassDefaults defaultsFor(const Card& card) {
-    CommClassDefaults d;
-    const std::string& id = card.id;
-    if (id == "mids-jtrs") {
-        d.bandMinHz = 969.0e6;
-        d.bandMaxHz = 1206.0e6;
-        d.txPowerW = 200.0;
-        d.processingGainDb = 17.0;
-        d.iffCapable = true;
-        d.iffMode5 = true;
-    } else if (id == "an-asq-242") {
-        // Integrated CNI: MADL Ku-band directional + Link-16 + Mode 5 IFF
-        d.bandMinHz = 969.0e6;
-        d.bandMaxHz = 15.0e9;
-        d.txPowerW = 100.0;
-        d.processingGainDb = 24.0; // Directional MADL + FHSS AJ
-        d.iffCapable = true;
-        d.iffMode5 = true;
-    } else if (id == "ifdl") {
-        // Directional Ku-band LPI intra-flight datalink
-        d.bandMinHz = 14.4e9;
-        d.bandMaxHz = 15.35e9;
-        d.txPowerW = 50.0;
-        d.channelBwHz = 50.0e6;
-        d.processingGainDb = 26.0;
-    } else if (id == "an-arc-210") {
-        // VHF/UHF software radio (30-512 MHz)
-        d.bandMinHz = 30.0e6;
-        d.bandMaxHz = 512.0e6;
-        d.txPowerW = 25.0;
-        d.channelBwHz = 25.0e3;
-        d.processingGainDb = 6.0;
-    } else if (id == "u2s-datalinks") {
-        d.bandMinHz = 10.0e9;
-        d.bandMaxHz = 15.0e9;
-        d.txPowerW = 150.0;
-        d.channelBwHz = 100.0e6;
-        d.processingGainDb = 15.0;
-    } else {
-        // Link-16 / JTIDS / MIDS (`mids`, `jtids-2h`, `a10c-link16`, `gripen-link16`)
-        d.bandMinHz = 969.0e6;
-        d.bandMaxHz = 1206.0e6;
-        d.txPowerW = 200.0;
-        d.processingGainDb = 17.0;
-    }
-    return d;
-}
-
 class CommTerminal final : public Model {
 public:
     explicit CommTerminal(const Card& card) {
-        const CommClassDefaults def = defaultsFor(card);
+        const CommClassDefaults def{};
         bandMinHz_ = card.value("frequency_min_hz", def.bandMinHz);
         bandMaxHz_ = card.value("frequency_max_hz", def.bandMaxHz);
         txPowerW_ = card.value("tx_power_w", def.txPowerW);

@@ -3,13 +3,110 @@
   "designation": "GSh-23",
   "family": "gun",
   "summary": "23 mm twin-barrel cannon",
-  "parameters": {},
+  "parameters": {
+    "calibre_m": {
+      "value": 0.023,
+      "unit": "m",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-j10a",
+      "note": "Published bore diameter (23x115 mm AM-23)"
+    },
+    "rate_of_fire_rpm": {
+      "value": 3400.0,
+      "unit": "rpm",
+      "uncertainty": 170.0,
+      "basis": "published",
+      "source": "wp-j10a",
+      "note": "Published cyclic firing rate per gun mount (23x115 mm AM-23)"
+    },
+    "muzzle_velocity_ms": {
+      "value": 715.0,
+      "unit": "m/s",
+      "uncertainty": 25.0,
+      "basis": "published",
+      "source": "tm-43-0001-27",
+      "note": "Published nominal muzzle velocity (23x115 mm AM-23)"
+    },
+    "projectile_kg": {
+      "value": 0.175,
+      "unit": "kg",
+      "uncertainty": 0.007,
+      "basis": "published",
+      "source": "tm-43-0001-27",
+      "note": "Published projectile mass (23x115 mm AM-23)"
+    },
+    "shed_mass_kg": {
+      "value": 0.325,
+      "unit": "kg",
+      "uncertainty": 0.026,
+      "basis": "derived",
+      "source": "tm-43-0001-27",
+      "note": "Complete 23x115 mm cartridge mass (~0.325 kg) shed per shot"
+    },
+    "explosive_kg": {
+      "value": 0.019,
+      "unit": "kg",
+      "uncertainty": 0.0047,
+      "basis": "assumed",
+      "note": "Nominal HEI/SAPHEI explosive filler mass per round (23x115 mm AM-23); varies by ammunition mix"
+    },
+    "dispersion_rad": {
+      "value": 0.0025,
+      "unit": "rad",
+      "uncertainty": 0.00063,
+      "basis": "assumed",
+      "note": "1-sigma angular dispersion (derived class value from typical 5-8 mil 80% airborne cannon dispersion circle)"
+    },
+    "drag_cd": {
+      "value": 0.33,
+      "unit": "1",
+      "uncertainty": 0.03,
+      "basis": "derived",
+      "source": "stanag-4355",
+      "note": "Reference supersonic form-scaled Cd at Mach 1.8 against BRL/McCoy G7 boattail standard curve (Cd_G7(1.8)=0.298)"
+    },
+    "elevation_rad": {
+      "value": 0.0,
+      "unit": "rad",
+      "uncertainty": 0.005,
+      "basis": "assumed",
+      "note": "Boresighted along aircraft forward waterline (nominal)"
+    },
+    "capacity": {
+      "value": 200,
+      "unit": "rounds",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-j10a",
+      "note": "Published twin-barrel Type 23-3 / GSh-23 200-round load"
+    },
+    "self_destruct_s": {
+      "value": 5.5,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "Pyrotechnic self-destruct fuze / effective max flight time for 23x115 mm AM-23 (varies by fuze lot)"
+    }
+  },
   "sources": {
     "wp-j10a": {
       "title": "Chengdu J-10",
       "publisher": "Wikipedia (revision 1378859868)",
       "url": "https://en.wikipedia.org/w/index.php?title=Chengdu_J-10&oldid=1378859868",
       "date": "2026-10-06"
+    },
+    "stanag-4355": {
+      "title": "NATO STANAG 4355 (Modified Point Mass Trajectory Model) & R. L. McCoy, Modern Exterior Ballistics (Schiffer, 1999)",
+      "publisher": "NATO / Schiffer Military History",
+      "url": "",
+      "date": "1999"
+    },
+    "tm-43-0001-27": {
+      "title": "U.S. Army TM 43-0001-27: Army Ammunition Data Sheets - Small Caliber Ammunition & USAF/NATO airborne cannon ammunition specifications",
+      "publisher": "U.S. Department of the Army",
+      "url": "",
+      "date": "1994"
     }
   }
 }

@@ -3,7 +3,73 @@
   "designation": "IFDL",
   "family": "comm_terminal",
   "summary": "Inter/Intra-Flight Data Link: directional, between F-22s",
-  "parameters": {},
+  "parameters": {
+    "frequency_min_hz": {
+      "value": 14400000000.0,
+      "unit": "Hz",
+      "uncertainty": 500000000.0,
+      "basis": "assumed",
+      "note": "Assumed Ku-band directional LPI/LPD intra-flight datalink lower frequency (classified)"
+    },
+    "frequency_max_hz": {
+      "value": 15350000000.0,
+      "unit": "Hz",
+      "uncertainty": 500000000.0,
+      "basis": "assumed",
+      "note": "Assumed Ku-band directional LPI/LPD intra-flight datalink upper frequency (classified)"
+    },
+    "tx_power_w": {
+      "value": 50.0,
+      "unit": "W",
+      "uncertainty": 20.0,
+      "basis": "assumed",
+      "note": "Assumed directional LPI transmit power (classified)"
+    },
+    "channel_bandwidth_hz": {
+      "value": 50000000.0,
+      "unit": "Hz",
+      "uncertainty": 20000000.0,
+      "basis": "assumed",
+      "note": "Assumed wideband spread-spectrum directional channel bandwidth (classified)"
+    },
+    "processing_gain_db": {
+      "value": 26.0,
+      "unit": "dB",
+      "uncertainty": 5.0,
+      "basis": "assumed",
+      "note": "Assumed combined directional-aperture + spread-spectrum anti-jam margin for IFDL (classified)"
+    },
+    "jam_threshold_j_to_n_db": {
+      "value": 25.0,
+      "unit": "dB",
+      "uncertainty": 5.0,
+      "basis": "assumed",
+      "note": "Assumed effective post-processing J/N link-denial threshold (classified)"
+    },
+    "antenna_gain_dbi": {
+      "value": 0.0,
+      "unit": "dBi",
+      "uncertainty": 3.0,
+      "basis": "assumed",
+      "note": "Conservative baseline receive coupling (directional AJ captured in processing_gain_db)"
+    },
+    "iff_capable": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-f22a",
+      "note": "Dedicated intra-flight datalink without IFF interrogator"
+    },
+    "iff_mode5": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-f22a",
+      "note": "Dedicated intra-flight datalink without Mode 5 IFF"
+    }
+  },
   "sources": {
     "wp-f22a": {
       "title": "Lockheed Martin F-22 Raptor",

@@ -29,17 +29,18 @@ void geodeticToEcef(double latRad, double lonRad, double heightM, double out[3])
 class SarRadar final : public Model {
 public:
     explicit SarRadar(const Card& card) {
-        const bool isAsars = (card.id == "asars-2");
+        // Generic X-band SAR fallback when a synthetic card omits parameters;
+        // maintained sar cards declare their own parameters in assets/payloads/*.json.
         frequencyHz_ = card.value("frequency_hz", 9.6e9);
         bandwidthHz_ = card.value("bandwidth_hz", 300.0e6);
-        avgPowerW_ = card.value("power_w", isAsars ? 1500.0 : 1200.0);
-        peakPowerW_ = card.value("peak_power_w", isAsars ? 15000.0 : 12000.0);
-        antennaGainDbi_ = card.value("peak_gain_dbi", isAsars ? 38.0 : 36.0);
+        avgPowerW_ = card.value("power_w", 1200.0);
+        peakPowerW_ = card.value("peak_power_w", 12000.0);
+        antennaGainDbi_ = card.value("peak_gain_dbi", 36.0);
         noiseFigureDb_ = card.value("noise_figure_db", 4.0);
         systemLossDb_ = card.value("system_loss_db", 5.0);
         finestResM_ = card.value("finest_resolution_m", 0.3);
         minRangeM_ = card.value("range_min_m", 15000.0);
-        maxRangeM_ = card.value("range_max_m", isAsars ? 220000.0 : 200000.0);
+        maxRangeM_ = card.value("range_max_m", 200000.0);
     }
 
     Reason begin(const PayloadTask& task, double now) override {

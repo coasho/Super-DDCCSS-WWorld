@@ -4,13 +4,128 @@
   "family": "passive_optical",
   "summary": "infrared search and track and forward-looking infrared",
   "maker": "Eurofirst",
-  "parameters": {},
+  "parameters": {
+    "wavelength_min_um": {
+      "value": 3.0,
+      "unit": "um",
+      "uncertainty": 0.2,
+      "basis": "published",
+      "source": "hudson-ir",
+      "note": "Atmospheric MWIR passband lower edge (3.0 um)"
+    },
+    "wavelength_max_um": {
+      "value": 12.0,
+      "unit": "um",
+      "uncertainty": 0.3,
+      "basis": "published",
+      "source": "hudson-ir",
+      "note": "Atmospheric LWIR passband upper edge (12.0 um)"
+    },
+    "nei_w_m2": {
+      "value": 1.2e-11,
+      "unit": "W/m^2",
+      "uncertainty": 4.8e-12,
+      "basis": "assumed",
+      "note": "Unpublished Noise-Equivalent Irradiance; Typhoon PIRATE passive dual-band MWIR/LWIR long-range IRST class estimate (Hudson IR System Engineering bounds)"
+    },
+    "detection_snr": {
+      "value": 6.0,
+      "unit": "1",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "Linear detection SNR threshold (~7.8 dB) for low false-alarm point-target IR/UV detection"
+    },
+    "lookdown_factor": {
+      "value": 1.8,
+      "unit": "1",
+      "uncertainty": 0.4,
+      "basis": "assumed",
+      "note": "Background-clutter NEI multiplier when looking below horizon against warm Earth/cloud background"
+    },
+    "azimuth_limit_deg": {
+      "value": 75.0,
+      "unit": "deg",
+      "uncertainty": 10.0,
+      "basis": "assumed",
+      "note": "Assumed azimuth field-of-regard half-angle for Typhoon PIRATE passive dual-band MWIR/LWIR long-range IRST"
+    },
+    "elevation_min_deg": {
+      "value": -40.0,
+      "unit": "deg",
+      "uncertainty": 5.0,
+      "basis": "assumed",
+      "note": "Assumed lower elevation field-of-regard limit for Typhoon PIRATE passive dual-band MWIR/LWIR long-range IRST"
+    },
+    "elevation_max_deg": {
+      "value": 60.0,
+      "unit": "deg",
+      "uncertainty": 5.0,
+      "basis": "assumed",
+      "note": "Assumed upper elevation field-of-regard limit for Typhoon PIRATE passive dual-band MWIR/LWIR long-range IRST"
+    },
+    "angle_sigma_mrad": {
+      "value": 0.6,
+      "unit": "mrad",
+      "uncertainty": 0.18,
+      "basis": "assumed",
+      "note": "Unpublished angular measurement 1-sigma at threshold for Typhoon PIRATE passive dual-band MWIR/LWIR long-range IRST"
+    },
+    "angle_floor_mrad": {
+      "value": 0.2,
+      "unit": "mrad",
+      "uncertainty": 0.06,
+      "basis": "assumed",
+      "note": "Unpublished high-SNR stabilized angular error floor for Typhoon PIRATE passive dual-band MWIR/LWIR long-range IRST"
+    },
+    "measure_s": {
+      "value": 0.25,
+      "unit": "s",
+      "uncertainty": 0.1,
+      "basis": "assumed",
+      "note": "Nominal optical frame/scan track update period"
+    },
+    "memory_s": {
+      "value": 3.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "Optical track coast memory during temporary cloud/aspect occultation"
+    },
+    "all_round": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Sector-limited gimbal/turret field of regard"
+    },
+    "continuous": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Requires explicit Search or Track tasking"
+    },
+    "laser_capable": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-typhoon",
+      "note": "Passive-only electro-optical sensor without laser rangefinder"
+    }
+  },
   "sources": {
     "wp-typhoon": {
       "title": "Eurofighter Typhoon",
       "publisher": "Wikipedia (revision 1378850990)",
       "url": "https://en.wikipedia.org/w/index.php?title=Eurofighter_Typhoon&oldid=1378850990",
       "date": "2026-10-06"
+    },
+    "hudson-ir": {
+      "title": "R. D. Hudson, Infrared System Engineering (Wiley, 1969) & atmospheric MWIR (3-5 um) / LWIR (8-12 um) / solar-blind UV (0.25-0.28 um) windows",
+      "publisher": "John Wiley & Sons",
+      "url": "",
+      "date": "1969"
     }
   }
 }

@@ -3,13 +3,90 @@
   "designation": "A-10C Link 16 radio (model not named)",
   "family": "comm_terminal",
   "summary": "Link 16 tactical data link radio of the Precision Engagement upgrade, with Satcom. The source names no model.",
-  "parameters": {},
+  "parameters": {
+    "frequency_min_hz": {
+      "value": 969000000.0,
+      "unit": "Hz",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "mil-std-6016",
+      "note": "MIL-STD-6016 Link 16 L-band lower edge (969 MHz)"
+    },
+    "frequency_max_hz": {
+      "value": 1206000000.0,
+      "unit": "Hz",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "mil-std-6016",
+      "note": "MIL-STD-6016 Link 16 L-band upper edge (1206 MHz)"
+    },
+    "tx_power_w": {
+      "value": 200.0,
+      "unit": "W",
+      "uncertainty": 20.0,
+      "basis": "published",
+      "source": "mil-std-6016",
+      "note": "Standard Link 16 Class 2 / MIDS-LVT nominal 200 W RF output"
+    },
+    "channel_bandwidth_hz": {
+      "value": 3000000.0,
+      "unit": "Hz",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "mil-std-6016",
+      "note": "Link 16 nominal 3 MHz per-channel hop spacing across 51 channels"
+    },
+    "processing_gain_db": {
+      "value": 17.1,
+      "unit": "dB",
+      "uncertainty": 1.5,
+      "basis": "derived",
+      "source": "mil-std-6016",
+      "note": "10*log10(51) = 17.1 dB frequency-hopping spread-spectrum processing gain across 51 Link 16 channels"
+    },
+    "jam_threshold_j_to_n_db": {
+      "value": 25.0,
+      "unit": "dB",
+      "uncertainty": 5.0,
+      "basis": "assumed",
+      "note": "Effective post-despreading J/N threshold above which Link 16/CNI packet loss prevents tracking (unpublished)"
+    },
+    "antenna_gain_dbi": {
+      "value": 0.0,
+      "unit": "dBi",
+      "uncertainty": 2.0,
+      "basis": "assumed",
+      "note": "Nominal omnidirectional blade/conformal L-band antenna gain"
+    },
+    "iff_capable": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-a10c",
+      "note": "Dedicated datalink terminal without integrated IFF interrogator stated in source"
+    },
+    "iff_mode5": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-a10c",
+      "note": "No Mode 5 IFF interrogator on this card"
+    }
+  },
   "sources": {
     "wp-a10c": {
       "title": "Fairchild Republic A-10 Thunderbolt II",
       "publisher": "Wikipedia (revision 1378202818)",
       "url": "https://en.wikipedia.org/w/index.php?title=Fairchild_Republic_A-10_Thunderbolt_II&oldid=1378202818",
       "date": "2026-10-03"
+    },
+    "mil-std-6016": {
+      "title": "MIL-STD-6016 / NATO STANAG 5516: Tactical Data Link (TDL) 16 Message Standard (JTIDS/MIDS 969-1206 MHz, 51 channels x 3 MHz)",
+      "publisher": "U.S. Department of Defense / NATO",
+      "url": "",
+      "date": "2004"
     }
   }
 }

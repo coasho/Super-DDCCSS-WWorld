@@ -18,14 +18,15 @@ constexpr double kGpsBwHz = 20.46e6; ///< P(Y)/M-code military spread bandwidth
 class PntReceiver final : public Model {
 public:
     explicit PntReceiver(const Card& card) {
-        const bool isGps = (card.id == "magr-2k");
-        gnssCapable_ = card.value("gnss_capable", isGps ? 1.0 : 0.0) > 0.5;
-        driftRateMs_ = card.value("drift_rate_m_s", isGps ? 0.50 : 0.412); // ~0.8 nmi/h for INS
-        nominalHorizM_ = card.value("nominal_horizontal_m", isGps ? 3.0 : 20.0);
-        nominalVertM_ = card.value("nominal_vertical_m", isGps ? 4.5 : 15.0);
-        carrierDbw_ = card.value("gnss_carrier_dbw", -160.0); // -130 dBm nominal military GPS
+        // Generic pure-INS fallback when a synthetic card omits parameters;
+        // maintained pnt cards declare their own parameters in assets/payloads/*.json.
+        gnssCapable_ = card.value("gnss_capable", 0.0) > 0.5;
+        driftRateMs_ = card.value("drift_rate_m_s", 0.412); // ~0.8 nmi/h navigation-grade INS
+        nominalHorizM_ = card.value("nominal_horizontal_m", 20.0);
+        nominalVertM_ = card.value("nominal_vertical_m", 15.0);
+        carrierDbw_ = card.value("gnss_carrier_dbw", -160.0); // IS-GPS-200 -160 dBW P(Y) min
         noiseFigureDb_ = card.value("noise_figure_db", 3.0);
-        antiJamDb_ = card.value("anti_jam_db", 24.0);         // SAASM processing gain margin (basis: assumed)
+        antiJamDb_ = card.value("anti_jam_db", 24.0);
         lockThresholdDbHz_ = card.value("lock_threshold_dbhz", 22.0);
         horizErrorM_ = nominalHorizM_;
         vertErrorM_ = nominalVertM_;

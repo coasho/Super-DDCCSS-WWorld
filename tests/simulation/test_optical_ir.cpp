@@ -156,6 +156,26 @@ TEST_CASE("SIM-M06 open-source radiometric alignment: Planck integral, kinetic h
     CHECK(targetRadiantIntensityWSr(jet, fsim::ms::Role::Weapon, true, noseSensor, 0.25, 0.28, 1.0) > 50.0);
     CHECK(targetRadiantIntensityWSr(jet, fsim::ms::Role::Weapon, false, noseSensor, 0.25, 0.28, 1.0) == 0.0);
 
+    // Phase 4.3: Propulsion-regime IR differentiation (jet >> turboprop >> piston) & missile scale
+    fsim::sim::VehicleState turboprop = jet;
+    turboprop.mach = 0.45;
+    turboprop.engineCount = 1;
+    turboprop.engineRpm[0] = 1020.0;
+    turboprop.engineN2[0] = 95.0;
+    fsim::sim::VehicleState piston = jet;
+    piston.mach = 0.18;
+    piston.engineCount = 1;
+    piston.engineRpm[0] = 2400.0;
+    piston.engineN2[0] = 0.0;
+    const double iTurbopropTail = targetRadiantIntensityWSr(turboprop, fsim::ms::Role::Aircraft, false, tailSensor, 3.0, 5.0, 5.0);
+    const double iPistonTail = targetRadiantIntensityWSr(piston, fsim::ms::Role::Aircraft, false, tailSensor, 3.0, 5.0, 2.5);
+    CHECK(iTailDry > iTurbopropTail * 3.0);
+    CHECK(iTurbopropTail > iPistonTail * 4.0);
+    CHECK(iPistonTail < 25.0); // Small shielded piston exhaust is orders of magnitude dimmer than a fighter jet
+    const double iSmallMsl = targetRadiantIntensityWSr(jet, fsim::ms::Role::Weapon, true, noseSensor, 3.0, 5.0, 0.65);
+    const double iLargeMsl = targetRadiantIntensityWSr(jet, fsim::ms::Role::Weapon, true, noseSensor, 3.0, 5.0, 1.40);
+    CHECK(iLargeMsl > iSmallMsl * 2.5);
+
     // 5) Two-way Lambertian laser rangefinder link equation (R^-2 * tau^2)
     const double snr10 = laserReturnSnr(10000.0, 8000.0, 8000.0, 5e5, 0.12, 1.064, 0.2, 2.5e-9, clearEnv);
     const double snr5 = laserReturnSnr(5000.0, 8000.0, 8000.0, 5e5, 0.12, 1.064, 0.2, 2.5e-9, clearEnv);

@@ -4,13 +4,93 @@
   "family": "comm_terminal",
   "summary": "communications, navigation and identification suite: MADL and Link 16 data links, IFF, radios",
   "maker": "Northrop Grumman",
-  "parameters": {},
+  "parameters": {
+    "frequency_min_hz": {
+      "value": 969000000.0,
+      "unit": "Hz",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "mil-std-6016",
+      "note": "MIL-STD-6016 Link 16 L-band lower edge (969 MHz)"
+    },
+    "frequency_max_hz": {
+      "value": 15000000000.0,
+      "unit": "Hz",
+      "uncertainty": 500000000.0,
+      "basis": "assumed",
+      "note": "Upper Ku-band directional datalink frequency bound (AN/ASQ-242 MADL + Link 16 integrated CNI; exact frequencies unpublished)"
+    },
+    "tx_power_w": {
+      "value": 100.0,
+      "unit": "W",
+      "uncertainty": 30.0,
+      "basis": "assumed",
+      "note": "Assumed effective transmit power (AN/ASQ-242 MADL + Link 16 integrated CNI; exact multi-mode RF power unpublished)"
+    },
+    "channel_bandwidth_hz": {
+      "value": 3000000.0,
+      "unit": "Hz",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "mil-std-6016",
+      "note": "Link 16 nominal 3 MHz per-channel hop spacing across 51 channels"
+    },
+    "processing_gain_db": {
+      "value": 24.0,
+      "unit": "dB",
+      "uncertainty": 4.0,
+      "basis": "assumed",
+      "note": "Integrated F-35A CNI combining Link 16 FHSS with directional Ku-band MADL LPI/LPD anti-jam gain (classified; assumed)"
+    },
+    "jam_threshold_j_to_n_db": {
+      "value": 25.0,
+      "unit": "dB",
+      "uncertainty": 5.0,
+      "basis": "assumed",
+      "note": "Effective post-despreading J/N threshold above which Link 16/CNI packet loss prevents tracking (unpublished)"
+    },
+    "antenna_gain_dbi": {
+      "value": 0.0,
+      "unit": "dBi",
+      "uncertainty": 2.0,
+      "basis": "assumed",
+      "note": "Nominal omnidirectional blade/conformal L-band antenna gain"
+    },
+    "iff_capable": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-f35a",
+      "note": "Card source explicitly states integrated Mode 5 IFF"
+    },
+    "iff_mode5": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "icao-annex10",
+      "note": "STANAG 4193 Mark XIIA Mode 5 encrypted MSK spread-spectrum IFF"
+    }
+  },
   "sources": {
     "wp-f35a": {
       "title": "Lockheed Martin F-35 Lightning II",
       "publisher": "Wikipedia (revision 1378856932)",
       "url": "https://en.wikipedia.org/w/index.php?title=Lockheed_Martin_F-35_Lightning_II&oldid=1378856932",
       "date": "2026-10-06"
+    },
+    "mil-std-6016": {
+      "title": "MIL-STD-6016 / NATO STANAG 5516: Tactical Data Link (TDL) 16 Message Standard (JTIDS/MIDS 969-1206 MHz, 51 channels x 3 MHz)",
+      "publisher": "U.S. Department of Defense / NATO",
+      "url": "",
+      "date": "2004"
+    },
+    "icao-annex10": {
+      "title": "ICAO Annex 10, Vol. IV (Surveillance and Collision Avoidance Systems) & NATO STANAG 4193 (IFF Mark XIIA Mode 5)",
+      "publisher": "International Civil Aviation Organization / NATO",
+      "url": "",
+      "date": "2014"
     }
   }
 }

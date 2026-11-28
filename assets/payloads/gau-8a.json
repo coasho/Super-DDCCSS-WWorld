@@ -4,13 +4,111 @@
   "family": "gun",
   "summary": "30 mm seven-barrel rotary cannon",
   "maker": "General Electric (now General Dynamics)",
-  "parameters": {},
+  "parameters": {
+    "calibre_m": {
+      "value": 0.03,
+      "unit": "m",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-a10c",
+      "note": "Published bore diameter (30x173 mm PGU-13/B HEI & PGU-14/B API)"
+    },
+    "rate_of_fire_rpm": {
+      "value": 3900.0,
+      "unit": "rpm",
+      "uncertainty": 195.0,
+      "basis": "published",
+      "source": "wp-a10c",
+      "note": "Published cyclic firing rate per gun mount (30x173 mm PGU-13/B HEI & PGU-14/B API)"
+    },
+    "muzzle_velocity_ms": {
+      "value": 1010.0,
+      "unit": "m/s",
+      "uncertainty": 25.0,
+      "basis": "published",
+      "source": "tm-43-0001-27",
+      "note": "Published nominal muzzle velocity (30x173 mm PGU-13/B HEI & PGU-14/B API)"
+    },
+    "projectile_kg": {
+      "value": 0.36,
+      "unit": "kg",
+      "uncertainty": 0.0144,
+      "basis": "published",
+      "source": "tm-43-0001-27",
+      "note": "Published projectile mass (30x173 mm PGU-13/B HEI & PGU-14/B API)"
+    },
+    "shed_mass_kg": {
+      "value": 0.495,
+      "unit": "kg",
+      "uncertainty": 0.0396,
+      "basis": "derived",
+      "source": "tm-43-0001-27",
+      "note": "Closed-loop linkless GAU-8/A drum retains spent cases; shed mass = projectile (~0.36 kg) + propellant gas (~0.135 kg)"
+    },
+    "explosive_kg": {
+      "value": 0.058,
+      "unit": "kg",
+      "uncertainty": 0.0145,
+      "basis": "assumed",
+      "note": "Nominal HEI/SAPHEI explosive filler mass per round (30x173 mm PGU-13/B HEI & PGU-14/B API); varies by ammunition mix"
+    },
+    "dispersion_rad": {
+      "value": 0.002,
+      "unit": "rad",
+      "uncertainty": 0.0005,
+      "basis": "assumed",
+      "note": "1-sigma angular dispersion (derived class value from typical 5-8 mil 80% airborne cannon dispersion circle)"
+    },
+    "drag_cd": {
+      "value": 0.28,
+      "unit": "1",
+      "uncertainty": 0.03,
+      "basis": "derived",
+      "source": "stanag-4355",
+      "note": "Reference supersonic form-scaled Cd at Mach 1.8 against BRL/McCoy G7 boattail standard curve (Cd_G7(1.8)=0.298)"
+    },
+    "elevation_rad": {
+      "value": -0.035,
+      "unit": "rad",
+      "uncertainty": 0.002,
+      "basis": "published",
+      "source": "wp-a10c",
+      "note": "Published fixed gun mount depression angle relative to fuselage waterline"
+    },
+    "capacity": {
+      "value": 1174,
+      "unit": "rounds",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-a10c",
+      "note": "Published A-10C nominal 1,174-round combat load"
+    },
+    "self_destruct_s": {
+      "value": 9.5,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "Pyrotechnic self-destruct fuze / effective max flight time for 30x173 mm PGU-13/B HEI & PGU-14/B API (varies by fuze lot)"
+    }
+  },
   "sources": {
     "wp-a10c": {
       "title": "Fairchild Republic A-10 Thunderbolt II",
       "publisher": "Wikipedia (revision 1378202818)",
       "url": "https://en.wikipedia.org/w/index.php?title=Fairchild_Republic_A-10_Thunderbolt_II&oldid=1378202818",
       "date": "2026-10-03"
+    },
+    "stanag-4355": {
+      "title": "NATO STANAG 4355 (Modified Point Mass Trajectory Model) & R. L. McCoy, Modern Exterior Ballistics (Schiffer, 1999)",
+      "publisher": "NATO / Schiffer Military History",
+      "url": "",
+      "date": "1999"
+    },
+    "tm-43-0001-27": {
+      "title": "U.S. Army TM 43-0001-27: Army Ammunition Data Sheets - Small Caliber Ammunition & USAF/NATO airborne cannon ammunition specifications",
+      "publisher": "U.S. Department of the Army",
+      "url": "",
+      "date": "1994"
     }
   }
 }

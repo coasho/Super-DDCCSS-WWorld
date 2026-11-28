@@ -25,6 +25,8 @@ constexpr double kMemoryS = 3.0;            // an emitter no longer heard is kep
 constexpr std::size_t kContacts = 64;
 constexpr std::size_t kGeoSamplesMax = 64;
 
+// Generic wide-open superheterodyne RWR fallback when a synthetic card omits parameters;
+// all maintained esm cards declare their own parameters in assets/payloads/*.json.
 struct EsmClassDefaults {
     double sensitivityDbm = kSensitivityDbm;
     double antennaGainDbi = kAntennaGainDbi;
@@ -35,43 +37,6 @@ struct EsmClassDefaults {
     bool geolocation = false;
     bool comint = false;
 };
-
-EsmClassDefaults esmDefaultsFor(const Card& card) {
-    EsmClassDefaults d;
-    if (card.id == "rivet-joint") {
-        // Dedicated airborne SIGINT (COMINT + ELINT) suite (basis: assumed class bounds).
-        d.sensitivityDbm = -85.0;
-        d.antennaGainDbi = 3.0;
-        d.bandMinHz = 0.03e9; // VHF/UHF COMINT through X/Ku ELINT
-        d.bandMaxHz = 18.0e9;
-        d.bearingSigmaDeg = 1.5;
-        d.bearingFloorDeg = 0.5;
-        d.geolocation = true;
-        d.comint = true;
-    } else if (card.id == "an-alq-218" || card.id == "e3-esm" || card.id == "e7-esm") {
-        // Wideband interferometric ESM/ELINT suites capable of DF geolocation and L-band link intercept.
-        d.sensitivityDbm = -75.0;
-        d.antennaGainDbi = 2.0;
-        d.bandMinHz = 0.5e9;
-        d.bandMaxHz = 18.0e9;
-        d.bearingSigmaDeg = 2.0;
-        d.bearingFloorDeg = 0.6;
-        d.geolocation = true;
-        d.comint = true;
-    } else if (card.id == "an-alr-94" || card.id == "an-asq-239" || card.id == "spectra" ||
-               card.id == "praetorian" || card.id == "gripen-ews") {
-        // Integrated fighter EW/ESM suites with interferometric DF and moving-baseline geolocation.
-        d.sensitivityDbm = -70.0;
-        d.antennaGainDbi = 1.0;
-        d.bandMinHz = 0.5e9;
-        d.bandMaxHz = 18.0e9;
-        d.bearingSigmaDeg = 3.0;
-        d.bearingFloorDeg = 1.0;
-        d.geolocation = true;
-        d.comint = false;
-    }
-    return d;
-}
 
 void ecefToGeodetic(const double p[3], double& latRad, double& lonRad, double& heightM) noexcept {
     constexpr double a = 6378137.0;
@@ -298,7 +263,7 @@ namespace {
 class Receiver final : public Model {
 public:
     explicit Receiver(const Card& card) {
-        const EsmClassDefaults def = esmDefaultsFor(card);
+        const EsmClassDefaults def{};
         sensitivityDbm_ = card.value("sensitivity_dbm", def.sensitivityDbm);
         antennaGainDbi_ = card.value("antenna_gain_dbi", def.antennaGainDbi);
         bandMinHz_ = card.value("frequency_min_hz", def.bandMinHz);

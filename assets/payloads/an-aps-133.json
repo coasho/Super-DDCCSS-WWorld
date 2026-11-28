@@ -4,13 +4,84 @@
   "family": "weather_radar",
   "summary": "weather and mapping radar",
   "maker": "AlliedSignal (now Honeywell)",
-  "parameters": {},
+  "parameters": {
+    "frequency_hz": {
+      "value": 9375000000.0,
+      "unit": "Hz",
+      "uncertainty": 50000000.0,
+      "basis": "published",
+      "source": "itu-p838",
+      "note": "Standard ARINC 708 / ITU aeronautical airborne X-band weather radar center frequency (9.345-9.375 GHz)"
+    },
+    "power_w": {
+      "value": 120.0,
+      "unit": "W",
+      "uncertainty": 40.0,
+      "basis": "assumed",
+      "note": "Assumed average X-band transmit power for C-17A AN/APS-133(V) weather & ground-mapping radar"
+    },
+    "peak_power_w": {
+      "value": 6000.0,
+      "unit": "W",
+      "uncertainty": 2000.0,
+      "basis": "assumed",
+      "note": "Assumed pulsed peak transmit power for C-17A AN/APS-133(V) weather & ground-mapping radar"
+    },
+    "peak_gain_dbi": {
+      "value": 30.0,
+      "unit": "dBi",
+      "uncertainty": 2.0,
+      "basis": "assumed",
+      "note": "Assumed flat-plate weather radar array peak gain (~0.45-0.75 m dish) for C-17A AN/APS-133(V) weather & ground-mapping radar"
+    },
+    "azimuth_limit_deg": {
+      "value": 60.0,
+      "unit": "deg",
+      "uncertainty": 10.0,
+      "basis": "assumed",
+      "note": "Standard +/-60 deg forward airborne weather radar azimuth sweep"
+    },
+    "elevation_limit_deg": {
+      "value": 15.0,
+      "unit": "deg",
+      "uncertainty": 3.0,
+      "basis": "assumed",
+      "note": "Standard +/-15 deg airborne weather radar antenna tilt range"
+    },
+    "beamwidth_deg": {
+      "value": 3.5,
+      "unit": "deg",
+      "uncertainty": 0.5,
+      "basis": "assumed",
+      "note": "Assumed 3-dB pencil beamwidth for C-17A AN/APS-133(V) weather & ground-mapping radar"
+    },
+    "range_max_m": {
+      "value": 320000.0,
+      "unit": "m",
+      "uncertainty": 40000.0,
+      "basis": "assumed",
+      "note": "Standard ~160-180 nmi (300-320 km) airborne weather radar display range"
+    },
+    "mds_dbz_10km": {
+      "value": 5.0,
+      "unit": "dBZ",
+      "uncertainty": 3.0,
+      "basis": "assumed",
+      "note": "Assumed minimum detectable precipitation reflectivity at 10 km reference range (Probert-Jones equation)"
+    }
+  },
   "sources": {
     "wp-c17a": {
       "title": "Boeing C-17 Globemaster III",
       "publisher": "Wikipedia (revision 1376719976)",
       "url": "https://en.wikipedia.org/w/index.php?title=Boeing_C-17_Globemaster_III&oldid=1376719976",
       "date": "2026-09-25"
+    },
+    "itu-p838": {
+      "title": "ITU-R Recommendation P.838-3 (Specific attenuation model for rain) & ARINC 708 airborne X-band weather radar allocation (9.3-9.5 GHz)",
+      "publisher": "International Telecommunication Union / ARINC",
+      "url": "",
+      "date": "2005"
     }
   }
 }

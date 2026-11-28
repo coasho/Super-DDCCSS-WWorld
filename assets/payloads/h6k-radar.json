@@ -3,7 +3,85 @@
   "designation": "H-6K nose radar (model not named)",
   "family": "ground_map_radar",
   "summary": "modern air-to-ground radar in the new nose radome (no A-GRA capability: its status only). The source names no model.",
-  "parameters": {},
+  "parameters": {
+    "frequency_hz": {
+      "value": 9400000000.0,
+      "unit": "Hz",
+      "uncertainty": 300000000.0,
+      "basis": "assumed",
+      "note": "Assumed X-band bomber nose air-to-ground radar (model not named in source)"
+    },
+    "power_w": {
+      "value": 600.0,
+      "unit": "W",
+      "uncertainty": 250.0,
+      "basis": "assumed",
+      "note": "Assumed average transmit power (model not named; strategic bomber class)"
+    },
+    "peak_power_w": {
+      "value": 25000.0,
+      "unit": "W",
+      "uncertainty": 10000.0,
+      "basis": "assumed",
+      "note": "Assumed pulsed peak transmit power (model not named)"
+    },
+    "peak_gain_dbi": {
+      "value": 33.0,
+      "unit": "dBi",
+      "uncertainty": 3.0,
+      "basis": "assumed",
+      "note": "Assumed bomber nose radome antenna peak gain (model not named)"
+    },
+    "azimuth_limit_deg": {
+      "value": 45.0,
+      "unit": "deg",
+      "uncertainty": 10.0,
+      "basis": "assumed",
+      "note": "Assumed forward ground-map sector half-angle"
+    },
+    "beamwidth_deg": {
+      "value": 2.5,
+      "unit": "deg",
+      "uncertainty": 0.5,
+      "basis": "assumed",
+      "note": "Assumed X-band nose antenna 3-dB beamwidth"
+    },
+    "range_resolution_m": {
+      "value": 30.0,
+      "unit": "m",
+      "uncertainty": 15.0,
+      "basis": "assumed",
+      "note": "Assumed ground-map slant-range resolution"
+    },
+    "noise_figure_db": {
+      "value": 5.0,
+      "unit": "dB",
+      "uncertainty": 1.5,
+      "basis": "assumed",
+      "note": "Assumed X-band receiver noise figure"
+    },
+    "system_loss_db": {
+      "value": 6.0,
+      "unit": "dB",
+      "uncertainty": 2.0,
+      "basis": "assumed",
+      "note": "Assumed radome and processing losses"
+    },
+    "dwell_s": {
+      "value": 0.02,
+      "unit": "s",
+      "uncertainty": 0.01,
+      "basis": "assumed",
+      "note": "Nominal azimuth dwell time"
+    },
+    "range_max_m": {
+      "value": 120000.0,
+      "unit": "m",
+      "uncertainty": 30000.0,
+      "basis": "assumed",
+      "note": "Assumed instrumented air-to-ground mapping range"
+    }
+  },
   "sources": {
     "wp-h6k": {
       "title": "Xi'an H-6",

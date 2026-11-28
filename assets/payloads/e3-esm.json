@@ -3,7 +3,78 @@
   "designation": "E-3 ESM",
   "family": "esm",
   "summary": "electronic support measures: passive detection and identification of emitters",
-  "parameters": {},
+  "parameters": {
+    "sensitivity_dbm": {
+      "value": -75.0,
+      "unit": "dBm",
+      "uncertainty": 6.0,
+      "basis": "assumed",
+      "note": "Unpublished minimum detectable pulse power at antenna port; E-3G wideband airborne ESM/ELINT suite class bound (Adamy EW 101/102)"
+    },
+    "antenna_gain_dbi": {
+      "value": 2.0,
+      "unit": "dBi",
+      "uncertainty": 2.0,
+      "basis": "assumed",
+      "note": "Unpublished ESM/RWR receive antenna gain; E-3G wideband airborne ESM/ELINT suite class estimate"
+    },
+    "frequency_min_hz": {
+      "value": 500000000.0,
+      "unit": "Hz",
+      "uncertainty": 100000000.0,
+      "basis": "assumed",
+      "note": "Unpublished exact lower RF intercept frequency; E-3G wideband airborne ESM/ELINT suite class band"
+    },
+    "frequency_max_hz": {
+      "value": 18000000000.0,
+      "unit": "Hz",
+      "uncertainty": 2000000000.0,
+      "basis": "assumed",
+      "note": "Unpublished exact upper RF intercept frequency; E-3G wideband airborne ESM/ELINT suite class band (standard 2-18 GHz threat band or wider)"
+    },
+    "bearing_sigma_deg": {
+      "value": 2.0,
+      "unit": "deg",
+      "uncertainty": 0.7,
+      "basis": "assumed",
+      "note": "Unpublished 1-sigma AOA error at threshold; E-3G wideband airborne ESM/ELINT suite (interferometric phase DF)"
+    },
+    "bearing_floor_deg": {
+      "value": 0.6,
+      "unit": "deg",
+      "uncertainty": 0.21,
+      "basis": "assumed",
+      "note": "Unpublished high-SNR AOA error floor; E-3G wideband airborne ESM/ELINT suite"
+    },
+    "measure_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 0.5,
+      "basis": "assumed",
+      "note": "Nominal ESM emitter bearing measurement update interval"
+    },
+    "memory_s": {
+      "value": 3.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "Emitter track coast memory after last intercepted dwell"
+    },
+    "geolocation": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Moving-baseline/interferometric emitter geolocation capability (E-3G wideband airborne ESM/ELINT suite)"
+    },
+    "comint": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "L-band/VHF-UHF communications/datalink intercept capability (E-3G wideband airborne ESM/ELINT suite)"
+    }
+  },
   "sources": {
     "wp-e3g": {
       "title": "Boeing E-3 Sentry",

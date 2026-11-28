@@ -4,13 +4,132 @@
   "family": "passive_optical",
   "summary": "electro-optical distributed aperture system: six infrared sensors for spherical missile warning and tracking",
   "maker": "Northrop Grumman / Raytheon",
-  "parameters": {},
+  "parameters": {
+    "wavelength_min_um": {
+      "value": 3.0,
+      "unit": "um",
+      "uncertainty": 0.2,
+      "basis": "published",
+      "source": "hudson-ir",
+      "note": "Atmospheric MWIR passband lower edge (3.0 um)"
+    },
+    "wavelength_max_um": {
+      "value": 5.0,
+      "unit": "um",
+      "uncertainty": 0.3,
+      "basis": "published",
+      "source": "hudson-ir",
+      "note": "Atmospheric MWIR passband upper edge (5.0 um)"
+    },
+    "nei_w_m2": {
+      "value": 3.5e-11,
+      "unit": "W/m^2",
+      "uncertainty": 1.4e-11,
+      "basis": "assumed",
+      "note": "Unpublished Noise-Equivalent Irradiance; F-35A AN/AAQ-37 6-sensor spherical MWIR Distributed Aperture System class estimate (Hudson IR System Engineering bounds)"
+    },
+    "detection_snr": {
+      "value": 6.0,
+      "unit": "1",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "Linear detection SNR threshold (~7.8 dB) for low false-alarm point-target IR/UV detection"
+    },
+    "lookdown_factor": {
+      "value": 1.8,
+      "unit": "1",
+      "uncertainty": 0.4,
+      "basis": "assumed",
+      "note": "Background-clutter NEI multiplier when looking below horizon against warm Earth/cloud background"
+    },
+    "azimuth_limit_deg": {
+      "value": 180.0,
+      "unit": "deg",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-f35a",
+      "note": "Full 360-degree spherical/azimuth coverage from distributed aperture windows"
+    },
+    "elevation_min_deg": {
+      "value": -90.0,
+      "unit": "deg",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-f35a",
+      "note": "Lower spherical hemisphere coverage"
+    },
+    "elevation_max_deg": {
+      "value": 90.0,
+      "unit": "deg",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-f35a",
+      "note": "Upper spherical hemisphere coverage"
+    },
+    "angle_sigma_mrad": {
+      "value": 3.5,
+      "unit": "mrad",
+      "uncertainty": 1.05,
+      "basis": "assumed",
+      "note": "Unpublished angular measurement 1-sigma at threshold for F-35A AN/AAQ-37 6-sensor spherical MWIR Distributed Aperture System"
+    },
+    "angle_floor_mrad": {
+      "value": 1.5,
+      "unit": "mrad",
+      "uncertainty": 0.45,
+      "basis": "assumed",
+      "note": "Unpublished high-SNR stabilized angular error floor for F-35A AN/AAQ-37 6-sensor spherical MWIR Distributed Aperture System"
+    },
+    "measure_s": {
+      "value": 0.25,
+      "unit": "s",
+      "uncertainty": 0.1,
+      "basis": "assumed",
+      "note": "Nominal optical frame/scan track update period"
+    },
+    "memory_s": {
+      "value": 3.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "Optical track coast memory during temporary cloud/aspect occultation"
+    },
+    "all_round": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-f35a",
+      "note": "Distributed multi-window spherical coverage"
+    },
+    "continuous": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "Continuous background surveillance upon Operate (DAS/MAWS/MWS)"
+    },
+    "laser_capable": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-f35a",
+      "note": "Passive-only electro-optical sensor without laser rangefinder"
+    }
+  },
   "sources": {
     "wp-f35a": {
       "title": "Lockheed Martin F-35 Lightning II",
       "publisher": "Wikipedia (revision 1378856932)",
       "url": "https://en.wikipedia.org/w/index.php?title=Lockheed_Martin_F-35_Lightning_II&oldid=1378856932",
       "date": "2026-10-06"
+    },
+    "hudson-ir": {
+      "title": "R. D. Hudson, Infrared System Engineering (Wiley, 1969) & atmospheric MWIR (3-5 um) / LWIR (8-12 um) / solar-blind UV (0.25-0.28 um) windows",
+      "publisher": "John Wiley & Sons",
+      "url": "",
+      "date": "1969"
     }
   }
 }

@@ -46,8 +46,8 @@ double cloudSlabFraction(double h1, double h2, double cloudBaseM, double cloudTo
     return std::clamp((ovHi - ovLo) / (hi - lo), 0.0, 1.0);
 }
 
-// Engineering class defaults (basis: assumed) covering all 19 maintained passive_optical
-// payload cards. Any explicit parameter declared on a payload card overrides these defaults.
+// Generic MWIR IRST fallback used only when a synthetic card omits parameters;
+// all 19 maintained passive_optical payload cards declare their own parameters in assets/payloads/*.json.
 struct OpticalClassDefaults {
     double bandMinUm = 3.0;
     double bandMaxUm = 5.0;
@@ -72,142 +72,6 @@ struct OpticalClassDefaults {
     double laserMaxRangeM = 18000.0;  ///< Instrumented max laser range (m)
     double laserRangeSigmaM = 3.0;    ///< 1-sigma laser range measurement error (m)
 };
-
-OpticalClassDefaults defaultsFor(const Card& card) {
-    OpticalClassDefaults d;
-    const std::string& id = card.id;
-    if (id == "an-aaq-40" || id == "eots-86") {
-        // 5th-gen under-nose EOTS (FLIR + IRST + LRF/LTD)
-        d.bandMinUm = 3.0;
-        d.bandMaxUm = 5.0;
-        d.neiWm2 = 1.2e-11;
-        d.azLimitDeg = 110.0;
-        d.elMinDeg = -90.0;
-        d.elMaxDeg = 35.0;
-        d.angleSigmaMrad = 0.5;
-        d.angleFloorMrad = 0.15;
-        d.laserCapable = true;
-        d.laserWavelengthUm = 1.064;
-        d.laserPeakPowerW = 6.0e5;
-        d.laserApertureM = 0.12;
-        d.laserMaxRangeM = 25000.0;
-        d.laserRangeSigmaM = 2.0;
-    } else if (id == "h6k-eots") {
-        d.bandMinUm = 3.0;
-        d.bandMaxUm = 12.0;
-        d.neiWm2 = 2.5e-11;
-        d.azLimitDeg = 120.0;
-        d.elMinDeg = -90.0;
-        d.elMaxDeg = 20.0;
-        d.angleSigmaMrad = 0.8;
-        d.angleFloorMrad = 0.25;
-        d.laserCapable = true;
-        d.laserWavelengthUm = 1.064;
-        d.laserPeakPowerW = 4.0e5;
-        d.laserApertureM = 0.10;
-        d.laserMaxRangeM = 20000.0;
-        d.laserRangeSigmaM = 3.0;
-    } else if (id == "oeps-27" || id == "oeps-29") {
-        // OLS-27 / OEPS-29 fighter IRST + laser rangefinder
-        d.bandMinUm = 3.0;
-        d.bandMaxUm = 5.0;
-        d.neiWm2 = 2.5e-11;
-        d.azLimitDeg = 60.0;
-        d.elMinDeg = -15.0;
-        d.elMaxDeg = 60.0;
-        d.angleSigmaMrad = 1.0;
-        d.angleFloorMrad = 0.35;
-        d.laserCapable = true;
-        d.laserWavelengthUm = 1.064;
-        d.laserPeakPowerW = 3.0e5;
-        d.laserApertureM = 0.08;
-        d.laserMaxRangeM = 10000.0;
-        d.laserRangeSigmaM = 5.0;
-    } else if (id == "osf" || id == "101ks-atoll") {
-        // Modern dual-band fighter IRST + eye-safe LRF
-        d.bandMinUm = 3.0;
-        d.bandMaxUm = 12.0;
-        d.neiWm2 = 1.5e-11;
-        d.azLimitDeg = (id == "101ks-atoll") ? 80.0 : 75.0;
-        d.elMinDeg = -30.0;
-        d.elMaxDeg = 60.0;
-        d.angleSigmaMrad = 0.6;
-        d.angleFloorMrad = 0.2;
-        d.laserCapable = true;
-        d.laserWavelengthUm = 1.54;
-        d.laserPeakPowerW = 5.0e5;
-        d.laserApertureM = 0.10;
-        d.laserMaxRangeM = 20000.0;
-        d.laserRangeSigmaM = 2.5;
-    } else if (id == "pirate" || id == "eord-31") {
-        // Passive-only dual-band long-range fighter IRST
-        d.bandMinUm = 3.0;
-        d.bandMaxUm = 12.0;
-        d.neiWm2 = 1.2e-11;
-        d.azLimitDeg = 75.0;
-        d.elMinDeg = -40.0;
-        d.elMaxDeg = 60.0;
-        d.angleSigmaMrad = 0.6;
-        d.angleFloorMrad = 0.2;
-        d.laserCapable = false;
-    } else if (id == "klen-ps") {
-        // Su-25 nose laser rangefinder & designator (narrow optical sight + 1.064 um laser)
-        d.bandMinUm = 3.0;
-        d.bandMaxUm = 5.0;
-        d.neiWm2 = 6.0e-11;
-        d.azLimitDeg = 12.0;
-        d.elMinDeg = -30.0;
-        d.elMaxDeg = 6.0;
-        d.angleSigmaMrad = 1.2;
-        d.angleFloorMrad = 0.4;
-        d.laserCapable = true;
-        d.laserWavelengthUm = 1.064;
-        d.laserPeakPowerW = 3.0e5;
-        d.laserApertureM = 0.08;
-        d.laserMaxRangeM = 10000.0;
-        d.laserRangeSigmaM = 5.0;
-    } else if (id == "an-aaq-37" || id == "j20a-das" || id == "an-aar-56" ||
-               id == "c17a-mws" || id == "gripen-maws") {
-        // Spherical IR DAS / MLD / MAWS: continuous 4*pi surveillance when operating
-        d.bandMinUm = 3.0;
-        d.bandMaxUm = 5.0;
-        d.neiWm2 = (id == "an-aaq-37" || id == "j20a-das") ? 3.5e-11 : 6.0e-11;
-        d.azLimitDeg = 180.0;
-        d.elMinDeg = -90.0;
-        d.elMaxDeg = 90.0;
-        d.angleSigmaMrad = (id == "an-aaq-37" || id == "j20a-das") ? 3.5 : 5.0;
-        d.angleFloorMrad = (id == "an-aaq-37" || id == "j20a-das") ? 1.5 : 2.5;
-        d.allRound = true;
-        d.continuous = true;
-        d.laserCapable = false;
-    } else if (id == "an-aar-54") {
-        // Solar-blind UV missile warning sensor (rocket plumes only)
-        d.bandMinUm = 0.25;
-        d.bandMaxUm = 0.28;
-        d.neiWm2 = 2.5e-11;
-        d.azLimitDeg = 180.0;
-        d.elMinDeg = -90.0;
-        d.elMaxDeg = 90.0;
-        d.angleSigmaMrad = 6.0;
-        d.angleFloorMrad = 3.0;
-        d.allRound = true;
-        d.continuous = true;
-        d.uvOnly = true;
-        d.laserCapable = false;
-    } else if (id == "an-asq-151" || id == "eiss-eoir" || id == "syers-2c") {
-        // Passive FLIR / high-altitude ISR EO/IR
-        d.bandMinUm = 3.0;
-        d.bandMaxUm = 12.0;
-        d.neiWm2 = (id == "an-asq-151") ? 3.5e-11 : 1.0e-11;
-        d.azLimitDeg = (id == "an-asq-151") ? 60.0 : 180.0;
-        d.elMinDeg = -90.0;
-        d.elMaxDeg = (id == "an-asq-151") ? 20.0 : 10.0;
-        d.angleSigmaMrad = 0.5;
-        d.angleFloorMrad = 0.12;
-        d.laserCapable = false;
-    }
-    return d;
-}
 
 class OpticalSensor final : public Model {
 public:
@@ -797,19 +661,26 @@ double targetRadiantIntensityWSr(const sim::VehicleState& target, Role role, boo
 
     if (role == Role::Weapon) {
         double intensity = 0.0;
+        // Scale solid-rocket motor plume and body skin area physically with weapon scale (extentRmsM),
+        // matching 1.0x reference at extentRmsM = 1.0 m (SRAAM/MRAAM class).
+        const double missileScale = (std::isfinite(extentRmsM) && extentRmsM > 0.2)
+                                        ? std::pow(std::clamp(extentRmsM, 0.4, 2.5), 1.5)
+                                        : 1.0;
         if (weaponBurning) {
             if (uvBand) {
                 // Solid-rocket motor plume UV chemiluminescence (solar-blind 0.25-0.28 um)
-                intensity += 75.0;
+                intensity += 75.0 * missileScale;
             } else {
-                // Hot solid-rocket motor plume (~2200 K)
+                // Hot solid-rocket motor plume (~2200 K, Hudson 1969 / Mahulikar et al. 2007)
                 const double fPlume = planckBandFraction(2200.0, lowUm, highUm);
-                intensity += 18000.0 * fPlume; // ~4000 W/sr in 3-5 um MWIR
+                intensity += 18000.0 * missileScale * fPlume;
             }
         }
         if (!uvBand) {
-            // Aerodynamic kinetic-heating missile body contrast
-            const double areaM2 = 0.35;
+            // Aerodynamic kinetic-heating missile body contrast scaled by missile size
+            const double areaM2 = (std::isfinite(extentRmsM) && extentRmsM > 0.2)
+                                      ? std::clamp(0.35 * extentRmsM * extentRmsM, 0.08, 1.5)
+                                      : 0.35;
             const double radSkin = std::pow(skinK, 4) * planckBandFraction(skinK, lowUm, highUm);
             const double radAmb = std::pow(ambK, 4) * planckBandFraction(ambK, lowUm, highUm);
             intensity += (0.85 * areaM2 * kStefanBoltzmann / kPi) * std::max(0.0, radSkin - radAmb);
@@ -821,14 +692,14 @@ double targetRadiantIntensityWSr(const sim::VehicleState& target, Role role, boo
     if (uvBand) return 0.0;
 
     // 1) Aerodynamic kinetic-heating airframe skin contrast
-    const double projAreaM2 = (std::isfinite(extentRmsM) && extentRmsM > 0.5)
-                                  ? std::clamp(1.2 * extentRmsM * extentRmsM, 5.0, 90.0)
-                                  : 16.0;
+    const double extent = (std::isfinite(extentRmsM) && extentRmsM > 0.5) ? extentRmsM : 5.0;
+    const double projAreaM2 = std::clamp(1.2 * extent * extent, 5.0, 90.0);
     const double radSkin = std::pow(skinK, 4) * planckBandFraction(skinK, lowUm, highUm);
     const double radAmb = std::pow(ambK, 4) * planckBandFraction(ambK, lowUm, highUm);
     const double iSkin = (0.85 * projAreaM2 * kStefanBoltzmann / kPi) * std::max(0.0, radSkin - radAmb);
 
-    // 2) Aspect-dependent hot tailpipe cavity + exhaust gas plume
+    // 2) Aspect-dependent hot exhaust cavity + gas plume scaled by actual propulsion regime
+    //    (Hudson, Infrared System Engineering 1969; Mahulikar et al., Prog. Aerospace Sci. 2007).
     double tToS[3] = {
         sensorPosEcef[0] - target.positionEcef[0],
         sensorPosEcef[1] - target.positionEcef[1],
@@ -847,28 +718,59 @@ double targetRadiantIntensityWSr(const sim::VehicleState& target, Role role, boo
     const double visNozzle = 0.04 + 0.96 * tailFrac * tailFrac;
     const double visPlume = 0.25 + 0.75 * std::sqrt(std::max(0.0, 1.0 - 0.5 * (1.0 - cosTail) * (1.0 - cosTail)));
 
-    const int nEng = std::clamp(target.engineCount, 1, sim::VehicleState::kMaxEngines);
-    double thrSum = 0.0;
-    double abSum = 0.0;
-    for (int e = 0; e < nEng; ++e) {
-        thrSum += std::clamp(target.throttlePosition[e], 0.0, 1.0);
-        abSum += std::clamp(target.afterburner[e], 0.0, 1.0);
+    const int totalEngines = std::max(1, target.engineCount);
+    const int sampleEngines = std::clamp(totalEngines, 1, sim::VehicleState::kMaxEngines);
+    const double engineScale = static_cast<double>(totalEngines) / static_cast<double>(sampleEngines);
+
+    double iNozzle = 0.0;
+    double iPlume = 0.0;
+    for (int e = 0; e < sampleEngines; ++e) {
+        const double thr = std::max(0.15, std::clamp(target.throttlePosition[e], 0.0, 1.0));
+        const double ab = std::clamp(target.afterburner[e], 0.0, 1.0);
+        const double rpm = std::isfinite(target.engineRpm[e]) ? target.engineRpm[e] : 0.0;
+        const double n2 = std::isfinite(target.engineN2[e]) ? target.engineN2[e] : 0.0;
+        const double thrustN = (std::isfinite(target.thrustN[e]) && target.thrustN[e] > 0.0) ? target.thrustN[e] : 0.0;
+        const double nozPos = std::clamp(std::isfinite(target.nozzlePosition[e]) ? target.nozzlePosition[e] : ab, 0.0, 1.0);
+
+        double areaNozM2 = 0.0;
+        double tNozzleK = 520.0;
+        double tPlumeK = 850.0;
+        double plumeRadiantWSr = 0.0;
+
+        if (rpm > 1.0 && n2 <= 1.0) {
+            // Piston / reciprocating propeller engine: small shielded exhaust stack, minimal hot gas plume
+            areaNozM2 = 0.008;
+            tNozzleK = 500.0 + 140.0 * thr;
+            tPlumeK = 580.0;
+            plumeRadiantWSr = 18.0 * thr;
+        } else if (rpm > 1.0 && n2 > 1.0) {
+            // Turboprop / turboshaft: cooler compact turbine exhaust duct (e.g. C-130J, MQ-9, UH-60)
+            areaNozM2 = 0.10;
+            tNozzleK = 480.0 + 230.0 * thr;
+            tPlumeK = 680.0;
+            plumeRadiantWSr = 160.0 * thr;
+        } else {
+            // Turbofan / turbojet: nozzle exit area scales from live thrust or airframe scale, plus AB nozzle opening
+            const double baseArea = (thrustN > 500.0)
+                                        ? std::clamp(thrustN / (1.8e5 * (1.0 + 0.55 * ab)), 0.14, 0.55)
+                                        : std::clamp(0.018 * extent * extent / std::sqrt(static_cast<double>(totalEngines)), 0.15, 0.55);
+            areaNozM2 = baseArea * (1.0 + 0.35 * nozPos);
+            tNozzleK = 520.0 + 380.0 * thr + 240.0 * ab;
+            tPlumeK = 850.0 + 950.0 * ab;
+            // CO2/H2O exhaust plume scales with live thrust thermal power (Mahulikar et al. 2007) when available
+            plumeRadiantWSr = (thrustN > 500.0)
+                                  ? ((thrustN * 1e-3) * (14.0 + 48.0 * ab))
+                                  : ((areaNozM2 / 0.45) * (950.0 * thr + 6200.0 * ab));
+        }
+
+        iNozzle += engineScale * visNozzle * (0.90 * areaNozM2 * kStefanBoltzmann / kPi) *
+                   std::pow(tNozzleK, 4) * planckBandFraction(tNozzleK, lowUm, highUm);
+
+        const double fPlumeMwir = planckBandFraction(tPlumeK, std::max(lowUm, 2.7), std::min(highUm, 5.2));
+        const double fPlumeLwir = planckBandFraction(tPlumeK, std::max(lowUm, 7.5), std::min(highUm, 13.0));
+        const double plumeBandScale = fPlumeMwir + 0.25 * fPlumeLwir;
+        iPlume += engineScale * visPlume * plumeRadiantWSr * plumeBandScale;
     }
-    const double thr = std::max(0.15, thrSum / static_cast<double>(nEng));
-    const double ab = abSum / static_cast<double>(nEng);
-
-    // Hot turbine tailpipe / nozzle cavity
-    const double tNozzleK = 520.0 + 380.0 * thr + 240.0 * ab;
-    const double areaNozM2 = 0.45 * static_cast<double>(nEng);
-    const double iNozzle = visNozzle * (0.90 * areaNozM2 * kStefanBoltzmann / kPi) *
-                           std::pow(tNozzleK, 4) * planckBandFraction(tNozzleK, lowUm, highUm);
-
-    // CO2 / H2O exhaust plume (strongest in MWIR 3-5 um, dramatic surge with afterburner)
-    const double tPlumeK = 850.0 + 950.0 * ab;
-    const double fPlumeMwir = planckBandFraction(tPlumeK, std::max(lowUm, 2.7), std::min(highUm, 5.2));
-    const double fPlumeLwir = planckBandFraction(tPlumeK, std::max(lowUm, 7.5), std::min(highUm, 13.0));
-    const double plumeBandScale = fPlumeMwir + 0.25 * fPlumeLwir;
-    const double iPlume = visPlume * static_cast<double>(nEng) * (950.0 * thr + 6200.0 * ab) * plumeBandScale;
 
     return std::max(0.0, iSkin + iNozzle + iPlume);
 }
@@ -892,8 +794,7 @@ double laserReturnSnr(double rangeM, double hSensorM, double hTargetM,
 }
 
 std::unique_ptr<Model> makeOpticalSensor(const Card& card, std::uint16_t count) {
-    const OpticalClassDefaults def = defaultsFor(card);
-    return std::make_unique<OpticalSensor>(card, def, count);
+    return std::make_unique<OpticalSensor>(card, OpticalClassDefaults{}, count);
 }
 
 } // namespace fsim::ms::optical

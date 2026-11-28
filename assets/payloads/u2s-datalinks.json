@@ -3,7 +3,73 @@
   "designation": "U-2S data links (model not named)",
   "family": "comm_terminal",
   "summary": "line-of-sight and over-the-horizon data links. The source names no model.",
-  "parameters": {},
+  "parameters": {
+    "frequency_min_hz": {
+      "value": 10000000000.0,
+      "unit": "Hz",
+      "uncertainty": 1000000000.0,
+      "basis": "assumed",
+      "note": "Assumed X/Ku-band CDL wideband ISR downlink lower edge (model not named in source)"
+    },
+    "frequency_max_hz": {
+      "value": 15000000000.0,
+      "unit": "Hz",
+      "uncertainty": 1000000000.0,
+      "basis": "assumed",
+      "note": "Assumed X/Ku-band CDL wideband ISR downlink upper edge (model not named in source)"
+    },
+    "tx_power_w": {
+      "value": 150.0,
+      "unit": "W",
+      "uncertainty": 50.0,
+      "basis": "assumed",
+      "note": "Assumed high-altitude ISR LOS/SATCOM downlink power (unpublished)"
+    },
+    "channel_bandwidth_hz": {
+      "value": 100000000.0,
+      "unit": "Hz",
+      "uncertainty": 40000000.0,
+      "basis": "assumed",
+      "note": "Assumed wideband imagery/SIGINT CDL channel bandwidth (unpublished)"
+    },
+    "processing_gain_db": {
+      "value": 15.0,
+      "unit": "dB",
+      "uncertainty": 4.0,
+      "basis": "assumed",
+      "note": "Assumed directional CDL link anti-jam margin (unpublished)"
+    },
+    "jam_threshold_j_to_n_db": {
+      "value": 25.0,
+      "unit": "dB",
+      "uncertainty": 5.0,
+      "basis": "assumed",
+      "note": "Assumed effective post-processing J/N link-denial threshold"
+    },
+    "antenna_gain_dbi": {
+      "value": 0.0,
+      "unit": "dBi",
+      "uncertainty": 2.0,
+      "basis": "assumed",
+      "note": "Nominal omnidirectional/wide-angle reference gain"
+    },
+    "iff_capable": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-u2s",
+      "note": "ISR datalink suite without IFF interrogator"
+    },
+    "iff_mode5": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-u2s",
+      "note": "ISR datalink suite without Mode 5 IFF"
+    }
+  },
   "sources": {
     "wp-u2s": {
       "title": "Lockheed U-2",

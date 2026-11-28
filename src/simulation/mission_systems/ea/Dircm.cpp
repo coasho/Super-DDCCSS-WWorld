@@ -12,7 +12,7 @@ constexpr double kPi = geom::kPi;
 constexpr double kDeg = kPi / 180.0;
 
 bool isDircmCard(const Card& card) noexcept {
-    return card.id == "an-aaq-24" || card.value("is_dircm", 0.0) > 0.5;
+    return card.value("is_dircm", 0.0) > 0.5;
 }
 
 class Dircm final : public Model {

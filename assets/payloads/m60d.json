@@ -3,13 +3,111 @@
   "designation": "M60D",
   "family": "gun",
   "summary": "7.62 mm machine gun, the M60 on an aircraft mount",
-  "parameters": {},
+  "parameters": {
+    "calibre_m": {
+      "value": 0.00762,
+      "unit": "m",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-p-m60",
+      "note": "Published bore diameter (7.62x51 mm NATO M80)"
+    },
+    "rate_of_fire_rpm": {
+      "value": 550.0,
+      "unit": "rpm",
+      "uncertainty": 27.5,
+      "basis": "published",
+      "source": "wp-p-m60",
+      "note": "Published cyclic firing rate per gun mount (7.62x51 mm NATO M80)"
+    },
+    "muzzle_velocity_ms": {
+      "value": 853.0,
+      "unit": "m/s",
+      "uncertainty": 25.0,
+      "basis": "published",
+      "source": "tm-43-0001-27",
+      "note": "Published nominal muzzle velocity (7.62x51 mm NATO M80)"
+    },
+    "projectile_kg": {
+      "value": 0.0095,
+      "unit": "kg",
+      "uncertainty": 0.00038,
+      "basis": "published",
+      "source": "tm-43-0001-27",
+      "note": "Published projectile mass (7.62x51 mm NATO M80)"
+    },
+    "shed_mass_kg": {
+      "value": 0.025,
+      "unit": "kg",
+      "uncertainty": 0.002,
+      "basis": "derived",
+      "source": "tm-43-0001-27",
+      "note": "Complete 7.62x51 mm cartridge + M13 link mass (~0.025 kg) shed per shot"
+    },
+    "explosive_kg": {
+      "value": 0.0,
+      "unit": "kg",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "tm-43-0001-27",
+      "note": "Solid ball/AP projectile without HE burster (7.62x51 mm NATO M80)"
+    },
+    "dispersion_rad": {
+      "value": 0.0035,
+      "unit": "rad",
+      "uncertainty": 0.00088,
+      "basis": "assumed",
+      "note": "1-sigma angular dispersion (derived class value from typical 5-8 mil 80% airborne cannon dispersion circle)"
+    },
+    "drag_cd": {
+      "value": 0.34,
+      "unit": "1",
+      "uncertainty": 0.03,
+      "basis": "derived",
+      "source": "stanag-4355",
+      "note": "Reference supersonic form-scaled Cd at Mach 1.8 against BRL/McCoy G7 boattail standard curve (Cd_G7(1.8)=0.298)"
+    },
+    "elevation_rad": {
+      "value": 0.0,
+      "unit": "rad",
+      "uncertainty": 0.005,
+      "basis": "assumed",
+      "note": "Boresighted along aircraft forward waterline (nominal)"
+    },
+    "capacity": {
+      "value": 500,
+      "unit": "rounds",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-p-m60",
+      "note": "Nominal 500-round door-gun ammunition box per mount"
+    },
+    "self_destruct_s": {
+      "value": 6.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "Pyrotechnic self-destruct fuze / effective max flight time for 7.62x51 mm NATO M80 (varies by fuze lot)"
+    }
+  },
   "sources": {
     "wp-p-m60": {
       "title": "M60 machine gun",
       "publisher": "Wikipedia (revision 1378729005)",
       "url": "https://en.wikipedia.org/w/index.php?title=M60_machine_gun&oldid=1378729005",
       "date": "2026-10-05"
+    },
+    "stanag-4355": {
+      "title": "NATO STANAG 4355 (Modified Point Mass Trajectory Model) & R. L. McCoy, Modern Exterior Ballistics (Schiffer, 1999)",
+      "publisher": "NATO / Schiffer Military History",
+      "url": "",
+      "date": "1999"
+    },
+    "tm-43-0001-27": {
+      "title": "U.S. Army TM 43-0001-27: Army Ammunition Data Sheets - Small Caliber Ammunition & USAF/NATO airborne cannon ammunition specifications",
+      "publisher": "U.S. Department of the Army",
+      "url": "",
+      "date": "1994"
     }
   }
 }

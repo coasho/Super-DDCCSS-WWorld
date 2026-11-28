@@ -628,14 +628,16 @@ TEST_CASE("Phase 3 Gun Ballistics: BRL/McCoy G7 Mach drag curve, per-round self-
     CHECK(cdSuper2 < cdTrans);
     CHECK(cdSuper3 < cdSuper2);
 
-    // 2) Per-round pyrotechnic self-destruct lifetimes differ by weapon class (no hardcoded 8 s)
-    ms::Card m61, gau8;
-    m61.id = "m61a1";
-    m61.family = ms::Family::Gun;
-    gau8.id = "gau-8a";
-    gau8.family = ms::Family::Gun;
-    CHECK(ms::gun::specOf(m61, 1).maxFlightTimeS == Catch::Approx(5.5));
-    CHECK(ms::gun::specOf(gau8, 1).maxFlightTimeS == Catch::Approx(9.5));
+    // 2) Per-round pyrotechnic self-destruct lifetimes loaded strictly from payload cards (no C++ card.id table)
+    std::vector<std::string> cardErrs;
+    const std::filesystem::path payloadDir(FSIM_TEST_PAYLOAD_DIR);
+    const auto m61 = ms::readCard(payloadDir / "m61a1.json", cardErrs);
+    const auto gau8 = ms::readCard(payloadDir / "gau-8a.json", cardErrs);
+    REQUIRE(cardErrs.empty());
+    REQUIRE(m61 != nullptr);
+    REQUIRE(gau8 != nullptr);
+    CHECK(ms::gun::specOf(*m61, 1).maxFlightTimeS == Catch::Approx(5.5));
+    CHECK(ms::gun::specOf(*gau8, 1).maxFlightTimeS == Catch::Approx(9.5));
 
     // 3) Live RK4 air-relative wind drift & self-destruct verification
     // Apply crosswind immediately after muzzle exit so calm and windy bursts share
