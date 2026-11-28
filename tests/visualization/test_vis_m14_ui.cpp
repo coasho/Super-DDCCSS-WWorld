@@ -216,11 +216,13 @@ TEST_CASE("VIS-M14 MissionGui force-binds Radar UI to supported aircraft and hid
 
     vsg::CommandBuffer* dummy = nullptr;
 
-    // 1. Focused on radar-equipped F-16C in replay -> Radar UI must render!
+    // 1. Focused on radar-equipped F-16C in replay -> Radar UI must render (2 frames for AlwaysAutoResize)!
     missionGui->updateReplay(&frame, &st0, 0, "viper-1", "f16c", 6.0);
-    ImGui::NewFrame();
-    missionGui->record(*dummy);
-    ImGui::Render();
+    for (int f = 0; f < 2; ++f) {
+        ImGui::NewFrame();
+        missionGui->record(*dummy);
+        ImGui::Render();
+    }
     CHECK(ImGui::GetDrawData()->TotalVtxCount > 50);
 
     // 2. Focused on AIM-120C missile -> Radar UI must NOT render!

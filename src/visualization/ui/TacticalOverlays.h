@@ -46,9 +46,19 @@ private:
         float x0 = 0.0f, y0 = 0.0f, x1 = 0.0f, y1 = 0.0f;
     };
 
+    struct ZoneColor {
+        int r = 145, g = 206, b = 232;
+    };
+
     bool projectPoint(const vsg::dvec3& ecef, float& sx, float& sy) const noexcept;
-    void drawPill(void* dl, float anchorX, float anchorY, const char* text, std::uint32_t accentCol,
-                  std::vector<PlacedBox>& placed, float scale, bool drawLeader = false) const;
+    /// Pick the most readable on-screen anchor among 3-D candidate points inside a zone,
+    /// adapting automatically to camera orbit/zoom while avoiding HUD panels and overlaps.
+    bool pickAdaptiveAnchor(const std::vector<vsg::dvec3>& candidates,
+                            const std::vector<PlacedBox>& reservedPanels,
+                            float scale,
+                            float& outX, float& outY) const noexcept;
+    void drawPill(void* dl, float anchorX, float anchorY, const char* text, ZoneColor zoneColor,
+                  std::vector<PlacedBox>& placed, float scale, bool drawLeader = false, bool centered = false) const;
 
     std::shared_ptr<ViewerControls> controls_;
     ipc::TacticalOverlayFrameV1 frame_;

@@ -185,7 +185,17 @@ void main() {
         return;
     }
 
-    // --- Kind 5: Detonation condensation shock mist puff ---
+    // --- Kind 5: Detonation condensation shock mist puff (extra=0) or subtle rotor downwash veil (extra>0.5) ---
+    if (extra > 0.5) {
+        float wisp = pow(clamp(1.0 - r, 0.0, 1.0), 1.85) * (0.55 + 0.45 * n);
+        float softIn = smoothstep(0.0, 0.18, ageNorm);
+        float softOut = 1.0 - smoothstep(0.30, 1.0, ageNorm);
+        float alpha = clamp(wisp * 0.17 * softIn * softOut * softFade, 0.0, 0.18);
+        if (alpha < 1e-3) discard;
+        vec3 dustCol = v_color.rgb * daylight * (0.62 + 0.38 * v_lighting.x);
+        outColor = vec4(dustCol * alpha, alpha);
+        return;
+    }
     float alpha = clamp(puff * 0.34 * fadeIn * (1.0 - smoothstep(0.18, 1.0, ageNorm)) * softFade, 0.0, 0.42);
     if (alpha < 1e-3) discard;
     vec3 mistCol = v_color.rgb * daylight * sunShade;

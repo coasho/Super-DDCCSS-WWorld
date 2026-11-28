@@ -93,9 +93,8 @@ void MonitorGui::drawLabels() const {
 void MonitorGui::drawMonitor() const {
     const Layout l = layout();
     ImGui::SetNextWindowPos(ImVec2(l.margin, l.margin), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(l.panelWidth, 0.0f), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSizeConstraints(ImVec2(l.panelWidth * 0.65f, 0.0f), ImVec2(FLT_MAX, l.monitorMaxHeight));
-    if (!beginMandatoryPanel("飞行监控###flightsim")) {
+    ImGui::SetNextWindowSizeConstraints(ImVec2(l.panelWidth, 0.0f), ImVec2(l.panelWidth, l.monitorMaxHeight));
+    if (!beginMandatoryPanel("飞行监控###flightsim", ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::End();
         return;
     }
@@ -225,6 +224,36 @@ void MonitorGui::drawMonitor() const {
                         units::metresPerSecondToKnots(s.airspeedTrueMs), units::radiansToDegrees(s.alphaRad));
             ImGui::Text("滚转 %.0f°  ·  俯仰 %.0f°  ·  航向 %.0f°", units::radiansToDegrees(s.eulerRad[0]),
                         units::radiansToDegrees(s.eulerRad[1]), units::radiansToDegrees(s.eulerRad[2]));
+
+            // Expandable native 6-DOF aerodynamics, flight-control & propulsion details (collapsed by default)
+            if (ImGui::TreeNode("气动与动力底层参数")) {
+                ImGui::Text("马赫 %.2f · 表速 %.0f m/s · 过载 %.2f G", s.mach, s.airspeedCalibratedMs, s.loadFactor);
+                ImGui::Text("侧滑 %.1f° · 角速率 %+.0f/%+.0f/%+.0f °/s",
+                            units::radiansToDegrees(s.betaRad),
+                            units::radiansToDegrees(s.angularRateBodyRadS[0]),
+                            units::radiansToDegrees(s.angularRateBodyRadS[1]),
+                            units::radiansToDegrees(s.angularRateBodyRadS[2]));
+                ImGui::TextDisabled("舵面: 副翼 %+.1f° · 升降 %+.1f° · 方向 %+.1f°",
+                                    units::radiansToDegrees(s.aileronRad),
+                                    units::radiansToDegrees(s.elevatorRad),
+                                    units::radiansToDegrees(s.rudderRad));
+                double totalThrustKn = 0.0;
+                double maxN2 = 0.0;
+                double maxAb = 0.0;
+                const int engN = std::clamp(s.engineCount, 0, sim::VehicleState::kMaxEngines);
+                for (int e = 0; e < engN; ++e) {
+                    totalThrustKn += s.thrustN[e] * 1e-3;
+                    maxN2 = std::max(maxN2, s.engineN2[e]);
+                    maxAb = std::max(maxAb, s.afterburner[e]);
+                }
+                if (engN > 0) {
+                    ImGui::Text("推力 %.1f kN · 核心 %.0f%% · 加力 %.0f%%", totalThrustKn, maxN2, maxAb * 100.0);
+                }
+                if (std::isfinite(s.fuelKg) && s.fuelKg > 0.0) {
+                    ImGui::TextDisabled("剩余燃油 %.0f kg · 减速板 %.0f%%", s.fuelKg, static_cast<double>(s.speedbrakePosition) * 100.0);
+                }
+                ImGui::TreePop();
+            }
         }
     }
 

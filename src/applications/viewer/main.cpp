@@ -1015,7 +1015,7 @@ int main(int argc, char** argv) {
         ImFontGlyphRangesBuilder builder;
         builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
         builder.AddRanges(io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
-        builder.AddText("°±·×≤≥—…→←▲▼■□◆◇●○【】（）《》：；，。！？、"
+        builder.AddText("°±·×≤≥—…→←▲▼■□◆◇●○【】（）《》：；，。！？、λσβΔ"
                         "帧率架回放暂停单步时间步秒视角控制追踪环绕正北俯视总览自由缩小放大重置视点距离"
                         "态势图层仅聚焦载具全开全关已开启已关闭雷达电子干扰侦察数据链武器射程气象"
                         "当前聚焦海高离地真空速节迎角滚转俯仰航向世界环境等待仿真接入进程已退出暂未更新实时同步切换"
@@ -1023,7 +1023,11 @@ int main(int argc, char** argv) {
                         "机载载荷型号状态能力挂点已挂载通电就绪释放中已释放抛弃断电损毁仅状态无"
                         "融合航迹实体来源年龄误差速度识别在线外推丢失未知雷达链路"
                         "烧穿压制单目标锁定边扫描边跟踪照射引导搜索全向警戒待机静默相控阵机械扫描旋转雷达罩"
-                        "最大探测扫描量程不可逃逸可发射定位通信导航授权未搜索目标");
+                        "最大探测扫描量程不可逃逸可发射定位通信导航授权未搜索目标"
+                        "蓝红方有效区边界盲测向线告警椭球前置瞄准点炸弹预测落点回波成像"
+                        "底层仿真技术细节体制天线载频波长波束宽度视场极限仪表处理层级信号检测驻留次数点迹虚警"
+                        "模糊多普勒主瓣杂波凹口高度滤波协方差方程标称噪声比增量线性倍率保留系数斜距体轴相对"
+                        "气动飞控马赫数过载侧滑角速率舵面偏角副翼升降方向襟翼减速板发动机推力核心转速加力剩余");
         builder.BuildRanges(&glyphRanges);
 
         const float fontPx = std::round(21.0f * uiDpi);
@@ -2171,7 +2175,7 @@ int main(int argc, char** argv) {
             const std::string followName = at < meta.size() ? meta[at].name : std::string();
             const std::string followType = at < meta.size() ? meta[at].type : std::string();
             if (mirror.valid()) {
-                missionGui->update(&mirror, anyAlive ? selected : -1, followName, batch ? batch->simTime : 0.0);
+                missionGui->update(&mirror, anyAlive ? selected : -1, followName, batch ? batch->simTime : 0.0, tacticalFramePtr);
             } else {
                 missionGui->updateReplay(tacticalFramePtr, target, anyAlive ? selected : -1, followName, followType,
                                          batch ? batch->simTime : 0.0);

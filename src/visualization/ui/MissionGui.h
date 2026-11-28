@@ -31,8 +31,10 @@ class MissionGui : public vsg::Inherit<vsg::Command, MissionGui> {
 public:
     explicit MissionGui(std::shared_ptr<ViewerControls> controls);
 
-    /// Live mirror update: read the followed vehicle's mission record & fusion table.
-    void update(const ipc::WorldMirror* mirror, int slot, const std::string& name, double simTime);
+    /// Live mirror update: read the followed vehicle's mission record, fusion table,
+    /// and optional companion tactical radar snapshot (for live ECCM burn-through details).
+    void update(const ipc::WorldMirror* mirror, int slot, const std::string& name, double simTime,
+                const ipc::TacticalOverlayFrameV1* tactical = nullptr);
 
     /// Replay mode update: bind Radar UI strictly to the focused vehicle when it carries
     /// a radar (live TacticalRadarVolumeWireV1 or radar-equipped airframe in standby), and

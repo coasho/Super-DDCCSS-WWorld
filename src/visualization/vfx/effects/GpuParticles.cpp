@@ -532,42 +532,33 @@ void GpuParticles::addRotorEffects(Span<const sim::VehicleState> states, const s
                 hasOrigin_ = true;
             }
 
-            // 1. Rotor downwash dust / sea-spray ground ring near terrain or water (AGL < 2.8 R).
-            if (isLiftRotor && agl > 0.2 && agl < 2.8 * r.radiusM && tas < 45.0) {
-                const double gf = std::pow(std::clamp(1.0 - agl / (2.8 * r.radiusM), 0.0, 1.0), 1.35);
-                const vsg::dvec3 groundCenter = hubEcef - zenith * std::max(agl - 0.35, 0.0);
+            // 1. Subtle ground-hugging rotor downwash dust / sea-spray veil near terrain or water (AGL < 2.2 R).
+            // Uses soft translucent mist puffs (kind 5, extra=1) hugging the ground rather than opaque discrete clumps.
+            if (isLiftRotor && agl > 0.2 && agl < 2.2 * r.radiusM && tas < 38.0) {
+                const double gf = std::pow(std::clamp(1.0 - agl / (2.2 * r.radiusM), 0.0, 1.0), 1.45);
+                const vsg::dvec3 groundCenter = hubEcef - zenith * std::max(agl - 0.20, 0.0);
                 const vsg::dvec3 hU = orthoVec(zenith);
                 const vsg::dvec3 hV = vsg::cross(zenith, hU);
-                const vsg::vec3 ringCol = overWater ? vsg::vec3(0.90f, 0.96f, 0.99f) : vsg::vec3(0.58f, 0.49f, 0.38f);
-                const int nRing = std::clamp(static_cast<int>(3.0 + 4.0 * gf), 3, 7);
+                const vsg::vec3 ringCol = overWater ? vsg::vec3(0.84f, 0.90f, 0.94f) : vsg::vec3(0.56f, 0.49f, 0.39f);
+                const int nRing = std::clamp(static_cast<int>(4.0 + 4.0 * gf), 4, 8);
                 for (int k = 0; k < nRing; ++k) {
-                    const double ang = 6.283185307179586 * static_cast<double>(nextRand());
+                    const double ang = 6.283185307179586 * (static_cast<double>(k) + static_cast<double>(nextRand())) / static_cast<double>(nRing);
                     const vsg::dvec3 radial = hU * std::cos(ang) + hV * std::sin(ang);
-                    const double startR = r.radiusM * (0.65 + 0.48 * static_cast<double>(nextRand()));
-                    const double outSpd = (7.5 + 15.0 * gf) * (0.75 + 0.50 * static_cast<double>(nextRand()));
-                    const double liftSpd = (1.6 + 3.2 * gf) * (0.6 + 0.8 * static_cast<double>(nextRand()));
-                    queueParticle(groundCenter + radial * startR + zenith * (0.25 + 0.55 * static_cast<double>(nextRand())),
+                    const double startR = r.radiusM * (0.55 + 0.55 * static_cast<double>(nextRand()));
+                    const double outSpd = (5.5 + 11.0 * gf) * (0.80 + 0.40 * static_cast<double>(nextRand()));
+                    const double liftSpd = (0.35 + 0.95 * gf) * (0.6 + 0.8 * static_cast<double>(nextRand()));
+                    queueParticle(groundCenter + radial * startR + zenith * (0.15 + 0.35 * static_cast<double>(nextRand())),
                                   radial * outSpd + zenith * liftSpd,
-                                  0.75f + 0.85f * nextRand(), ringCol,
-                                  static_cast<float>(0.55 + 0.55 * gf + 0.40 * nextRand()), 4.0f, 2.3f, 0.0f);
+                                  1.10f + 0.90f * nextRand(), ringCol,
+                                  static_cast<float>(1.15 + 0.95 * gf + 0.55 * nextRand()), 5.0f, 1.8f, 1.0f);
                 }
-                particleIdleUntil_ = std::max(particleIdleUntil_, simTime + 1.8);
+                particleIdleUntil_ = std::max(particleIdleUntil_, simTime + 2.2);
             }
-
-            // 2. Blade-tip / propeller-tip helical condensation vortices in humid air or high-load low flight.
-            if (rpm > 80.0 && (rh >= 0.55 || (isLiftRotor && agl < 250.0) || (!isLiftRotor && rh >= 0.40 && tas > 25.0))) {
-                const vsg::dvec3 uPlane = orthoVec(axisEcef);
-                const vsg::dvec3 vPlane = vsg::cross(axisEcef, uPlane);
-                const float mistRadius = static_cast<float>(std::clamp(r.radiusM * 0.042, 0.08, 0.30));
-                const vsg::dvec3 washVel = velEcef * 0.18 - axisEcef * (isLiftRotor ? 6.5 : 3.2);
-                for (int tip = 0; tip < 2; ++tip) {
-                    const double ang = rv.phaseRad + static_cast<double>(tip) * 3.14159265358979323846;
-                    const vsg::dvec3 tipPos = hubEcef + (uPlane * std::cos(ang) + vPlane * std::sin(ang)) * (0.97 * r.radiusM);
-                    queueParticle(tipPos, washVel, 0.58f + 0.42f * nextRand(),
-                                  vsg::vec3(0.92f, 0.95f, 0.98f), mistRadius, 5.0f, 2.8f, 0.0f);
-                }
-                particleIdleUntil_ = std::max(particleIdleUntil_, simTime + 1.2);
-            }
+            // Note: Do not emit sparse discrete blade-tip billboard puffs — at 250+ RPM discrete point spawns
+            // separate by several metres and read as ugly floating white dots around the main and tail rotors.
+            (void)rh;
+            (void)velEcef;
+            (void)axisEcef;
         }
     }
 }

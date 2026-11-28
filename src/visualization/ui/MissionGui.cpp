@@ -113,7 +113,8 @@ MissionGui::MissionGui(std::shared_ptr<ViewerControls> controls)
     : controls_(std::move(controls)), record_(std::make_unique<ipc::MissionRecord>()),
       fusion_(std::make_unique<ipc::FusionRecordV1>()) {}
 
-void MissionGui::update(const ipc::WorldMirror* mirror, int slot, const std::string& name, double simTime) {
+void MissionGui::update(const ipc::WorldMirror* mirror, int slot, const std::string& name, double simTime,
+                        const ipc::TacticalOverlayFrameV1* tactical) {
     replayMode_ = false;
     replaySupportsRadar_ = false;
     replayRadars_.clear();
@@ -134,6 +135,11 @@ void MissionGui::update(const ipc::WorldMirror* mirror, int slot, const std::str
     }
     if (mirror->mission(static_cast<std::uint32_t>(slot), *record_, valid_ ? record_->revision : ~0ull)) valid_ = true;
     fusionValid_ = mirror->fusion(static_cast<std::uint32_t>(slot), *fusion_);
+    if (tactical) {
+        for (const auto& r : tactical->radars) {
+            if (static_cast<int>(r.slot) == slot) replayRadars_.push_back(r);
+        }
+    }
 }
 
 void MissionGui::updateReplay(const ipc::TacticalOverlayFrameV1* tactical,
@@ -257,12 +263,14 @@ void MissionGui::drawRadar(const ipc::MissionRadar& r) const {
     const float k = uiScale();
     const ipc::MissionPayload* p = r.payload < record_->payloadCount ? &record_->payloads[r.payload] : nullptr;
     const Column place = column(r.payload, valid_ && record_->payloadCount > 0);
+    const ImVec2 display = ImGui::GetIO().DisplaySize;
     ImGui::SetNextWindowPos(ImVec2(place.right, place.radarTop), ImGuiCond_FirstUseEver, ImVec2(1.0f, 0.0f));
-    ImGui::SetNextWindowSize(ImVec2(place.width, place.radarHeight), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(place.width, 0.0f),
+                                        ImVec2(place.width, std::max(240.0f * k, display.y - place.radarTop - 12.0f * k)));
     char title[128];
     std::snprintf(title, sizeof title, "机载雷达 %s - %s###radar%u",
                   p ? p->designation : "", name_.empty() ? "?" : name_.c_str(), static_cast<unsigned>(r.payload));
-    if (!beginMandatoryPanel(title)) {
+    if (!beginMandatoryPanel(title, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::End();
         return;
     }
@@ -294,7 +302,7 @@ void MissionGui::drawRadar(const ipc::MissionRadar& r) const {
     }
 
     ImVec2 avail = ImGui::GetContentRegionAvail();
-    const float side = std::max(90.0f * k, std::min(avail.x, avail.y - 2.2f * ImGui::GetTextLineHeightWithSpacing()));
+    const float side = std::max(100.0f * k, std::min(avail.x, place.width * 0.78f));
     const ImVec2 p0 = ImGui::GetCursorScreenPos();
     const ImVec2 size(avail.x, side);
     ImGui::InvisibleButton("scope", size);
@@ -413,18 +421,76 @@ void MissionGui::drawRadar(const ipc::MissionRadar& r) const {
                         static_cast<unsigned>(r.tentativeTracks), static_cast<unsigned long long>(r.detections),
                         static_cast<unsigned long long>(r.falseAlarms));
     ImGui::TextDisabled("方框: 航迹与航向线   方块: 点迹（绿=接近）");
+
+    // Expandable native radar physics & signal processing technical details (live mirror)
+    if (ImGui::TreeNode("底层仿真技术细节")) {
+        const double freqGhz = r.frequencyHz * 1e-9;
+        const double lambdaMm = r.frequencyHz > 1e6 ? (299792458.0 / r.frequencyHz) * 1e3 : 0.0;
+        const ipc::TacticalRadarVolumeWireV1* matchedTact = nullptr;
+        for (const auto& tr : replayRadars_) {
+            if (tr.payloadIndex == r.payload) { matchedTact = &tr; break; }
+        }
+        if (ImGui::BeginTable("radar_tech_live", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp)) {
+            ImGui::TableSetupColumn("参数", ImGuiTableColumnFlags_WidthStretch, 0.95f);
+            ImGui::TableSetupColumn("数值", ImGuiTableColumnFlags_WidthStretch, 1.35f);
+            auto row = [](const char* key, const char* fmt, auto... args) {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0); ImGui::TextDisabled("%s", key);
+                ImGui::TableSetColumnIndex(1); ImGui::Text(fmt, args...);
+            };
+            row("天线体制", "%s", r.rotodome ? "360° 旋转雷达罩" : r.electronic ? "AESA 有源相控阵" : "机械扫描平板缝隙");
+            row("载频 / 波长", "%.2f GHz  (λ = %.1f mm)", freqGhz, lambdaMm);
+            row("波束宽度", "方位 %.2f° × 俯仰 %.2f°", r.beamwidthAzimuthRad / kDeg, r.beamwidthElevationRad / kDeg);
+            row("视场极限", "方位 ±%.0f° · 俯仰 ±%.0f°", r.azimuthLimitRad / kDeg, r.elevationLimitRad / kDeg);
+            row("仪表最大量程", "%.0f km（当前 %.0f km）", r.instrumentedRangeM * 1e-3, scale * 1e-3);
+            row("瞬时波束指向", "方位 %+.1f° · 俯仰 %+.1f°", r.beamAzimuthRad / kDeg, r.beamElevationRad / kDeg);
+            row("处理层级", "%s", r.signalLevel ? "信号级（距离-多普勒 + CFAR）" : "检测级（Swerling 雷达方程）");
+            row("累计驻留 / 检出", "%llu 次 · %llu 点迹 / %llu 虚警",
+                static_cast<unsigned long long>(r.dwells),
+                static_cast<unsigned long long>(r.detections),
+                static_cast<unsigned long long>(r.falseAlarms));
+            if (r.signalLevel && record_->rangeDoppler.radar < record_->radarCount &&
+                record_->radars[record_->rangeDoppler.radar].payload == r.payload) {
+                const auto& rd = record_->rangeDoppler;
+                row("信号级 PRF", "%.2f kHz", rd.prfHz * 1e-3);
+                row("不模糊距离/速度", "%.1f km · %.0f m/s", rd.ambiguousRangeM * 1e-3, rd.ambiguousRateMs);
+                if (rd.notchMs > 0.0f) row("杂波凹口宽度", "±%.0f m/s（峰值 %u）", rd.notchMs, static_cast<unsigned>(rd.peakCount));
+            }
+            if (matchedTact) {
+                const double r0Km = static_cast<double>(matchedTact->detectionRangeM) * 1e-3;
+                const double btKm = static_cast<double>(matchedTact->burnThroughRangeM) * 1e-3;
+                const double jDb = static_cast<double>(matchedTact->jammerRatioDb);
+                const double lin = std::pow(10.0, jDb / 10.0);
+                const double keepPct = r0Km > 1e-3 ? std::clamp(btKm / r0Km * 100.0, 0.0, 100.0) : 100.0;
+                row("标称探测 R0", "%.1f km", r0Km);
+                if ((matchedTact->flags & ipc::kTactRadarJammed) != 0u) {
+                    row("干扰压制比", "+%.1f dB（1+J0/N0 ≈ %.1e）", jDb, lin);
+                    row("烧穿距离 Rbt", "%.1f km（保留 %.1f%%）", btKm, keepPct);
+                }
+            }
+            if (r.trackCount > 0) {
+                const auto& t0 = r.tracks[0];
+                row("主航迹滤波误差", "航迹 #%u · σ = %.0f m · 更新 %u 次",
+                    static_cast<unsigned>(t0.id), static_cast<double>(t0.sigmaM), static_cast<unsigned>(t0.updates));
+            }
+            ImGui::EndTable();
+        }
+        ImGui::TreePop();
+    }
     ImGui::End();
 }
 
 void MissionGui::drawReplayRadar(const ipc::TacticalRadarVolumeWireV1& r, std::uint32_t index) const {
     const float k = uiScale();
     const Column place = column(index, false);
+    const ImVec2 display = ImGui::GetIO().DisplaySize;
     ImGui::SetNextWindowPos(ImVec2(place.right, place.radarTop), ImGuiCond_FirstUseEver, ImVec2(1.0f, 0.0f));
-    ImGui::SetNextWindowSize(ImVec2(place.width, place.radarHeight), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(place.width, 0.0f),
+                                        ImVec2(place.width, std::max(260.0f * k, display.y - place.radarTop - 12.0f * k)));
     char title[128];
     std::snprintf(title, sizeof title, "机载雷达 - %s###radar%u",
                   name_.empty() ? "?" : name_.c_str(), static_cast<unsigned>(index));
-    if (!beginMandatoryPanel(title)) {
+    if (!beginMandatoryPanel(title, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::End();
         return;
     }
@@ -468,8 +534,7 @@ void MissionGui::drawReplayRadar(const ipc::TacticalRadarVolumeWireV1& r, std::u
     }
 
     ImVec2 avail = ImGui::GetContentRegionAvail();
-    const float footerH = 1.6f * ImGui::GetTextLineHeightWithSpacing();
-    const float side = std::max(100.0f * k, std::min(avail.x, avail.y - footerH));
+    const float side = std::max(100.0f * k, std::min(avail.x, place.width * 0.78f));
     const ImVec2 p0 = ImGui::GetCursorScreenPos();
     const ImVec2 size(avail.x, side);
     ImGui::InvisibleButton("replay_scope", size);
@@ -481,9 +546,9 @@ void MissionGui::drawReplayRadar(const ipc::TacticalRadarVolumeWireV1& r, std::u
     const ImU32 grid = colour(36, 78, 74, 210);
     const ImU32 labelCol = colour(128, 184, 168, 240);
 
-    // Compute relative target azimuth and slant range from native targetEcef + ownship orientation.
+    // Compute relative target azimuth, elevation, and slant range from native targetEcef + ownship pose.
     bool tgtValid = false;
-    double tgtAz = 0.0, tgtRange = 0.0;
+    double tgtAz = 0.0, tgtEl = 0.0, tgtRange = 0.0;
     if (hasTarget && hasOwnState_) {
         const double dx = r.targetEcef[0] - ownState_.positionEcef[0];
         const double dy = r.targetEcef[1] - ownState_.positionEcef[1];
@@ -491,9 +556,11 @@ void MissionGui::drawReplayRadar(const ipc::TacticalRadarVolumeWireV1& r, std::u
         const double* R = ownState_.rotationBodyToEcef;
         const double fwd = R[0] * dx + R[3] * dy + R[6] * dz;
         const double right = R[1] * dx + R[4] * dy + R[7] * dz;
+        const double down = R[2] * dx + R[5] * dy + R[8] * dz;
         tgtRange = r.targetRangeM > 1.0f ? static_cast<double>(r.targetRangeM) : std::sqrt(dx * dx + dy * dy + dz * dz);
         if (tgtRange > 1.0) {
             tgtAz = std::atan2(right, fwd);
+            tgtEl = std::atan2(-down, std::hypot(fwd, right));
             tgtValid = true;
         }
     }
@@ -594,6 +661,50 @@ void MissionGui::drawReplayRadar(const ipc::TacticalRadarVolumeWireV1& r, std::u
     } else {
         ImGui::TextDisabled("最大探测 %.0f km  ·  扫描量程 %.0f km",
                             static_cast<double>(r.detectionRangeM) * 1e-3, scale * 1e-3);
+    }
+
+    // Expandable native radar simulation technical details (ECCM burn-through equation & beam geometry)
+    if (ImGui::TreeNode("底层仿真技术细节")) {
+        if (ImGui::BeginTable("radar_tech_replay", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp)) {
+            ImGui::TableSetupColumn("参数", ImGuiTableColumnFlags_WidthStretch, 0.78f);
+            ImGui::TableSetupColumn("数值", ImGuiTableColumnFlags_WidthStretch, 1.52f);
+            auto row = [](const char* key, const char* fmt, auto... args) {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0); ImGui::TextDisabled("%s", key);
+                ImGui::TableSetColumnIndex(1); ImGui::Text(fmt, args...);
+            };
+            row("天线体制", "%s", roto ? "360° 旋转雷达罩" : elec ? "AESA 有源相控阵" : "机械扫描平板缝隙");
+            row("工作模式", "%s（%s）%s", modeName(r.mode), modeLong(r.mode), illum ? " · 照射" : "");
+            row("瞬时波束指向", "方位 %+.1f° · 俯仰 %+.1f°",
+                static_cast<double>(r.beamAzimuthRad) / kDeg, static_cast<double>(r.beamElevationRad) / kDeg);
+            if (!roto) {
+                row("扫描空域", "方位 %+.0f° ±%.0f° · 俯仰 %+.1f° ±%.1f°",
+                    static_cast<double>(r.azimuthCentreRad) / kDeg, static_cast<double>(r.azimuthHalfWidthRad) / kDeg,
+                    static_cast<double>(r.elevationCentreRad) / kDeg, static_cast<double>(r.elevationHalfWidthRad) / kDeg);
+            } else {
+                row("扫描空域", "方位 360° · 俯仰 %+.1f° ±%.1f°",
+                    static_cast<double>(r.elevationCentreRad) / kDeg, static_cast<double>(r.elevationHalfWidthRad) / kDeg);
+            }
+            const double r0Km = static_cast<double>(r.detectionRangeM) * 1e-3;
+            const double btKm = static_cast<double>(r.burnThroughRangeM) * 1e-3;
+            const double jDb = static_cast<double>(r.jammerRatioDb);
+            const double lin = std::pow(10.0, jDb / 10.0);
+            const double keepPct = r0Km > 1e-3 ? std::clamp(btKm / r0Km * 100.0, 0.0, 100.0) : 100.0;
+            row("标称探测 R0", "%.1f km（量程 %.0f km）", r0Km, scale * 1e-3);
+            if (jammed) {
+                row("干扰噪声比", "+%.1f dB（1+J0/N0 ≈ %.1e）", jDb, lin);
+                row("烧穿距离 Rbt", "%.1f km（保留 %.1f%%）", btKm, keepPct);
+                row("烧穿物理式", "R0 · (1 + J0/N0)^(-1/4)");
+            } else {
+                row("电子对抗状态", "无明显压制（+%.1f dB）", jDb);
+            }
+            if (tgtValid) {
+                row("当前跟踪目标", "航迹 #%u · 斜距 %.2f km", static_cast<unsigned>(r.targetId), tgtRange * 1e-3);
+                row("目标体轴角度", "相对方位 %+.1f° · 相对俯仰 %+.1f°", tgtAz / kDeg, tgtEl / kDeg);
+            }
+            ImGui::EndTable();
+        }
+        ImGui::TreePop();
     }
     ImGui::End();
 }
