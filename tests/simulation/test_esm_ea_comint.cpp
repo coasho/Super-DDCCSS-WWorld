@@ -4,8 +4,11 @@
 #include "fsim/Agent.h"
 #include "fsim/World.h"
 #include "simulation/mission_systems/Cards.h"
+#include "simulation/mission_systems/ea/Dircm.h"
 #include "simulation/mission_systems/ea/Jammer.h"
 #include "simulation/mission_systems/esm/Receiver.h"
+#include "simulation/mission_systems/components/implementations/seeker/RadioReceiverV1.h"
+#include "simulation/mission_systems/radar/Signal.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -620,4 +623,255 @@ TEST_CASE("SIM-M05 open-source alignment: O'Donoughue Stansfield + Gauss-Newton 
     REQUIRE(rFar.valid);
     CHECK(rFar.crlbRmsM == Catch::Approx(2.0 * r1.crlbRmsM).epsilon(1e-4));
     CHECK(rFar.crlbCep50M == Catch::Approx(2.0 * r1.crlbCep50M).epsilon(1e-4));
+}
+
+TEST_CASE("Phase 1 EW: DRFM false targets and RGPO against airborne AMTI radar", "[sim-m05][ea][drfm]") {
+    fsim::World world(makeOptions("phase1_drfm_radar", 141));
+    auto victim = createAircraft(world, "f16", "f16c", 0.0, 0.0, 6000.0, 90.0, 220.0);
+    auto growler = createAircraft(world, "ea18g", "ea18g", 35.0, 0.0, 6000.0, 270.0, 220.0);
+    const auto radarIdx = findPayload(victim, "radar");
+    const auto jamIdx = findPayload(growler, "jammers");
+    powerToOperate(world, victim, radarIdx);
+    powerToOperate(world, growler, jamIdx);
+
+    fsim::ms::AmtiCommand search;
+    search.payload = radarIdx;
+    search.mode = fsim::ms::AmtiMode::RangeWhileSearch;
+    search.azimuthHalfWidthRad = 15.0 * kDeg;
+    search.bars = 1;
+    search.rangeScaleM = 100e3;
+    REQUIRE(victim.submit(search).accepted());
+
+    // 1) Multi-false-target DRFM train at F-16C X-band (9.86 GHz)
+    fsim::ms::EaDeceptionCommandV1 ft;
+    ft.payload = jamIdx;
+    ft.mode = fsim::ms::EaDeceptionModeV1::FalseTargets;
+    ft.frequencyHz = 9.86e9;
+    ft.bandwidthHz = 40e6;
+    ft.falseTargetCount = 3;
+    ft.rangeOffsetM = 2500.0;
+    ft.azimuthHalfWidthRad = 25.0 * kDeg;
+    ft.elevationHalfWidthRad = 20.0 * kDeg;
+    REQUIRE(growler.submit(ft).accepted());
+    CHECK(reportValue(growler.payloadReport(jamIdx), "deception_mode") == 4.0);
+    CHECK(reportValue(growler.payloadReport(jamIdx), "false_targets") == 3.0);
+
+    world.step(90); // 3 s
+    std::vector<std::uint32_t> ghostIds;
+    std::vector<double> ghostRanges;
+    double realRangeSum = 0.0;
+    std::size_t realCount = 0;
+    for (const auto& d : victim.amtiDetections(radarIdx)) {
+        if (d.truth == growler.id()) {
+            realRangeSum += d.rangeM;
+            ++realCount;
+        } else if (d.truth >= fsim::ms::kDrfmFalseTargetIds) {
+            ghostIds.push_back(d.truth);
+            ghostRanges.push_back(d.rangeM);
+        }
+    }
+    REQUIRE(realCount >= 1);
+    REQUIRE(ghostIds.size() >= 3);
+    std::sort(ghostIds.begin(), ghostIds.end());
+    ghostIds.erase(std::unique(ghostIds.begin(), ghostIds.end()), ghostIds.end());
+    CHECK(ghostIds.size() == 3u);
+    const double meanRealRange = realRangeSum / static_cast<double>(realCount);
+    const double maxGhostRange = *std::max_element(ghostRanges.begin(), ghostRanges.end());
+    // Causal repeater delay: false targets appear strictly behind the jammer's real range.
+    CHECK(maxGhostRange > meanRealRange + 4000.0);
+
+    // 2) RGPO walks apparent range outward over time
+    fsim::ms::EaDeceptionCommandV1 rgpo;
+    rgpo.payload = jamIdx;
+    rgpo.mode = fsim::ms::EaDeceptionModeV1::Rgpo;
+    rgpo.frequencyHz = 9.86e9;
+    rgpo.bandwidthHz = 40e6;
+    rgpo.rangeOffsetM = 300.0;
+    rgpo.rangePullRateMs = 500.0;
+    rgpo.rangePullMaxM = 4000.0;
+    rgpo.azimuthHalfWidthRad = 25.0 * kDeg;
+    rgpo.elevationHalfWidthRad = 20.0 * kDeg;
+    REQUIRE(growler.submit(rgpo).accepted());
+
+    const auto serialStart = victim.radarStatus(radarIdx).detections;
+    world.step(120); // 4 s (1 s hold + 3 s walk = +1500 m pull-off)
+    double firstPullOff = -1.0, lastPullOff = -1.0;
+    double lastRealRange = -1.0;
+    for (const auto& d : victim.amtiDetections(radarIdx, serialStart)) {
+        if (d.truth == growler.id()) {
+            lastRealRange = d.rangeM;
+        } else if (d.truth >= fsim::ms::kDrfmFalseTargetIds && lastRealRange > 0.0) {
+            const double pull = d.rangeM - lastRealRange;
+            if (firstPullOff < 0.0) firstPullOff = pull;
+            lastPullOff = pull;
+        }
+    }
+    CHECK(firstPullOff > 100.0);
+    // RGPO walks the delayed repeater ghost progressively farther behind the real aircraft range.
+    CHECK(lastPullOff > firstPullOff + 500.0);
+}
+
+TEST_CASE("Phase 1 EW: RadioReceiverV1 aperture-weighted jamming, passive monopulse HOJ and burn-through", "[sim-m05][ea][hoj]") {
+    using namespace fsim::ms;
+    using namespace fsim::ms::components;
+
+    RadioReceiverConfigV1 cfg;
+    cfg.version = 1;
+    cfg.frequencyHz = 10.0e9;
+    cfg.temperatureK = 290.0;
+    cfg.noiseFigureDb = 6.0;
+    cfg.systemLossDb = 6.0;
+    cfg.transmitAveragePowerW = 1000.0;
+    cfg.bandwidthHz = 1.0e6;
+    cfg.monopulseSlope = 1.5;
+    cfg.clutterRateSigmaMs = 2.0;
+    cfg.associationGateRad = 0.1;
+    cfg.temporalMemoryS = 0.12;
+    cfg.observationWindowS = 0.012;
+    cfg.aperture.shape = rf::ApertureShape::Circular;
+    cfg.aperture.taper = rf::Taper::Uniform;
+    cfg.aperture.widthM = 0.18;
+    cfg.aperture.heightM = 0.18;
+    cfg.aperture.efficiency = 0.6;
+    cfg.aperture.peakGainDbi = 0.0;
+    cfg.aperture.floorDbi = -30.0;
+    cfg.aperture.backDbi = -40.0;
+    cfg.processing.rangeScaleM = 20000.0;
+    cfg.processing.minRateMs = -1000.0;
+    cfg.processing.maxRateMs = 1000.0;
+    cfg.processing.pfaInterval = 1e-6;
+    cfg.processing.cfarCells = 16;
+    cfg.processing.cfarGuard = 2;
+    cfg.processing.coincidence = 1;
+    cfg.processing.notchMs = 0.0;
+    cfg.processing.knownNoiseThreshold = false;
+    cfg.processing.reportAmbiguities = true;
+    cfg.waveform = radar::signal::mediumPrf(cfg.frequencyHz, 0.012, 3, 3, 150.0, 0.05);
+
+    RadioReceiverV1 rx;
+    std::string err;
+    REQUIRE(rx.configure(cfg, err));
+
+    const std::array<weapon::V3, 3> axes{{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}};
+    const weapon::V3 boresight{1, 0, 0};
+    const weapon::V3 targetDir = measured::unit(weapon::V3{1.0, 0.015, -0.01});
+
+    auto makeScene = [&](double timeS, double rangeM, double jamDensityWHz) {
+        RadioSceneFrameV1 s;
+        s.timeS = timeS;
+        s.frequencyHz = cfg.frequencyHz;
+        s.up = {0, 0, -1};
+        RadioEchoSceneV1 echo;
+        echo.direction = targetDir;
+        echo.receiverRangeM = rangeM;
+        echo.delayRangeM = rangeM;
+        echo.dopplerHz = 2.0 * 450.0 / (299792458.0 / cfg.frequencyHz);
+        echo.rcsM2 = 5.0;
+        echo.fluctuation = 0;
+        s.echoes.push_back(echo);
+        s.refereeAttributionIndices.push_back(0u);
+        if (jamDensityWHz > 0.0) {
+            RadioJammerSceneV1 jam;
+            jam.direction = targetDir;
+            jam.rangeM = rangeM;
+            jam.incidentDensityWHz = jamDensityWHz;
+            jam.bandwidthHz = 40e6;
+            jam.noiseJamming = true;
+            s.jammers.push_back(jam);
+            s.refereeJammerAttributionIndices.push_back(1u);
+        }
+        return s;
+    };
+
+    // 1) Clean unjammed exposure at 6 km -> coherent active detection with range & Doppler
+    const auto clean = rx.expose(makeScene(0.1, 6000.0, 0.0), boresight, axes, 777, false);
+    REQUIRE(clean.valid);
+    CHECK(!clean.homeOnJam);
+    CHECK(clean.totalInterferencePowerW == 0.0);
+    REQUIRE(!clean.measurements.empty());
+    CHECK(clean.measurements.front().rangeM.has_value());
+    CHECK(clean.measurements.front().rangeRateMs.has_value());
+    CHECK(!clean.measurements.front().homeOnJam);
+
+    // 2) Strong mainlobe noise jammer at 6 km -> coherent echo drowned, passive monopulse HOJ engages
+    const auto jammed = rx.expose(makeScene(0.2, 6000.0, 1e-12), boresight, axes, 777, false);
+    REQUIRE(jammed.valid);
+    CHECK(jammed.totalInterferencePowerW > 1e-6);
+    CHECK(jammed.homeOnJam);
+    REQUIRE(jammed.measurements.size() == 1u);
+    CHECK(jammed.measurements.front().homeOnJam);
+    CHECK(!jammed.measurements.front().rangeM.has_value());
+    CHECK(!jammed.measurements.front().rangeRateMs.has_value());
+    CHECK(jammed.measurements.front().refereeAttributionIndex == 1u);
+    CHECK(measured::dot(jammed.measurements.front().direction, targetDir) > std::cos(2.0 * kDeg));
+
+    // 3) Close range burn-through (1.8 km) against moderate jammer (J/N ~ +31 dB) -> active coherent detection resumes
+    const auto burn = rx.expose(makeScene(0.3, 1800.0, 1e-19), boresight, axes, 777, false);
+    REQUIRE(burn.valid);
+    CHECK(burn.totalInterferencePowerW > 1e-12);
+    CHECK(!burn.homeOnJam);
+    REQUIRE(!burn.measurements.empty());
+    CHECK(burn.measurements.front().rangeM.has_value());
+    CHECK(!burn.measurements.front().homeOnJam);
+}
+
+TEST_CASE("Phase 1 EW: AN/AAQ-24 DIRCM laser turret physics and E-7A countermeasures card", "[sim-m05][ea][dircm]") {
+    using namespace fsim::ms;
+
+    // Preserve makeJammer(dircm) == nullptr while makeDircm / makeModel builds the optical laser model.
+    Card dircm;
+    dircm.id = "an-aaq-24";
+    dircm.family = Family::ElectronicAttack;
+    CHECK(ea::makeJammer(dircm, 1) == nullptr);
+    auto laserModel = makeModel(dircm, 2);
+    REQUIRE(laserModel != nullptr);
+    // DIRCM rejects explicit RF frequency commands.
+    PayloadTask rfJam;
+    rfJam.kind = TaskKind::Jam;
+    rfJam.frequencyHz = 9.5e9;
+    CHECK(laserModel->begin(rfJam, 0.0) == Reason::InvalidParameter);
+    // DIRCM accepts optical sector/cued task and never produces RF emissions.
+    PayloadTask sector;
+    sector.kind = TaskKind::Jam;
+    sector.azimuthCentreRad = 0.1;
+    sector.elevationCentreRad = -0.1;
+    REQUIRE(laserModel->begin(sector, 0.0) == Reason::None);
+    Emission rfOut;
+    CHECK(!laserModel->emission(rfOut));
+
+    // Live World check: KC-46A with AN/AAQ-24 DIRCM tracks and lases an incoming IR missile,
+    // and E-7A Wedgetail exposes calibrated 120 chaff / 60 flares from e7a-cm.json.
+    fsim::World world(makeOptions("phase1_dircm_e7a", 151));
+    auto tanker = createAircraft(world, "kc46", "kc46a", 0.0, 0.0, 7000.0, 90.0, 210.0);
+    auto wedgetail = createAircraft(world, "e7a", "e7a", 15.0, 5.0, 8000.0, 270.0, 200.0);
+    const auto cmInv = world.countermeasures(wedgetail.id());
+    CHECK(cmInv.chaff == 120u);
+    CHECK(cmInv.flare == 60u);
+
+    std::uint16_t dircmIdx = 0;
+    bool foundDircm = false;
+    for (const auto& p : tanker.payloads()) {
+        if (std::string(p.card) == "an-aaq-24") {
+            dircmIdx = p.index;
+            foundDircm = true;
+            break;
+        }
+    }
+    REQUIRE(foundDircm);
+    powerToOperate(world, tanker, dircmIdx);
+    world.step(10);
+    CHECK(reportValue(tanker.payloadReport(dircmIdx), "active") == 1.0);
+    CHECK(reportValue(tanker.payloadReport(dircmIdx), "lasing") == 0.0);
+
+    // Command optical DIRCM sector and step past 0.35 s lock acquisition latency -> active MWIR laser
+    PayloadTask dirTask;
+    dirTask.payload = dircmIdx;
+    dirTask.kind = TaskKind::Jam;
+    dirTask.azimuthCentreRad = 0.0;
+    dirTask.elevationCentreRad = -5.0 * kDeg;
+    dirTask.durationS = 3.0;
+    REQUIRE(tanker.submit(dirTask).accepted());
+    world.step(30); // 1.0 s > 0.35 s lock time
+    CHECK(reportValue(tanker.payloadReport(dircmIdx), "lasing") == 1.0);
+    CHECK(reportValue(tanker.payloadReport(dircmIdx), "power") > 1.0);
 }

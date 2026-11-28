@@ -31,6 +31,9 @@ auto physicalKey(const RadioEchoSceneV1& e) {
     return std::tuple{e.direction.x,e.direction.y,e.direction.z,e.receiverRangeM,e.transmitterRangeM,e.delayRangeM,
         e.dopplerHz,e.rcsM2,e.receiverExcessLossDb,e.transmitterExcessLossDb,e.transmitterPowerW,e.transmitterGainLinear,e.fluctuation};
 }
+auto jammerKey(const RadioJammerSceneV1& j) {
+    return std::tuple{j.direction.x,j.direction.y,j.direction.z,j.rangeM,j.incidentDensityWHz,j.bandwidthHz,j.noiseJamming};
+}
 bool sameProgram(const radar::signal::Waveform& a,const radar::signal::Waveform& b) {
     if(a.m!=b.m||a.gateM!=b.gateM||a.wavelengthM!=b.wavelengthM||a.intervals.size()!=b.intervals.size())return false;
     for(std::size_t i=0;i<a.intervals.size();++i) {
@@ -128,7 +131,11 @@ bool RadioReceiverV1::validScene(const RadioSceneFrameV1& s,const RadioReceiverC
         nonnegative(e.transmitterExcessLossDb)&&e.transmitterExcessLossDb<=1000&&e.fluctuation<=2&&
         nonnegative(e.transmitterRangeM)&&nonnegative(e.transmitterPowerW)&&nonnegative(e.transmitterGainLinear)&&
         (!semi||!s.illuminationAvailable||(positive(e.transmitterRangeM)&&positive(e.transmitterPowerW)&&positive(e.transmitterGainLinear)));};
-    return std::all_of(s.echoes.begin(),s.echoes.end(),valid)&&std::all_of(s.groundPatches.begin(),s.groundPatches.end(),valid);
+    if(s.jammers.size()>64||(!s.refereeJammerAttributionIndices.empty()&&s.refereeJammerAttributionIndices.size()!=s.jammers.size()))return false;
+    const auto validJam=[&](const RadioJammerSceneV1& j){return finite(j.direction)&&std::abs(norm(j.direction)-1)<=1e-6&&
+        positive(j.rangeM)&&nonnegative(j.incidentDensityWHz)&&j.incidentDensityWHz<=1e6&&nonnegative(j.bandwidthHz);};
+    return std::all_of(s.echoes.begin(),s.echoes.end(),valid)&&std::all_of(s.groundPatches.begin(),s.groundPatches.end(),valid)&&
+        std::all_of(s.jammers.begin(),s.jammers.end(),validJam);
 }
 double RadioReceiverV1::energySnr(const RadioReceiverConfigV1& c,const RadioEchoSceneV1& e,
     double receiveGain,double frequency,double dwell,bool semi) noexcept {
@@ -244,7 +251,30 @@ RadioReceiverResultV1 RadioReceiverV1::expose(const RadioSceneFrameV1& scene,V p
     radar::signal::ClutterMap clutter(waveform.intervals.size());
     const double actualBandwidth=observed?light/(2*waveform.gateM):c.bandwidthHz;
     const double thermalNoise=boltzmann*c.temperatureK*linear(c.noiseFigureDb)*actualBandwidth;
-    const double jamRatio=scene.interferencePowerW/thermalNoise;
+    // Aperture-weighted in-band noise jammer power (evaluated against the actual
+    // steered antenna pattern) plus any direct external scene.interferencePowerW.
+    double jammerPowerW=0;
+    std::vector<std::size_t> jammerOrder(scene.jammers.size());
+    std::iota(jammerOrder.begin(),jammerOrder.end(),0);
+    std::sort(jammerOrder.begin(),jammerOrder.end(),[&](auto a,auto b){return jammerKey(scene.jammers[a])<jammerKey(scene.jammers[b]);});
+    std::optional<std::size_t> bestHojIdx;
+    double bestHojPowerW=0;
+    const double hojConeCos=std::cos(std::max(bwAz,bwEl));
+    for(const auto jIdx:jammerOrder) {
+        const auto& j=scene.jammers[jIdx];
+        if(!j.noiseJamming||!(j.incidentDensityWHz>0))continue;
+        const double rxGainLin=gain(j.direction);
+        if(!(rxGainLin>0)||!std::isfinite(rxGainLin))continue;
+        const double pW=j.incidentDensityWHz*rxGainLin*actualBandwidth;
+        if(!(pW>0)||!std::isfinite(pW))continue;
+        jammerPowerW+=pW;
+        if(dot(j.direction,beam.forward)>=hojConeCos&&pW>bestHojPowerW) {
+            bestHojPowerW=pW;
+            bestHojIdx=jIdx;
+        }
+    }
+    const double totalInterferencePowerW=scene.interferencePowerW+jammerPowerW;
+    const double jamRatio=totalInterferencePowerW/thermalNoise;
     for(std::size_t j=0;j<waveform.intervals.size();++j) {
         const auto& iv=waveform.intervals[j];const int rows=iv.gates-iv.blankedGates;
         auto& map=clutter[j];map.resize(static_cast<std::size_t>(rows)*static_cast<std::size_t>(iv.pulses));
@@ -344,6 +374,7 @@ RadioReceiverResultV1 RadioReceiverV1::expose(const RadioSceneFrameV1& scene,V p
     const auto streamBefore=stream_;const bool seededBefore=seeded_;
     if(!seeded_){stream_.reseed(seed^0x52465349474e414cull);seeded_=true;}
     RadioReceiverResultV1 result;result.valid=true;result.semiActive=semi;result.timeS=scene.timeS;
+    result.totalInterferencePowerW=totalInterferencePowerW;
     result.pointing=pointing;result.waveform=waveform;
     result.config=c;result.config.bandwidthHz=actualBandwidth;
     result.observationStartTimeS=observed?observed->observationStartTimeS:scene.timeS-dwell;
@@ -351,6 +382,41 @@ RadioReceiverResultV1 RadioReceiverV1::expose(const RadioSceneFrameV1& scene,V p
     if(observed){result.programIntervals=observed->programIntervals;result.intervalStartTimeS=observed->startTimeS;
         result.intervalEndTimeS=observed->endTimeS;result.intervalEnergyFraction=observed->energyFraction;}
     result.stats.clutterS=std::chrono::duration<double>(std::chrono::steady_clock::now()-clutterStarted).count();
+    auto tryEmitHomeOnJam=[&](bool reconstructNavigation) {
+        // Passive monopulse Home-on-Jam (HOJ): only when coherent active/SARH
+        // detections are absent (jammed out or illumination lost) and an in-beam
+        // noise jammer exceeds +10 dB J/N above receiver thermal noise.
+        if(!result.measurements.empty()||!bestHojIdx||!(bestHojPowerW>=10.*thermalNoise))return;
+        const auto& j=scene.jammers[*bestHojIdx];
+        const double otherNoise=thermalNoise+std::max(0.,totalInterferencePowerW-bestHojPowerW);
+        const double btGain=std::sqrt(std::max(1.,actualBandwidth*dwell));
+        const double hojSnr=std::min((bestHojPowerW/std::max(otherNoise,1e-30))*btGain,1e8);
+        if(!(hojSnr>=10.)||!std::isfinite(hojSnr))return;
+        const double forward=dot(j.direction,beam.forward),right=dot(j.direction,beam.right),down=dot(j.direction,beam.down);
+        if(!(forward>0))return;
+        const double azTrue=std::atan2(right,forward),elTrue=std::atan2(-down,std::hypot(forward,right));
+        const double sigmaAz=std::hypot(bwAz/(c.monopulseSlope*std::sqrt(2*hojSnr)),0.02*bwAz);
+        const double sigmaEl=std::hypot(bwEl/(c.monopulseSlope*std::sqrt(2*hojSnr)),0.02*bwEl);
+        const double azMeas=std::clamp(azTrue+stream_.normal()*sigmaAz,-bwAz,bwAz);
+        const double elMeas=std::clamp(elTrue+stream_.normal()*sigmaEl,-bwEl,bwEl);
+        const auto physical=measuredBeamRay(beam,azMeas,elMeas);
+        RadioMeasurementV1 m;
+        if(reconstructNavigation&&scene.navigation&&scene.navigation->valid) {
+            m.direction=navigationRay(physical,axes,*scene.navigation);
+            m.navigationReconstructed=true;
+        } else {
+            m.direction=physical;
+            m.navigationReconstructed=false;
+        }
+        m.signalToNoise=hojSnr;
+        m.angularVarianceRad2=std::max(sigmaAz*sigmaAz,sigmaEl*sigmaEl);
+        m.homeOnJam=true;
+        if(*bestHojIdx<scene.refereeJammerAttributionIndices.size()) {
+            m.refereeAttributionIndex=scene.refereeJammerAttributionIndices[*bestHojIdx];
+        }
+        result.measurements.push_back(m);
+        result.homeOnJam=true;
+    };
     if(observed) {
         radar::signal::DwellObservationV1 measured;
         measured.intervalEnergyFraction=observed->energyFraction;measured.intervalTimeS.assign(waveform.intervals.size(),scene.timeS);
@@ -392,6 +458,7 @@ RadioReceiverResultV1 RadioReceiverV1::expose(const RadioSceneFrameV1& scene,V p
             result.coincidenceFirstTimeS=std::min(result.coincidenceFirstTimeS,detection.firstObservationS);
             result.coincidenceIntervals=std::max(result.coincidenceIntervals,detection.intervals);
         }
+        tryEmitHomeOnJam(true);
         result.stats.processS+=std::chrono::duration<double>(std::chrono::steady_clock::now()-coincidenceStarted).count();
         result.stats.hits=result.hits.size();lastTimeS_=scene.timeS;cached_=result;return result;
     }
@@ -407,6 +474,7 @@ RadioReceiverResultV1 RadioReceiverV1::expose(const RadioSceneFrameV1& scene,V p
         if(hit.truth>0&&hit.truth<=original.size())measurement.refereeAttributionIndex=scene.refereeAttributionIndices[original[hit.truth-1]];
         result.measurements.push_back(measurement);
     }
+    tryEmitHomeOnJam(false);
     lastTimeS_=scene.timeS;cached_=result;return result;
 }
 } // namespace fsim::ms::components

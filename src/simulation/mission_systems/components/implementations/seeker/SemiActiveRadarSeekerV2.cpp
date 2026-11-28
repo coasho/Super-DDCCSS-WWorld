@@ -11,6 +11,7 @@ SeekerResultV2 SemiActiveRadarSeekerV2::sample(const SeekerFrameV2& f) {
     auto candidates=eligible(receiver);
     candidates.erase(std::remove_if(candidates.begin(),candidates.end(),[&](auto i) {
         const auto& s=receiver.samples[i];
+        if(s.homeOnJam)return false; // Passive monopulse HOJ tracks an in-band noise jammer directly.
         return !f.illuminated||!f.configuredIlluminator||s.illuminator!=f.configuredIlluminator||
                !s.transmitterPathClear||!s.receiverPathClear;
     }),candidates.end());

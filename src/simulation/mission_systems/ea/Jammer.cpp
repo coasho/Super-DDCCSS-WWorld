@@ -28,11 +28,13 @@ struct ClassDefaults {
     double defaultElHalfRad = 20.0 * kDeg;
     double spotBandwidthHz = 50.0e6;
     double minBandwidthHz = 1.0e6;
+    bool drfmCapable = true;
+    int maxFalseTargets = 6;
 };
 
 ClassDefaults defaultsFor(const Card& card) {
     ClassDefaults d;
-    if (card.id == "an-aaq-24") {
+    if (card.id == "an-aaq-24" || card.value("is_dircm", 0.0) > 0.5) {
         // Directional Infrared Countermeasures (laser DIRCM) is optical/IR, not RF.
         d.isRf = false;
         return d;
@@ -81,7 +83,9 @@ public:
           defaultAzHalfRad_(card.value("beam_azimuth_half_deg", def.defaultAzHalfRad / kDeg) * kDeg),
           defaultElHalfRad_(card.value("beam_elevation_half_deg", def.defaultElHalfRad / kDeg) * kDeg),
           spotBandwidthHz_(card.value("spot_bandwidth_hz", def.spotBandwidthHz)),
-          minBandwidthHz_(card.value("min_bandwidth_hz", def.minBandwidthHz)) {}
+          minBandwidthHz_(card.value("min_bandwidth_hz", def.minBandwidthHz)),
+          drfmCapable_(card.value("drfm_capable", def.drfmCapable ? 1.0 : 0.0) > 0.5),
+          maxFalseTargets_(std::clamp(static_cast<int>(std::llround(card.value("max_false_targets", static_cast<double>(def.maxFalseTargets)))), 1, 8)) {}
 
     Reason begin(const PayloadTask& task, double now) override {
         if (task.kind != TaskKind::Jam) return Reason::InvalidParameter;
@@ -130,6 +134,61 @@ public:
         azHalfRad_ = azHalf;
         elHalfRad_ = elHalf;
         allRound_ = (azHalfRad_ >= kPi - 1e-6);
+        deceptionMode_ = EaDeceptionModeV1::Noise;
+        falseTargetCount_ = 0;
+        rangeOffsetM_ = 0.0;
+        rangePullRateMs_ = 0.0;
+        rangePullMaxM_ = 0.0;
+        velocityOffsetMs_ = 0.0;
+        velocityPullRateMs2_ = 0.0;
+        velocityPullMaxMs_ = 0.0;
+        falseTargetRcsM2_ = std::numeric_limits<double>::quiet_NaN();
+        return Reason::None;
+    }
+
+    Reason beginDeception(const EaDeceptionCommandV1& command, double now) override {
+        if (command.version != 1) return Reason::InvalidParameter;
+        if (static_cast<unsigned>(command.mode) >= static_cast<unsigned>(EaDeceptionModeV1::Count)) {
+            return Reason::InvalidParameter;
+        }
+        if (command.mode != EaDeceptionModeV1::Noise && !drfmCapable_) return Reason::NotSupported;
+        if (!std::isfinite(command.rangeOffsetM) || command.rangeOffsetM < 0.0) return Reason::InvalidParameter;
+        if (!std::isfinite(command.rangePullRateMs) || command.rangePullRateMs < 0.0) return Reason::InvalidParameter;
+        if (!std::isfinite(command.rangePullMaxM) || command.rangePullMaxM < 0.0) return Reason::InvalidParameter;
+        if (!std::isfinite(command.velocityOffsetMs) || !std::isfinite(command.velocityPullRateMs2) ||
+            !std::isfinite(command.velocityPullMaxMs) || command.velocityPullMaxMs < 0.0) {
+            return Reason::InvalidParameter;
+        }
+        if (std::isfinite(command.falseTargetRcsM2) && !(command.falseTargetRcsM2 > 0.0)) {
+            return Reason::InvalidParameter;
+        }
+        if (command.mode == EaDeceptionModeV1::FalseTargets &&
+            (command.falseTargetCount < 1 || command.falseTargetCount > maxFalseTargets_)) {
+            return Reason::InvalidParameter;
+        }
+        PayloadTask base;
+        base.payload = command.payload;
+        base.kind = TaskKind::Jam;
+        base.contact = command.contact;
+        base.azimuthCentreRad = command.azimuthCentreRad;
+        base.elevationCentreRad = command.elevationCentreRad;
+        base.azimuthHalfWidthRad = command.azimuthHalfWidthRad;
+        base.elevationHalfWidthRad = command.elevationHalfWidthRad;
+        base.frequencyHz = command.frequencyHz;
+        base.bandwidthHz = command.bandwidthHz;
+        base.durationS = command.durationS;
+        const Reason br = begin(base, now);
+        if (br != Reason::None) return br;
+        deceptionMode_ = command.mode;
+        falseTargetCount_ = (command.mode == EaDeceptionModeV1::FalseTargets) ? command.falseTargetCount
+                            : (command.mode == EaDeceptionModeV1::Noise ? 0 : 1);
+        rangeOffsetM_ = command.rangeOffsetM;
+        rangePullRateMs_ = command.rangePullRateMs;
+        rangePullMaxM_ = command.rangePullMaxM;
+        velocityOffsetMs_ = command.velocityOffsetMs;
+        velocityPullRateMs2_ = command.velocityPullRateMs2;
+        velocityPullMaxMs_ = command.velocityPullMaxMs;
+        falseTargetRcsM2_ = command.falseTargetRcsM2;
         return Reason::None;
     }
 
@@ -200,6 +259,16 @@ public:
         out.elevationHalfWidthRad = elHalfRad_;
         out.allRound = allRound_;
         out.target = 0;
+        out.deceptionMode = deceptionMode_;
+        out.deceptionElapsedS = std::max(0.0, lastS_ - startS_);
+        out.falseTargetCount = falseTargetCount_;
+        out.rangeOffsetM = rangeOffsetM_;
+        out.rangePullRateMs = rangePullRateMs_;
+        out.rangePullMaxM = rangePullMaxM_;
+        out.velocityOffsetMs = velocityOffsetMs_;
+        out.velocityPullRateMs2 = velocityPullRateMs2_;
+        out.velocityPullMaxMs = velocityPullMaxMs_;
+        out.falseTargetRcsM2 = falseTargetRcsM2_;
         return true;
     }
 
@@ -214,6 +283,8 @@ public:
         out.push_back({"erp", radiating ? erpDbw : std::numeric_limits<double>::quiet_NaN(), "dBW"});
         out.push_back({"band_min", bandMinHz_, "Hz"});
         out.push_back({"band_max", bandMaxHz_, "Hz"});
+        out.push_back({"deception_mode", radiating ? static_cast<double>(deceptionMode_) : 0.0, ""});
+        out.push_back({"false_targets", radiating ? static_cast<double>(falseTargetCount_) : 0.0, ""});
     }
 
 private:
@@ -226,6 +297,8 @@ private:
     double defaultElHalfRad_ = 20.0 * kDeg;
     double spotBandwidthHz_ = 50.0e6;
     double minBandwidthHz_ = 1.0e6;
+    bool drfmCapable_ = true;
+    int maxFalseTargets_ = 6;
 
     bool active_ = false;
     bool contactAcquired_ = false;
@@ -242,6 +315,15 @@ private:
     double elCentreRad_ = 0.0;
     double azHalfRad_ = 30.0 * kDeg;
     double elHalfRad_ = 20.0 * kDeg;
+    EaDeceptionModeV1 deceptionMode_ = EaDeceptionModeV1::Noise;
+    int falseTargetCount_ = 0;
+    double rangeOffsetM_ = 0.0;
+    double rangePullRateMs_ = 0.0;
+    double rangePullMaxM_ = 0.0;
+    double velocityOffsetMs_ = 0.0;
+    double velocityPullRateMs2_ = 0.0;
+    double velocityPullMaxMs_ = 0.0;
+    double falseTargetRcsM2_ = std::numeric_limits<double>::quiet_NaN();
 };
 
 } // namespace
@@ -269,6 +351,93 @@ double receivedJammerDensityWHz(double powerW, double txGainDbi, double rxGainDb
     const double netGainDb = txGainDbi + rxGainDbi - pathLossDb;
     const double linearGain = std::pow(10.0, netGainDb / 10.0);
     return (powerW * linearGain / jamBwHz) * overlap;
+}
+
+void evaluateDrfmGhosts(const Emission& em, double rangeM, double victimPowerW,
+                        double victimGainLinear, double victimPathExcessLinear,
+                        double txGainDbi, double overlap,
+                        std::vector<DrfmGhost>& out) noexcept {
+    if (em.deceptionMode == EaDeceptionModeV1::Noise || !(em.powerW > 0.0) || !(overlap > 0.0) ||
+        !(rangeM > 1.0) || !(victimPowerW > 0.0) || !(victimGainLinear > 0.0) ||
+        !std::isfinite(txGainDbi) || !std::isfinite(victimPathExcessLinear)) {
+        return;
+    }
+    const int nGhosts = (em.deceptionMode == EaDeceptionModeV1::FalseTargets)
+                            ? std::clamp(em.falseTargetCount, 1, 8)
+                            : 1;
+    const double txGainLin = std::pow(10.0, txGainDbi / 10.0);
+    const double erpPerGhostW = (em.powerW * txGainLin / static_cast<double>(nGhosts)) * overlap;
+    const double denom = std::max(victimPowerW * victimGainLinear, 1e-6);
+    // Exact one-way DRFM repeater vs two-way passive skin echo equivalence:
+    //   P_r_drfm = (ERP / N) * G_rx * lambda^2 / ((4*pi)^2 * R^2 * L_excess)
+    //   P_r_real = P_tx * G_rx^2 * sigma * lambda^2 / ((4*pi)^3 * R^4 * L_excess^2)
+    //   => sigma_eq_max = 4*pi * R^2 * L_excess * (ERP / N) / (P_tx * G_rx).
+    const double sigmaErpCapM2 =
+        (4.0 * kPi * rangeM * rangeM * std::max(victimPathExcessLinear, 1.0) * erpPerGhostW) / denom;
+    const double targetRcs =
+        (std::isfinite(em.falseTargetRcsM2) && em.falseTargetRcsM2 > 0.0)
+            ? em.falseTargetRcsM2
+            : (em.deceptionMode == EaDeceptionModeV1::FalseTargets ? 50.0 : 80.0);
+    const double sigmaEq = std::min(sigmaErpCapM2, targetRcs);
+    if (!(sigmaEq > 1e-4) || !std::isfinite(sigmaEq)) return;
+
+    const double elapsed = std::max(0.0, std::isfinite(em.deceptionElapsedS) ? em.deceptionElapsedS : 0.0);
+    const double baseRange = std::max(0.0, std::isfinite(em.rangeOffsetM) ? em.rangeOffsetM : 0.0);
+    const double baseVel = std::isfinite(em.velocityOffsetMs) ? em.velocityOffsetMs : 0.0;
+    constexpr double kHoldS = 1.0;
+    constexpr double kBlankS = 0.6;
+
+    switch (em.deceptionMode) {
+    case EaDeceptionModeV1::Rgpo: {
+        const double walkRate = std::max(10.0, em.rangePullRateMs);
+        const double maxPull = std::max(200.0, em.rangePullMaxM);
+        const double walkS = maxPull / walkRate;
+        const double cycleS = kHoldS + walkS + kBlankS;
+        const double tCyc = std::fmod(elapsed, cycleS);
+        if (tCyc >= kHoldS + walkS) return; // Blanking drop-off phase
+        const double walkT = std::max(0.0, tCyc - kHoldS);
+        out.push_back({0, baseRange + walkRate * walkT, baseVel, sigmaEq});
+        break;
+    }
+    case EaDeceptionModeV1::Vgpo: {
+        const double accel = std::max(5.0, std::fabs(em.velocityPullRateMs2));
+        const double sign = em.velocityPullRateMs2 < 0.0 ? -1.0 : 1.0;
+        const double maxV = std::max(20.0, std::fabs(em.velocityPullMaxMs));
+        const double walkS = maxV / accel;
+        const double cycleS = kHoldS + walkS + kBlankS;
+        const double tCyc = std::fmod(elapsed, cycleS);
+        if (tCyc >= kHoldS + walkS) return;
+        const double walkT = std::max(0.0, tCyc - kHoldS);
+        out.push_back({0, baseRange, baseVel + sign * accel * walkT, sigmaEq});
+        break;
+    }
+    case EaDeceptionModeV1::RgpoVgpo: {
+        const double walkRate = std::max(10.0, em.rangePullRateMs);
+        const double maxPull = std::max(200.0, em.rangePullMaxM);
+        const double accel = std::max(5.0, std::fabs(em.velocityPullRateMs2));
+        const double sign = em.velocityPullRateMs2 < 0.0 ? -1.0 : 1.0;
+        const double maxV = std::max(20.0, std::fabs(em.velocityPullMaxMs));
+        const double walkS = std::max(maxPull / walkRate, maxV / accel);
+        const double cycleS = kHoldS + walkS + kBlankS;
+        const double tCyc = std::fmod(elapsed, cycleS);
+        if (tCyc >= kHoldS + walkS) return;
+        const double walkT = std::max(0.0, tCyc - kHoldS);
+        out.push_back({0,
+                       baseRange + std::min(maxPull, walkRate * walkT),
+                       baseVel + sign * std::min(maxV, accel * walkT),
+                       sigmaEq});
+        break;
+    }
+    case EaDeceptionModeV1::FalseTargets: {
+        const double spacing = (baseRange > 50.0) ? baseRange : 1800.0;
+        for (int k = 0; k < nGhosts; ++k) {
+            out.push_back({k, spacing * static_cast<double>(k + 1), baseVel + static_cast<double>(k) * 8.0, sigmaEq});
+        }
+        break;
+    }
+    default:
+        break;
+    }
 }
 
 std::unique_ptr<Model> makeJammer(const Card& card, std::uint16_t count) {

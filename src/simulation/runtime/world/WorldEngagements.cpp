@@ -12,6 +12,8 @@
 #include "foundation/io/AssetResolver.h"
 #include "foundation/core/Log.h"
 #include "simulation/mission_systems/rf/Path.h"
+#include "simulation/mission_systems/ea/Jammer.h"
+#include "simulation/mission_systems/optical/OpticalSensor.h"
 #include "simulation/mission_systems/weapon/Fuze.h"
 #include "simulation/mission_systems/weapon/Seeker.h"
 #include "simulation/mission_systems/radar/Radar.h"
@@ -123,6 +125,68 @@ void appendThermalFlare(ms::components::ThermalSceneFrameV1& frame,const ms::com
     flare.radianceWm2Sr=ms::components::ThermalImageReceiverV1::bandRadiance(temperature,policy.flareEmissivity,policy.lowUm,policy.highUm);
     flare.transmission=std::exp(-policy.extinctionPerM*range);flare.pathRadianceWm2Sr=frame.skyRadianceWm2Sr;
     frame.patches.push_back(flare);frame.refereeAttributionIndices.push_back(source);
+}
+void appendThermalDircmBeam(ms::components::ThermalSceneFrameV1& frame,const ms::components::ReceiverScenePolicyV1& policy,
+    const ms::DircmBeam& beam,const sim::VehicleState& missileState,V missilePos,V missileVel,
+    const sim::EnvironmentState& env,const sim::GroundProvider* ground,std::optional<std::size_t> source) {
+    using namespace ms::components::measured;
+    if(frame.patches.size()+2u>128u||!(beam.powerW>0.)||!(beam.halfDivergenceRad>0.))return;
+    const V beamPos=point(beam.originEcef);
+    const V beamToMissile=delta(missilePos,beamPos);
+    const double range=norm(beamToMissile);
+    if(!(range>1.)||range>beam.maxRangeM)return;
+    const V uBeamToMissile=scale(beamToMissile,1./range);
+    const V aim=unit(point(beam.aimDirEcef));
+    const double cosOff=std::clamp(dot(uBeamToMissile,aim),-1.,1.);
+    const double psi=std::acos(cosOff);
+    if(psi>3.5*beam.halfDivergenceRad)return;
+    const double overlapLo=std::max(beam.lowUm,policy.lowUm);
+    const double overlapHi=std::min(beam.highUm,policy.highUm);
+    const double bandFrac=std::max(0.,overlapHi-overlapLo)/std::max(beam.highUm-beam.lowUm,1e-6);
+    if(!(bandFrac>0.))return;
+    if(!opticalClear(missilePos,beamPos,ground))return;
+    const double ratio=psi/beam.halfDivergenceRad;
+    const double beamProfile=std::exp(-2.*ratio*ratio);
+    const auto dircmGeo=terminal(beamPos);
+    const double tau=std::clamp(ms::optical::atmosphericTransmittance(range,std::max(0.,dircmGeo.heightM),
+        std::max(0.,missileState.altitudeMslM),overlapLo,overlapHi,env),0.,1.);
+    if(!(tau>1e-9))return;
+    constexpr double kPi=3.14159265358979323846;
+    const double solidAngle=kPi*beam.halfDivergenceRad*beam.halfDivergenceRad;
+    const double intensityWSr=(beam.powerW*beamProfile*bandFrac)/std::max(solidAngle,1e-12);
+    const double irradianceWm2=(intensityWSr*tau)/(range*range);
+    const V missileToBeam=scale(uBeamToMissile,-1.);
+    const V beamVel=point(beam.velocityEcef);
+    const V relVel=delta(beamVel,missileVel);
+    V rate=scale(subtract(relVel,scale(missileToBeam,dot(relVel,missileToBeam))),1./range);
+    const double rateNorm=norm(rate);
+    if(rateNorm>2.)rate=scale(rate,2./rateNorm);
+    // 1) Core GLTA turret laser aperture patch (0.15 m diameter turret).
+    constexpr double kTurretRadiusM=0.075;
+    ms::components::ThermalRadiancePatchV1 core;
+    core.direction=missileToBeam;
+    core.directionRate=rate;
+    core.rangeM=range;
+    core.widthRad=core.heightRad=std::clamp(2.*std::atan2(kTurretRadiusM,range),1e-5,1.0);
+    core.radianceWm2Sr=std::min(9.9e11,intensityWSr/(4.*kTurretRadiusM*kTurretRadiusM));
+    core.transmission=tau;
+    core.pathRadianceWm2Sr=frame.skyRadianceWm2Sr;
+    frame.patches.push_back(core);frame.refereeAttributionIndices.push_back(source);
+    // 2) Physical seeker-dome veiling-glare optical scatter (~2% of incident in-band
+    // laser flux scattered across a 3.5 deg dome halo, dazzling staring FPAs toward saturation).
+    constexpr double kGlareWidthRad=3.5*kPi/180.;
+    const double glareRad=std::min(9.9e11,(0.02*irradianceWm2)/(kGlareWidthRad*kGlareWidthRad));
+    if(glareRad>1e-3) {
+        ms::components::ThermalRadiancePatchV1 glare;
+        glare.direction=missileToBeam;
+        glare.directionRate=rate;
+        glare.rangeM=range;
+        glare.widthRad=glare.heightRad=kGlareWidthRad;
+        glare.radianceWm2Sr=glareRad;
+        glare.transmission=1.0;
+        glare.pathRadianceWm2Sr=0.0;
+        frame.patches.push_back(glare);frame.refereeAttributionIndices.push_back(source);
+    }
 }
 
 struct CountermeasureFit {
@@ -390,6 +454,12 @@ void World::prepareEngagements() {
         if (e->seekerProvider && infrared(e->guidance->spec().seeker)) needThermalSnapshots = true;
     }
     const auto activeDispensers = dispensers();
+    std::vector<ms::Emission> activeJammers;
+    std::vector<ms::DircmBeam> activeDircmBeams;
+    if (!liveWeapons.empty()) {
+        gatherActiveEaEmissions(pool_->states(), activeJammers);
+        gatherActiveDircmBeams(activeDircmBeams);
+    }
     std::vector<ThermalSnapshotV1> thermalSnapshots;
     if (needThermalSnapshots) {
         thermalSnapshots.resize(entries_.size());
@@ -691,6 +761,97 @@ void World::prepareEngagements() {
                     radioScene.echoes.push_back(echo);radioScene.refereeAttributionIndices.push_back(index);
                 }
                 frame.samples.push_back(sample);attributions.push_back(observation.id);
+            }
+            // Inject live RF electronic warfare (noise jamming + passive HOJ + coherent DRFM
+            // repeater ghosts) into physical RF missile seekers, and live optical DIRCM laser
+            // beams into thermal/IR missile seekers.
+            if(radioReceiver&&!activeJammers.empty()) {
+                const double seekerBwHz=std::max(1.0,receiver->radio.bandwidthHz);
+                const double wavelength=299792458./std::max(radioScene.frequencyHz,1.0);
+                const auto findOrAddAttribution=[&](std::uint32_t entityId)->std::size_t {
+                    for(std::size_t k=0;k<attributions.size();++k)if(attributions[k]==entityId)return k;
+                    attributions.push_back(entityId);
+                    return attributions.size()-1u;
+                };
+                std::vector<ms::ea::DrfmGhost> ghosts;
+                for(const ms::Emission& em:activeJammers) {
+                    if(em.mode!=ms::EmitterMode::Jammer||!em.state||em.entity==e->info.id||!(em.powerW>0.))continue;
+                    const double overlap=ms::ea::spectralOverlap(em.frequencyHz,em.bandwidthHz,radioScene.frequencyHz,seekerBwHz);
+                    if(!(overlap>0.))continue;
+                    const V jamPos=point(em.state->positionEcef);
+                    const V rel=delta(jamPos,physicalPosition);
+                    const double range=length(rel);
+                    if(!(range>1.))continue;
+                    const V dir=ms::components::measured::scale(rel,1./range);
+                    ms::rf::PathOptions pathOpt;
+                    pathOpt.frequencyHz=radioScene.frequencyHz;
+                    pathOpt.ground=ground_.get();
+                    const auto pathRes=ms::rf::computePath({s.latitudeRad,s.longitudeRad,s.altitudeMslM},
+                        {em.state->latitudeRad,em.state->longitudeRad,em.state->altitudeMslM},pathOpt);
+                    if(pathRes.terrainMasked||!std::isfinite(pathRes.totalDb)||!std::isfinite(pathRes.freeSpaceDb))continue;
+                    const double txGainDbi=em.gainTowardsDbi(s.positionEcef);
+                    if(em.deceptionMode==ms::EaDeceptionModeV1::Noise) {
+                        const double incidentJ0=ms::ea::receivedJammerDensityWHz(
+                            em.powerW,txGainDbi,0.0,pathRes.totalDb,em.bandwidthHz,overlap);
+                        if(incidentJ0>0.&&std::isfinite(incidentJ0)&&radioScene.jammers.size()<64u) {
+                            ms::components::RadioJammerSceneV1 js;
+                            js.direction=dir;
+                            js.rangeM=range;
+                            js.incidentDensityWHz=std::min(incidentJ0,1e6);
+                            js.bandwidthHz=em.bandwidthHz;
+                            js.noiseJamming=true;
+                            radioScene.jammers.push_back(js);
+                            radioScene.refereeJammerAttributionIndices.push_back(findOrAddAttribution(em.entity));
+                        }
+                    } else if(radioScene.echoes.size()<128u) {
+                        // Coherent DRFM deception repeater (RGPO / VGPO / multiple false targets)
+                        if(semi&&!illuminatedCandidate(jamPos))continue;
+                        const auto physical=sceneFor(jamPos,1.0);
+                        if(!physical)continue;
+                        const double victimPowerW=semi?physical->transmitterPowerW:receiver->radio.transmitAveragePowerW;
+                        const double victimGainLin=semi?physical->transmitterGainLinear
+                            :std::pow(10.,receiver->radio.aperture.peakGainDbi/10.);
+                        const double excessLin=std::pow(10.,std::max(0.,pathRes.totalDb-pathRes.freeSpaceDb)/10.);
+                        ghosts.clear();
+                        ms::ea::evaluateDrfmGhosts(em,range,victimPowerW,victimGainLin,excessLin,txGainDbi,overlap,ghosts);
+                        if(ghosts.empty())continue;
+                        const V jamVel=velocity(*em.state);
+                        double baseDopplerHz=dot(delta(physicalVelocity,jamVel),dir)/wavelength;
+                        if(semi&&launcher) {
+                            const auto& tx=pool_->states()[launcher->slot];
+                            const auto txRay=ms::components::measured::unit(delta(jamPos,point(tx.positionEcef)));
+                            baseDopplerHz+=dot(delta(velocity(tx),jamVel),txRay)/wavelength;
+                        } else baseDopplerHz*=2.;
+                        for(const auto& g:ghosts) {
+                            if(radioScene.echoes.size()>=128u)break;
+                            ms::components::RadioEchoSceneV1 echo;
+                            echo.direction=dir;
+                            echo.receiverRangeM=range;
+                            echo.transmitterRangeM=physical->transmitterRangeM;
+                            echo.delayRangeM=(semi?.5*(physical->transmitterRangeM+range):range)+g.rangeOffsetM;
+                            echo.dopplerHz=std::clamp(baseDopplerHz-(semi?1.:2.)*g.rangeRateOffsetMs/wavelength,-9.9e7,9.9e7);
+                            echo.rcsM2=std::min(g.equivalentRcsM2,1e11);
+                            echo.receiverExcessLossDb=physical->receiverExcessLossDb;
+                            echo.transmitterExcessLossDb=physical->transmitterExcessLossDb;
+                            echo.transmitterPowerW=physical->transmitterPowerW;
+                            echo.transmitterGainLinear=physical->transmitterGainLinear;
+                            echo.fluctuation=0u;
+                            const std::uint32_t ghostId=ms::ea::drfmGhostId(em.entity,em.payload,g.slot);
+                            radioScene.echoes.push_back(echo);
+                            radioScene.refereeAttributionIndices.push_back(findOrAddAttribution(ghostId));
+                        }
+                    }
+                }
+            }
+            if(thermalReceiver&&!activeDircmBeams.empty()) {
+                for(const ms::DircmBeam& beam:activeDircmBeams) {
+                    if(beam.entity==e->info.id)continue;
+                    std::optional<std::size_t> attr;
+                    for(std::size_t k=0;k<attributions.size();++k)if(attributions[k]==beam.entity){attr=k;break;}
+                    if(!attr){attributions.push_back(beam.entity);attr=attributions.size()-1u;}
+                    appendThermalDircmBeam(thermalScene,*thermalScenePolicy,beam,s,physicalPosition,physicalVelocity,environment_,ground_.get(),attr);
+                    if(dualThermal)appendThermalDircmBeam(secondThermalScene,*receiverEnvelope->secondBandScene,beam,s,physicalPosition,physicalVelocity,environment_,ground_.get(),attr);
+                }
             }
             e->seekerAttributionsV3[simTime_]=std::move(attributions);
             ms::components::SeekerResultV2 result;

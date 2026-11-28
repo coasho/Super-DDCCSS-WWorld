@@ -158,6 +158,17 @@ struct Detection {
     double latitudeRad = 0.0, longitudeRad = 0.0, heightM = 0.0; ///< where the measurement puts it
 };
 
+/// One coherent DRFM false echo injected by a repeater jammer along the jammer's line of sight.
+struct FalseEcho {
+    std::uint32_t id = 0;      ///< synthetic ID >= kDrfmFalseTargetIds (tagged false target in overlays)
+    double rangeM = 0.0;       ///< apparent delayed slant range (m)
+    double azimuthRad = 0.0;   ///< true bearing to jammer in carrier body axes (rad)
+    double elevationRad = 0.0; ///< true elevation to jammer in carrier body axes (rad)
+    double rangeRateMs = 0.0;  ///< apparent radial velocity (m/s, positive opening)
+    double snrDb = 0.0;        ///< equivalent dwell SNR before clutter/jam degradation (dB)
+    double fluctuation = 1.0;  ///< Swerling fluctuation ratio (1.0 = steady coherent DRFM)
+};
+
 /// What the radar sees: the world around it, asked during its dwells.
 class Scene {
 public:
@@ -189,6 +200,19 @@ public:
         (void)frequencyHz, (void)bandwidthHz, (void)beamAzRad, (void)beamElRad;
         (void)pattern, (void)azimuthFaces, (void)electronic, (void)own;
         return 0.0;
+    }
+    /// Coherent DRFM deception echoes entering this dwell from active DRFM repeaters.
+    /// Empty by default (preserves unjammed and noise-jammed radar regressions bit-for-bit).
+    virtual void deceptionEchoes(double frequencyHz, double bandwidthHz, double averagePowerW,
+                                 double dwellS, double noiseFigureDb, double systemLossDb,
+                                 double classCalibrationDb, double beamAzRad, double beamElRad,
+                                 const rf::Pattern& pattern, unsigned azimuthFaces, bool electronic,
+                                 const sim::VehicleState& own, const double rBodyToEcef[9],
+                                 const double vOwnEcef[3], std::vector<FalseEcho>& out) const {
+        (void)frequencyHz, (void)bandwidthHz, (void)averagePowerW, (void)dwellS;
+        (void)noiseFigureDb, (void)systemLossDb, (void)classCalibrationDb;
+        (void)beamAzRad, (void)beamElRad, (void)pattern, (void)azimuthFaces, (void)electronic;
+        (void)own, (void)rBodyToEcef, (void)vOwnEcef, (void)out;
     }
 };
 

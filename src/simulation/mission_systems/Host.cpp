@@ -568,6 +568,51 @@ CommandResult Host::submit(const PayloadTask& command, const CommandOptions& opt
     return r.reason = Reason::NotImplemented, r;
 }
 
+CommandResult Host::submit(const EaDeceptionCommandV1& command, const CommandOptions& options, double simTime) {
+    now_ = simTime;
+    CommandResult r;
+    r.commandId = options.commandId;
+    if (command.payload >= payloads_.size()) return r.reason = Reason::UnknownPayload, r;
+    const PayloadInfo& info = payloads_[command.payload];
+    if (info.family != Family::ElectronicAttack) return r.reason = Reason::NotSupported, r;
+    const int capability = eaCapability_[command.payload];
+    if (capability < 0 || !models_[command.payload]) return r.reason = Reason::NotImplemented, r;
+    if ((r.reason = admit(static_cast<std::size_t>(capability), options)) != Reason::None) return r;
+    std::optional<Contact> heldContact;
+    if (command.contact != 0) {
+        const std::uint16_t srcPayload = static_cast<std::uint16_t>(command.contact >> 48);
+        const auto srcContacts = contacts(srcPayload);
+        for (const Contact& c : srcContacts) {
+            if (c.id == command.contact) {
+                heldContact = c;
+                break;
+            }
+        }
+        if (!heldContact) return r.reason = Reason::UnknownContact, r;
+    }
+    Payload& p = state_[command.payload];
+    const Reason br = models_[command.payload]->beginDeception(command, simTime);
+    if (br != Reason::None) return r.reason = br, r;
+    if (heldContact) {
+        models_[command.payload]->followed(&*heldContact);
+        if (models_[command.payload]->finished() != Reason::None) {
+            models_[command.payload]->stop(simTime);
+            return r.reason = Reason::InvalidParameter, r;
+        }
+    }
+    if (p.task) {
+        const ActivityId prev = p.task;
+        p.task = 0;
+        end(prev, control::ActivityState::Canceled, Reason::Superseded, simTime);
+    }
+    ActivityRecord& a = start(static_cast<std::size_t>(capability), command.payload, options, simTime);
+    a.percent = models_[command.payload]->percent();
+    p.task = a.id;
+    r.status = control::CommandStatus::Accepted;
+    r.activity = a.id;
+    return r;
+}
+
 void Host::advanceSalvos(double simTime) {
     for (std::size_t i = salvos_.size(); i-- > 0;) {
         Salvo& s = salvos_[i];
@@ -935,6 +980,18 @@ void Host::emissions(const sim::VehicleState& own, double now, std::vector<Emiss
             e.payload = static_cast<std::uint16_t>(i);
             e.state = &own;
             out.push_back(e);
+        }
+    }
+}
+
+void Host::dircmBeams(std::vector<DircmBeam>& out) const {
+    for (std::size_t i = 0; i < models_.size(); ++i) {
+        if (!models_[i] || state_[i].state != PayloadState::Operate) continue;
+        DircmBeam beam;
+        if (models_[i]->dircmBeam(beam)) {
+            beam.entity = vehicle_;
+            beam.payload = static_cast<std::uint16_t>(i);
+            out.push_back(beam);
         }
     }
 }

@@ -1,6 +1,7 @@
 #include "simulation/mission_systems/Model.h"
 
 #include "simulation/mission_systems/comm/CommTerminal.h"
+#include "simulation/mission_systems/ea/Dircm.h"
 #include "simulation/mission_systems/ea/Jammer.h"
 #include "simulation/mission_systems/esm/Receiver.h"
 #include "simulation/mission_systems/ground_map/GroundMapRadar.h"
@@ -27,7 +28,9 @@ double Emission::gainTowardsDbi(const double placeEcef[3]) const noexcept {
 std::unique_ptr<Model> makeModel(const Card& card, std::uint16_t count) {
     switch (card.family) {
     case Family::Esm: return esm::makeReceiver(card);
-    case Family::ElectronicAttack: return ea::makeJammer(card, count);
+    case Family::ElectronicAttack:
+        if (auto jammer = ea::makeJammer(card, count)) return jammer;
+        return ea::makeDircm(card, count);
     case Family::PassiveOptical: return optical::makeOpticalSensor(card, count);
     case Family::WeatherRadar: return weather::makeWeatherRadar(card, count);
     case Family::Sar: return sar::makeSarRadar(card, count);

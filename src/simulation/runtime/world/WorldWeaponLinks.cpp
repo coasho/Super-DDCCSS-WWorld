@@ -1,4 +1,5 @@
 #include "World.h"
+#include "simulation/mission_systems/ea/Jammer.h"
 #include "simulation/mission_systems/rf/Path.h"
 #include "simulation/mission_systems/weapon/TrackKinematics.h"
 #include "simulation/runtime/services/AgentRules.h"
@@ -141,10 +142,44 @@ void World::bindWeaponLinkV1(Entry& weapon,const Entry& launcher,const ms::Store
     weaponLinksV1_.emplace(weapon.info.id,std::move(b));
 }
 ms::weapon::WeaponLinkPathV1 World::weaponLinkPathV1(const Entry& a,const Entry& b,const ms::WeaponLinkProfileV1& profile)const {
-    const auto& x=pool_->states()[a.slot];const auto& y=pool_->states()[b.slot];
+    const auto states=pool_->states();
+    const auto& x=states[a.slot];const auto& y=states[b.slot];
     ms::rf::PathOptions options;options.frequencyHz=profile.frequencyHz;options.ground=ground_.get();
     const auto path=ms::rf::computePath({x.latitudeRad,x.longitudeRad,x.altitudeMslM},{y.latitudeRad,y.longitudeRad,y.altitudeMslM},options);
-    return {path.slantRangeM,!path.terrainMasked&&path.mode==ms::rf::PathMode::LineOfSight&&std::isfinite(path.slantRangeM)};
+    bool clear=!path.terrainMasked&&path.mode==ms::rf::PathMode::LineOfSight&&std::isfinite(path.slantRangeM);
+    if(clear&&std::isfinite(path.totalDb)) {
+        std::vector<ms::Emission> jammers;
+        gatherActiveEaEmissions(states,jammers);
+        if(!jammers.empty()) {
+            // Evaluate live in-band RF noise jamming at receiver `b` against weapon datalink.
+            constexpr double kLinkTxPowerW=50.0;       // Weapon datalink transmitter power (W)
+            constexpr double kLinkTxGainDbi=3.0;       // Launch platform / weapon antenna transmit gain (dBi)
+            constexpr double kLinkRxGainDbi=0.0;       // Rear-hemisphere weapon datalink receive antenna (dBi)
+            constexpr double kProcessingGainDb=15.0;   // Spread-spectrum / coding anti-jam processing gain (dB)
+            constexpr double kRequiredSirDb=10.0;      // Minimum post-processing SIR for packet decode (dB)
+            const double rxBwHz=std::max(1.0e6,profile.dataRateBps*2.0);
+            const double sigDbw=10.0*std::log10(kLinkTxPowerW)+kLinkTxGainDbi+kLinkRxGainDbi-path.totalDb;
+            double totalJamW=0.0;
+            for(const ms::Emission& em:jammers) {
+                if(em.mode!=ms::EmitterMode::Jammer||!em.state||em.deceptionMode!=ms::EaDeceptionModeV1::Noise)continue;
+                if(em.entity==a.info.id||em.entity==b.info.id)continue;
+                const double overlap=ms::ea::spectralOverlap(em.frequencyHz,em.bandwidthHz,profile.frequencyHz,rxBwHz);
+                if(!(overlap>0.0))continue;
+                const auto jPath=ms::rf::computePath(
+                    {em.state->latitudeRad,em.state->longitudeRad,em.state->altitudeMslM},
+                    {y.latitudeRad,y.longitudeRad,y.altitudeMslM},options);
+                if(jPath.terrainMasked||!std::isfinite(jPath.totalDb))continue;
+                const double txGainDbi=em.gainTowardsDbi(y.positionEcef);
+                const double j0=ms::ea::receivedJammerDensityWHz(em.powerW,txGainDbi,kLinkRxGainDbi,jPath.totalDb,em.bandwidthHz,overlap);
+                if(j0>0.0&&std::isfinite(j0))totalJamW+=j0*rxBwHz;
+            }
+            if(totalJamW>0.0) {
+                const double jamDbw=10.0*std::log10(totalJamW);
+                if(sigDbw-jamDbw+kProcessingGainDb<kRequiredSirDb)clear=false;
+            }
+        }
+    }
+    return {path.slantRangeM,clear};
 }
 void World::prepareWeaponLinksV1() {
     for(auto& pair:weaponLinksV1_) {

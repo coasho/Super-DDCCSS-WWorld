@@ -37,8 +37,34 @@ struct Emission {
     bool allRound = false;     ///< every azimuth (a rotodome, an omnidirectional antenna)
     std::uint32_t target = 0;  ///< the entity it is locked on (0: none) - the simulation's knowledge
     const sim::VehicleState* state = nullptr; ///< its carrier's
+    // Additive DRFM deception metadata for EmitterMode::Jammer (Noise leaves all deception fields inactive).
+    EaDeceptionModeV1 deceptionMode = EaDeceptionModeV1::Noise;
+    double deceptionElapsedS = 0.0;
+    int falseTargetCount = 0;
+    double rangeOffsetM = 0.0;
+    double rangePullRateMs = 0.0;
+    double rangePullMaxM = 0.0;
+    double velocityOffsetMs = 0.0;
+    double velocityPullRateMs2 = 0.0;
+    double velocityPullMaxMs = 0.0;
+    double falseTargetRcsM2 = std::numeric_limits<double>::quiet_NaN();
     /// The gain (dBi) it radiates with towards a place (ECEF).
     double gainTowardsDbi(const double placeEcef[3]) const noexcept;
+};
+
+/// An active directed-infrared optical laser countermeasure beam (e.g. AN/AAQ-24 LAIRCM).
+struct DircmBeam {
+    std::uint32_t entity = 0;
+    std::uint16_t payload = 0;
+    double originEcef[3] = {0.0, 0.0, 0.0};
+    double velocityEcef[3] = {0.0, 0.0, 0.0};
+    double aimDirEcef[3] = {1.0, 0.0, 0.0}; ///< unit ECEF laser beam pointing direction
+    double powerW = 0.0;                     ///< instantaneous modulated output power (W)
+    double halfDivergenceRad = 0.00125;      ///< Gaussian 1/e^2 beam half-divergence (rad)
+    double lowUm = 3.7;                      ///< laser passband low edge (um)
+    double highUm = 4.6;                     ///< laser passband high edge (um)
+    double maxRangeM = 12000.0;
+    std::uint32_t target = 0;                ///< tracked incoming threat entity (0: sector/unattributed)
 };
 
 /// A decoy in the air (MS-9a): a chaff cloud or a flare, flown by the world.
@@ -107,6 +133,8 @@ public:
     virtual ~Model() = default;
     /// A task for it, the payload operating: None and it has begun; else why not.
     virtual Reason begin(const PayloadTask& task, double now) { (void)task, (void)now; return Reason::InvalidParameter; }
+    /// Additive DRFM deception jamming task for RF electronic-attack models.
+    virtual Reason beginDeception(const EaDeceptionCommandV1& command, double now) { (void)command, (void)now; return Reason::NotSupported; }
     /// Its task ends (canceled, superseded, the payload no longer operating).
     virtual void stop(double now) { (void)now; }
     /// Its task is over by itself: how (GoalReached, Expended, ContactLost ...); None while it runs.
@@ -125,6 +153,8 @@ public:
     virtual void report(std::vector<PayloadValue>& out) const { (void)out; }
     /// What it radiates now (false: nothing).
     virtual bool emission(Emission& out) const { (void)out; return false; }
+    /// Active directed-infrared laser countermeasure beam now (false: not lasing).
+    virtual bool dircmBeam(DircmBeam& out) const { (void)out; return false; }
     /// What left it since last asked (the world flies them).
     virtual bool takeBurst(GunBurst& out) { (void)out; return false; }
     virtual bool takeDispensed(std::vector<Dispensed>& out) { (void)out; return false; }

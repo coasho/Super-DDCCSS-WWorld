@@ -578,6 +578,38 @@ void Radar::dwell(double time, double az, double el, const sim::VehicleState& ow
         det.snrDb = snr;
         found.push_back(det);
     }
+    // Coherent DRFM false targets / RGPO / VGPO repeater echoes (evaluated through the same
+    // pulse-Doppler notch, sidelobe clutter, detection probability, and measurement noise).
+    {
+        std::vector<FalseEcho> drfm;
+        scene.deceptionEchoes(spec_.frequencyHz, rxBwHz, spec_.averagePowerW, dwellS_,
+                              spec_.noiseFigureDb, spec_.systemLossDb, spec_.classCalibrationDb,
+                              az, el, pattern_, spec_.azimuthFaces, spec_.aperture.electronic,
+                              own, r, vOwn, drfm);
+        for (const FalseEcho& fe : drfm) {
+            if (!(fe.rangeM > 1.0) || fe.rangeM > search_.rangeScaleM) continue;
+            if (mainBeamClutter && std::fabs(fe.rangeRateMs - clutterRate) < spec_.notchMs) continue;
+            const bool inSidelobeBand = std::fabs(fe.rangeRateMs) < speed;
+            if (search_.mode == Mode::VelocitySearch && (inSidelobeBand || fe.rangeRateMs > 0.0)) continue;
+            double snr = fe.snrDb - jamDegradationDb;
+            if (inSidelobeBand && search_.mode != Mode::VelocitySearch) snr -= spec_.sidelobeClutterDb;
+            const double s = std::pow(10.0, snr / 10.0);
+            const double pd = dwellPd(snr, fluctuationOf(fe.fluctuation), search_.mode, pfa);
+            std::uniform_real_distribution<double> u(0.0, 1.0);
+            if (u(rng_) >= pd) continue;
+            std::normal_distribution<double> g(0.0, 1.0);
+            Detection det;
+            det.timeS = time;
+            det.truth = fe.id;
+            measured(det, s, dwellS_);
+            det.rangeM = fe.rangeM + g(rng_) * det.sigma[2];
+            det.azimuthRad = fe.azimuthRad + g(rng_) * det.sigma[1];
+            det.elevationRad = fe.elevationRad + g(rng_) * det.sigma[0];
+            det.rangeRateMs = fe.rangeRateMs + g(rng_) * det.sigma[3];
+            det.snrDb = snr;
+            found.push_back(det);
+        }
+    }
     // false alarms: each of the dwell's resolution cells - its range bins within the range scale, by its Doppler
     // filters over the range rates it searches - crosses the threshold with the dwell's probability (its M of N's)
     {
@@ -734,6 +766,35 @@ void Radar::dwellSignal(double time, double az, double el, const sim::VehicleSta
         e.monopulseEl = spec_.monopulseSlope * dEl / bwEl;
         e.truth = ids[k];
         echoes.push_back(e);
+    }
+    // Coherent DRFM deception echoes into signal-level range-Doppler CFAR processing.
+    {
+        const double rxBwHz = std::max(1.0 / std::max(dwellS_, 1e-6), 0.5 * kLight / std::max(spec_.rangeResolutionM, 1.0));
+        const double j0WHz = scene.jammingDensityWHz(spec_.frequencyHz, rxBwHz, az, el, pattern_,
+                                                     spec_.azimuthFaces, spec_.aperture.electronic, own);
+        const double n0WHz = std::pow(10.0, (kKT0DbW + spec_.noiseFigureDb) / 10.0);
+        const double jamDegradationDb = (j0WHz > 0.0 && n0WHz > 0.0) ? (10.0 * std::log10(1.0 + j0WHz / n0WHz)) : 0.0;
+        std::vector<FalseEcho> drfm;
+        scene.deceptionEchoes(spec_.frequencyHz, rxBwHz, spec_.averagePowerW, dwellS_,
+                              spec_.noiseFigureDb, spec_.systemLossDb, spec_.classCalibrationDb,
+                              az, el, pattern_, spec_.azimuthFaces, spec_.aperture.electronic,
+                              own, r, vOwn, drfm);
+        for (const FalseEcho& fe : drfm) {
+            if (!(fe.rangeM > 1.0)) continue;
+            signal::Echo e;
+            e.rangeM = fe.rangeM;
+            e.rangeRateMs = fe.rangeRateMs;
+            e.snr = std::pow(10.0, (fe.snrDb - jamDegradationDb) / 10.0);
+            const Fluctuation f = fluctuationOf(fe.fluctuation);
+            e.fluctuation = f == Fluctuation::Steady ? 0 : f == Fluctuation::Rayleigh ? 1 : 2;
+            double dAz = fe.azimuthRad - az;
+            if (spec_.rotationRpm > 0.0) dAz = std::remainder(dAz, 2.0 * kPi);
+            const double dEl = fe.elevationRad - el;
+            e.monopulseAz = spec_.monopulseSlope * dAz / bwAz;
+            e.monopulseEl = spec_.monopulseSlope * dEl / bwEl;
+            e.truth = fe.id;
+            echoes.push_back(e);
+        }
     }
     signal::Settings set;
     set.reportAmbiguities=true;

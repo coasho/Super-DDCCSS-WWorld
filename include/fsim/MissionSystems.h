@@ -491,6 +491,9 @@ struct LaunchZoneWezV1 {
 /// Decoys - chaff clouds and flares (MS-9a) - are numbered from here in what a sensor's `truth` names: clear of the
 /// vehicles', the C2 nodes' and the designations'.
 inline constexpr std::uint32_t kDecoyIds = 0x70000000u;
+/// Electronic DRFM false-target synthetic IDs (strictly within [kDecoyIds, kDesignations)):
+/// flagged as false targets in tactical overlays while disjoint from physical chaff/flare decoys.
+inline constexpr std::uint32_t kDrfmFalseTargetIds = 0x78000000u;
 
 // --- Stores and weapon employment (MS-7) ---------------------------------------
 // A-GRA's Store Management and Weapon Employment sequences as SDK calls: the
@@ -623,6 +626,41 @@ struct PayloadTask {
     double longitudeRad = std::numeric_limits<double>::quiet_NaN();
     double resolutionM = std::numeric_limits<double>::quiet_NaN();           ///< Image: asked for (NaN: its finest)
     double durationS = std::numeric_limits<double>::quiet_NaN();             ///< how long (NaN: until it is done, or canceled)
+};
+
+/// Electronic-attack DRFM deception technique (additive V1, preserves PayloadTask ABI).
+enum class EaDeceptionModeV1 : std::uint8_t {
+    Noise = 0,         ///< Broadband/spot noise jamming (default TaskKind::Jam behavior)
+    Rgpo = 1,          ///< Range-Gate Pull-Off: coherent repeater walking delay range outward
+    Vgpo = 2,          ///< Velocity-Gate Pull-Off: coherent repeater walking Doppler velocity
+    RgpoVgpo = 3,      ///< Combined range and velocity gate pull-off
+    FalseTargets = 4,  ///< Coherent DRFM multi-false-target train along jammer line of sight
+    Count
+};
+/// "noise", "rgpo", "vgpo", "rgpo_vgpo", "false_targets".
+FSIM_API const char* eaDeceptionModeName(EaDeceptionModeV1 mode) noexcept;
+
+/// Additive DRFM electronic-attack task (preserves existing PayloadTask layout and ABI).
+struct EaDeceptionCommandV1 {
+    std::uint32_t version = 1;
+    std::uint16_t payload = 0;
+    EaDeceptionModeV1 mode = EaDeceptionModeV1::FalseTargets;
+    std::uint64_t contact = 0;       ///< Optional ESM contact to follow (0: explicit frequency/sector)
+    double azimuthCentreRad = 0.0;   ///< From nose, right positive (body axes)
+    double elevationCentreRad = 0.0; ///< Above body x-y plane
+    double azimuthHalfWidthRad = std::numeric_limits<double>::quiet_NaN();   ///< NaN: card beamwidth
+    double elevationHalfWidthRad = std::numeric_limits<double>::quiet_NaN();
+    double frequencyHz = std::numeric_limits<double>::quiet_NaN();           ///< NaN: follow contact or band centre
+    double bandwidthHz = std::numeric_limits<double>::quiet_NaN();           ///< NaN: spot bandwidth
+    double durationS = std::numeric_limits<double>::quiet_NaN();             ///< NaN: until canceled
+    int falseTargetCount = 3;        ///< FalseTargets mode: 1..card max false targets
+    double rangeOffsetM = 0.0;       ///< Initial range delay (>= 0) or false-target spacing (m)
+    double rangePullRateMs = 180.0;  ///< RGPO range walk rate (m/s, >= 0)
+    double rangePullMaxM = 4500.0;   ///< RGPO max pull-off before recycle blanking (m)
+    double velocityOffsetMs = 0.0;   ///< Initial radial velocity shift (m/s, positive opening)
+    double velocityPullRateMs2 = 35.0; ///< VGPO radial acceleration walk (m/s^2)
+    double velocityPullMaxMs = 260.0;  ///< VGPO max velocity pull-off before recycle blanking (m/s)
+    double falseTargetRcsM2 = std::numeric_limits<double>::quiet_NaN(); ///< NaN: physical ERP-capped repeater RCS
 };
 
 /// What a contact is.

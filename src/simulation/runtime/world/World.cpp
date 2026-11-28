@@ -1070,7 +1070,8 @@ void World::stepDms() {
             const double rxSignalW = kTxPowerW * std::pow(10.0, -sigLossDb / 10.0);
             double jamPowerW = 0.0;
             for (const ms::Emission& em : world.emissions_) {
-                if (em.mode != ms::EmitterMode::Jammer || !em.state || em.entity == to) continue;
+                if (em.mode != ms::EmitterMode::Jammer || !em.state || em.entity == to ||
+                    em.deceptionMode != ms::EaDeceptionModeV1::Noise) continue;
                 const double overlap = ms::ea::spectralOverlap(em.frequencyHz, em.bandwidthHz, spec.frequencyHz, rxBwHz);
                 if (overlap <= 0.0) continue;
                 const double dx = rxEcef[0] - em.state->positionEcef[0];
@@ -2553,6 +2554,43 @@ ms::CommandResult World::submit(std::uint32_t id, const ms::PayloadTask& command
     return e->ms.submit(command, options, simTime_);
 }
 
+ms::CommandResult World::submit(std::uint32_t id, const ms::EaDeceptionCommandV1& command, const ms::CommandOptions& options) {
+    Entry* e = entry(id);
+    if (!e) return ms::CommandResult{control::CommandStatus::Rejected, ms::Reason::UnknownVehicle, 0, options.commandId};
+    return e->ms.submit(command, options, simTime_);
+}
+
+void World::gatherActiveEaEmissions(Span<const sim::VehicleState> states, std::vector<ms::Emission>& out) const {
+    out.clear();
+    std::vector<ms::Emission> scratch;
+    for (std::size_t s = 0; s < entries_.size() && s < states.size(); ++s) {
+        const Entry* e = entries_[s].get();
+        if (!e || states[s].crashed || states[s].diverged) continue;
+        bool hasEa = false;
+        for (const auto& p : e->ms.payloads()) {
+            if (p.family == ms::Family::ElectronicAttack && p.state == ms::PayloadState::Operate) {
+                hasEa = true;
+                break;
+            }
+        }
+        if (!hasEa) continue;
+        scratch.clear();
+        e->ms.emissions(states[s], simTime_, scratch);
+        for (const auto& em : scratch) {
+            if (em.mode == ms::EmitterMode::Jammer && em.state && em.powerW > 0.0) out.push_back(em);
+        }
+    }
+}
+
+void World::gatherActiveDircmBeams(std::vector<ms::DircmBeam>& out) const {
+    out.clear();
+    for (std::size_t s = 0; s < entries_.size(); ++s) {
+        const Entry* e = entries_[s].get();
+        if (!e) continue;
+        e->ms.dircmBeams(out);
+    }
+}
+
 std::vector<ms::PayloadValue> World::payloadReport(std::uint32_t id, std::uint16_t payload) const {
     const Entry* e = entry(id);
     return e ? e->ms.report(payload) : std::vector<ms::PayloadValue>{};
@@ -3426,7 +3464,8 @@ void World::sense() {
             const double sy = beamBody[1], sz = beamBody[2];
             double totalJ0 = 0.0;
             for (const ms::Emission& e : world.emissions_) {
-                if (e.mode != ms::EmitterMode::Jammer || !e.state || e.entity == own) continue;
+                if (e.mode != ms::EmitterMode::Jammer || !e.state || e.entity == own ||
+                    e.deceptionMode != ms::EaDeceptionModeV1::Noise) continue;
                 const double overlap = ms::ea::spectralOverlap(e.frequencyHz, e.bandwidthHz, frequencyHz, bandwidthHz);
                 if (overlap <= 0.0) continue;
                 double los[3];
@@ -3463,6 +3502,93 @@ void World::sense() {
                 totalJ0 += ms::ea::receivedJammerDensityWHz(e.powerW, txGainDbi, rxGainDbi, lossDb, e.bandwidthHz, overlap);
             }
             return totalJ0;
+        }
+        void deceptionEchoes(double frequencyHz, double bandwidthHz, double averagePowerW,
+                             double dwellS, double noiseFigureDb, double systemLossDb,
+                             double classCalibrationDb, double beamAzimuthRad, double beamElevationRad,
+                             const ms::rf::Pattern& pattern, unsigned azimuthFaces, bool electronic,
+                             const sim::VehicleState& ownState, const double rBodyToEcef[9],
+                             const double vOwnEcef[3], std::vector<ms::radar::FalseEcho>& out) const override {
+            if (world.emissions_.empty() || !(frequencyHz > 0.0) || !(averagePowerW > 0.0) || !(dwellS > 0.0)) return;
+            constexpr double kPi = 3.14159265358979323846;
+            constexpr double kLight = 299792458.0;
+            constexpr double kKT0DbW = -203.9772348283416; // 10*log10(1.380649e-23 * 290)
+            const double lambda = kLight / frequencyHz;
+            const double bwAz = pattern.beamwidthRad(false), bwEl = pattern.beamwidthRad(true);
+            const double cb = std::cos(beamElevationRad);
+            const double beamBody[3] = {cb * std::cos(beamAzimuthRad), cb * std::sin(beamAzimuthRad), -std::sin(beamElevationRad)};
+            const double sy = beamBody[1], sz = beamBody[2];
+            std::vector<ms::ea::DrfmGhost> ghosts;
+            for (const ms::Emission& e : world.emissions_) {
+                if (e.mode != ms::EmitterMode::Jammer || !e.state || e.entity == own ||
+                    e.deceptionMode == ms::EaDeceptionModeV1::Noise) continue;
+                const double overlap = ms::ea::spectralOverlap(e.frequencyHz, e.bandwidthHz, frequencyHz, bandwidthHz);
+                if (!(overlap > 0.0)) continue;
+                double los[3];
+                const double rangeM = ms::geom::lineOfSight(ownState, e.state->positionEcef, los);
+                if (!(rangeM > 1.0)) continue;
+                const double db[3] = {
+                    rBodyToEcef[0] * los[0] + rBodyToEcef[3] * los[1] + rBodyToEcef[6] * los[2],
+                    rBodyToEcef[1] * los[0] + rBodyToEcef[4] * los[1] + rBodyToEcef[7] * los[2],
+                    rBodyToEcef[2] * los[0] + rBodyToEcef[5] * los[1] + rBodyToEcef[8] * los[2]};
+                const double off = std::acos(std::clamp(ms::geom::dot3(db, beamBody), -1.0, 1.0));
+                if (off > 3.0 * std::max(bwAz, bwEl)) continue;
+                double rxGainDbi = 0.0;
+                if (electronic) {
+                    if (azimuthFaces <= 1) {
+                        rxGainDbi = pattern.gainDbi(db, sy, sz);
+                    } else {
+                        const double spacing = 2.0 * kPi / static_cast<double>(azimuthFaces);
+                        const double centre = std::round(std::atan2(beamBody[1], beamBody[0]) / spacing) * spacing;
+                        const double c = std::cos(centre), sn = std::sin(centre);
+                        const double local[3] = {c * db[0] + sn * db[1], -sn * db[0] + c * db[1], db[2]};
+                        rxGainDbi = 10.0 * std::log10(std::max(1e-12, pattern.gain(local, -sn * beamBody[0] + c * beamBody[1], beamBody[2])));
+                    }
+                } else {
+                    double y[3] = {-beamBody[1], beamBody[0], 0.0};
+                    const double yl = std::hypot(y[0], y[1]);
+                    if (yl < 1e-9) y[0] = 0.0, y[1] = 1.0, y[2] = 0.0;
+                    else y[0] /= yl, y[1] /= yl;
+                    const double z[3] = {
+                        beamBody[1] * y[2] - beamBody[2] * y[1],
+                        beamBody[2] * y[0] - beamBody[0] * y[2],
+                        beamBody[0] * y[1] - beamBody[1] * y[0]};
+                    const double face[3] = {ms::geom::dot3(db, beamBody), ms::geom::dot3(db, y), ms::geom::dot3(db, z)};
+                    rxGainDbi = pattern.gainDbi(face);
+                }
+                const double lossDb = pathLossDb(e.entity, frequencyHz);
+                const double freeSpaceDb = 20.0 * std::log10(4.0 * kPi * rangeM / lambda);
+                const double excessDb = std::max(0.0, lossDb - freeSpaceDb);
+                if (excessDb > 25.0) continue; // Terrain-masked DRFM repeater cannot receive/retransmit radar pulse
+                const double txGainDbi = e.gainTowardsDbi(ownState.positionEcef);
+                const double rxGainLin = std::pow(10.0, rxGainDbi / 10.0);
+                const double excessLin = std::pow(10.0, excessDb / 10.0);
+                ghosts.clear();
+                ms::ea::evaluateDrfmGhosts(e, rangeM, averagePowerW, rxGainLin, excessLin, txGainDbi, overlap, ghosts);
+                if (ghosts.empty()) continue;
+                double vJam[3];
+                ms::geom::velocityEcef(*e.state, vJam);
+                const double trueRate = (vJam[0] - vOwnEcef[0]) * los[0] +
+                                        (vJam[1] - vOwnEcef[1]) * los[1] +
+                                        (vJam[2] - vOwnEcef[2]) * los[2];
+                const double jamAz = std::atan2(db[1], db[0]);
+                const double jamEl = std::atan2(-db[2], std::hypot(db[0], db[1]));
+                for (const ms::ea::DrfmGhost& g : ghosts) {
+                    const double snrDb = 10.0 * std::log10(averagePowerW) + 2.0 * rxGainDbi +
+                                         10.0 * std::log10(4.0 * kPi * g.equivalentRcsM2 / (lambda * lambda)) -
+                                         2.0 * lossDb + 10.0 * std::log10(dwellS) - kKT0DbW -
+                                         noiseFigureDb - systemLossDb + classCalibrationDb;
+                    ms::radar::FalseEcho fe;
+                    fe.id = ms::ea::drfmGhostId(e.entity, e.payload, g.slot);
+                    fe.rangeM = rangeM + g.rangeOffsetM;
+                    fe.azimuthRad = jamAz;
+                    fe.elevationRad = jamEl;
+                    fe.rangeRateMs = trueRate + g.rangeRateOffsetMs;
+                    fe.snrDb = snrDb;
+                    fe.fluctuation = 1.0; // Coherent DRFM steady pulse train
+                    out.push_back(fe);
+                }
+            }
         }
         double surfaceHeightM(double latitudeRad, double longitudeRad) const override {
             // (the clutter's ground, out to the radar's horizon: read apart from the tiles the vehicles stand on - a
@@ -3536,6 +3662,8 @@ void World::sense() {
         emission.state=&states[e->slot]; emission.target=e->origin.holding;
         // basis: assumed. Low-power seeker transmitter; the receiver measures its own bearing and strength.
         const auto seeker=e->seekerProvider ? e->seekerProvider->config() : e->guidance->spec().seekerModel;
+        if (seeker.engineering.frequencyHz > 0.0 && std::isfinite(seeker.engineering.frequencyHz))
+            emission.frequencyHz = seeker.engineering.frequencyHz;
         emission.powerW=seeker.emitterPowerW; emission.peakGainDbi=seeker.emitterPeakGainDbi; emission.sidelobeDbi=seeker.emitterSidelobeDbi;
         emission.azimuthHalfWidthRad=emission.elevationHalfWidthRad=seeker.emitterHalfWidthRad;
         emissions_.push_back(emission);
@@ -4835,7 +4963,8 @@ ipc::TacticalOverlayFrameV1 World::collectTacticalOverlayFrame() const {
                 const double sy = beamBody[1], sz = beamBody[2];
                 const double rxBwHz = std::max(1.0e5, 1.0 / std::max(rad->spec().dwellS, 1e-4));
                 for (const ms::Emission& em : emissions_) {
-                    if (em.mode != ms::EmitterMode::Jammer || !em.state || em.entity == e->info.id) continue;
+                    if (em.mode != ms::EmitterMode::Jammer || !em.state || em.entity == e->info.id ||
+                        em.deceptionMode != ms::EaDeceptionModeV1::Noise) continue;
                     const double overlap = ms::ea::spectralOverlap(em.frequencyHz, em.bandwidthHz, rad->spec().frequencyHz, rxBwHz);
                     if (overlap <= 0.0) continue;
                     double los[3];

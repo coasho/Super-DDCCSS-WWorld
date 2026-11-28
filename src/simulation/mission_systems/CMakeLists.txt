@@ -74,6 +74,8 @@ add_library(fsim_ms STATIC
     weapon/LaunchEligibility.h
     weapon/LaunchEligibility.cpp
     countermeasure/Dispenser.cpp
+    ea/Dircm.h
+    ea/Dircm.cpp
     ea/Jammer.h
     ea/Jammer.cpp
     esm/Receiver.h

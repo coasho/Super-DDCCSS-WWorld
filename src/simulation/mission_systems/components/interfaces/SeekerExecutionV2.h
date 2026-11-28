@@ -26,7 +26,7 @@ struct SeekerSampleV2 {
     std::optional<double> rangeM, rangeRateMs;
     std::optional<ImageExtentV2> imageExtent;
     std::uint32_t illuminator=0;
-    bool transmitterPathClear=false, receiverPathClear=false;
+    bool transmitterPathClear=false, receiverPathClear=false, homeOnJam=false;
     std::optional<SeekerSceneV3> scene;
 };
 struct LauncherEstimateV2 {

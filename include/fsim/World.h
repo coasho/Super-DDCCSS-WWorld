@@ -381,6 +381,8 @@ public:
     ms::CommandResult submit(const ms::AmtiCommand& command, const ms::CommandOptions& options = {});
     /// Task an electronic-attack or countermeasures payload (MS-9b / SIM-M05: Jam, Dispense).
     ms::CommandResult submit(const ms::PayloadTask& command, const ms::CommandOptions& options = {});
+    /// Task an electronic-attack jammer in DRFM deception mode (RGPO / VGPO / false targets; additive V1).
+    ms::CommandResult submit(const ms::EaDeceptionCommandV1& command, const ms::CommandOptions& options = {});
     /// A payload's own reported numeric figures (e.g. active, power, frequency, bandwidth, erp).
     std::vector<ms::PayloadValue> payloadReport(std::uint16_t payload) const;
     /// A radar payload's picture: its scan, volume and limits (empty for a payload that is not a radar).

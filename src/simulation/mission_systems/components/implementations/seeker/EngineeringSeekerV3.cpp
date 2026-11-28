@@ -748,8 +748,9 @@ SeekerResultV2 EngineeringSeekerV3::sampleImpl(const SeekerFrameV2& f,const Ther
                     scale(cached_.track->directionRate,std::max(0.,f.timeS-cached_.track->sampleTimeS)))))<
                     std::cos(radioConfig_->associationGateRad))continue;
                 SeekerSampleV2 measured;measured.direction=reconstructed;measured.signal=feature.signalToNoise;
-                if(!semi){measured.rangeM=feature.rangeM;measured.rangeRateMs=feature.rangeRateMs;}
-                if(semi){measured.illuminator=f.configuredIlluminator;measured.transmitterPathClear=true;measured.receiverPathClear=true;}
+                measured.homeOnJam=feature.homeOnJam;
+                if(!semi&&!feature.homeOnJam){measured.rangeM=feature.rangeM;measured.rangeRateMs=feature.rangeRateMs;}
+                if(semi&&!feature.homeOnJam){measured.illuminator=f.configuredIlluminator;measured.transmitterPathClear=true;measured.receiverPathClear=true;}
                 exposure.samples.push_back(measured);indices.push_back(feature.refereeAttributionIndex.value_or(std::numeric_limits<std::size_t>::max()));
                 angularVariances.push_back(feature.angularVarianceRad2);
             }

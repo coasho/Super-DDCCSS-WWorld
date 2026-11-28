@@ -514,6 +514,8 @@ public:
     ms::CommandResult submit(std::uint32_t id, const ms::AmtiCommand& command, const ms::CommandOptions& options = {});
     /// Task an electronic-attack or countermeasures payload (MS-9b / SIM-M05).
     ms::CommandResult submit(std::uint32_t id, const ms::PayloadTask& command, const ms::CommandOptions& options = {});
+    /// Task an electronic-attack jammer in DRFM deception mode (additive V1).
+    ms::CommandResult submit(std::uint32_t id, const ms::EaDeceptionCommandV1& command, const ms::CommandOptions& options = {});
     /// A payload's own reported numeric figures (e.g. jammer active/power/frequency/bandwidth/ERP).
     std::vector<ms::PayloadValue> payloadReport(std::uint32_t id, std::uint16_t payload) const;
     /// A radar payload's picture (empty for an unknown vehicle or a payload that is not a radar).
@@ -1192,6 +1194,8 @@ private:
     };
     mutable std::unordered_map<PathKey, PathExcess, PathKeyHash> pathExcess_;
     mutable std::mutex pathExcessMutex_; ///< (the radars look in parallel)
+    void gatherActiveEaEmissions(Span<const sim::VehicleState> states, std::vector<ms::Emission>& out) const;
+    void gatherActiveDircmBeams(std::vector<ms::DircmBeam>& out) const;
     std::vector<std::size_t> sensing_;   ///< the slots whose sensors look this step
     std::vector<ms::Emission> emissions_; ///< what radiates this step: every vehicle's radars, jammers and datalink carriers
     std::vector<sim::VehicleState> c2EmissionStates_; ///< synthetic carrier states for C2 nodes emitting datalink traffic

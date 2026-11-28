@@ -172,6 +172,13 @@ const char* taskKindName(TaskKind kind) noexcept {
     return i < static_cast<std::size_t>(TaskKind::Count) ? kNames[i] : "";
 }
 
+const char* eaDeceptionModeName(EaDeceptionModeV1 mode) noexcept {
+    static constexpr const char* kNames[] = {"noise", "rgpo", "vgpo", "rgpo_vgpo", "false_targets"};
+    static_assert(sizeof(kNames) / sizeof(kNames[0]) == static_cast<std::size_t>(EaDeceptionModeV1::Count));
+    const auto i = static_cast<std::size_t>(mode);
+    return i < static_cast<std::size_t>(EaDeceptionModeV1::Count) ? kNames[i] : "";
+}
+
 const char* contactKindName(ContactKind kind) noexcept {
     static constexpr const char* kNames[] = {"emitter", "infrared", "weather", "surface", "terrain", "image"};
     static_assert(sizeof(kNames) / sizeof(kNames[0]) == static_cast<std::size_t>(ContactKind::Count));

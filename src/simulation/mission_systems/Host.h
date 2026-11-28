@@ -47,6 +47,8 @@ public:
     CommandResult submit(const AmtiCommand& command, const CommandOptions& options, double simTime);
     /// Task an electronic-attack or countermeasures payload (MS-9b / SIM-M05).
     CommandResult submit(const PayloadTask& command, const CommandOptions& options, double simTime);
+    /// Task an RF electronic-attack jammer in DRFM deception mode (additive V1).
+    CommandResult submit(const EaDeceptionCommandV1& command, const CommandOptions& options, double simTime);
     CommandResult cancel(control::Caller caller, ActivityId activity, double simTime);
     /// The platform fails a payload (a contingency: A-GRA's sensor and payload failures), or repairs it (back to Off).
     Reason setFailed(std::uint16_t payload, bool failed, double simTime);
@@ -87,6 +89,8 @@ public:
     /// What the vehicle radiates now, as a receiver meets it: each radar that is on - the volume its main beam goes
     /// through, its power, what it does. Added to `out`; `own` (its carrier's state) must outlive what reads them.
     void emissions(const sim::VehicleState& own, double now, std::vector<Emission>& out) const;
+    /// Active directed-infrared laser countermeasure beams currently lasing on this vehicle.
+    void dircmBeams(std::vector<DircmBeam>& out) const;
     /// What a payload's sensor holds (a warning receiver's emitters): none for a payload with no such model, or not
     /// operating.
     std::vector<Contact> contacts(std::uint16_t payload) const;
