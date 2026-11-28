@@ -1350,7 +1350,7 @@ names = [
     "fsim::ms::acmCommand", "fsim::ms::amtiModeName", "fsim::ms::amtiTaskName", "fsim::ms::capabilityTypeId", "fsim::ms::familyName", "fsim::ms::payloadStateName",
     "fsim::ms::reasonDescription", "fsim::ms::reasonName", "fsim::ms::roleName", "fsim::ms::storeStatusName",
     "fsim::ms::strikePhaseName", "fsim::ms::weaponEndName",
-    "fsim::ms::contactKindName", "fsim::ms::emitterModeName", "fsim::ms::taskKindName", "fsim::ms::weaponPhaseName",
+    "fsim::ms::contactKindName", "fsim::ms::eaDeceptionModeName", "fsim::ms::emitterModeName", "fsim::ms::taskKindName", "fsim::ms::weaponPhaseName",
     # a report's availability, validity and source by name (fsim/MAReports.h)
     "fsim::ma::availabilityName", "fsim::ma::validityName", "fsim::ma::sourceName",
 ]
